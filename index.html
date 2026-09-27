@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17181b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Хрупкий мир — три в ряд</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="mode-map">
+  <section class="map-view" id="map-view" aria-label="Карта">
+    <svg id="map-svg" role="img" aria-label="Карта из шестиугольников">
+      <defs id="map-defs"></defs>
+      <g id="map-world">
+        <g id="l-terrain"></g><g id="l-roads"></g><g id="l-deco"></g><g id="l-village"></g>
+        <g id="l-fog"></g><g id="l-hover"></g><g id="l-path"></g><g id="l-mon"></g><g id="l-player"></g>
+      </g>
+    </svg>
+    <div class="map-top">
+      <div class="map-me" id="map-me"></div>
+      <div class="map-btns">
+        <button id="m-gear" type="button">Экипировка</button>
+        <button id="m-best" type="button">Бестиарий</button>
+        <button id="m-mute" type="button">Звук</button>
+        <button id="m-fs" type="button" title="Полный экран (клавиша F)"><span class="lg">Полный экран</span><span class="sm">Экран</span></button>
+      </div>
+    </div>
+    <div class="map-toast" id="map-toast" role="status"></div>
+    <div class="map-card-wrap" id="map-card"></div>
+    <div class="map-bottom">
+      <div class="map-info"><div class="zones" id="map-zones"></div><div class="map-tip" id="map-tip">Нажмите на соту, чтобы идти. Нажмите на существо, чтобы узнать о нём и напасть.</div></div>
+      <div class="map-ctrl">
+        <button id="m-zin" type="button" title="Приблизить">+</button>
+        <button id="m-zout" type="button" title="Отдалить">−</button>
+        <button id="m-me" type="button" title="К игроку">◎</button>
+        <button id="m-home" type="button" title="Вернуться в деревню">Домой</button>
+      </div>
+    </div>
+  </section>
+
+  <main class="game">
+    <h1>Хрупкий мир</h1>
+
+    <div class="arena">
+      <aside class="fighter left" id="fighter-left"></aside>
+
+      <section class="center">
+        <div class="status" id="status"></div>
+        <div class="board" id="board" aria-label="Игровое поле 6 на 6"></div>
+        <div class="tools">
+          <div class="tool-col">
+            <div class="spell-title">Магия: по 5 камней каждого вида</div>
+            <div class="spellbar" id="spellbar"></div>
+          </div>
+          <div class="tool-col">
+            <div class="spell-title">Ранец</div>
+            <div class="bagbar" id="bagbar"></div>
+          </div>
+        </div>
+        <div class="menu">
+          <button id="gear" type="button" title="Ранец и экипировка">Экипировка</button>
+          <button id="bestiary" type="button" title="Сведения о существах">Бестиарий</button>
+        </div>
+        <footer class="bar">
+          <span>Ходы: <b id="moves">0</b></span>
+          <span class="btns">
+            <button id="hint" type="button" title="Показать лучший обмен">Подсказка</button>
+            <button id="mute" type="button">Звук: вкл</button>
+            <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
+            <button id="restart" type="button" title="Уйти с поля боя на карту">Отступить</button>
+          </span>
+        </footer>
+        <ol class="log" id="log" aria-label="Журнал ходов"></ol>
+      </section>
+
+      <aside class="fighter right" id="fighter-right"></aside>
+    </div>
+
+    <details class="rules">
+      <summary>Правила</summary>
+      <ul>
+        <li>Меняйте местами соседние камни, чтобы собрать линию из 3 и более одинаковых.</li>
+        <li>Чёрные камни (обсидиан) наносят противнику урон, равный их количеству с учётом номинала x3 и x5. Сапфиры, рубины и изумруды копятся для магии.</li>
+        <li>Бонус линии: 4 камня — x2, 5 — x3, 6 — x10. Линия из 4 и более камней даёт дополнительный ход.</li>
+        <li>Камни падают вниз, затем сдвигаются вправо. Новые камни появляются, только когда поле разобрано или не осталось ходов.</li>
+        <li>Магия стоит по 5 камней каждого вида. Шаровая молния: на один ход камни любого цвета наносят урон. Огненный крест: сжигает строку и столбец выбранной клетки, урон равен номиналам сожжённых камней.</li>
+        <li>Фракции: Люди (родной камень — сапфир), Гномы (обсидиан), Эльфы (изумруд), Ящеры (рубин). Родные камни заряжают приём фракции (15 камней с учётом номиналов и бонусов линии), приём ход не тратит. Знамя: +50% урона на 3 хода. Рунный молот: 3 камня становятся обсидианом x3. Корни: противник не может трогать выбранный столбец свой следующий ход. Ядовитый укус: противник теряет здоровье в начале 3 своих ходов. Фракционные вещи носит только своя фракция. Сменить фракцию можно в Ратуше.</li>
+        <li>У каждого вида существ свой приём (воровство, вой, туман, окаменение, огненное дыхание и другие): он указан в карточке существа и в бестиарии.</li>
+        <li>Неверный ход: −5% максимума ХП (на 1-м уровне это 5–6 ХП) и ход переходит к противнику. Три неверных хода подряд — поражение.</li>
+        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Инициативу (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно до первого хода боя; лимит очков растёт с уровнем героя.</li>
+        <li>Уровень героя растёт от опыта за победы (опыта на уровень нужно всё больше). С уровнем растут ХП, урон камней и лимит очков снаряжения; вещь цвета N можно надеть с уровня (N − 1) × 5 + 1. Сильнее существо и выше его цвет — больше опыта.</li>
+        <li>Ранец: зелье здоровья, эликсир силы, каменная пыль и свиток спешки используются в бою, ход не тратят. Победа даёт новый предмет и расходники.</li>
+        <li>Цвета-уровни (по возрастанию): Красный, Оранжевый, Жёлтый, Зелёный, Голубой, Синий, Фиолетовый, Серебро, Золото, Обсидиановый. Цвет есть у вещей, монстров и ресурсов: чем выше, тем сильнее. Оценка опасности существа (Лёгкий, Равный, Опасный, Смертельный) показывает примерный шанс победы.</li>
+        <li>Деньги: медные, серебряные и золотые монеты (100 медных = 1 серебряная, 100 серебряных = 1 золотая). С существ падают монеты, ресурсы их цвета и иногда вещи.</li>
+        <li>Карта: сражения начинаются, когда вы нападаете на существо на карте. Чем дальше от деревни, тем выше цвет существ; в средних и дальних зонах встречаются орки и нежить. Лавка, Кузница, Охотничий дом (бестиарий) и Ваш дом (экипировка) — здания деревни. После поражения вы возвращаетесь в деревню, побеждённое существо возвращается через 4 минуты. «Отступить» — уйти из боя без награды.</li>
+        <li>Для проверки ХП бойцов и уровень ИИ противника (1–100) можно подправить в панелях боя; награды за такой бой нет.</li>
+      </ul>
+    </details>
+  </main>
+
+  <script src="js/gems.js"></script>
+  <script src="js/art-files.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/tiers.js"></script>
+  <script src="js/balance.js"></script>
+  <script src="js/hero.js"></script>
+  <script src="js/factions.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/bestiary.js"></script>
+  <script src="js/parts.js"></script>
+  <script src="js/figures.js"></script>
+  <script src="js/hexmap.js"></script>
+  <script src="js/mapart.js"></script>
+  <script src="js/monsterart.js"></script>
+  <script src="js/itemicons.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/quests.js"></script>
+  <script src="js/screens.js"></script>
+  <script src="js/mapview.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

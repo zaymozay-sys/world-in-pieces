@@ -1,0 +1,15 @@
+{
+  "name": "Хрупкий мир",
+  "short_name": "Хрупкий мир",
+  "description": "Три в ряд на поле 6x6 с противником и магией",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#17181b",
+  "theme_color": "#17181b",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
