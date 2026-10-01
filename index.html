@@ -14,6 +14,12 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="mode-map">
+  <div class="splash" id="splash" aria-hidden="true">
+    <div class="splash-inner">
+      <h1 class="splash-title">Хрупкий мир</h1>
+      <p class="splash-sub">World in Pieces</p>
+    </div>
+  </div>
   <section class="map-view" id="map-view" aria-label="Карта">
     <svg id="map-svg" role="img" aria-label="Карта из шестиугольников">
       <defs id="map-defs"></defs>
@@ -29,6 +35,7 @@
         <button id="m-best" type="button">Бестиарий</button>
         <button id="m-mute" type="button">Звук</button>
         <button id="m-fs" type="button" title="Полный экран (клавиша F)"><span class="lg">Полный экран</span><span class="sm">Экран</span></button>
+        <button id="m-credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
       </div>
     </div>
     <div class="map-toast" id="map-toast" role="status"></div>
@@ -52,6 +59,7 @@
 
       <section class="center">
         <div class="status" id="status"></div>
+        <div class="turn-timer" id="turn-timer" hidden></div>
         <div class="board" id="board" aria-label="Игровое поле 6 на 6"></div>
         <div class="tools">
           <div class="tool-col">
@@ -66,18 +74,26 @@
         <div class="menu">
           <button id="gear" type="button" title="Ранец и экипировка">Экипировка</button>
           <button id="bestiary" type="button" title="Сведения о существах">Бестиарий</button>
+          <button id="credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
         </div>
         <footer class="bar">
           <span>Ходы: <b id="moves">0</b></span>
           <span class="btns">
+            <button id="ui-skin" type="button" title="Переключить оформление экрана боя — старое или новое">Оформление: 1</button>
             <button id="hint" type="button" title="Показать лучший обмен">Подсказка</button>
             <button id="mute" type="button">Звук: вкл</button>
             <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
             <button id="restart" type="button" title="Уйти с поля боя на карту">Отступить</button>
           </span>
         </footer>
-        <ol class="log" id="log" aria-label="Журнал ходов"></ol>
+        <details class="log-wrap" id="log-wrap">
+          <summary>Журнал боя</summary>
+          <ol class="log" id="log" aria-label="Журнал ходов"></ol>
+        </details>
       </section>
+
+      <!-- Столбец противника: виден только в оформлении «3» (body.ui-columns), см. renderEnemyColumn в game.js. -->
+      <div class="enemy-col" id="enemy-col" aria-label="Приём и состояние противника"></div>
 
       <aside class="fighter right" id="fighter-right"></aside>
     </div>
@@ -113,8 +129,10 @@
   <script src="js/tiers.js"></script>
   <script src="js/balance.js"></script>
   <script src="js/hero.js"></script>
+  <script src="js/names.js"></script>
   <script src="js/factions.js"></script>
   <script src="js/items.js"></script>
+  <script src="js/runes.js"></script>
   <script src="js/combat.js"></script>
   <script src="js/bestiary.js"></script>
   <script src="js/parts.js"></script>
@@ -123,8 +141,11 @@
   <script src="js/mapart.js"></script>
   <script src="js/monsterart.js"></script>
   <script src="js/itemicons.js"></script>
+  <script src="js/medals.js"></script>
+  <script src="js/pets.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/quests.js"></script>
+  <script src="js/daily.js"></script>
   <script src="js/screens.js"></script>
   <script src="js/mapview.js"></script>
   <script src="js/game.js"></script>

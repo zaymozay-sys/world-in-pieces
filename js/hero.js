@@ -68,7 +68,12 @@ const Hero = (() => {
   const priceScale = (L) => H_T.at(H_T.PRICE_MULT, tierFloat(L));
   const consumablePrice = (base, L) => Math.max(1, Math.round(base * priceScale(L)));
 
-  return { priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice };
+  // Заклинание kind доступно с уровня L? Стартовая пятёрка (и общий для всех фракций Удар) не упомянуты
+  // в Balance.spellUnlock — они, как и раньше, доступны с 1-го уровня; более сильные заклинания открываются
+  // позже (см. Balance.spellUnlock).
+  const isSpellUnlocked = (kind, L) => clampL(L) >= (H_B.spellUnlock[kind] || 1);
+
+  return { priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

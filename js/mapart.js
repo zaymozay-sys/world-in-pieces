@@ -16,7 +16,16 @@ const MapArt = (() => {
   function defs() {
     const grads = Object.entries(T).map(([k, [l, m, d]]) =>
       `<radialGradient id="t-${k}" cx=".42" cy=".38" r=".75"><stop offset="0" stop-color="${l}"/><stop offset=".6" stop-color="${m}"/><stop offset="1" stop-color="${d}"/></radialGradient>`).join('');
-    const sym = (id, body) => `<symbol id="${id}" overflow="visible">${body}</symbol>`;
+    // Настоящие рисунки из art/map/ вместо встроенных SVG, если файл есть.
+    const ART_SYM = { 's-tree': ['map/oak', 22], 's-pine': ['map/pine', 22], 's-peak': ['map/peak', 34], 's-reed': ['map/reeds', 20], 's-rock': ['map/rocks', 13] };
+    const sym = (id, body) => {
+      const a = ART_SYM[id];
+      if (a && typeof Art !== 'undefined' && Art.has(a[0])) {
+        const z = a[1];
+        body = `<ellipse cy="${(z * 0.32).toFixed(1)}" rx="${(z * 0.3).toFixed(1)}" ry="${(z * 0.09).toFixed(1)}" fill="#000" opacity=".25"/><image href="${Art.url(a[0])}" x="${-z / 2}" y="${(-z * 0.62).toFixed(1)}" width="${z}" height="${z}" preserveAspectRatio="xMidYMid meet"/>`;
+      }
+      return `<symbol id="${id}" overflow="visible">${body}</symbol>`;
+    };
     return grads + `
       <radialGradient id="fog-g" cx=".5" cy=".5" r=".7"><stop offset="0" stop-color="#15171c"/><stop offset="1" stop-color="#0b0c0f"/></radialGradient>
       <radialGradient id="glow-door" cx=".5" cy=".6" r=".6"><stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#e0661c"/></radialGradient>
@@ -114,6 +123,32 @@ const MapArt = (() => {
         <path d="M12 -7 L-3 -7 L-0.5 -10Z" fill="#e8dcc0" stroke="${O}" stroke-width=".7"/>
       </g>
       <rect x="-13" y="9" width="6" height="7" rx="1" fill="#d8bd82" stroke="${O}" stroke-width=".6"/><rect x="-6" y="10.5" width="6" height="5.5" rx="1" fill="#c9a869" stroke="${O}" stroke-width=".6"/>`,
+    junker: () => `${shadow}
+      ${house('#8a7f6e', '#5a4a38', 26, 16)}${door(-4)}${win(7, 3)}
+      <path d="M-6 -10 L-2 -13 L2 -10Z" fill="#8a6a3a" opacity=".85"/><path d="M4 -11 L8 -14 L11 -11Z" fill="#5c7a4a" opacity=".85"/>
+      <circle cx="-16" cy="11" r="5" fill="none" stroke="#3a332b" stroke-width="1.6"/>
+      <path d="M-16 6 V16 M-21 11 H-11 M-19.5 7.5 L-12.5 14.5 M-19.5 14.5 L-12.5 7.5" stroke="#3a332b" stroke-width="1"/>
+      <rect x="12" y="6" width="8" height="7" fill="#7a6a4a" stroke="${O}" stroke-width=".7"/>
+      <rect x="11" y="1" width="7" height="6" fill="#8a7550" stroke="${O}" stroke-width=".7"/>
+      <ellipse cx="16.5" cy="13" rx="4.5" ry="1.4" fill="#000" opacity=".2"/>`,
+    library: () => `${shadow}
+      ${house('#a8916a', '#4b3a2c', 30, 20)}${door(-4)}${win(9, 4)}
+      <path d="M-17 -4 Q-17 -17 -8 -19 L-8 -4Z" fill="#8a7355" stroke="${O}" stroke-width=".8"/>
+      ${[-6, -9, -12, -15].map((y) => `<path d="M-15 ${y} H-10" stroke="#4b3a2c" stroke-width=".9"/>`).join('')}
+      <circle cx="9" cy="-11" r="4.6" fill="#efe6cf" stroke="${O}" stroke-width=".8"/><path d="M9 -11 h2.4 M9 -11 v-2.4" stroke="${O}" stroke-width=".8"/>
+      <rect x="-13" y="9" width="7" height="4.5" rx="1" fill="#6b4a2b" stroke="${O}" stroke-width=".6"/>
+      <rect x="-6" y="10.2" width="7" height="3.3" rx="1" fill="#7a5a34" stroke="${O}" stroke-width=".6"/>
+      <path d="M-14 9 Q-9.5 6 -5 9" stroke="#3a332b" stroke-width=".9" fill="none"/>`,
+    artistWorkshop: () => `${shadow}
+      ${house('#b08a5a', '#5a4630', 28, 17)}${door(-8)}
+      <rect x="6" y="-26" width="6" height="24" fill="#5a4630" stroke="${O}" stroke-width=".7"/>
+      <path d="M9 -26 L3 -32 L15 -32Z" fill="#8a7355" stroke="${O}" stroke-width=".7"/>
+      <ellipse cx="9" cy="-33.5" rx="4.6" ry="2.6" fill="#e7e2d8" stroke="${O}" stroke-width=".7"/>
+      <path d="M9 -33.5 L14.5 -31.8 L9 -30.5Z" fill="#c9573c"/>
+      <path d="M0 6 L9 1 L9 13 L0 13Z" fill="#c9a869" stroke="${O}" stroke-width=".7"/>
+      <path d="M0 6 L9 1 M-3 8 L4 4 M-3 11 L4 7" stroke="#5a4630" stroke-width=".6"/>
+      <rect x="-14" y="8" width="7" height="8" rx="1" fill="#8a6a42" stroke="${O}" stroke-width=".6"/>
+      <circle cx="-10.5" cy="9.5" r="1.1" fill="#3a2f22"/>${win(9, 5)}`,
     arena: () => `<ellipse cy="12" rx="23" ry="7" fill="#000" opacity=".32"/>
       <ellipse cy="2" rx="21" ry="12" fill="#b3a88f" stroke="${O}"/><ellipse cy="0" rx="15" ry="7.5" fill="#dcc79a" stroke="${O}" stroke-width=".8"/>
       <path d="M-21 2 V8 Q0 22 21 8 V2" fill="#9d927a" stroke="${O}"/>
@@ -123,6 +158,10 @@ const MapArt = (() => {
 
   // Здания стоят через пустую соту друг от друга, так что места хватает — крупнее прежнего.
   function building(id, soon) {
+    const key = 'map/' + id;
+    if (typeof Art !== 'undefined' && Art.has(key)) {
+      return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)"><ellipse cy="14" rx="19" ry="4" fill="#000" opacity=".3"/><image href="${Art.url(key)}" x="-22" y="-26" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></g>`;
+    }
     return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)">${(B[id] || B.home)()}</g>`;
   }
 

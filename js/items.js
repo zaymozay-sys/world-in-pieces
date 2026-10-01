@@ -8,6 +8,9 @@
      initiative — Инициатива: +% к шансу первого хода в бою (максимум 50)
      ricochet   — Рикошет: шанс (максимум 40%), что удар отлетит в нападающего; отлетает урон за вычетом брони цели
      block      — Блок: шанс (максимум 50%) полностью заблокировать удар
+     fury       — Ярость: шанс (максимум 35%) нанести двойной урон одним ударом (считается до Брони цели)
+     cunning    — Хитрость: шанс (максимум 30%), что после сбора камней противником заберёшь половину
+                  собранных им магических камней (сапфир/рубин/изумруд) — см. Combat.cunningSteal
 
    Ячейки: правая рука (main), левая рука (off), шлем, нагрудник, наручи, поножи, амулет.
    Типы предметов: weapon1 (одноручное, в любую руку), weapon2 (двуручное, занимает обе руки),
@@ -21,7 +24,7 @@ const Gear = (() => {
     main: 'Правая рука', off: 'Левая рука', head: 'Шлем', chest: 'Нагрудник',
     arms: 'Наручи', legs: 'Поножи', amulet: 'Амулет',
   };
-  const STAT_NAMES = { power: 'Сила', health: 'Здоровье', defense: 'Броня', magic: 'Магия', initiative: 'Инициатива', ricochet: 'Рикошет', block: 'Блок' };
+  const STAT_NAMES = { power: 'Сила', health: 'Здоровье', defense: 'Броня', magic: 'Магия', initiative: 'Инициатива', ricochet: 'Рикошет', block: 'Блок', fury: 'Ярость', cunning: 'Хитрость' };
   const TYPE_NAMES = {
     weapon1: 'Одноручное оружие', weapon2: 'Двуручное оружие', shield: 'Щит',
     head: 'Шлем', chest: 'Нагрудник', arms: 'Наручи', legs: 'Поножи', amulet: 'Амулет',
@@ -29,19 +32,19 @@ const Gear = (() => {
   const RARITY_NAMES = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический' };
   const MAX_DEFENSE = 60;
   // Потолки характеристик (не «ломают» бой)
-  const CAPS = { defense: 60, initiative: 50, ricochet: 40, block: 50 };
+  const CAPS = { defense: 60, initiative: 50, ricochet: 40, block: 50, fury: 35, cunning: 30 };
 
   // Комплекты: бонус действует, когда надето не меньше указанного числа предметов набора.
   const SETS = {
     guard:    { name: 'Страж',    color: '#6aa8e8', bonuses: { 2: { health: 10 }, 3: { defense: 6, block: 3 }, 4: { health: 20, defense: 6 }, 5: { power: 10, block: 5 } } },
-    berserk:  { name: 'Берсерк',  color: '#e0605a', bonuses: { 2: { power: 5 }, 3: { power: 5, health: 5 }, 4: { power: 8, initiative: 4 }, 5: { health: 10, power: 5 }, 6: { power: 12, ricochet: 4 } } },
+    berserk:  { name: 'Берсерк',  color: '#e0605a', bonuses: { 2: { power: 5 }, 3: { power: 5, health: 5 }, 4: { power: 8, initiative: 4 }, 5: { health: 10, power: 5 }, 6: { power: 12, ricochet: 4, fury: 8 } } },
     mage:     { name: 'Чародей',  color: '#b58cff', bonuses: { 2: { magic: 1 }, 3: { magic: 1, ricochet: 3 }, 4: { magic: 1, power: 6 }, 5: { magic: 1, defense: 4 }, 6: { magic: 2, power: 8, ricochet: 4 } } },
     // Наборы фракций: надеть может только своя фракция.
     crown:    { name: 'Корона',   color: '#4a7fe0', faction: 'human',  bonuses: { 2: { initiative: 4 }, 3: { power: 5, block: 3 }, 4: { health: 15 }, 5: { power: 8, initiative: 4 } } },
     rune:     { name: 'Руна',     color: '#d08a3a', faction: 'dwarf',  bonuses: { 2: { defense: 4 }, 3: { block: 4, health: 8 }, 4: { defense: 5, power: 5 }, 5: { block: 6, health: 12 } } },
     grove:    { name: 'Роща',     color: '#3fae63', faction: 'elf',    bonuses: { 2: { initiative: 5 }, 3: { ricochet: 4, magic: 1 }, 4: { initiative: 5, power: 5 }, 5: { ricochet: 5, magic: 1 } } },
     scale:    { name: 'Чешуя',    color: '#c9573c', faction: 'lizard', bonuses: { 2: { health: 10 }, 3: { power: 5, ricochet: 3 }, 4: { health: 15, block: 3 }, 5: { power: 8, health: 10 } } },
-    wanderer: { name: 'Странник', color: '#5fc98a', bonuses: { 2: { health: 6, initiative: 3 }, 3: { defense: 3, power: 3 }, 4: { health: 10, magic: 1, initiative: 4 }, 5: { power: 6, block: 3 }, 6: { health: 12, power: 6, defense: 4 } } },
+    wanderer: { name: 'Странник', color: '#5fc98a', bonuses: { 2: { health: 6, initiative: 3 }, 3: { defense: 3, power: 3 }, 4: { health: 10, magic: 1, initiative: 4, cunning: 6 }, 5: { power: 6, block: 3 }, 6: { health: 12, power: 6, defense: 4 } } },
   };
   const NEUTRAL_COLOR = '#a9adb8';
 
@@ -83,7 +86,7 @@ const Gear = (() => {
     ['berserk-chest', 'Кираса берсерка',    'chest',   'berserk', 'rare',   { power: 5, health: 10, ricochet: 2 }],
     ['berserk-arms',  'Наручи берсерка',    'arms',    'berserk', 'rare',   { power: 6, initiative: 2 }],
     ['berserk-legs',  'Поножи берсерка',    'legs',    'berserk', 'rare',   { power: 3, health: 6, initiative: 4 }],
-    ['berserk-amulet','Амулет ярости',      'amulet',  'berserk', 'epic',   { power: 10, ricochet: 4, health: 5 }],
+    ['berserk-amulet','Амулет ярости',      'amulet',  'berserk', 'epic',   { power: 10, ricochet: 4, health: 5, fury: 10 }],
     // --- Чародей (магия) ---
     ['mage-staff',  'Посох чародея',    'weapon2', 'mage', 'rare',   { magic: 4, power: 10, initiative: 2 }],
     ['mage-head',   'Колпак чародея',   'head',    'mage', 'common', { magic: 1, health: 5, initiative: 2 }],
@@ -111,13 +114,17 @@ const Gear = (() => {
     ['amulet-copper','Медный амулет',     'amulet',  null, 'common', { health: 6, block: 1 }],
     ['amulet-power', 'Амулет силы',       'amulet',  null, 'rare',   { power: 8, ricochet: 2 }],
     ['amulet-spark', 'Амулет искры',      'amulet',  null, 'rare',   { magic: 2, initiative: 2 }],
+    ['amulet-fox',   'Амулет лиса',       'amulet',  null, 'epic',   { cunning: 8, initiative: 3 }],
+    // --- Особое оружие: помимо характеристик, даёт приём в бою (см. perk, combat.js) ---
+    ['crossbow-heavy', 'Тяжёлый арбалет',   'weapon2', null, 'rare', { power: 13, initiative: 3 }, null, { type: 'pierceBlock' }],
+    ['morningstar',    'Утренняя звезда',   'weapon1', null, 'rare', { power: 11, defense: 1 }, null, { type: 'armorShred' }],
   ];
 
   // Цена предмета в очках снаряжения — считается из его характеристик.
   const costOf = (s) => Math.round((s.power || 0) + (s.health || 0) * 0.5 + (s.defense || 0) * 1.5 + (s.magic || 0) * 4
-    + (s.initiative || 0) * 2 + (s.ricochet || 0) * 2.5 + (s.block || 0) * 2);
+    + (s.initiative || 0) * 2 + (s.ricochet || 0) * 2.5 + (s.block || 0) * 2 + (s.fury || 0) * 2.5 + (s.cunning || 0) * 2.5);
 
-  const ITEMS = RAW.map(([id, name, type, set, rarity, stats, faction]) => ({ id, name, type, set, rarity, stats, faction: faction || null, cost: costOf(stats) }));
+  const ITEMS = RAW.map(([id, name, type, set, rarity, stats, faction, perk]) => ({ id, name, type, set, rarity, stats, faction: faction || null, perk: perk || null, cost: costOf(stats) }));
   // Вещи, доступные фракции: общие + её собственные.
   const itemsFor = (faction) => ITEMS.filter((i) => !i.faction || i.faction === faction);
   const BY_ID = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
@@ -137,6 +144,8 @@ const Gear = (() => {
   // Цена в медных монетах: растёт с уровнем гораздо быстрее, чем очки.
   const priceAt = (cost1, tier) => Math.round(cost1 * 10 * T.PRICE_MULT[tier - 1]);
   const sellValue = (price) => Math.round(price * 0.4);
+  // Старьёвщик платит меньше Лавки — зато скупает всё разом, одной кнопкой (см. Screens.openJunker).
+  const junkValue = (price) => Math.round(price * 0.25);
 
   // Полное описание предмета с учётом уровня.
   function item(entry) {
@@ -150,6 +159,7 @@ const Gear = (() => {
       stats: tier === 1 ? base.stats : scaleStats(base.stats, tier),
       cost: Math.round(base.cost * T.POINT_MULT[tier - 1]),
       price: priceAt(base.cost, tier),
+      runes: Array.isArray(e.runes) ? e.runes : (e.rune ? [e.rune] : undefined),
     };
   }
 
@@ -184,6 +194,12 @@ const Gear = (() => {
 
   function unequip(gear, slot) { return { ...gear, [slot]: null }; }
 
+  // Приём особого оружия, если такое надето в правую или левую руку (см. perk у RAW-записи выше).
+  const weaponPerk = (gear) => {
+    const main = item(gear.main), off = item(gear.off);
+    return (main && main.perk) || (off && off.perk) || null;
+  };
+
   const equipped = (gear) => SLOTS.map((s) => item(gear[s])).filter(Boolean);
   const totalCost = (gear) => equipped(gear).reduce((sum, it) => sum + it.cost, 0);
 
@@ -200,7 +216,7 @@ const Gear = (() => {
     });
   }
 
-  const blankStats = () => ({ power: 0, health: 0, defense: 0, magic: 0, initiative: 0, ricochet: 0, block: 0 });
+  const blankStats = () => ({ power: 0, health: 0, defense: 0, magic: 0, initiative: 0, ricochet: 0, block: 0, fury: 0, cunning: 0 });
   const capStats = (s) => { for (const k in CAPS) s[k] = Math.max(0, Math.min(CAPS[k], s[k])); return s; };
 
   // Итоговые характеристики: предметы + бонусы наборов.
@@ -274,16 +290,22 @@ const Gear = (() => {
 
   // Расходуемые вещи ранца. price — цена для героя 1-го уровня; дальше растёт вместе с доходом (Hero.priceScale).
   const CONSUMABLES = {
-    potion: { name: 'Зелье здоровья', price: 50, desc: 'Мгновенно лечит на 30% максимума ХП. Ход не тратится.' },
-    elixir: { name: 'Эликсир силы', price: 150, desc: '+50% к урону на 3 хода. Ход не тратится.' },
+    potion: { name: 'Зелье здоровья', price: 50, desc: 'Мгновенно лечит на 18% максимума ХП. Ход не тратится.' },
+    elixir: { name: 'Эликсир силы', price: 150, desc: '+35% к урону до конца хода. Ход не тратится.' },
     dust:   { name: 'Каменная пыль', price: 80, desc: 'Даёт по 3 сапфира, рубина и изумруда. Ход не тратится.' },
     scroll: { name: 'Свиток спешки', price: 120, desc: 'Ваш следующий ход даст дополнительный ход. Ход не тратится.' },
+    luck:   { name: 'Свиток удачи', price: 220, desc: 'Используйте один раз за бой: +50% к монетам и ресурсам с этой победы. Ход не тратится.' },
+    honeyjar: { name: 'Банка мёда', price: 180, desc: 'Наугад: либо мгновенно +25% к максимуму ХП до конца боя, либо гарантированно блокирует следующий удар по вам. Ход не тратится.' },
   };
+
+  // Цена покупки n штук по единичной цене unitPrice (используется Лавкой для покупки расходников/ресурсов
+  // партиями — ×1/×5/×10/×25). Чистая функция: сама цена расходника/ресурса не меняется, только сумма за n штук.
+  const bulkPrice = (unitPrice, n) => Math.round(unitPrice) * Math.max(1, Math.round(n));
 
   return {
     itemsFor, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, ITEMS, CONSUMABLES, FORGE_KINDS,
-    MAX_DEFENSE, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, emptyLoadout, fits, canEquip, equip, unequip,
-    equipped, totalCost, setProgress, stats, combine, blankStats, spellCost, randomLoadout, upgradeCost, craftCost,
+    MAX_DEFENSE, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, fits, canEquip, equip, unequip,
+    equipped, totalCost, setProgress, stats, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, craftCost, bulkPrice,
   };
 })();
 

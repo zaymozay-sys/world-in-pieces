@@ -43,7 +43,7 @@ const AI = (() => {
       [t[m.a], t[m.b]] = [t[m.b], t[m.a]];
       [v[m.a], v[m.b]] = [v[m.b], v[m.a]];
       const g = [0, 0, 0, 0];
-      Engine.resolve(t, v, g);
+      Engine.resolve(t, v, g, ONYX);
       return { m, t, v, dmg: mode.dmg(g), s: score(g, mode) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
     });
   }
@@ -122,7 +122,7 @@ const AI = (() => {
     Engine.gravity(t, v);
     Engine.shiftRight(t, v);
     const g = [0, 0, 0, 0];
-    Engine.resolve(t, v, g);
+    Engine.resolve(t, v, g, ONYX);
     return { t, v, dmg: burn + g[3], s: burn * NORMAL.w[3] + score(g, NORMAL) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
   }
 
@@ -141,7 +141,7 @@ const AI = (() => {
       }
     }
     const g = [0, 0, 0, 0];
-    Engine.resolve(t, v, g);
+    Engine.resolve(t, v, g, ONYX);
     return { t, v, dmg: g[3], s: n * NORMAL.w[3] * 0.4 + score(g, NORMAL) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
   }
 
@@ -171,11 +171,15 @@ const AI = (() => {
   //   { kind: 'move' | 'lightning', a, b }    — обмен камней (под Шаровой молнией или без)
   //   { kind: 'fire' | 'transmute', idx }     — заклинание с центром в клетке idx
   //   { kind: 'heal' } | { kind: 'chaos' }    — лечение / перемешивание поля
-  // или null, если ходов нет. canMagic — хватает ли камней на магию,
+  // или null, если ходов нет. afford — { lightning, fire, transmute, heal, chaos }: хватает ли камней на
+  // каждое заклинание отдельно (у каждого своя цена, см. Balance.magic.costs); true/false вместо объекта
+  // тоже допустимо (совместимость) — означает «хватает на всё»/«ни на что».
   // ctx.maxMe — максимум ХП противника (для решения о лечении).
-  function choose(typ, val, hpMe, hpOpp, level, canMagic = false, ctx = {}) {
+  function choose(typ, val, hpMe, hpOpp, level, afford = {}, ctx = {}) {
+    const A = typeof afford === 'boolean' ? { lightning: afford, fire: afford, transmute: afford, heal: afford, chaos: afford } : afford;
     const cfg = settings(level);
     rootFilter = ctx.locked && ctx.locked.length ? new Set(ctx.locked) : null;
+    const canMagic = A.lightning || A.fire || A.transmute || A.heal || A.chaos;
     const considerMagic = canMagic && Math.random() < 0.3 + 0.7 * cfg.level / 100;
     const budget = considerMagic ? TIME_BUDGET_MS / 5 : TIME_BUDGET_MS;
 
@@ -188,18 +192,24 @@ const AI = (() => {
     if (considerMagic) {
       const offer = (sp, v) => { if (v > best + MAGIC_MARGIN) { best = v; spell = sp; } };
 
-      const rm = search(typ, val, hpMe, hpOpp, cfg, MAGIC, budget);
-      if (rm && rm.length && rm[0].v > best + MAGIC_MARGIN) {
-        ranked = rm; kind = 'lightning'; best = rm[0].v;
+      if (A.lightning) {
+        const rm = search(typ, val, hpMe, hpOpp, cfg, MAGIC, budget);
+        if (rm && rm.length && rm[0].v > best + MAGIC_MARGIN) {
+          ranked = rm; kind = 'lightning'; best = rm[0].v;
+        }
       }
-      const fb = cellBest(burnSim, typ, val, hpMe, hpOpp, cfg, performance.now() + budget);
-      if (fb) offer({ kind: 'fire', idx: fb.idx }, fb.v);
-      const tb = cellBest(transmuteSim, typ, val, hpMe, hpOpp, cfg, performance.now() + budget);
-      if (tb) offer({ kind: 'transmute', idx: tb.idx }, tb.v);
+      if (A.fire) {
+        const fb = cellBest(burnSim, typ, val, hpMe, hpOpp, cfg, performance.now() + budget);
+        if (fb) offer({ kind: 'fire', idx: fb.idx }, fb.v);
+      }
+      if (A.transmute) {
+        const tb = cellBest(transmuteSim, typ, val, hpMe, hpOpp, cfg, performance.now() + budget);
+        if (tb) offer({ kind: 'transmute', idx: tb.idx }, tb.v);
+      }
 
       // Целебный дождь: лечит на сумму номиналов сапфиров, рубинов и изумрудов на поле.
       // ctx.healMult переводит номиналы в те же единицы, что и hpMe (см. Combat.aiView).
-      if (ctx.maxMe) {
+      if (A.heal && ctx.maxMe) {
         let sum = 0;
         for (let i = 0; i < typ.length; i++) if (typ[i] >= 0 && typ[i] !== ONYX) sum += val[i];
         const healed = Math.min(sum * (ctx.healMult || 1), ctx.maxMe - hpMe);
@@ -214,7 +224,7 @@ const AI = (() => {
         }
       }
       // Хаос: когда хороших ходов нет, перемешать поле.
-      if (!spell && bestNormal < 2 && Math.random() < 0.6) spell = { kind: 'chaos' };
+      if (A.chaos && !spell && bestNormal < 2 && Math.random() < 0.6) spell = { kind: 'chaos' };
     }
     if (spell) return spell;
     if (!ranked || !ranked.length) return null;

@@ -45,4 +45,18 @@ if (have('heroes/human-m-portrait') && !have('heroes/human-f-portrait')) assert.
 if (Art.hasPortrait('dwarf-m')) assert.ok(Art.portrait('dwarf-m').startsWith('<svg ') && Art.portrait('dwarf-m').includes('<image'));
 if (Art.hasMonster('rat')) assert.ok(Art.monster('rat', '#e5483f').startsWith('<svg '));
 
+// у каждого вида из бестиария есть портрет: файл из art/monsters или векторный рисунок из monsterart.js
+// (Дракон рисуется фигурой из figures.js — см. renderAvatar в game.js)
+{
+  global.Art = Art;
+  const Bestiary = require('../js/bestiary.js');
+  const MonsterArt = require('../js/monsterart.js');
+  for (const id of Object.keys(Bestiary.MONSTERS)) {
+    if (id === 'dragon') continue;
+    assert.ok(Art.hasMonster(id) || MonsterArt.has(id), `нет портрета существа: ${id}`);
+    assert.ok(MonsterArt.bust(id, 3).startsWith('<svg'), `пустой портрет: ${id}`);
+  }
+  for (const id of ['lynx', 'hedgehog']) assert.ok(MonsterArt.has(id), `нет векторного рисунка: ${id}`);
+}
+
 console.log('art: все тесты пройдены');

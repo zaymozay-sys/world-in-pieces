@@ -83,4 +83,13 @@ assert.strictEqual(Gear.stats(many).block, 0);
 // цена предмета учитывает новые характеристики
 assert.ok(Gear.item('guard-shield').cost > Gear.item('shield-wood').cost);
 
+// Хитрость: новая характеристика — имя, потолок, пустое значение, источник (Амулет лиса) и бонус набора Странник
+assert.strictEqual(Gear.STAT_NAMES.cunning, 'Хитрость');
+assert.strictEqual(Gear.CAPS.cunning, 30);
+assert.strictEqual(Gear.blankStats().cunning, 0);
+const fox = Gear.item('amulet-fox');
+assert.ok(fox && fox.type === 'amulet' && fox.stats.cunning > 0, 'Амулет лиса даёт Хитрость');
+assert.ok(fox.cost > Gear.item('amulet-spark').cost, 'Хитрость учитывается в цене');
+assert.ok(Object.values(Gear.SETS.wanderer.bonuses).some((b) => b.cunning > 0), 'Странник даёт Хитрость бонусом набора');
+
 console.log('gear: все тесты пройдены');

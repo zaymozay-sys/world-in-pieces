@@ -170,6 +170,223 @@ function transmuteIcon(id) {
   </svg>`;
 }
 
+/* Иконка Удара — сжатый кулак с бронзовым свечением (общее заклинание всех фракций). */
+function strikeIcon(id) {
+  return `<svg class="magic-icon" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="sk-${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f0c98a"/>
+        <stop offset=".55" stop-color="#c98a4a"/>
+        <stop offset="1" stop-color="#8a5322"/>
+      </linearGradient>
+      <radialGradient id="sglow-${id}" cx="50%" cy="50%" r="50%">
+        <stop offset=".5" stop-color="#ffb84d" stop-opacity=".45"/>
+        <stop offset="1" stop-color="#ffb84d" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="url(#sglow-${id})"/>
+    <!-- предплечье -->
+    <rect x="38" y="60" width="24" height="30" rx="6" fill="url(#sk-${id})" stroke="#5a3616" stroke-width="2.5"/>
+    <!-- костяшки -->
+    <g fill="url(#sk-${id})" stroke="#5a3616" stroke-width="2.5" stroke-linejoin="round">
+      <rect x="20" y="40" width="14" height="24" rx="6"/>
+      <rect x="33" y="32" width="14" height="32" rx="6"/>
+      <rect x="46" y="30" width="14" height="34" rx="6"/>
+      <rect x="59" y="34" width="14" height="30" rx="6"/>
+      <path d="M20 52 Q50 68 73 50 L73 62 Q50 78 20 62 Z"/>
+    </g>
+    <!-- большой палец -->
+    <path d="M18 50 Q10 48 12 38 Q14 30 24 32 L30 40 L24 52Z" fill="url(#sk-${id})" stroke="#5a3616" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- линии удара -->
+    <g stroke="#ffe0a3" stroke-width="3.5" stroke-linecap="round" opacity=".85">
+      <path d="M70 18 L80 8"/>
+      <path d="M78 26 L92 22"/>
+      <path d="M74 36 L88 38"/>
+    </g>
+  </svg>`;
+}
+
+/* Иконка Зеркала — овальное ручное зеркало с бликом и отражённым лучом. */
+function mirrorIcon(id) {
+  return `<svg class="magic-icon" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="mg-${id}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#eefaff"/>
+        <stop offset=".45" stop-color="#9fd4ec"/>
+        <stop offset="1" stop-color="#3d7fa6"/>
+      </linearGradient>
+      <linearGradient id="mf-${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#e9eef4"/>
+        <stop offset="1" stop-color="#8a96a6"/>
+      </linearGradient>
+      <radialGradient id="mglow-${id}" cx="50%" cy="50%" r="50%">
+        <stop offset=".5" stop-color="#8fe0ff" stop-opacity=".45"/>
+        <stop offset="1" stop-color="#8fe0ff" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="url(#mglow-${id})"/>
+    <!-- ручка -->
+    <rect x="44" y="72" width="12" height="22" rx="4" fill="url(#mf-${id})" stroke="#4a5563" stroke-width="2.5"/>
+    <circle cx="50" cy="94" r="4" fill="#c9d3de" stroke="#4a5563" stroke-width="2"/>
+    <!-- оправа и стекло -->
+    <ellipse cx="50" cy="42" rx="28" ry="34" fill="url(#mf-${id})" stroke="#4a5563" stroke-width="2.5"/>
+    <circle cx="50" cy="7" r="4.5" fill="#dfe8f0" stroke="#4a5563" stroke-width="2"/>
+    <ellipse cx="50" cy="42" rx="21" ry="27" fill="url(#mg-${id})"/>
+    <!-- блик -->
+    <path d="M36 44 Q36 26 48 20" stroke="#fff" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+    <path d="M40 54 L60 24" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".6"/>
+    <!-- удар летит в зеркало и отскакивает обратно -->
+    <g fill="none" stroke="#fff6c2" stroke-width="4" stroke-linecap="round">
+      <path d="M96 30 L62 42"/>
+      <path d="M62 46 L92 60"/>
+    </g>
+    <polygon points="98,63 84,66 89,53" fill="#fff6c2"/>
+  </svg>`;
+}
+
+/* Иконка Прилива — закрученная волна, гребень которой меняет цвет (синий → зелёный). */
+function tideIcon(id) {
+  return `<svg class="magic-icon" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="wv-${id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#2f7fe0"/>
+        <stop offset=".45" stop-color="#2fa6c8"/>
+        <stop offset=".75" stop-color="#3ec46d"/>
+        <stop offset="1" stop-color="#7ee89a"/>
+      </linearGradient>
+      <radialGradient id="wglow-${id}" cx="50%" cy="50%" r="50%">
+        <stop offset=".5" stop-color="#3fd6c0" stop-opacity=".45"/>
+        <stop offset="1" stop-color="#3fd6c0" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="url(#wglow-${id})"/>
+    <!-- волна -->
+    <path d="M6 80 C22 78 30 60 34 44 C40 20 64 10 80 22 C90 30 88 46 76 48 C66 50 62 40 68 34
+             C58 34 52 46 54 60 C56 72 68 78 94 80 L94 92 L6 92Z"
+          fill="url(#wv-${id})" stroke="#d8fbff" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- пена на гребне -->
+    <path d="M40 30 C50 16 70 14 80 24" stroke="#effffb" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <!-- камень синий → зелёный -->
+    <polygon points="20,10 30,20 20,30 10,20" fill="#4a86e8" stroke="#dff0ff" stroke-width="2"/>
+    <path d="M33 20 H44 M40 15 L45 20 L40 25" stroke="#effffb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <polygon points="92,56 98,64 92,72 86,64" fill="#3ec46d" stroke="#e0ffe8" stroke-width="2"/>
+  </svg>`;
+}
+
+/* Иконка Жертвы — багровое сердце, пожираемое пламенем, пронзённое кинжалом. */
+function sacrificeIcon(id) {
+  return `<svg class="magic-icon" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="sh-${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#e0303a"/>
+        <stop offset="1" stop-color="#6a0a14"/>
+      </linearGradient>
+      <linearGradient id="sf-${id}" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#ff5a1f"/>
+        <stop offset=".6" stop-color="#ff9a2e"/>
+        <stop offset="1" stop-color="#ffe066"/>
+      </linearGradient>
+      <radialGradient id="shglow-${id}" cx="50%" cy="50%" r="50%">
+        <stop offset=".5" stop-color="#ff3a2a" stop-opacity=".45"/>
+        <stop offset="1" stop-color="#ff3a2a" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="url(#shglow-${id})"/>
+    <!-- пламя над сердцем -->
+    <path d="M26 50 C18 34 30 26 30 12 C38 22 42 28 44 36 C46 24 52 16 50 4 C62 16 66 26 62 38
+             C68 32 70 24 70 18 C80 30 82 42 74 52Z" fill="url(#sf-${id})"/>
+    <!-- сердце -->
+    <path d="M50 92 C34 80 14 66 14 48 C14 36 22 30 31 30 C40 30 46 36 50 42 C54 36 60 30 69 30
+             C78 30 86 36 86 48 C86 66 66 80 50 92Z" fill="url(#sh-${id})" stroke="#2a0306" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M24 46 Q26 38 34 37" stroke="#ff9a9a" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <!-- кинжал -->
+    <path d="M86 88 L58 60" stroke="#3a2412" stroke-width="7" stroke-linecap="round"/>
+    <path d="M62 54 L70 62" stroke="#c9a64a" stroke-width="5" stroke-linecap="round"/>
+    <polygon points="64,58 36,34 33,31 38,32 66,56" fill="#e8ecf2" stroke="#5a6272" stroke-width="1.5"/>
+    <!-- капли -->
+    <path d="M40 70 C40 76 36 78 36 82 A4 4 0 0 0 44 82 C44 78 40 76 40 70Z" fill="#ff5a4a"/>
+  </svg>`;
+}
+
+/* Иконка Прорицания — всевидящее око в хрустальном шаре на золотой подставке. */
+function divinationIcon(id) {
+  return `<svg class="magic-icon" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <radialGradient id="db-${id}" cx="40%" cy="35%" r="65%">
+        <stop offset="0" stop-color="#f3e8ff"/>
+        <stop offset=".5" stop-color="#9a6ae0"/>
+        <stop offset="1" stop-color="#3a1a78"/>
+      </radialGradient>
+      <linearGradient id="dgold-${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffe08a"/>
+        <stop offset="1" stop-color="#a8701c"/>
+      </linearGradient>
+      <radialGradient id="dglow-${id}" cx="50%" cy="50%" r="50%">
+        <stop offset=".5" stop-color="#ffd46a" stop-opacity=".4"/>
+        <stop offset="1" stop-color="#ffd46a" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="url(#dglow-${id})"/>
+    <!-- лучи -->
+    <g stroke="#ffd46a" stroke-width="3.5" stroke-linecap="round">
+      <path d="M50 3 V11"/><path d="M18 14 L24 20"/><path d="M82 14 L76 20"/>
+      <path d="M4 42 H12"/><path d="M88 42 H96"/>
+    </g>
+    <!-- подставка -->
+    <path d="M28 88 Q30 74 38 72 H62 Q70 74 72 88Z" fill="url(#dgold-${id})" stroke="#5a3a0a" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- шар -->
+    <circle cx="50" cy="44" r="30" fill="url(#db-${id})" stroke="#e6d4ff" stroke-width="2.5"/>
+    <!-- око -->
+    <path d="M28 46 Q50 26 72 46 Q50 64 28 46Z" fill="#fff8e0" stroke="#ffd46a" stroke-width="2.5" stroke-linejoin="round"/>
+    <circle cx="50" cy="46" r="9" fill="#e0a526"/>
+    <circle cx="50" cy="46" r="4.5" fill="#1a0a2e"/>
+    <circle cx="47" cy="43" r="2" fill="#fff"/>
+    <!-- четыре точки: линия из 4 камней -->
+    <g fill="#fff4c2"><circle cx="35" cy="95" r="3"/><circle cx="45" cy="95" r="3"/><circle cx="55" cy="95" r="3"/><circle cx="65" cy="95" r="3"/></g>
+  </svg>`;
+}
+
+/* Иконка Кулака ярости — кулак, как у Удара, но багровый и в языках пламени. */
+function furyIcon(id) {
+  return `<svg class="magic-icon" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="fk-${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ff8a6a"/>
+        <stop offset=".55" stop-color="#d0302a"/>
+        <stop offset="1" stop-color="#7a0e12"/>
+      </linearGradient>
+      <linearGradient id="ff-${id}" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#ff3a1f"/>
+        <stop offset=".6" stop-color="#ff8a1f"/>
+        <stop offset="1" stop-color="#ffe066"/>
+      </linearGradient>
+      <radialGradient id="fkglow-${id}" cx="50%" cy="50%" r="50%">
+        <stop offset=".5" stop-color="#ff4a1f" stop-opacity=".55"/>
+        <stop offset="1" stop-color="#ff4a1f" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="url(#fkglow-${id})"/>
+    <!-- пламя вокруг кулака -->
+    <path d="M12 70 C4 52 12 40 10 26 C18 34 20 38 22 30 C22 20 30 12 30 2 C40 12 40 20 40 24
+             C44 16 50 12 52 2 C60 12 60 20 58 26 C64 20 70 16 72 6 C80 16 80 28 76 34
+             C82 30 86 26 90 20 C94 36 92 52 86 68Z" fill="url(#ff-${id})"/>
+    <!-- предплечье -->
+    <rect x="38" y="60" width="24" height="30" rx="6" fill="url(#fk-${id})" stroke="#3a0608" stroke-width="2.5"/>
+    <!-- костяшки -->
+    <g fill="url(#fk-${id})" stroke="#3a0608" stroke-width="2.5" stroke-linejoin="round">
+      <rect x="20" y="40" width="14" height="24" rx="6"/>
+      <rect x="33" y="32" width="14" height="32" rx="6"/>
+      <rect x="46" y="30" width="14" height="34" rx="6"/>
+      <rect x="59" y="34" width="14" height="30" rx="6"/>
+      <path d="M20 52 Q50 68 73 50 L73 62 Q50 78 20 62 Z"/>
+    </g>
+    <!-- большой палец -->
+    <path d="M18 50 Q10 48 12 38 Q14 30 24 32 L30 40 L24 52Z" fill="url(#fk-${id})" stroke="#3a0608" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- искры -->
+    <g fill="#ffe066"><circle cx="84" cy="80" r="3"/><circle cx="14" cy="86" r="2.5"/><circle cx="90" cy="46" r="2"/></g>
+  </svg>`;
+}
+
 /* Эмблемы фракций: знамя с короной (люди), рунный молот (гномы), лист (эльфы), ядовитый клык (ящеры). */
 function factionIcon(id, cls = 'magic-icon') {
   const E = {

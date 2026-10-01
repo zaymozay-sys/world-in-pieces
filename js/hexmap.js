@@ -35,6 +35,15 @@ const HexMap = (() => {
     tavern: { name: 'Таверна',         at: [-2, 2], desc: 'Трактирщик даёт задания новичкам и рассказывает слухи.' },
     arena:  { name: 'Арена',           at: [0, 2], desc: 'Бои с другими игроками. Появится позже.', soon: true },
     mill:   { name: 'Мельница',        at: [-2, 1], desc: 'Добрый мышь даёт задания и делится мышиной мудростью.' },
+    junker: { name: 'Хижина старьёвщика', label: 'Старьёвщик', at: [2, -1],
+      desc: 'Скупает ненужные вещи не глядя — дешевле Лавки, зато сразу и все разом, без лишней возни.' },
+    library: { name: 'Библиотека', at: [-1, -1],
+      desc: 'Бобёр-хранитель держит бестиарий и знает всё о вещах. Каждый день — новое поручение.' },
+    // Между Ареной и Лавкой — последний свободный слот кольца зданий (были ещё [1,-2] между Кузницей и
+    // Охотничьим домом, [-1,2] между Таверной и Ареной). Соседство с Лавкой логично: руны раньше
+    // продавались там же как временная затычка (см. js/runes.js), теперь у них свой дом.
+    artistWorkshop: { name: 'Мастерская художника', label: 'Мастерская', at: [1, 1],
+      desc: 'Журавль-художник продаёт и вставляет руны — теперь в каждой вещи по 2 гнезда.' },
   };
   const GATE_DIRS = [0, 2, 4];         // ворота и дороги: восток, северо-запад, юго-запад
 
@@ -53,6 +62,14 @@ const HexMap = (() => {
     orc:      { tiers: [3, 8],  terrain: { hills: 3, meadow: 2, forest: 1 }, nearRoad: 1.5 },
     orcShaman:{ tiers: [4, 9],  terrain: { hills: 2, forest: 2, swamp: 1 } },
     ghoul:    { tiers: [3, 8],  terrain: { swamp: 3, forest: 2 } },
+    crab:     { tiers: [2, 6],  terrain: { swamp: 4, meadow: 1 } },
+    bolotnik: { tiers: [3, 7],  terrain: { swamp: 4, forest: 1 } },
+    shadow:   { tiers: [6, 10], terrain: { forest: 2, hills: 2, swamp: 1 }, rare: 0.6 },
+    treant:   { tiers: [7, 10], terrain: { forest: 4, hills: 1 } },
+    mushroom: { tiers: [6, 10], terrain: { forest: 3, swamp: 2, hills: 1 } },
+    // Опасный: сопоставимо с Тенью/Древенем по цветовому диапазону, но фактическая опасность одной
+    // встречи скачет от «лёгкой пчелы» до «смертельного роя» — см. Bestiary.MONSTERS.wildbees.swarm.
+    wildbees: { tiers: [6, 10], terrain: { meadow: 3, forest: 2, hills: 1 } },
   };
   // Плотность монстров: у деревни гуще (новичкам есть с кем сражаться), дальше реже.
   const spawnDensity = (d) => (d <= 6 ? 0.36 : d <= 9 ? 0.2 : 0.13);
@@ -200,7 +217,7 @@ const HexMap = (() => {
 
   // Дорога: дешевле по лугам, дороже по лесу и болотам; озёра — мостом, горы — перевалом.
   function roadPath(map, from, to) {
-    const cost = (i) => ({ meadow: 1, village: 1, forest: 2.2, hills: 2.6, swamp: 3, water: 7, mountain: 14 }[map.cells[i].terrain]);
+    const cost = (a, i) => ({ meadow: 1, village: 1, forest: 2.2, hills: 2.6, swamp: 3, water: 7, mountain: 14 }[map.cells[i].terrain]);
     return astar(map, from, to, cost, () => false);
   }
 
@@ -216,7 +233,19 @@ const HexMap = (() => {
   const passable = (map, i) => map.cells[i].bridge || TERRAIN[map.cells[i].terrain].pass;
   const moveCost = (map, i) => (map.cells[i].road ? ROAD_COST : TERRAIN[map.cells[i].terrain].cost);
 
-  // A*: список сот пути БЕЗ стартовой. cost(i) — цена входа в соту (Infinity — нельзя).
+  // Частокол деревни: шаг между сотой деревни (d <= VILLAGE_R) и сотой снаружи (d > VILLAGE_R) —
+  // а такие соседние пары есть только на самой границе, d === VILLAGE_R и d === VILLAGE_R+1 —
+  // разрешён только через ворота: внутренняя сота должна быть воротами (map.gates), а внешняя —
+  // дорогой от них (та же проверка, что рисует проём в частоколе в mapview.js).
+  function fenceBlocks(map, from, to) {
+    const a = map.cells[from], b = map.cells[to];
+    const insideA = a.d <= VILLAGE_R, insideB = b.d <= VILLAGE_R;
+    if (insideA === insideB) return false;              // не граница деревни
+    const gateCell = insideA ? from : to, outCell = insideA ? to : from;
+    return !(map.gates.includes(gateCell) && map.cells[outCell].road);
+  }
+
+  // A*: список сот пути БЕЗ стартовой. cost(from, to) — цена шага from → to (Infinity — нельзя).
   function astar(map, start, goal, cost, blocked) {
     if (start === goal) return [];
     const g = new Map([[start, 0]]), came = new Map();
@@ -235,7 +264,7 @@ const HexMap = (() => {
       closed.add(cur);
       for (const n of neighbors(map, cur)) {
         if (closed.has(n) || (blocked(n) && n !== goal)) continue;
-        const c = cost(n);
+        const c = cost(cur, n);
         if (!isFinite(c)) continue;
         const ng = g.get(cur) + c;
         if (ng < (g.has(n) ? g.get(n) : Infinity)) {
@@ -249,9 +278,13 @@ const HexMap = (() => {
   }
 
   // Путь игрока. known(i) — открыта ли сота: неизвестные считаются проходимыми (цена 1),
-  // а когда откроются — путь перестраивается. blocked(i) — занята монстром.
+  // а когда откроются — путь перестраивается. blocked(i) — занята монстром. Частокол деревни
+  // пропускает только через ворота (fenceBlocks), даже по неизведанной земле.
   function findPath(map, start, goal, known, blocked) {
-    const cost = (i) => (known(i) ? (passable(map, i) ? moveCost(map, i) : Infinity) : 1);
+    const cost = (from, to) => {
+      if (fenceBlocks(map, from, to)) return Infinity;
+      return known(to) ? (passable(map, to) ? moveCost(map, to) : Infinity) : 1;
+    };
     return astar(map, start, goal, cost, blocked);
   }
 
@@ -278,7 +311,7 @@ const HexMap = (() => {
 
   return {
     RADIUS, VILLAGE_R, DIRS, TERRAIN, BUILDINGS, SPAWN, GATE_DIRS,
-    key, dist, toPixel, fromPixel, tierAt, rng, generate, neighbors, passable, moveCost, findPath, area, center, terrainName,
+    key, dist, toPixel, fromPixel, tierAt, rng, generate, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
   };
 })();
 

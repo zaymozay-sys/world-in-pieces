@@ -19,10 +19,10 @@ for (const q of Quests.LIST) {
 }
 
 // прогресс считается из профиля и не превышает цель
-const fresh = () => ({ wins: 0, xp: 0, loadout: { amulet: null }, bestiary: {}, resources: {}, seen: {}, items: [], quests: {} });
+const fresh = () => ({ wins: 0, xp: 0, loadout: { amulet: null }, bestiary: {}, resources: {}, seen: {}, items: [], quests: {}, accepted: {} });
 let d = fresh();
 let list = Quests.list(d);
-assert.ok(list.every((q) => !q.done && !q.claimed && q.value === 0));
+assert.ok(list.every((q) => !q.done && !q.claimed && !q.accepted && q.value === 0));
 
 // list(data, giver) фильтрует по собеседнику
 assert.strictEqual(Quests.list(d, 'tavern').length, 5);
@@ -73,15 +73,6 @@ d = fresh();
 d.seen = { rat: 1, wolf: 1, boar: 2, skeleton: 3, bandit: 1 };
 assert.strictEqual(Quests.list(d).find((q) => q.id === 'scout').done, true);
 
-// canClaim: только когда цель достигнута и награда ещё не забрана
-d = fresh();
-assert.strictEqual(Quests.canClaim(d, 'first-blood'), false);
-d.wins = 1;
-assert.strictEqual(Quests.canClaim(d, 'first-blood'), true);
-d.quests['first-blood'] = true;
-assert.strictEqual(Quests.canClaim(d, 'first-blood'), false, 'уже получено — второй раз нельзя');
-assert.strictEqual(Quests.canClaim(d, 'no-such-quest'), false);
-
 // claim(): выдаёт награду через Profile один раз и помечает задание полученным
 function mockProfile(data) {
   return {
@@ -92,24 +83,43 @@ function mockProfile(data) {
     save() { data.saved = true; },
   };
 }
+
+// задание нужно сначала ВЗЯТЬ — даже выполненное условие не даёт claim без accept()
 d = fresh();
 d.wins = 1;
 global.Profile = mockProfile(d);
+assert.strictEqual(Quests.canClaim(d, 'first-blood'), false, 'условие выполнено, но задание не взято');
+assert.strictEqual(Quests.claim('first-blood'), false, 'нельзя забрать невзятое задание');
+assert.strictEqual(Quests.canAccept(d, 'first-blood'), true);
+assert.strictEqual(Quests.list(d).find((q) => q.id === 'first-blood').accepted, false);
+assert.strictEqual(Quests.accept('first-blood'), true);
+assert.strictEqual(d.accepted['first-blood'], true);
+assert.strictEqual(Quests.list(d).find((q) => q.id === 'first-blood').accepted, true);
+assert.strictEqual(Quests.canAccept(d, 'first-blood'), false, 'повторно взять нельзя');
+assert.strictEqual(Quests.accept('first-blood'), false);
+
+// canClaim: только когда задание взято, цель достигнута и награда ещё не забрана
+assert.strictEqual(Quests.canClaim(d, 'first-blood'), true);
+assert.strictEqual(Quests.canClaim(d, 'no-such-quest'), false);
+
 assert.strictEqual(Quests.claim('first-blood'), true);
 assert.strictEqual(d.coins, 60, 'первая кровь даёт 60 монет');
 assert.strictEqual(d.quests['first-blood'], true);
 assert.strictEqual(Quests.claim('first-blood'), false, 'повторно забрать нельзя');
 assert.strictEqual(d.coins, 60, 'награда не выдалась второй раз');
+assert.strictEqual(Quests.canAccept(d, 'first-blood'), false, 'полученное задание уже не предлагается заново');
 
 d = fresh();
 d.bestiary = { rat: {}, wolf: {}, boar: {} };
 global.Profile = mockProfile(d);
+Quests.accept('bestiary-3');
 assert.strictEqual(Quests.claim('bestiary-3'), true);
 assert.ok(d.items && d.items.some((e) => e.id === 'amulet-copper'), 'награда — медный амулет');
 
 d = fresh();
 d.wins = 6;
 global.Profile = mockProfile(d);
+Quests.accept('veteran');
 assert.strictEqual(Quests.claim('veteran'), true);
 assert.strictEqual(d.backpack.elixir, 1);
 assert.strictEqual(d.backpack.potion, 2);
@@ -117,6 +127,8 @@ assert.strictEqual(d.backpack.potion, 2);
 d = fresh();
 d.wins = 10;
 global.Profile = mockProfile(d);
+assert.strictEqual(Quests.claim('ten-wins'), false, 'не взято — награды нет');
+Quests.accept('ten-wins');
 assert.strictEqual(Quests.claim('ten-wins'), true);
 assert.ok(d.items && d.items.some((e) => e.id === 'amulet-power'), 'награда мыши — амулет силы');
 assert.strictEqual(Quests.claim('ten-wins'), false, 'повторно забрать нельзя');

@@ -29,7 +29,7 @@ const MapView = (() => {
   const fac = () => Factions.get(Profile.data.faction) || Factions.get('dwarf');
   const myKind = () => Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender);
   // Характеристики героя: снаряжение + бонусы фракции.
-  const myStats = () => Gear.combine(Gear.stats(Profile.gear()), Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(Profile.level())));
+  const myStats = () => Gear.combine(Gear.combine(Gear.stats(Profile.gear()), Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(Profile.level()))), Runes.bonusForGear(Profile.gear()));
   // Герой для оценки опасности: ХП, урон, характеристики.
   const myView = () => { const L = Profile.level(), st = myStats(); return { max: Hero.baseHp(L) + st.health, dmg: Hero.dmgMult(L), stats: st }; };
 
@@ -467,6 +467,9 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     if (id === 'hall') return showHall();
     if (id === 'tavern') return Screens.openTavern();
     if (id === 'mill') return Screens.openMill();
+    if (id === 'junker') return Screens.openJunker();
+    if (id === 'library') return Screens.openLibrary();
+    if (id === 'artistWorkshop') return Screens.openArtistWorkshop();
   }
 
   function showHall() {
@@ -582,6 +585,20 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     startBattle();
   }
 
+  // Учебный бой с бобром-хранителем (см. Screens.library): не привязан к конкретному существу на карте,
+  // поэтому просто выставляет лёгкого противника и запускает бой тем же путём, что и startFight (без sp —
+  // returnFromBattle не начисляет respawn/добычу зоны, что и требуется для тренировки).
+  function startTraining(monsterId, tier) {
+    closeCard();
+    walking = null;
+    battleSpawn = null;
+    Profile.data.monster = { id: monsterId, tier };
+    save();
+    setMode('battle');
+    enterBattle();
+    startBattle();
+  }
+
   // Вызывается из боя: result — 'win', 'loss' или 'flee'.
   function returnFromBattle(result) {
     const sp = battleSpawn;
@@ -591,6 +608,9 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     if (result === 'win' && sp) {
       st.defeated[sp.id] = Date.now() + RESPAWN_MS;
       toast(`${Bestiary.MONSTERS[sp.species].name} повержен. Существо вернётся через ${RESPAWN_MS / 60000} мин.`);
+    } else if (result === 'win') {
+      // Учебный бой (см. startTraining) — sp всегда null, своя реплика вместо «Вы отступили».
+      toast('Учебный бой выигран!');
     } else if (result === 'loss') {
       st.pos = HexMap.center(map);
       revealAround(st.pos);
@@ -630,6 +650,7 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     on('m-best', () => Screens.openBestiary());
     on('m-mute', () => { Sound.setMuted(!Sound.muted); renderMute(); muteLabel(); });
     on('m-fs', () => toggleFullscreen());
+    on('m-credits', () => Screens.openCredits());
     on('m-zin', () => { const v = view(); zoomAt(v.width / 2, v.height / 2, 1.25); });
     on('m-zout', () => { const v = view(); zoomAt(v.width / 2, v.height / 2, 1 / 1.25); });
     on('m-me', () => centerOn(st.pos));
@@ -673,7 +694,7 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   }
 
   return {
-    init, reset, returnFromBattle, focusSpecies, renderHud, refreshPlayerArt, onFactionChanged,
+    init, reset, returnFromBattle, focusSpecies, renderHud, refreshPlayerArt, onFactionChanged, startTraining,
     get inBattle() { return !!battleSpawn; },
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack,

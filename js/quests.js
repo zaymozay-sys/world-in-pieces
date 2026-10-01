@@ -1,9 +1,10 @@
 /* Задания от собеседников в зданиях деревни: трактирщик-гоблин в Таверне и мышь на Мельнице.
-   Каждое задание — простая цель для новичка, проверяется по профилю игрока (Profile.data), принимать
-   отдельно не нужно — собеседник просто перечисляет их в разговоре; получить награду (деньги, вещь
-   или расходники) можно, когда цель достигнута. Награду можно забрать только один раз — это помнится
-   в Profile.data.quests[id]. Поле giver ('tavern' | 'mill') — просто для фильтрации в нужном экране,
-   id остаются едиными и уникальными для обоих собеседников. */
+   Каждое задание нужно сперва ВЗЯТЬ («Взять задание») — до этого прогресс не считается, даже если
+   условие уже выполнено на момент разговора. После взятия прогресс проверяется по профилю игрока
+   (Profile.data) как обычно; получить награду (деньги, вещь или расходники) можно, когда цель
+   достигнута. Взятые задания хранятся в Profile.data.accepted[id], полученные — в Profile.data.quests[id]
+   (и то и другое можно сделать только один раз). Поле giver ('tavern' | 'mill') — просто для фильтрации
+   в нужном экране, id остаются едиными и уникальными для обоих собеседников. */
 
 const Q_H = (typeof Hero !== 'undefined') ? Hero : require('./hero.js');
 
@@ -127,16 +128,36 @@ const Quests = (() => {
     return LIST.filter((q) => !giver || q.giver === giver).map((q) => {
       const value = Math.min(q.need(data) || 0, q.goal);
       const claimed = !!(data.quests && data.quests[q.id]);
-      return { ...q, value, done: value >= q.goal, claimed };
+      const accepted = claimed || !!(data.accepted && data.accepted[q.id]);
+      return { ...q, value, done: value >= q.goal, claimed, accepted };
     });
   }
 
   function find(id) { return LIST.find((q) => q.id === id) || null; }
 
+  function isAccepted(data, id) {
+    return !!(data.quests && data.quests[id]) || !!(data.accepted && data.accepted[id]);
+  }
+
+  // Взять задание — до этого его прогресс не показывается и наградить нельзя. true — взято.
+  function canAccept(data, id) {
+    return !!find(id) && !isAccepted(data, id);
+  }
+  function accept(id) {
+    if (typeof Profile === 'undefined') return false;
+    const data = Profile.data;
+    if (!canAccept(data, id)) return false;
+    data.accepted = data.accepted || {};
+    data.accepted[id] = true;
+    Profile.save();
+    return true;
+  }
+
   function canClaim(data, id) {
     const q = find(id);
     if (!q) return false;
     if (data.quests && data.quests[id]) return false;
+    if (!isAccepted(data, id)) return false;
     return (q.need(data) || 0) >= q.goal;
   }
 
@@ -155,7 +176,7 @@ const Quests = (() => {
     return true;
   }
 
-  return { LIST, list, find, canClaim, claim };
+  return { LIST, list, find, canAccept, accept, canClaim, claim };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

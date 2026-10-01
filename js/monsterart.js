@@ -142,6 +142,121 @@ const MonsterArt = (() => {
         ${[38, 43, 48, 53, 58].map((x) => `<path d="M${x} 67 l2 6 l2 -6" fill="#f2efe6" stroke="${O}" stroke-width=".7"/>`).join('')}
         <path d="M40 78 l2 -5 l2 5 M56 78 l2 -5 l2 5" fill="#f2efe6" stroke="${O}" stroke-width=".7"/>`,
     }),
+    shadow: (p) => ({
+      defs: grad(p + 'f', [[0, '#2c2440'], [1, '#0a0810']]) + `<radialGradient id="${p}e"><stop offset="0" stop-color="#e8c8ff"/><stop offset="1" stop-color="#7a3fe0"/></radialGradient>`,
+      body: `<path d="M18 96 Q4 60 14 36 Q10 20 22 10 Q16 24 26 30 Q24 12 40 4 Q34 18 44 22 Q46 6 58 6 Q52 18 60 24 Q68 10 80 14 Q70 22 72 32 Q84 22 90 34 Q78 36 76 46 Q94 54 86 96 Q70 82 62 90 Q54 78 46 90 Q38 80 30 90 Q24 82 18 96Z" fill="url(#${p}f)" stroke="${O}" stroke-width="1.8" opacity=".96"/>
+        <ellipse cx="41" cy="52" rx="5" ry="6.5" fill="url(#${p}e)"/><ellipse cx="61" cy="52" rx="5" ry="6.5" fill="url(#${p}e)"/>
+        <ellipse cx="41" cy="52" rx="9.5" ry="11" fill="#a25aff" opacity=".22"/><ellipse cx="61" cy="52" rx="9.5" ry="11" fill="#a25aff" opacity=".22"/>
+        <path d="M36 70 Q51 78 66 70" stroke="#a25aff" stroke-width="1.6" fill="none" opacity=".55"/>
+        <path d="M22 40 Q30 46 26 56 M80 40 Q72 46 76 56" stroke="#4a3a6e" stroke-width="1.4" fill="none" opacity=".7"/>`,
+    }),
+    crab: (p) => ({
+      defs: grad(p + 'f', [[0, '#7a4a3a'], [1, '#3c2418']]) + grad(p + 'c', [[0, '#c9603e'], [1, '#7a2f1a']]),
+      body: `<path d="M6 46 Q-2 26 16 20 Q10 34 20 42Z M94 46 Q102 26 84 20 Q90 34 80 42Z" fill="url(#${p}c)" stroke="${O}" stroke-width="1.8"/>
+        <path d="M16 20 Q4 8 -6 12 Q6 18 8 28Z M84 20 Q96 8 106 12 Q94 18 92 28Z" fill="url(#${p}c)" stroke="${O}" stroke-width="1.6"/>
+        <ellipse cx="50" cy="58" rx="38" ry="32" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M16 50 Q50 34 84 50 Q78 66 50 70 Q22 66 16 50Z" fill="#5a3626" stroke="${O}" stroke-width="1.4" opacity=".6"/>
+        <circle cx="30" cy="22" r="6" fill="#e08a4a" stroke="${O}" stroke-width="1.4"/><circle cx="30" cy="22" r="3" fill="#1a1214"/>
+        <circle cx="70" cy="22" r="6" fill="#e08a4a" stroke="${O}" stroke-width="1.4"/><circle cx="70" cy="22" r="3" fill="#1a1214"/>
+        <rect x="28" y="10" width="4" height="14" rx="2" fill="#c9603e" stroke="${O}" stroke-width="1"/><rect x="68" y="10" width="4" height="14" rx="2" fill="#c9603e" stroke="${O}" stroke-width="1"/>
+        <path d="M30 78 Q50 90 70 78" stroke="${O}" stroke-width="2.4" fill="none"/>
+        <path d="M14 62 L2 66 M14 70 L2 76 M86 62 L98 66 M86 70 L98 76" stroke="#5a3626" stroke-width="3" stroke-linecap="round"/>`,
+    }),
+    bolotnik: (p) => ({
+      defs: grad(p + 'f', [[0, '#5a6b3a'], [1, '#2a3320']]) + `<radialGradient id="${p}e"><stop offset="0" stop-color="#e8ffb0"/><stop offset="1" stop-color="#7ac22a"/></radialGradient>`,
+      body: `<path d="M20 96 Q10 60 20 40 Q14 18 36 8 Q48 2 62 10 Q80 20 78 42 Q90 62 80 96 Q64 84 50 92 Q36 84 20 96Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M16 46 Q6 40 4 28 M84 46 Q94 40 96 28 M24 24 Q14 16 18 4 M76 22 Q86 14 82 2" stroke="#3f5a2a" stroke-width="3" fill="none" stroke-linecap="round" opacity=".8"/>
+        <ellipse cx="50" cy="56" rx="26" ry="24" fill="#3f4f2c" stroke="${O}" stroke-width="1.6"/>
+        <ellipse cx="40" cy="52" rx="6" ry="7" fill="url(#${p}e)"/><ellipse cx="60" cy="52" rx="6" ry="7" fill="url(#${p}e)"/>
+        <ellipse cx="40" cy="52" rx="11" ry="12" fill="#9aef4a" opacity=".2"/><ellipse cx="60" cy="52" rx="11" ry="12" fill="#9aef4a" opacity=".2"/>
+        <path d="M38 74 Q50 68 62 74 Q56 82 50 82 Q44 82 38 74Z" fill="#1c2414" stroke="${O}" stroke-width="1.3"/>
+        <circle cx="24" cy="64" r="2.4" fill="#7ac22a"/><circle cx="76" cy="60" r="2" fill="#7ac22a"/><circle cx="34" cy="38" r="1.8" fill="#7ac22a"/>`,
+    }),
+    treant: (p) => ({
+      defs: grad(p + 'f', [[0, '#6b4a2e'], [1, '#33210f']]) + grad(p + 'l', [[0, '#6fae4a'], [1, '#376a26']]),
+      body: `<path d="M10 54 Q-4 40 6 18 Q16 30 24 32Z M90 54 Q104 40 94 18 Q84 30 76 32Z" fill="url(#${p}l)" stroke="${O}" stroke-width="1.8"/>
+        <path d="M22 20 Q28 2 50 -2 Q72 2 78 20 Q62 12 50 14 Q38 12 22 20Z" fill="url(#${p}l)" stroke="${O}" stroke-width="1.8"/>
+        <path d="M24 44 Q18 16 50 10 Q82 16 76 44 Q82 70 64 90 L36 90 Q18 70 24 44Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M34 40 Q50 32 66 40 M30 56 Q50 50 70 56" stroke="#241608" stroke-width="1.6" fill="none" opacity=".7"/>
+        <ellipse cx="40" cy="52" rx="5.5" ry="7" fill="#1c1006" stroke="${O}"/><ellipse cx="60" cy="52" rx="5.5" ry="7" fill="#1c1006" stroke="${O}"/>
+        <circle cx="41" cy="50" r="1.8" fill="#c9f06a"/><circle cx="61" cy="50" r="1.8" fill="#c9f06a"/>
+        <path d="M40 72 Q50 78 60 72" stroke="${O}" stroke-width="2.2" fill="none"/>
+        <circle cx="30" cy="30" r="3" fill="#4a3018" stroke="${O}" stroke-width="1"/><circle cx="70" cy="34" r="2.4" fill="#4a3018" stroke="${O}" stroke-width="1"/>`,
+    }),
+    mushroom: (p) => ({
+      defs: grad(p + 'f', [[0, '#c9564a'], [1, '#7a2a22']]) + grad(p + 's', [[0, '#e8d9b0'], [1, '#b8a06a']]),
+      body: `<path d="M8 54 Q4 20 50 12 Q96 20 92 54 Q66 66 50 66 Q34 66 8 54Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <circle cx="26" cy="30" r="6" fill="#f2e6d0" stroke="${O}" stroke-width="1.4"/><circle cx="50" cy="20" r="7" fill="#f2e6d0" stroke="${O}" stroke-width="1.4"/>
+        <circle cx="72" cy="32" r="5.5" fill="#f2e6d0" stroke="${O}" stroke-width="1.4"/><circle cx="62" cy="46" r="4.5" fill="#f2e6d0" stroke="${O}" stroke-width="1.2"/>
+        <circle cx="36" cy="48" r="4" fill="#f2e6d0" stroke="${O}" stroke-width="1.2"/>
+        <path d="M30 58 Q50 68 70 58 L66 92 Q50 100 34 92Z" fill="url(#${p}s)" stroke="${O}" stroke-width="2"/>
+        <ellipse cx="40" cy="54" rx="5.5" ry="6.5" fill="#1c1006" stroke="${O}"/><ellipse cx="60" cy="54" rx="5.5" ry="6.5" fill="#1c1006" stroke="${O}"/>
+        <circle cx="41" cy="52" r="1.8" fill="#ffe08a"/><circle cx="61" cy="52" r="1.8" fill="#ffe08a"/>
+        <path d="M42 66 Q50 71 58 66" stroke="${O}" stroke-width="2" fill="none"/>
+        <circle cx="14" cy="46" r="2.6" fill="#e8d9b0" opacity=".8"/><circle cx="84" cy="44" r="2.2" fill="#e8d9b0" opacity=".8"/><circle cx="22" cy="16" r="1.8" fill="#e8d9b0" opacity=".7"/>`,
+    }),
+    wildbees: (p) => ({
+      defs: grad(p + 'f', [[0, '#e0b04a'], [1, '#a06a1c']]) + grad(p + 'w', [[0, 'rgba(255,255,255,.9)'], [1, 'rgba(200,220,255,.15)']]),
+      body: `<path d="M50 10 Q76 18 76 40 Q76 56 68 68 L68 88 Q50 96 32 88 L32 68 Q24 56 24 40 Q24 18 50 10Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M28 30 Q50 22 72 30 M26 44 Q50 36 74 44 M27 58 Q50 50 73 58 M31 72 Q50 66 69 72" stroke="#7a4e12" stroke-width="2" fill="none" opacity=".7"/>
+        <ellipse cx="50" cy="86" rx="9" ry="5" fill="#1c130a" stroke="${O}" stroke-width="1.4"/>
+        <g transform="translate(16 12) rotate(-18)"><ellipse rx="9" ry="5.5" fill="url(#${p}w)" stroke="#8fa8c8" stroke-width="1"/></g>
+        <g transform="translate(78 20) rotate(14)"><ellipse rx="9" ry="5.5" fill="url(#${p}w)" stroke="#8fa8c8" stroke-width="1"/></g>
+        <g transform="translate(20 78) rotate(24)"><ellipse rx="7.5" ry="4.6" fill="url(#${p}w)" stroke="#8fa8c8" stroke-width="1"/></g>
+        <g transform="translate(15 15)">
+          <ellipse cx="0" cy="6" rx="6.5" ry="8.5" fill="#2a1c0e" stroke="${O}" stroke-width="1.4"/>
+          <path d="M-6.5 3 H6.5 M-6 8 H6" stroke="#ffcf3a" stroke-width="2.6"/>
+          <circle cx="0" cy="-5" r="4.4" fill="#1c130a" stroke="${O}" stroke-width="1.2"/>
+          <ellipse cx="8" cy="-4" rx="4.5" ry="3" fill="rgba(255,255,255,.85)" stroke="#8fa8c8" stroke-width=".8"/>
+          <ellipse cx="-8" cy="-4" rx="4.5" ry="3" fill="rgba(255,255,255,.85)" stroke="#8fa8c8" stroke-width=".8"/>
+          <path d="M0 14 L2 19" stroke="${O}" stroke-width="1.3"/>
+        </g>
+        <g transform="translate(84 26)">
+          <ellipse cx="0" cy="6" rx="6.5" ry="8.5" fill="#2a1c0e" stroke="${O}" stroke-width="1.4"/>
+          <path d="M-6.5 3 H6.5 M-6 8 H6" stroke="#ffcf3a" stroke-width="2.6"/>
+          <circle cx="0" cy="-5" r="4.4" fill="#1c130a" stroke="${O}" stroke-width="1.2"/>
+          <ellipse cx="8" cy="-4" rx="4.5" ry="3" fill="rgba(255,255,255,.85)" stroke="#8fa8c8" stroke-width=".8"/>
+          <ellipse cx="-8" cy="-4" rx="4.5" ry="3" fill="rgba(255,255,255,.85)" stroke="#8fa8c8" stroke-width=".8"/>
+          <path d="M0 14 L2 19" stroke="${O}" stroke-width="1.3"/>
+        </g>
+        <ellipse cx="50" cy="52" rx="15" ry="14" fill="#1c1006" stroke="${O}" stroke-width="1.6"/>
+        <ellipse cx="43" cy="49" rx="4.6" ry="5.2" fill="#ffcf3a"/><ellipse cx="57" cy="49" rx="4.6" ry="5.2" fill="#ffcf3a"/>
+        <circle cx="43" cy="49" r="1.7" fill="${O}"/><circle cx="57" cy="49" r="1.7" fill="${O}"/>`,
+    }),
+    // Рысь: рыжевато-песочная большая кошка — кисточки на ушах, пятна, бакенбарды по бокам морды.
+    lynx: (p) => ({
+      defs: grad(p + 'f', [[0, '#e0aa62'], [1, '#9a6430']]) + grad(p + 'm', [[0, '#fbf1dc'], [1, '#e2cfa8']]),
+      body: `<path d="M20 46 L22 10 L42 30Z M80 46 L78 10 L58 30Z" fill="#b97f40" stroke="${O}" stroke-width="2"/>
+        <path d="M26 38 L26 20 L37 31Z M74 38 L74 20 L63 31Z" fill="#f0d2b0"/>
+        <path d="M22 11 L20 -2 M22 11 L25 -1 M78 11 L80 -2 M78 11 L75 -1" stroke="${O}" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M20 14 L22 8 L25 13Z M80 14 L78 8 L75 13Z" fill="${O}"/>
+        <path d="M18 54 Q16 26 50 24 Q84 26 82 54 L94 72 L80 70 L86 84 L70 78 Q60 92 50 92 Q40 92 30 78 L14 84 L20 70 L6 72Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2"/>
+        <path d="M14 72 L22 66 M12 80 L24 72 M86 72 L78 66 M88 80 L76 72" stroke="#5a3a1a" stroke-width="1.6"/>
+        <g fill="#5a3416" opacity=".85"><ellipse cx="34" cy="36" rx="2.4" ry="1.8"/><ellipse cx="42" cy="31" rx="2" ry="1.6"/><ellipse cx="58" cy="31" rx="2" ry="1.6"/><ellipse cx="66" cy="36" rx="2.4" ry="1.8"/>
+          <ellipse cx="50" cy="34" rx="1.8" ry="2.6"/><ellipse cx="26" cy="56" rx="2.4" ry="1.8"/><ellipse cx="74" cy="56" rx="2.4" ry="1.8"/><ellipse cx="24" cy="64" rx="1.8" ry="1.4"/><ellipse cx="76" cy="64" rx="1.8" ry="1.4"/>
+          <ellipse cx="30" cy="46" rx="1.6" ry="1.3"/><ellipse cx="70" cy="46" rx="1.6" ry="1.3"/></g>
+        <path d="M44 38 L46 46 M56 38 L54 46 M50 36 V44" stroke="#5a3416" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M32 50 L44 52 L42 57 L31 55Z M68 50 L56 52 L58 57 L69 55Z" fill="#c8e05a" stroke="${O}" stroke-width="1.6"/>
+        <ellipse cx="38.5" cy="53.5" rx="1" ry="2.4" fill="${O}"/><ellipse cx="61.5" cy="53.5" rx="1" ry="2.4" fill="${O}"/>
+        <path d="M36 66 Q50 56 64 66 Q62 82 50 84 Q38 82 36 66Z" fill="url(#${p}m)" stroke="${O}" stroke-width="1.6"/>
+        <path d="M45 62 L55 62 L50 68Z" fill="#d97a7a" stroke="${O}" stroke-width="1.2"/>
+        <path d="M50 68 V72 M50 72 Q46 76 42 74 M50 72 Q54 76 58 74" stroke="${O}" stroke-width="1.4" fill="none"/>
+        <path d="M38 70 L8 64 M38 73 L8 74 M62 70 L92 64 M62 73 L92 74" stroke="#fff6e6" stroke-width="1.1"/>`,
+    }),
+    // Шипастый ёж: круглое тело под короной тёмных иголок, маленькая острая мордочка.
+    hedgehog: (p) => ({
+      defs: grad(p + 'f', [[0, '#e2c39a'], [1, '#a9845a']]) + grad(p + 's', [[0, '#5a4636'], [1, '#231a13']]),
+      body: `<path d="M6 74 L2 58 L10 56 L4 40 L14 40 L10 24 L22 28 L22 12 L34 20 L38 4 L48 16 L56 2 L62 18 L74 8 L76 24 L90 20 L86 36 L98 38 L90 52 L98 58 L94 74 Q80 90 50 90 Q20 90 6 74Z" fill="url(#${p}s)" stroke="${O}" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M14 40 L24 46 M22 28 L30 38 M34 20 L38 32 M48 16 L48 28 M62 18 L58 30 M76 24 L68 36 M86 36 L76 44 M10 56 L20 58 M90 52 L80 56" stroke="#c9b08a" stroke-width="1.6" stroke-linecap="round" opacity=".75"/>
+        <path d="M22 18 L22 12 M38 10 L38 4 M56 8 L56 2 M74 14 L74 8 M90 26 L90 20" stroke="#efe2c8" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M20 72 Q18 44 50 40 Q82 44 80 72 Q74 92 50 94 Q26 92 20 72Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2"/>
+        <path d="M24 50 Q50 34 76 50" stroke="#3a2c20" stroke-width="2.5" fill="none" opacity=".55"/>
+        <path d="M40 64 Q50 60 60 64 L54 84 Q50 88 46 84Z" fill="#ead6b4" stroke="${O}" stroke-width="1.6"/>
+        <ellipse cx="50" cy="85" rx="4.5" ry="3.6" fill="${O}"/><circle cx="48.6" cy="83.8" r="1.1" fill="#fff" opacity=".8"/>
+        <circle cx="38" cy="60" r="3.6" fill="${O}"/><circle cx="62" cy="60" r="3.6" fill="${O}"/><circle cx="37" cy="59" r="1.1" fill="#fff"/><circle cx="61" cy="59" r="1.1" fill="#fff"/>
+        <ellipse cx="30" cy="72" rx="4" ry="2.4" fill="#e09a8a" opacity=".55"/><ellipse cx="70" cy="72" rx="4" ry="2.4" fill="#e09a8a" opacity=".55"/>
+        <circle cx="24" cy="54" r="3.4" fill="#c99e74" stroke="${O}" stroke-width="1.2"/><circle cx="76" cy="54" r="3.4" fill="#c99e74" stroke="${O}" stroke-width="1.2"/>`,
+    }),
     wraith: (p) => ({
       defs: grad(p + 'f', [[0, '#6a7a96'], [1, '#232a3c']]) + `<linearGradient id="${p}fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a5a78"/><stop offset="1" stop-color="#4a5a78" stop-opacity="0"/></linearGradient>`,
       body: `<path d="M14 96 Q8 50 24 30 Q34 8 50 8 Q66 8 76 30 Q92 50 86 96 L74 84 L62 98 L50 84 L38 98 L26 84Z" fill="url(#${p}fade)" stroke="${O}" stroke-width="2" opacity=".95"/>
@@ -173,6 +288,8 @@ const MonsterArt = (() => {
     crystal: () => `<path d="M32 6 L48 22 L44 52 L32 58 L20 52 L16 22Z" fill="#7ad0ff" stroke="${O}" stroke-width="2"/><path d="M32 6 L48 22 L32 30Z" fill="#d8f4ff"/><path d="M32 30 L44 52 L32 58Z" fill="#3a90d0"/>`,
     essence: () => `<circle cx="32" cy="34" r="20" fill="#b48cff" opacity=".28"/><path d="M32 8 Q52 30 46 44 Q40 58 32 58 Q24 58 18 44 Q12 30 32 8Z" fill="#c9a8ff" stroke="${O}" stroke-width="2"/><ellipse cx="27" cy="34" rx="4" ry="8" fill="#fff" opacity=".6"/>`,
     scale: () => `<path d="M12 22 Q32 6 52 22 Q52 46 32 58 Q12 46 12 22Z" fill="#2f9d5f" stroke="${O}" stroke-width="2"/><path d="M32 12 V54 M18 26 Q32 34 46 26" stroke="#1a6b3e" stroke-width="2" fill="none"/><path d="M20 20 Q32 12 44 20" stroke="#8ae3ac" stroke-width="2" fill="none"/>`,
+    splinter: () => `<path d="M30 4 L38 22 L26 34 L40 30 L20 60 L28 36 L14 42Z" fill="#a9762f" stroke="${O}" stroke-width="2"/><path d="M30 8 L34 22" stroke="#e0bb7a" stroke-width="1.4"/>`,
+    honey: () => `<path d="M22 10 H42 L42 18 Q52 24 50 40 Q48 56 32 58 Q16 56 14 40 Q12 24 22 18Z" fill="#e8a824" stroke="${O}" stroke-width="2"/><rect x="22" y="4" width="20" height="8" rx="2" fill="#8b6a3e" stroke="${O}" stroke-width="1.4"/><path d="M18 30 Q32 36 46 30" stroke="#a86e0e" stroke-width="1.6" fill="none"/><ellipse cx="26" cy="26" rx="3" ry="5" fill="#ffe27a" opacity=".8"/>`,
   };
   function resIcon(kind, tier) {
     const col = Tiers.get(tier).edge;
@@ -197,3 +314,6 @@ const MonsterArt = (() => {
 
   return { bust, resIcon, coinIcon, moneyHtml, has: (id) => !!ART[id] };
 })();
+
+// Для тестов в Node.js (в браузере не используется).
+if (typeof module !== 'undefined') module.exports = MonsterArt;

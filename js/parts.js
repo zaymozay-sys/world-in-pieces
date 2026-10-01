@@ -83,7 +83,8 @@ const Parts = (() => {
     'grove-bow': 'bow', 'grove-head': 'hood', 'grove-chest': 'cloak', 'grove-legs': 'boots', 'grove-amulet': 'talisman',
     'scale-blade': 'falchion', 'scale-shield': 'round', 'scale-chest': 'hauberk', 'scale-arms': 'studded', 'scale-amulet': 'claw',
     'amulet-copper': 'copper', 'amulet-power': 'claw', 'amulet-spark': 'amber',
-    'berserk-amulet': 'mjolnir', 'mage-amulet': 'crystal', 'wand-amulet': 'talisman',
+    'berserk-amulet': 'mjolnir', 'mage-amulet': 'crystal', 'wand-amulet': 'talisman', 'amulet-fox': 'fox',
+    'crossbow-heavy': 'crossbow', morningstar: 'mace',
   };
   const look = (it) => LOOK[it.id];
 
@@ -281,6 +282,11 @@ const Parts = (() => {
     } else if (lk === 'talisman') {
       g = `<circle cx="${cx}" cy="${py + 2}" r="10" fill="${metal(c, 'bone')}" stroke="${OUT}" stroke-width="1.3"/>
         <path d="M${cx} ${py - 6} v16 M${cx - 6} ${py - 2} l12 8 M${cx + 6} ${py - 2} l-12 8" stroke="#5a3d22" stroke-width="1.7" stroke-linecap="round"/>`;
+    } else if (lk === 'fox') {   // Амулет лиса: рыжая мордочка с изумрудными глазами на бронзовой оправе
+      g = `<path d="M${cx - 10} ${py - 10} L${cx - 5} ${py - 3} H${cx + 5} L${cx + 10} ${py - 10} L${cx + 9} ${py + 2} L${cx} ${py + 14} L${cx - 9} ${py + 2}Z" fill="#e0782a" stroke="${OUT}" stroke-width="1.3"/>
+        <path d="M${cx - 6} ${py + 4} L${cx} ${py + 14} L${cx + 6} ${py + 4} Q${cx} ${py + 7} ${cx - 6} ${py + 4}Z" fill="#f6e2c4"/>
+        <circle cx="${cx - 4}" cy="${py + 1}" r="1.6" fill="#3fce7a"/><circle cx="${cx + 4}" cy="${py + 1}" r="1.6" fill="#3fce7a"/>
+        <circle cx="${cx}" cy="${py + 12}" r="1.4" fill="${OUT}"/><path d="M${cx - 9} ${py - 12} h18" stroke="${metal(c, 'bronze')}" stroke-width="2.4"/>`;
     } else if (lk === 'copper') {
       g = `<path d="M${cx - 3} ${py - 9} h6 v6 h6 v6 h-6 v10 h-6 v-10 h-6 v-6 h6z" fill="${metal(c, 'copper')}" stroke="${OUT}" stroke-width="1.3"/>`;
     } else if (lk === 'claw') {
@@ -352,6 +358,17 @@ const Parts = (() => {
         <path d="M-2 -96 L-2 70" stroke="#e8e0c8" stroke-width="1.2"/>
         <rect x="-10" y="-9" width="8" height="16" rx="2" fill="${L}" stroke="${OUT}" stroke-width="1.2"/>
         <path d="M-24 -50 q6 4 4 10 M-24 46 q6 -4 4 -10" stroke="${dye(c, P.cloth)}" stroke-width="3" fill="none"/>`,
+      crossbow: () => `
+        <rect x="-3.4" y="-70" width="6.8" height="90" rx="2.5" fill="${W}" stroke="${OUT}" stroke-width="1.3"/>
+        <rect x="-9" y="-86" width="18" height="11" rx="2" fill="${I}" stroke="${OUT}" stroke-width="1.4"/>
+        <path d="M-36 -80 Q-18 -90 -1 -82" fill="none" stroke="${M}" stroke-width="5" stroke-linecap="round"/>
+        <path d="M36 -80 Q18 -90 1 -82" fill="none" stroke="${M}" stroke-width="5" stroke-linecap="round"/>
+        <path d="M-36 -80 Q-18 -90 -1 -82" fill="none" stroke="${T}" stroke-width="1.8" stroke-linecap="round" opacity=".6"/>
+        <path d="M36 -80 Q18 -90 1 -82" fill="none" stroke="${T}" stroke-width="1.8" stroke-linecap="round" opacity=".6"/>
+        <path d="M-33 -78 L33 -78" stroke="#e8e0c8" stroke-width="1.1"/>
+        <rect x="-4.8" y="-18" width="9.6" height="24" rx="2.5" fill="${L}" stroke="${OUT}" stroke-width="1.3"/>${wraps(-4.8, -16, 9.6, 8, 5)}
+        <path d="M-2 6 q-7 6 -2 16 q7 -2 7 -11z" fill="${T}" stroke="${OUT}" stroke-width="1.2"/>
+        <circle cx="0" cy="20" r="4" fill="${T}" stroke="${OUT}" stroke-width="1.2"/>`,
       maul: () => `
         <rect x="-3.8" y="-104" width="7.6" height="134" rx="3" fill="${W}" stroke="${OUT}" stroke-width="1.3"/>
         <rect x="-4.4" y="-8" width="8.8" height="34" rx="2" fill="${L}" stroke="${OUT}" stroke-width="1.2"/>${wraps(-4.4, -6, 8.8, 18, 7)}
@@ -392,17 +409,30 @@ const Parts = (() => {
       <rect x="25" y="4" width="14" height="10" rx="2" fill="${dye(c, '#8b6a3e')}" stroke="${OUT}" stroke-width="1.4"/>
       <path d="M26 14 H38 V22 ${shape} Z" fill="rgba(210,235,255,.35)" stroke="${OUT}" stroke-width="1.6"/>
       <path d="M21 34 ${shape.replace(/^L/, 'L')}" fill="none"/>`;
-    if (kind === 'potion' || kind === 'elixir') {
-      const col = kind === 'potion' ? ['#ff6f7a', '#a01e2c'] : ['#ffc456', '#b06a10'];
-      const g = def(c, 'liq-' + kind, (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset="1" stop-color="${col[1]}"/></linearGradient>`);
-      const body = kind === 'potion'
-        ? 'M26 18 H38 L38 26 Q54 32 52 46 Q50 60 32 60 Q14 60 12 46 Q10 32 26 26Z'
-        : 'M27 16 H37 V26 Q50 30 52 44 Q52 60 32 60 Q12 60 12 44 Q14 30 27 26Z';
+    if (kind === 'potion') {
+      const col = ['#ff6f7a', '#a01e2c'];
+      const g = def(c, 'liq-potion', (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset="1" stop-color="${col[1]}"/></linearGradient>`);
+      const body = 'M26 18 H38 L38 26 Q54 32 52 46 Q50 60 32 60 Q14 60 12 46 Q10 32 26 26Z';
       return `<path d="${body}" fill="rgba(215,235,255,.3)" stroke="${OUT}" stroke-width="1.8"/>
         <path d="M14 42 Q13 56 32 58 Q51 56 50 42 Q32 36 14 42Z" fill="${g}"/>
         <rect x="26" y="4" width="12" height="11" rx="2" fill="${dye(c, '#8b6a3e')}" stroke="${OUT}" stroke-width="1.4"/><path d="M26 10 H38" stroke="#4a331a" stroke-width="1.2"/>
         <path d="M18 40 Q17 34 24 30" stroke="#fff" stroke-width="2.2" fill="none" opacity=".75" stroke-linecap="round"/>
-        ${kind === 'potion' ? '<path d="M32 38 v14 M25 45 h14" stroke="#fff5f0" stroke-width="3.5"/>' : '<path d="M35 36 L27 48 H32 L29 57 L38 44 H33Z" fill="#fff6d0"/>'}`;
+        <path d="M32 38 v14 M25 45 h14" stroke="#fff5f0" stroke-width="3.5"/>`;
+    }
+    if (kind === 'elixir') {
+      // Эликсир силы — флакон в форме спирали: поперечное сечение стекла плавно «съезжает»
+      // то вправо, то влево, пока спускается вниз (как витая карамельная трость), а шов-желобок
+      // посередине повторяет тот же изгиб, подчёркивая скрутку.
+      const col = ['#ffc456', '#b06a10'];
+      const g = def(c, 'liq-elixir', (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset="1" stop-color="${col[1]}"/></linearGradient>`);
+      const body = 'M27 18 H37 L37 24 C37 29 55 29 55 34 C55 40 41 40 41 46 C41 53 32 53 32 60 C32 53 9 53 9 46 C9 40 21 40 21 34 C21 29 27 29 27 24 Z';
+      const seam = 'M32 24 C32 29 38 29 38 34 C38 40 25 40 25 46 C25 53 32 53 32 60';
+      return `<path d="${body}" fill="rgba(215,235,255,.3)" stroke="${OUT}" stroke-width="1.8"/>
+        <path d="${body}" fill="${g}" opacity=".82"/>
+        <path d="${seam}" stroke="${dye(c, '#8b6a3e')}" stroke-width="2" fill="none" opacity=".55" stroke-linecap="round"/>
+        <rect x="27" y="4" width="10" height="11" rx="2" fill="${dye(c, '#8b6a3e')}" stroke="${OUT}" stroke-width="1.4"/><path d="M27 10 H37" stroke="#4a331a" stroke-width="1.2"/>
+        <path d="M43 26 Q53 29 50 35" stroke="#fff" stroke-width="2.2" fill="none" opacity=".7" stroke-linecap="round"/>
+        <path d="M36 34 L26 46 H31 L27 58 L39 44 H34Z" fill="#fff6d0"/>`;
     }
     if (kind === 'dust') {
       return `<path d="M22 14 H42 L38 24 Q54 34 52 50 Q32 64 12 50 Q10 34 26 24Z" fill="${dye(c, '#b39a6a')}" stroke="${OUT}" stroke-width="1.8"/>
@@ -410,11 +440,34 @@ const Parts = (() => {
         <polygon points="22,40 27,45 22,50 17,45" fill="#5aa2f2"/><polygon points="38,36 43,41 38,46 33,41" fill="#e04a55"/><polygon points="32,48 37,53 32,58 27,53" fill="#3ec46d"/>
         <circle cx="46" cy="30" r="1.6" fill="#fff"/><circle cx="15" cy="30" r="1.3" fill="#fff"/>`;
     }
-    // scroll — свиток с печатью
-    return `<rect x="14" y="13" width="36" height="38" rx="2" fill="${def(c, 'parch', (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d9c68a"/><stop offset=".5" stop-color="#f3e6b8"/><stop offset="1" stop-color="#cdb97a"/></linearGradient>`)}" stroke="${OUT}" stroke-width="1.5"/>
+    const scrollBody = `<rect x="14" y="13" width="36" height="38" rx="2" fill="${def(c, 'parch', (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d9c68a"/><stop offset=".5" stop-color="#f3e6b8"/><stop offset="1" stop-color="#cdb97a"/></linearGradient>`)}" stroke="${OUT}" stroke-width="1.5"/>
       <ellipse cx="14" cy="32" rx="4.5" ry="19.5" fill="#cbb676" stroke="${OUT}" stroke-width="1.4"/><ellipse cx="50" cy="32" rx="4.5" ry="19.5" fill="#cbb676" stroke="${OUT}" stroke-width="1.4"/>
       <path d="M21 21 h22 M21 27 h22 M21 33 h14" stroke="#7a6636" stroke-width="1.4"/>
-      <path d="M26 44 h16" stroke="#7a6636" stroke-width="1.4"/>
+      <path d="M26 44 h16" stroke="#7a6636" stroke-width="1.4"/>`;
+    if (kind === 'luck') {
+      // Свиток удачи — та же грамота, но печать зелёного воска с золотым четырёхлистником вместо молнии.
+      const petal = (dx, dy) => `<circle cx="${40 + dx}" cy="${42 + dy}" r="2.6" fill="#ffe27a"/>`;
+      return `${scrollBody}
+        <circle cx="40" cy="42" r="7" fill="#2f9e4c" stroke="${OUT}" stroke-width="1.3"/>
+        ${petal(-2.4, -2.4)}${petal(2.4, -2.4)}${petal(-2.4, 2.4)}${petal(2.4, 2.4)}
+        <path d="M40 44 v4" stroke="#ffe27a" stroke-width="1.3"/>`;
+    }
+    if (kind === 'honeyjar') {
+      // Банка мёда — приземистая круглая банка с плотным мёдом и перевязанной тканью крышкой.
+      const col = ['#ffcf3a', '#c47a10'];
+      const g = def(c, 'liq-honey', (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset="1" stop-color="${col[1]}"/></linearGradient>`);
+      const jar = 'M18 24 Q16 22 18 20 H46 Q48 22 46 24 Q52 30 52 42 Q52 58 32 58 Q12 58 12 42 Q12 30 18 24Z';
+      return `<path d="${jar}" fill="rgba(255,240,210,.25)" stroke="${OUT}" stroke-width="1.8"/>
+        <path d="M15 30 Q12 42 15 52 Q20 57 32 57 Q44 57 49 52 Q52 42 49 30 Q41 26 32 26 Q23 26 15 30Z" fill="${g}"/>
+        <path d="M20 34 Q32 40 44 34" stroke="#8b5a08" stroke-width="1.6" fill="none" opacity=".6"/>
+        <path d="M20 44 Q32 50 44 44" stroke="#8b5a08" stroke-width="1.6" fill="none" opacity=".5"/>
+        <ellipse cx="26" cy="33" rx="3" ry="4.5" fill="#fff6d0" opacity=".7"/>
+        <rect x="16" y="14" width="32" height="9" rx="3" fill="${dye(c, '#8b6a3e')}" stroke="${OUT}" stroke-width="1.4"/>
+        <path d="M14 22 Q32 27 50 22" stroke="${dye(c, '#5a4526')}" stroke-width="2.4" fill="none"/>
+        <ellipse cx="20" cy="17" rx="2.4" ry="1.6" fill="#fff" opacity=".5"/>`;
+    }
+    // scroll — свиток спешки, печать красного воска с молнией
+    return `${scrollBody}
       <circle cx="40" cy="42" r="7" fill="#b3261e" stroke="${OUT}" stroke-width="1.3"/><path d="M40 37 L37 43 H41 L39 47 L44 41 H40Z" fill="#ffd9a0"/>
       <path d="M40 48 q-2 8 -6 10 M40 48 q4 6 8 8" stroke="#b3261e" stroke-width="2.2" fill="none"/>`;
   }

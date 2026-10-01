@@ -58,9 +58,9 @@ assert.ok(c3.res.every((r) => r.tier === 3) && c3.coins > Gear.craftCost('leathe
 // создание: редкие вещи дороже обычных
 assert.ok(Gear.craftCost('berserk-amulet').res[0].n > Gear.craftCost('leather-head').res[0].n);
 
-// бестиарий: 13 видов, характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
-assert.strictEqual(Bestiary.ORDER.length, 13);
-for (const id of ['orc', 'orcShaman', 'ghoul']) assert.ok(Bestiary.ORDER.includes(id), id);
+// бестиарий: 21 вид, характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
+assert.strictEqual(Bestiary.ORDER.length, 21);
+for (const id of ['orc', 'orcShaman', 'ghoul', 'crab', 'bolotnik', 'shadow', 'treant', 'mushroom', 'wildbees', 'lynx', 'hedgehog']) assert.ok(Bestiary.ORDER.includes(id), id);
 for (const id of Bestiary.ORDER) {
   const m = Bestiary.MONSTERS[id];
   assert.ok(m.family, id);
@@ -76,7 +76,7 @@ for (const id of Bestiary.ORDER) {
   for (const [kind] of Bestiary.MONSTERS[id].drops) assert.ok(Bestiary.RESOURCES[kind], kind);
 }
 assert.deepStrictEqual(Bestiary.unlockedSpecies(0), ['rat', 'wolf']);
-assert.strictEqual(Bestiary.unlockedSpecies(999).length, 13);
+assert.strictEqual(Bestiary.unlockedSpecies(999).length, 21);
 // снаряжение только у дракона
 assert.ok(Bestiary.scaled('dragon', 3).gearBudget > 0 && Bestiary.scaled('wolf', 3).gearBudget === 0);
 
@@ -104,5 +104,30 @@ for (let i = 0; i < 3000; i++) {
   }
 }
 assert.ok(elfItems > 0, 'эльфу должны иногда падать эльфийские вещи');
+
+// Дикие пчёлы: рой — размер (1/3/5) выпадает случайно и умножает ХП/урон, но не другие характеристики
+assert.deepStrictEqual(Bestiary.rollSwarmSize('wolf', () => 0.5), 1, 'у вида без swarm всегда 1');
+const sizes = new Set();
+for (let i = 0; i < 500; i++) sizes.add(Bestiary.rollSwarmSize('wildbees', () => i / 500));
+assert.deepStrictEqual([...sizes].sort((a, b) => a - b), [1, 3, 5]);
+const bee1 = Bestiary.scaled('wildbees', 1, 1), bee3 = Bestiary.scaled('wildbees', 1, 3), bee5 = Bestiary.scaled('wildbees', 1, 5);
+assert.ok(bee3.hp > bee1.hp && bee5.hp > bee3.hp, 'рой крупнее — существо живучее');
+assert.ok(bee3.dmg > bee1.dmg && bee5.dmg > bee3.dmg, 'рой крупнее — бьёт больнее');
+assert.strictEqual(bee1.ai, bee3.ai, 'размер роя не меняет уровень ИИ');
+assert.ok(Bestiary.RESOURCES.honey, 'ресурс «Мёд» добавлен');
+assert.ok(Bestiary.MONSTERS.wildbees.drops.some(([kind]) => kind === 'honey'));
+
+// Лавка: покупка партией (стерперы ×1/×5/×10/×25) — цена = единичная × количество
+assert.strictEqual(Gear.bulkPrice(37, 5), 185);
+assert.strictEqual(Gear.bulkPrice(37, 1), 37);
+assert.strictEqual(Gear.bulkPrice(37.6, 3), Math.round(37.6) * 3);
+assert.strictEqual(Gear.bulkPrice(10, 0), 10);            // меньше 1 не бывает — трактуем как 1
+
+// Пикер «Отточить мастерство» у бобра (screens.js) должен читать список заклинаний из
+// Balance.magic.costs каждый раз заново, а не хранить отдельный захардкоженный список —
+// иначе список рассинхронизируется, когда кто-то добавляет новое заклинание в Balance.
+const screensSrc = require('fs').readFileSync(require('path').join(__dirname, '../js/screens.js'), 'utf8');
+assert.ok(/Object\.keys\(Balance\.magic\.costs\)/.test(screensSrc),
+  'пикер заклинаний бобра читает ключи прямо из Balance.magic.costs');
 
 console.log('economy: все тесты пройдены');

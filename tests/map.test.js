@@ -74,6 +74,36 @@ for (const seed of [1, 42, 777, 123456, 99991, 2024]) {
   if (peak) assert.strictEqual(HexMap.findPath(m, home, peak.idx, all, free), null);
   // по неизведанным сотам путь прокладывается «наугад»
   assert.ok(HexMap.findPath(m, home, far, () => false, free));
+
+  // частокол: выйти из деревни можно только через ворота, не напрямую через границу.
+  // (a) путь из центра деревни до соты сразу за одними из ворот идёт через эту саму соту-ворота.
+  {
+    const gate = m.gates[0];
+    const outside = HexMap.neighbors(m, gate).find((n) => m.cells[n].d === HexMap.VILLAGE_R + 1 && m.cells[n].road);
+    assert.ok(outside !== undefined, 'у ворот должен быть проходной сосед снаружи');
+    const p = HexMap.findPath(m, home, outside, all, free);
+    assert.ok(p, 'из деревни наружу через ворота есть путь');
+    assert.ok(p.includes(gate), 'путь наружу проходит через саму соту ворот');
+    assert.ok(!HexMap.fenceBlocks(m, gate, outside), 'шаг ворота → дорога наружу разрешён');
+  }
+  // (b) прямой шаг через частокол вне ворот запрещён, а найденный путь его не пересекает.
+  {
+    const fenceGap = [];
+    for (const c of m.cells) {
+      if (c.d !== HexMap.VILLAGE_R || m.gates.includes(c.idx)) continue;
+      for (const n of HexMap.neighbors(m, c.idx)) if (m.cells[n].d === HexMap.VILLAGE_R + 1) fenceGap.push([c.idx, n]);
+    }
+    assert.ok(fenceGap.length, 'на границе деревни должны быть не-воротные соседние пары');
+    for (const [inside, outside] of fenceGap) assert.ok(HexMap.fenceBlocks(m, inside, outside), 'граница вне ворот непроходима');
+    // пары внутри деревни или снаружи неё частоколом не разделены
+    assert.ok(!HexMap.fenceBlocks(m, home, HexMap.neighbors(m, home)[0]));
+    // пикфайндер вместо прямого пересечения частокола обходит его через ближайшие ворота (не сообщает "нет пути")
+    const [gapIn, gapOut] = fenceGap[0];
+    const pFromInside = HexMap.findPath(m, home, gapOut, all, free);
+    assert.ok(pFromInside, 'путь наружу существует (через ворота), даже если цель за не-воротным участком забора');
+    for (let i = 1; i < pFromInside.length; i++) assert.ok(!HexMap.fenceBlocks(m, pFromInside[i - 1], pFromInside[i]), 'путь не пересекает частокол напрямую');
+    void gapIn;
+  }
 }
 
 console.log('map: все тесты пройдены');

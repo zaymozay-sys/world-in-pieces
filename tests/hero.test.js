@@ -51,4 +51,19 @@ assert.strictEqual(Hero.xpReward(M.bandit, 1, 1), Balance.hero.xp.perWin);
 assert.strictEqual(Hero.consumablePrice(50, 1), 50);
 assert.ok(Hero.consumablePrice(50, 46) === 50 * Tiers.PRICE_MULT[9]);
 
+/* ---------- разблокировка заклинаний по уровню (Balance.spellUnlock) ---------- */
+
+// стартовая пятёрка и общий для всех фракций Удар не упомянуты в spellUnlock — доступны с 1-го уровня
+for (const k of ['lightning', 'fire', 'transmute', 'heal', 'chaos', 'strike']) {
+  assert.strictEqual(Hero.isSpellUnlocked(k, 1), true, k + ' доступен с 1-го уровня');
+}
+// заклинания более высокого уровня закрыты до своего порога и открываются с него
+for (const [kind, lvl] of Object.entries(Balance.spellUnlock)) {
+  assert.strictEqual(Hero.isSpellUnlocked(kind, lvl - 1), false, `${kind} закрыт до уровня ${lvl}`);
+  assert.strictEqual(Hero.isSpellUnlocked(kind, lvl), true, `${kind} открыт на уровне ${lvl}`);
+  assert.strictEqual(Hero.isSpellUnlocked(kind, Hero.MAX_LEVEL), true, `${kind} остаётся открытым на макс. уровне`);
+}
+// пороги валидны: позже 1-го уровня и не позже максимального
+for (const lvl of Object.values(Balance.spellUnlock)) assert.ok(lvl > 1 && lvl <= Hero.MAX_LEVEL);
+
 console.log('hero: все тесты пройдены');
