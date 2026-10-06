@@ -121,3 +121,6 @@ for (const list of [Medals.STREAK_MILESTONES, Medals.STRIKE_MILESTONES]) {
 assert.strictEqual(Medals.tierUnlockLevel('unknown:1'), 1);
 
 console.log('medals: все тесты пройдены');
+{ const M = require('../js/medals.js'); const A = require('assert');
+  A.strictEqual(M.checkShotMedal(5, []), 'shot:5'); A.strictEqual(M.checkShotMedal(4, []), null);
+  A.strictEqual(M.bonusFor('shot:15').initiative, 2); A.ok(M.nameFor('shot:5').includes('5')); console.log('shot medals ok'); }

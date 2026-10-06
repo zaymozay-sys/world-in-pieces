@@ -356,7 +356,20 @@ for (const k of ['mirror', 'sacrifice', 'tide', 'divination', 'strike']) assert.
   assert.strictEqual(Combat.hit(g, fighter(), 10, false, never).amount, base * B.magic.fury.mult * B.magic.sacrifice.mult);
   assert.ok(!g.tripleNext && !g.doubleNext);
   assert.strictEqual(B.magic.costs.fury, 4);
-  assert.strictEqual(B.spellUnlock.fury, 8);
+  assert.strictEqual(B.spellUnlock.fury, 19);   // 1.3.8: Кулак ярости открывается с 6-го цвета
 }
 
 console.log('combat: все тесты пройдены');
+
+// 1.3.8: удар может быть и заблокирован, и отражён (Блок и Рикошет бросаются независимо)
+{
+  const mk = (st) => ({ hp: 100, max: 100, dmg: 1, stats: { ...Gear.blankStats(), ...st }, buffs: [], ability: null });
+  const atk = mk({}), tgt = mk({ block: 50, ricochet: 40, defense: 0 });
+  const rand = () => 0;   // Блок и Рикошет сработали
+  const r = Combat.hit(atk, tgt, 10, false, rand);
+  assert.strictEqual(r.kind, 'blockreflect');
+  assert.strictEqual(tgt.hp, 100, 'цель урона не получила');
+  assert.ok(atk.hp < 100, 'атакующий получил отражённый урон');
+  const a2 = mk({}), t2 = mk({ block: 50, ricochet: 0 });
+  assert.strictEqual(Combat.hit(a2, t2, 10, false, () => 0).kind, 'block');
+}

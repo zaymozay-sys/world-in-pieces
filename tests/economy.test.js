@@ -58,9 +58,9 @@ assert.ok(c3.res.every((r) => r.tier === 3) && c3.coins > Gear.craftCost('leathe
 // создание: редкие вещи дороже обычных
 assert.ok(Gear.craftCost('berserk-amulet').res[0].n > Gear.craftCost('leather-head').res[0].n);
 
-// бестиарий: 21 вид, характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
-assert.strictEqual(Bestiary.ORDER.length, 21);
-for (const id of ['orc', 'orcShaman', 'ghoul', 'crab', 'bolotnik', 'shadow', 'treant', 'mushroom', 'wildbees', 'lynx', 'hedgehog']) assert.ok(Bestiary.ORDER.includes(id), id);
+// бестиарий: 29 видов (в 1.2.0 добавлены звери нижних уровней, существа побережья и боссы), характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
+assert.strictEqual(Bestiary.ORDER.length, 47);
+for (const id of ['orc', 'orcShaman', 'ghoul', 'crab', 'bolotnik', 'shadow', 'treant', 'mushroom', 'wildbees', 'lynx', 'hedgehog', 'viper', 'spider', 'vulture', 'wisp', 'gull', 'hermit', 'smuggler', 'captain']) assert.ok(Bestiary.ORDER.includes(id), id);
 for (const id of Bestiary.ORDER) {
   const m = Bestiary.MONSTERS[id];
   assert.ok(m.family, id);
@@ -76,7 +76,7 @@ for (const id of Bestiary.ORDER) {
   for (const [kind] of Bestiary.MONSTERS[id].drops) assert.ok(Bestiary.RESOURCES[kind], kind);
 }
 assert.deepStrictEqual(Bestiary.unlockedSpecies(0), ['rat', 'wolf']);
-assert.strictEqual(Bestiary.unlockedSpecies(999).length, 21);
+assert.strictEqual(Bestiary.unlockedSpecies(999).length, 47);
 // снаряжение только у дракона
 assert.ok(Bestiary.scaled('dragon', 3).gearBudget > 0 && Bestiary.scaled('wolf', 3).gearBudget === 0);
 
@@ -131,3 +131,11 @@ assert.ok(/Object\.keys\(Balance\.magic\.costs\)/.test(screensSrc),
   'пикер заклинаний бобра читает ключи прямо из Balance.magic.costs');
 
 console.log('economy: все тесты пройдены');
+
+// 1.2.0: боссы, набор «Морской волк» и добыча Капитана
+assert.ok(Bestiary.MONSTERS.captain.boss && Bestiary.MONSTERS.wisp.boss);
+assert.ok(!Gear.itemsFor('human').some((i) => i.set === 'sea'), 'набор «Морской волк» не продаётся и не падает обычной добычей');
+assert.strictEqual(Gear.ITEMS.filter((i) => i.set === 'sea').length, 8);
+let seaDrops = 0;
+for (let i = 0; i < 200; i++) { const d = Bestiary.rollDrops('captain', 8, Math.random, 'human'); if (d.item && Gear.item(d.item.id).set === 'sea') seaDrops++; }
+assert.ok(seaDrops > 60, 'Капитан часто оставляет части набора');

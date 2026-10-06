@@ -12,10 +12,8 @@ const path = require('path');
 const vm = require('vm');
 
 const J = (f) => path.join(__dirname, '..', 'js', f);
-const order = ['gems.js', 'art-files.js', 'art.js', 'engine.js', 'ai.js', 'sound.js', 'tiers.js', 'balance.js',
-  'hero.js', 'names.js', 'factions.js', 'items.js', 'runes.js', 'combat.js', 'bestiary.js', 'parts.js', 'figures.js',
-  'hexmap.js', 'mapart.js', 'monsterart.js', 'itemicons.js', 'medals.js', 'pets.js', 'inventory.js', 'quests.js',
-  'daily.js', 'screens.js', 'mapview.js', 'game.js'];
+// Порядок скриптов — как в index.html (новые модули подхватываются сами).
+const order = [...fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]);
 
 let src = '';
 for (const f of order) {

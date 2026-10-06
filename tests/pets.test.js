@@ -121,3 +121,32 @@ assert.deepStrictEqual(Combat.turnOrder(false, true), ['monster', 'hero', 'pet']
 }
 
 console.log('pets: все тесты пройдены');
+
+// 1.3.8: угощения Питомника
+{
+  const P = require('../js/pets.js');
+  const pet = P.makePet('wolf', 1);
+  assert.deepStrictEqual(P.TREAT_ORDER, ['bone', 'biscuit', 'honey', 'apple']);
+  assert.ok(P.treatCost(pet, 'apple') > P.treatCost(pet, 'bone'));
+  P.giveTreat(pet, 'honey'); P.giveTreat(pet, 'biscuit');
+  assert.strictEqual(P.treatLeft(pet, 'honey'), 3);
+  const t = P.useTreats(pet);
+  assert.strictEqual(t.hpMult, 1.3); assert.strictEqual(t.defense, 15);
+  assert.strictEqual(P.treatLeft(pet, 'honey'), 2, 'угощение тратит один бой');
+  P.giveTreat(pet, 'apple');
+  const t2 = P.useTreats(pet);
+  assert.ok(t2.power > 1 && t2.defense >= 15);
+}
+
+// 1.3.9: домашние питомцы фракций и яйца
+{
+  assert.strictEqual(Pets.homeFor('human'), 'dog'); assert.strictEqual(Pets.homeFor('elf'), 'cat');
+  assert.strictEqual(Pets.homeFor('dwarf'), 'hamster'); assert.strictEqual(Pets.homeFor('lizard'), 'turtle');
+  assert.strictEqual(Pets.petDisplayName('turtle'), 'Боевая черепаха');
+  const h = Pets.makePet('dog', 2), f = Pets.petFighter(h);
+  assert.ok(f.max > 0 && Pets.petAttackAmount(f) >= 1);
+  assert.strictEqual(Pets.eggFrom('griffin'), 'griffin'); assert.strictEqual(Pets.eggFrom('rat'), null);
+  assert.ok(Pets.petFighter(Pets.makePet('phoenixchick', 3)).max > 0);
+  assert.strictEqual(Pets.petDisplayName('dragonling'), 'Дракончик');
+}
+console.log('pets 1.3.9 ok');

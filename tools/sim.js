@@ -59,7 +59,7 @@ function makeHero(o) {
   const base = o.baseHp != null ? o.baseHp : (Hero ? Hero.baseHp(o.level || 1) : 100);
   const max = base + stats.health;
   const dmg = o.dmg != null ? o.dmg : (Hero ? Hero.dmgMult(o.level || 1) : 1);
-  return { side: 'left', name: fac.hero, faction: o.faction, fac, gear, stats, base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
+  return { side: 'left', heroLevel: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, charge: 0, ability: null, bag: o.bag ? { ...o.bag } : {} };
 }
 function makeMonster(id, tier, o = {}) {
@@ -92,7 +92,7 @@ function Battle(hero, mon, player) {
   };
   const canAfford = (side, kind = 'lightning') => { const f = S.f[side], c = Combat.spellCost(f, kind); return MAGIC_NAMES.every((t) => f.counts[t] >= c); };
   const spend = (side, kind = 'lightning') => { const f = S.f[side], c = Combat.spellCost(f, kind); for (const t of MAGIC_NAMES) f.counts[t] -= c; };
-  const afford = (side) => ({ lightning: canAfford(side, 'lightning'), fire: canAfford(side, 'fire'), transmute: canAfford(side, 'transmute'), heal: canAfford(side, 'heal'), chaos: canAfford(side, 'chaos') });
+  const afford = (side) => ({ lightning: canAfford(side, 'lightning'), fire: canAfford(side, 'fire'), square: canAfford(side, 'square'), transmute: canAfford(side, 'transmute'), heal: canAfford(side, 'heal'), chaos: canAfford(side, 'chaos') });
   const anyAfford = (side) => Object.values(afford(side)).some(Boolean);
   const hit = (side, amount, raw = false) => {
     // Удары героя сначала принимает живой двойник Дикого гриба (см. Combat.enemyTarget); у прочих — сам противник.
@@ -118,6 +118,7 @@ function Battle(hero, mon, player) {
       for (let i = 0; i < 36; i++) {
         if (!bon[i]) continue;
         const amount = S.val[i] * bon[i];
+        if (side === 'left' && S.f.right.ability === 'wisp' && S.val[i] < 3) continue;   // Блуждающий огонь: x1 не засчитываются
         f.counts[TYPES[S.typ[i]]] += amount;
         if (S.typ[i] !== ONYX) gained[TYPES[S.typ[i]]] = (gained[TYPES[S.typ[i]]] || 0) + amount;
         if (S.typ[i] === home) charge += amount;
@@ -126,9 +127,9 @@ function Battle(hero, mon, player) {
       }
       if (charge) addCharge(charge);
       if (side === 'right') { let got = 0; for (let i = 0; i < 36; i++) if (bon[i]) got += S.val[i] * bon[i]; Combat.addSpores(f, got); }   // споры гриба
-      hit(side, dmg);
+      hit(side, f.magic ? Math.round(dmg * B.magic.lightning.mult) : dmg);
       for (let i = 0; i < 36; i++) if (bon[i]) { S.typ[i] = -1; S.val[i] = 0; }
-      if (tgt.hp <= 0 || f.hp <= 0) return extra;
+      if ((side === 'left' ? Combat.enemyDefeated(S.f.right) : tgt.hp <= 0) || f.hp <= 0) return extra;
       Engine.gravity(S.typ, S.val);
       Engine.shiftRight(S.typ, S.val);
       bon = burst();
@@ -140,6 +141,7 @@ function Battle(hero, mon, player) {
   // Хвост действия: разбор поля, конец боя, новые камни, усиления. Возвращает 2 — дополнительный ход, 1 — нет.
   function after(side, finish = true, extraIn = false) {
     const extra = resolve(side) || extraIn;
+    if (finish) S.f[side].magic = Combat.continueMagic(S.f[side].magic, extra);
     if (checkEnd()) return 1;
     refillIfNeeded();
     if (!finish) return extra ? 2 : 1;
@@ -155,7 +157,7 @@ function Battle(hero, mon, player) {
       return 0;
     }
     const extra = resolve(side);
-    S.f[side].magic = false;
+    S.f[side].magic = Combat.continueMagic(S.f[side].magic, extra);   // как в игре: Молния держится на доп. ходах
     if (checkEnd()) return 1;
     refillIfNeeded();
     return Combat.finishAction(S.f[side], extra).extra ? 2 : 1;
@@ -163,21 +165,32 @@ function Battle(hero, mon, player) {
 
   const FIRE_RADIUS = 2;    // Огненный крест ('cross') ограничен областью 5x5 вокруг цели; 'row' (дыхание дракона) — нет.
   function burn(side, idx, shape = 'cross', mult = 1, free = false) {
-    if (!free) spend(side, 'fire');
+    if (!free) spend(side, shape === 'square' ? 'square' : 'fire');
     const r0 = Math.floor(idx / N), c0 = idx % N;
-    let dmg = 0;
+    let dmg = 0, all = 0, obs = 0;
     const cells = [];
     for (let i = 0; i < 36; i++) {
       if (S.typ[i] < 0) continue;
       const r = Math.floor(i / N), c = i % N;
-      if (shape === 'row' ? r !== r0 : (r !== r0 && c !== c0)) continue;
-      if (shape !== 'row' && (Math.abs(r - r0) > FIRE_RADIUS || Math.abs(c - c0) > FIRE_RADIUS)) continue;
-      dmg += S.val[i] * mult;
+      if (shape === 'row' ? r !== r0 : shape === 'square' ? (Math.abs(r - r0) > 1 || Math.abs(c - c0) > 1) : (r !== r0 && c !== c0)) continue;
+      if (shape === 'cross' && (Math.abs(r - r0) > FIRE_RADIUS || Math.abs(c - c0) > FIRE_RADIUS)) continue;
+      if (shape === 'row') dmg += S.val[i] * mult;
+      else {                                          // крест/квадрат: копилка; урон = фикс + базовый + обсидианы (или все под Молнией)
+        const f = S.f[side];
+        if (side === 'left' && S.f.right.ability === 'wisp' && S.val[i] < 3) { cells.push(i); continue; }
+        f.counts[TYPES[S.typ[i]]] += S.val[i];
+        all += S.val[i];
+        if (S.typ[i] === ONYX) obs += S.val[i];
+      }
       cells.push(i);
+    }
+    if (shape !== 'row') {
+      const fl = S.f[side];
+      dmg = (shape === 'square' ? B.magic.square : B.magic.cross).fixed + Combat.strikeDamage(fl) + (fl.magic ? Math.round(all * B.magic.lightning.mult) : obs);
     }
     hit(side, dmg);
     for (const i of cells) { S.typ[i] = -1; S.val[i] = 0; }
-    if (S.f.left.hp <= 0 || S.f.right.hp <= 0) { checkEnd(); return 1; }
+    if (S.f.left.hp <= 0 || Combat.enemyDefeated(S.f.right)) { checkEnd(); return 1; }
     Engine.gravity(S.typ, S.val);
     Engine.shiftRight(S.typ, S.val);
     return after(side, !free);
@@ -278,6 +291,7 @@ function Battle(hero, mon, player) {
       S.stats.monActions++;
       let res;
       if (mv.kind === 'fire') res = burn('right', mv.idx);
+      else if (mv.kind === 'square') res = burn('right', mv.idx, 'square');
       else if (mv.kind === 'transmute') res = transmute('right', mv.idx);
       else if (mv.kind === 'heal') res = heal('right');
       else if (mv.kind === 'chaos') res = chaos('right');
@@ -313,6 +327,7 @@ function Battle(hero, mon, player) {
       let res;
       if (!act) { Combat.hit(S.f.right, h, Combat.invalidPenalty(h), true, rand); res = 1; if (checkEnd()) return; }
       else if (act.kind === 'fire') { S.stats.spells++; res = burn('left', act.idx); }
+      else if (act.kind === 'square') { S.stats.spells++; res = burn('left', act.idx, 'square'); }
       else if (act.kind === 'transmute') { S.stats.spells++; res = transmute('left', act.idx); }
       else if (act.kind === 'heal') { S.stats.spells++; res = heal('left'); }
       else if (act.kind === 'chaos') { S.stats.spells++; res = chaos('left'); }
@@ -330,10 +345,26 @@ function Battle(hero, mon, player) {
   function useFaction() {
     const h = S.f.left, id = h.fac.ability.id, F = B.faction;
     S.stats.abilities++;
-    if (id === 'roots') {                       // сковать столбец, где больше всего обсидиана
-      let best = 0, bestV = -1;
-      for (let c = 0; c < N; c++) { let v = 0; for (let r = 0; r < N; r++) if (S.typ[r * N + c] === ONYX) v += S.val[r * N + c]; if (v > bestV) { bestV = v; best = c; } }
-      S.locks = { cols: new Set([best]), forSide: 'right' };
+    if (id === 'growth') {                      // Дикий рост: центр — где больше родных изумрудов рядом; линии собираются сразу
+      const gi = TYPES.indexOf(h.fac.gem), G = F.growth;
+      let value = G.value;
+      for (const [lvl, v] of Object.entries(G.valueFrom)) if ((h.heroLevel || 1) >= Number(lvl)) value = v;
+      let best = -1, bestV = -1;
+      for (let i = 0; i < 36; i++) {
+        if (S.typ[i] < 0) continue;
+        const r = Math.floor(i / N), c = i % N;
+        let v = (S.typ[i] === gi ? 0 : 1);
+        for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { const rr = r + dr, cc = c + dc; if (rr >= 0 && cc >= 0 && rr < N && cc < N && S.typ[rr * N + cc] === gi) v += 2; }
+        if (v > bestV) { bestV = v; best = i; }
+      }
+      const r0 = Math.floor(best / N), c0 = best % N, picks = [best];
+      const near = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dr, dc]) => [r0 + dr, c0 + dc]).filter(([r, c]) => r >= 0 && c >= 0 && r < N && c < N && S.typ[r * N + c] >= 0);
+      while (picks.length < G.stones && near.length) { const [r, c] = near.splice(ri(near.length), 1)[0]; picks.push(r * N + c); }
+      for (const i of picks) { S.typ[i] = gi; S.val[i] = value; }
+      h.charge = 0;
+      if (Engine.bonusMap(S.typ)) resolve('left');
+      if (!S.over && !Engine.hasMoves(S.typ)) fill();
+      return;
     } else if (id === 'banner') {
       h.buffs.push({ kind: 'banner', amount: F.banner.power, turns: F.banner.turns });
     } else if (id === 'venom') {
@@ -358,6 +389,8 @@ function Battle(hero, mon, player) {
     S.first = first;
     while (!S.over && S.stats.rounds < maxRounds) {
       if (side === 'left') heroTurn(); else { monsterTurn(); S.stats.rounds++; }
+      // как в игре (setTurn): при передаче хода гаснут баффы «до конца хода» и Шаровая молния
+      Combat.clearTurnEndBuffs(S.f[side]); S.f[side].magic = false;
       side = other(side);
     }
     if (!S.over) { S.over = true; S.winner = 'draw'; }

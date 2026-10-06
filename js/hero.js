@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Уровни героя (без интерфейса — можно тестировать в Node).
 
    Уровень растёт от опыта за победы. На каждый цвет — 5 уровней: 1–5 — Красный, 6–10 — Оранжевый, …,
@@ -26,6 +27,8 @@ const Hero = (() => {
   const dmgMult = (L) => Math.round(growth(L) * H_B.damage.stone * 100) / 100;   // множитель урона камней
   const budget = (L) => Math.round(C.budget * H_T.at(H_T.POINT_MULT, tierFloat(L)));
   // С какого уровня можно надеть вещь цвета tier.
+  // 1.3.9: подуровень героя внутри цвета усиливает надетые вещи — до +1% к их характеристикам.
+  const clothBonus = (L) => 0.01 * (tierFloat(L) % 1);
   const itemLevel = (tier) => (H_T.clamp(tier) - 1) * C.levelsPerTier + 1;
   const canWear = (tier, L) => clampL(L) >= itemLevel(tier);
 
@@ -71,9 +74,9 @@ const Hero = (() => {
   // Заклинание kind доступно с уровня L? Стартовая пятёрка (и общий для всех фракций Удар) не упомянуты
   // в Balance.spellUnlock — они, как и раньше, доступны с 1-го уровня; более сильные заклинания открываются
   // позже (см. Balance.spellUnlock).
-  const isSpellUnlocked = (kind, L) => clampL(L) >= (H_B.spellUnlock[kind] || 1);
+  const isSpellUnlocked = (kind, L) => H_B.unlockAll || (typeof Profile !== 'undefined' && Profile.data && Profile.data.testAllSpells) || clampL(L) >= (H_B.spellUnlock[kind] || 1);
 
-  return { priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
+  return { clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

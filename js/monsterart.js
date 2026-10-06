@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Рисунки монстров (бюсты для бестиария и аватаров), иконки ресурсов и монет.
    Временные векторные рисунки: позже их можно заменить своими изображениями.
    Цвет уровня показан свечением вокруг существа. */
@@ -265,12 +266,101 @@ const MonsterArt = (() => {
         <ellipse cx="42" cy="52" rx="4.6" ry="6" fill="#8ff2ff"/><ellipse cx="58" cy="52" rx="4.6" ry="6" fill="#8ff2ff"/><ellipse cx="42" cy="52" rx="9" ry="11" fill="#8ff2ff" opacity=".22"/><ellipse cx="58" cy="52" rx="9" ry="11" fill="#8ff2ff" opacity=".22"/>
         <path d="M42 72 Q50 78 58 72" stroke="#8ff2ff" stroke-width="2" fill="none" opacity=".7"/>`,
     }),
+
+    viper: (p) => ({
+      defs: grad(p + 'f', [[0, '#9db35a'], [1, '#5a6e2c']]),
+      body: `<path d="M18 86 Q6 60 30 56 Q56 52 44 34 Q36 20 54 14 Q74 10 76 28 Q78 44 58 50 Q40 56 54 66 Q70 76 56 90 Q40 98 18 86Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M30 60 L40 66 M46 40 L56 44 M60 22 L68 28" stroke="#3a4a1a" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="56" cy="22" r="2.6" fill="#ffd23a"/><ellipse cx="56" cy="22" rx=".8" ry="2.2" fill="${O}"/>
+        <path d="M68 22 L82 18 M68 22 L82 28" stroke="#d94a3a" stroke-width="2" stroke-linecap="round"/>`,
+    }),
+    spider: (p) => ({
+      defs: grad(p + 'f', [[0, '#5a4a63'], [1, '#2a2230']]),
+      body: `<path d="M30 52 L6 34 M30 58 L4 58 M32 64 L8 84 M38 68 L20 94 M70 52 L94 34 M70 58 L96 58 M68 64 L92 84 M62 68 L80 94" stroke="${O}" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <ellipse cx="50" cy="66" rx="22" ry="24" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M50 46 V86 M38 56 Q50 64 62 56" stroke="#a24a4a" stroke-width="3" fill="none"/>
+        <circle cx="50" cy="38" r="14" fill="#3a2f45" stroke="${O}" stroke-width="2.2"/>
+        <circle cx="44" cy="35" r="3" fill="#ff6a5a"/><circle cx="56" cy="35" r="3" fill="#ff6a5a"/><circle cx="50" cy="31" r="2" fill="#ff6a5a"/>
+        <path d="M45 46 L43 52 M55 46 L57 52" stroke="#e8e0d0" stroke-width="2.4" stroke-linecap="round"/>`,
+    }),
+    vulture: (p) => ({
+      defs: grad(p + 'f', [[0, '#6e5a46'], [1, '#33271c']]) + grad(p + 'n', [[0, '#e8b6a0'], [1, '#c98a76']]),
+      body: `<path d="M50 90 Q10 78 6 40 Q22 52 32 50 Q40 70 50 70 Q60 70 68 50 Q78 52 94 40 Q90 78 50 90Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M14 56 L26 70 M24 52 L36 72 M86 56 L74 70 M76 52 L64 72" stroke="#1c140d" stroke-width="2" stroke-linecap="round"/>
+        <path d="M38 52 Q50 56 62 52 Q60 44 50 42 Q40 44 38 52Z" fill="#efe6d0" stroke="${O}" stroke-width="1.6"/>
+        <ellipse cx="50" cy="30" rx="10" ry="13" fill="url(#${p}n)" stroke="${O}" stroke-width="2"/>
+        <path d="M46 36 Q50 46 56 34 Q62 38 60 44 Q52 50 44 44Z" fill="#d8b24a" stroke="${O}" stroke-width="1.6"/>
+        <circle cx="45" cy="26" r="2.2" fill="${O}"/><circle cx="55" cy="26" r="2.2" fill="${O}"/>`,
+    }),
+    wisp: (p) => ({
+      defs: `<radialGradient id="${p}g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#f4ffd0"/><stop offset=".45" stop-color="#9af0a0" stop-opacity=".9"/><stop offset="1" stop-color="#3a9a6a" stop-opacity="0"/></radialGradient>`,
+      body: `<circle cx="50" cy="52" r="46" fill="url(#${p}g)"/>
+        <path d="M50 10 Q74 36 70 58 Q66 80 50 86 Q34 80 30 58 Q26 36 50 10Z" fill="#d8ffb8" opacity=".85" stroke="#4aa86a" stroke-width="2"/>
+        <ellipse cx="41" cy="54" rx="4" ry="6" fill="#1a3a2a"/><ellipse cx="59" cy="54" rx="4" ry="6" fill="#1a3a2a"/>
+        <path d="M42 68 Q50 74 58 68" stroke="#1a3a2a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <circle cx="16" cy="30" r="3" fill="#c9ffc0" opacity=".8"/><circle cx="86" cy="24" r="2.4" fill="#c9ffc0" opacity=".8"/><circle cx="82" cy="78" r="3" fill="#c9ffc0" opacity=".7"/>`,
+    }),
+    gull: (p) => ({
+      defs: grad(p + 'f', [[0, '#ffffff'], [1, '#c9d2dc']]),
+      body: `<path d="M4 40 Q26 22 44 46 Q50 38 56 46 Q74 22 96 40 Q74 36 62 56 Q56 74 50 74 Q44 74 38 56 Q26 36 4 40Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M6 40 Q18 34 30 40 M94 40 Q82 34 70 40" stroke="#6a7886" stroke-width="3" fill="none"/>
+        <circle cx="50" cy="52" r="12" fill="#fff" stroke="${O}" stroke-width="2"/>
+        <path d="M58 54 L74 58 L58 62Z" fill="#f2b632" stroke="${O}" stroke-width="1.6"/><circle cx="50" cy="48" r="2.2" fill="${O}"/>
+        <path d="M44 74 L40 90 M56 74 L60 90" stroke="#e29a2a" stroke-width="3" stroke-linecap="round"/>`,
+    }),
+    hermit: (p) => ({
+      defs: grad(p + 'f', [[0, '#e8a07a'], [1, '#b8583a']]) + grad(p + 's', [[0, '#f4e6d0'], [1, '#c9a97a']]),
+      body: `<path d="M20 70 Q14 54 24 46 L30 56Z M80 70 Q86 54 76 46 L70 56Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2"/>
+        <path d="M16 50 Q8 38 20 32 Q28 36 24 48Z M84 50 Q92 38 80 32 Q72 36 76 48Z" fill="url(#${p}f)" stroke="${O}" stroke-width="2"/>
+        <path d="M24 78 Q22 40 54 30 Q86 40 78 78 Q50 92 24 78Z" fill="url(#${p}s)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M54 32 Q44 52 54 64 Q64 72 60 82 M36 40 Q40 66 34 80 M70 40 Q68 60 74 76" stroke="#a07a4a" stroke-width="2" fill="none"/>
+        <path d="M38 64 L34 74 M62 66 L66 76" stroke="${O}" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="42" cy="38" r="3.4" fill="${O}"/><circle cx="62" cy="38" r="3.4" fill="${O}"/><path d="M42 38 V28 M62 38 V28" stroke="${O}" stroke-width="2"/>`,
+    }),
+    smuggler: (p) => ({
+      defs: grad(p + 'f', [[0, '#e0b896'], [1, '#b98a66']]) + grad(p + 'c', [[0, '#3a4a5a'], [1, '#1c2630']]),
+      body: `<path d="M14 98 Q10 66 30 60 L70 60 Q90 66 86 98Z" fill="url(#${p}c)" stroke="${O}" stroke-width="2.2"/>
+        <ellipse cx="50" cy="40" rx="16" ry="19" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M30 34 Q50 4 70 34 Q50 24 30 34Z" fill="#3a2e24" stroke="${O}" stroke-width="2"/><path d="M26 38 Q50 30 74 38 L72 34 Q50 20 28 34Z" fill="#241c16"/>
+        <rect x="32" y="40" width="36" height="9" rx="3" fill="#2a2a30" opacity=".92" stroke="${O}" stroke-width="1.4"/>
+        <circle cx="42" cy="44" r="2" fill="#ffe08a"/><circle cx="58" cy="44" r="2" fill="#ffe08a"/>
+        <path d="M42 56 Q50 60 58 56" stroke="${O}" stroke-width="2" fill="none"/><rect x="62" y="70" width="16" height="22" rx="3" fill="#8a5a2a" stroke="${O}" stroke-width="1.8"/><path d="M62 78 H78" stroke="${O}" stroke-width="1.4"/>`,
+    }),
+    captain: (p) => ({
+      defs: grad(p + 'f', [[0, '#d9a882'], [1, '#a8704a']]) + grad(p + 'c', [[0, '#2a4a7a'], [1, '#14264a']]),
+      body: `<path d="M8 98 Q6 64 28 58 L72 58 Q94 64 92 98Z" fill="url(#${p}c)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M34 60 L50 80 L66 60" fill="#efe6d0" stroke="${O}" stroke-width="1.6"/><circle cx="26" cy="74" r="2.2" fill="#e9c24a"/><circle cx="26" cy="84" r="2.2" fill="#e9c24a"/><circle cx="74" cy="74" r="2.2" fill="#e9c24a"/><circle cx="74" cy="84" r="2.2" fill="#e9c24a"/>
+        <ellipse cx="50" cy="40" rx="17" ry="20" fill="url(#${p}f)" stroke="${O}" stroke-width="2.2"/>
+        <path d="M14 30 Q50 -6 86 30 Q50 20 14 30Z" fill="#14264a" stroke="${O}" stroke-width="2.2"/><path d="M14 30 Q50 22 86 30 L84 36 Q50 28 16 36Z" fill="#e9c24a" stroke="${O}" stroke-width="1.4"/>
+        <path d="M34 36 L46 42 M66 36 L54 42" stroke="${O}" stroke-width="3" stroke-linecap="round"/><circle cx="40" cy="43" r="2.4" fill="${O}"/><circle cx="60" cy="43" r="2.4" fill="${O}"/>
+        <path d="M34 54 Q50 70 66 54 Q58 62 50 62 Q42 62 34 54Z" fill="#4a2e1e" stroke="${O}" stroke-width="1.6"/>
+        <path d="M70 46 L78 50" stroke="#2a2a30" stroke-width="3" stroke-linecap="round"/>`,
+    }),
+  };
+
+  /* 1.3.8: простой запасной портрет для новых видов, пока нет нарисованной картинки (art/monsters/<id>.webp).
+     Цвет и «особая примета» — по виду: ushi (уши), rog (рога), klyuv (клюв), cheshuya (гребень/чешуя). */
+  const FALLBACK = {
+    fox: ['#d9722e', 'ushi'], badger: ['#7d7a78', 'ushi'], owl: ['#a58b62', 'klyuv'], otter: ['#7b5a3c', 'ushi'], heron: ['#b9c4d0', 'klyuv'],
+    elk: ['#8a6038', 'rog'], goat: ['#cfc7b8', 'rog'], eagle: ['#6b4f32', 'klyuv'], rhino: ['#8c8d92', 'rog'], leopard: ['#d6d9de', 'ushi'],
+    leech: ['#4a3a45', 'cheshuya'], mimic: ['#9b6a35', 'cheshuya'], salamander: ['#d05a2a', 'cheshuya'], bear: ['#6a4630', 'ushi'],
+    griffin: ['#c49a45', 'klyuv'], pike: ['#5f8a6a', 'cheshuya'], wyvern: ['#4f7d4a', 'cheshuya'], basilisk: ['#5f7a58', 'cheshuya'],
+  };
+  const fallbackArt = (id) => {
+    const [col, kind] = FALLBACK[id];
+    const mark = kind === 'ushi' ? `<path d="M24 34 L30 12 L44 28Z M76 34 L70 12 L56 28Z" fill="${col}" stroke="${O}" stroke-width="2.4"/>`
+      : kind === 'rog' ? `<path d="M30 34 Q14 20 26 6 Q30 20 42 28Z M70 34 Q86 20 74 6 Q70 20 58 28Z" fill="#e8dcc0" stroke="${O}" stroke-width="2.4"/>`
+      : kind === 'klyuv' ? `<path d="M42 56 L58 56 L50 74Z" fill="#e8b23a" stroke="${O}" stroke-width="2.4"/>`
+      : `<path d="M32 30 L38 16 L46 28 L52 14 L58 28 L66 16 L70 32Z" fill="${col}" stroke="${O}" stroke-width="2.4"/>`;
+    return { defs: '', body: `<circle cx="50" cy="56" r="32" fill="${col}" stroke="${O}" stroke-width="2.6"/>${mark}
+      <circle cx="38" cy="50" r="6" fill="#fff"/><circle cx="62" cy="50" r="6" fill="#fff"/><circle cx="39" cy="51" r="3" fill="#1a1214"/><circle cx="61" cy="51" r="3" fill="#1a1214"/>
+      <path d="M40 70 Q50 78 60 70" stroke="${O}" stroke-width="2.4" fill="none" stroke-linecap="round"/>` };
   };
 
   function bust(id, tier, size) {
     if (typeof Art !== 'undefined' && Art.hasMonster(id)) return Art.monster(id, Tiers.get(tier).edge, size);   // рисунок из папки art/
     const prefix = 'ma' + (++UID) + '-';
-    const art = ART[id] && ART[id](prefix);
+    const art = ART[id] ? ART[id](prefix) : FALLBACK[id] ? fallbackArt(id) : null;
     if (!art) return '';
     const col = Tiers.get(tier).edge;
     return `<svg viewBox="0 0 100 100" ${size ? `width="${size}" height="${size}"` : ''} aria-hidden="true">
@@ -290,15 +380,21 @@ const MonsterArt = (() => {
     scale: () => `<path d="M12 22 Q32 6 52 22 Q52 46 32 58 Q12 46 12 22Z" fill="#2f9d5f" stroke="${O}" stroke-width="2"/><path d="M32 12 V54 M18 26 Q32 34 46 26" stroke="#1a6b3e" stroke-width="2" fill="none"/><path d="M20 20 Q32 12 44 20" stroke="#8ae3ac" stroke-width="2" fill="none"/>`,
     splinter: () => `<path d="M30 4 L38 22 L26 34 L40 30 L20 60 L28 36 L14 42Z" fill="#a9762f" stroke="${O}" stroke-width="2"/><path d="M30 8 L34 22" stroke="#e0bb7a" stroke-width="1.4"/>`,
     honey: () => `<path d="M22 10 H42 L42 18 Q52 24 50 40 Q48 56 32 58 Q16 56 14 40 Q12 24 22 18Z" fill="#e8a824" stroke="${O}" stroke-width="2"/><rect x="22" y="4" width="20" height="8" rx="2" fill="#8b6a3e" stroke="${O}" stroke-width="1.4"/><path d="M18 30 Q32 36 46 30" stroke="#a86e0e" stroke-width="1.6" fill="none"/><ellipse cx="26" cy="26" rx="3" ry="5" fill="#ffe27a" opacity=".8"/>`,
+
+    silk: () => `<path d="M32 6 V58 M6 32 H58 M12 12 L52 52 M52 12 L12 52" stroke="#e8e8f0" stroke-width="2" fill="none"/><path d="M32 16 Q42 22 48 32 Q42 42 32 48 Q22 42 16 32 Q22 22 32 16Z" stroke="#c8c8d8" stroke-width="1.6" fill="none"/>`,
+    feather: () => `<path d="M12 56 Q10 18 46 8 Q52 34 36 48 Q26 56 12 56Z" fill="#c9b79a" stroke="${O}" stroke-width="2"/><path d="M12 56 L42 14" stroke="#8a7a60" stroke-width="2"/><path d="M22 46 L36 40 M26 36 L40 28" stroke="#8a7a60" stroke-width="1.4"/>`,
+    shell: () => `<path d="M10 40 Q8 14 32 8 Q56 14 54 40 Q44 54 32 54 Q20 54 10 40Z" fill="#f2d7cc" stroke="${O}" stroke-width="2"/><path d="M32 8 V54 M20 12 L22 52 M44 12 L42 52" stroke="#c79c8c" stroke-width="1.6"/>`,
   };
   function resIcon(kind, tier) {
     const col = Tiers.get(tier).edge;
+    if (typeof Art !== 'undefined' && Art.has('resources/' + kind)) return `<svg class="res-icon" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="3"/><image href="${Art.url('resources/' + kind)}" x="10" y="10" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></svg>`;
     return `<svg class="res-icon" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="3"/><g transform="translate(4 4) scale(.875)">${(RES[kind] || RES.scrap)()}</g></svg>`;
   }
 
   /* ---------- монеты ---------- */
   const COIN = { copper: ['#7a3f18', '#c47a3c', '#f0a868'], silver: ['#6a727e', '#c9d0da', '#ffffff'], gold: ['#8a6a14', '#f0c23c', '#fff3a6'] };
   function coinIcon(kind) {
+    if (typeof Art !== 'undefined' && Art.has('ui/coin-' + kind)) return `<img class="coin-icon coin-img" src="${Art.url('ui/coin-' + kind)}" alt="" aria-hidden="true">`;   // 1.2.8: картинка монеты
     const [d, m, l] = COIN[kind], id = 'co' + (++UID) + kind;
     return `<svg class="coin-icon" viewBox="0 0 24 24" aria-hidden="true"><defs><radialGradient id="${id}" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="${l}"/><stop offset=".55" stop-color="${m}"/><stop offset="1" stop-color="${d}"/></radialGradient></defs><circle cx="12" cy="12" r="10.5" fill="url(#${id})" stroke="#14161a" stroke-width="1.4"/><circle cx="12" cy="12" r="6.6" fill="none" stroke="${d}" stroke-width="1.2" opacity=".8"/></svg>`;
   }
@@ -312,7 +408,7 @@ const MonsterArt = (() => {
     return `<span class="money" title="${Tiers.moneyText(n)}">${parts.join('')}</span>`;
   }
 
-  return { bust, resIcon, coinIcon, moneyHtml, has: (id) => !!ART[id] };
+  return { bust, resIcon, coinIcon, moneyHtml, has: (id) => !!ART[id] || !!FALLBACK[id] };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Экран карты: отрисовка сот, камера (перетаскивание, колесо, щипок), туман войны,
    перемещение игрока по сотам, монстры и здания деревни, переход в бой и обратно.
    Состояние карты хранится в профиле: Profile.data.map = { seed, pos, revealed, defeated }. */
@@ -16,6 +17,8 @@ const MapView = (() => {
 
   /* ---------- помощники ---------- */
   const px = (i) => HexMap.toPixel(map.cells[i].q, map.cells[i].r, SIZE);
+  // Центр здания на карте — середина всех его сот (у здания из нескольких сот).
+  const bCenter = (b) => { const cs = b.cells || [b.idx]; return cs.map(px).reduce((m, q) => ({ x: m.x + q.x / cs.length, y: m.y + q.y / cs.length }), { x: 0, y: 0 }); };
   const hexPts = (x, y, k = 1) => Array.from({ length: 6 }, (_, n) => {
     const a = Math.PI / 180 * (60 * n - 30);
     return `${(x + SIZE * k * Math.cos(a)).toFixed(1)},${(y + SIZE * k * Math.sin(a)).toFixed(1)}`;
@@ -29,9 +32,9 @@ const MapView = (() => {
   const fac = () => Factions.get(Profile.data.faction) || Factions.get('dwarf');
   const myKind = () => Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender);
   // Характеристики героя: снаряжение + бонусы фракции.
-  const myStats = () => Gear.combine(Gear.combine(Gear.stats(Profile.gear()), Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(Profile.level()))), Runes.bonusForGear(Profile.gear()));
+  const myStats = () => Gear.combine(Gear.combine(Gear.statsFor(Profile.gear(), Profile.level()), Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(Profile.level()))), Runes.bonusForGear(Profile.gear()));
   // Герой для оценки опасности: ХП, урон, характеристики.
-  const myView = () => { const L = Profile.level(), st = myStats(); return { max: Hero.baseHp(L) + st.health, dmg: Hero.dmgMult(L), stats: st }; };
+  const myView = () => { const L = Profile.level(), st = myStats(), t = (typeof testMult === 'function') ? testMult() : 1; return { max: (Hero.baseHp(L) + st.health) * t, dmg: Hero.dmgMult(L) * t, stats: st }; };   // t — тестовый режим ×10
 
   /* ---------- запуск и сохранение ---------- */
   function init() {
@@ -39,7 +42,7 @@ const MapView = (() => {
       el[id] = document.getElementById(id);
     }
     el['map-defs'].innerHTML = MapArt.defs();
-    el['map-zones'].innerHTML = `<span class="zl">Цвет зон:</span>` + Tiers.LIST.map((t) => `<i style="--t:${t.color};--ti:${t.ink}" title="${t.id}: ${t.name}">${t.id}</i>`).join('');
+    el['map-zones'].innerHTML = _t("<span class=\"zl\">Цвет зон:</span>") + Tiers.LIST.map((t) => `<i style="--t:${t.color};--ti:${t.ink}" title="${t.id}: ${t.name}">${t.id}</i>`).join('');
     bindInput();
     bindHud();
     load();
@@ -50,10 +53,13 @@ const MapView = (() => {
 
   function load() {
     const d = Profile.data;
-    if (!d.map || typeof d.map.seed !== 'number') d.map = { seed: (Math.random() * 2147483646 + 1) | 0, pos: null, revealed: [], defeated: {} };
+    if (!d.map || typeof d.map.seed !== 'number') d.map = { seed: (Math.random() * 2147483646 + 1) | 0, pos: null, revealed: [], defeated: {}, ver: 5 };
     if (!d.seen) d.seen = {};
     st = d.map;
     st.defeated = st.defeated || {};
+    // Версия 1.1.10: карта выросла (радиус 20, море, маяк) — номера сот сменились, поэтому старое исследование и
+    // позиция сбрасываются (герой, вещи и прогресс остаются); весь мир доступен с самого начала, без кнопки «Новый мир».
+    if (st.ver !== 5) { st.ver = 5; st.revealed = []; st.defeated = {}; st.pos = null; }
     map = HexMap.generate(st.seed);
     spawnAt = new Map(map.spawns.map((sp) => [sp.idx, sp]));
     const home = HexMap.center(map);
@@ -89,7 +95,7 @@ const MapView = (() => {
     renderStatic();
     refreshPlayerArt();
     renderHud();
-    toast(`Вы — ${fac().name}: ${Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)}`);
+    toast(_t("Вы — {0}: {1}", [fac().name, Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)]));
   }
 
   function setMode(mode) {
@@ -102,7 +108,9 @@ const MapView = (() => {
     const terr = [], deco = [], roads = [], vil = [], labels = [];
     for (const c of map.cells) {
       const p = px(c.idx);
-      terr.push(`<polygon class="hx" points="${hexPts(p.x, p.y)}" fill="url(#t-${c.terrain})"/>`);
+      // 1.3.0: маленький город — земля деревни, а главная улица и площадь вокруг Ратуши вымощены
+      const paved = c.terrain === 'village' && (c.street || c.d <= 2);
+      terr.push(`<polygon class="hx${c.terrain === 'village' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${paved ? 'cobble' : c.terrain})"/>`);
       const d = MapArt.deco(c, HexMap.rng((st.seed ^ Math.imul(c.idx + 1, 2654435761)) >>> 0));
       if (d) deco.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
     }
@@ -122,10 +130,10 @@ const MapView = (() => {
     let street = '';
     for (const g of map.gates) {
       const c = map.cells[g];
-      const mid = map.index.get(HexMap.key(c.q / 2, c.r / 2));
+      const mid = map.index.get(HexMap.key(Math.round(c.q / 2), Math.round(c.r / 2)));
       street += seg(g, mid) + seg(mid, home);
     }
-    roads.push(`<path d="${street}" class="street"/>`,
+    roads.push(`<path d="${street}" class="street" opacity="0"/>`,
       `<path d="${road}" class="road-edge"/><path d="${road}" class="road"/><path d="${road}" class="road-ruts"/>`,
       `<path d="${bridge}" class="bridge-edge"/><path d="${bridge}" class="bridge"/>`);
 
@@ -152,10 +160,12 @@ const MapView = (() => {
       }
       void c;
     }
+    // Здания (1.2.6): усадьба занимает несколько сот — под ней мощёный двор, рисунок по центру и крупнее.
     for (const b of map.buildings) {
-      const p = px(b.idx), info = HexMap.BUILDINGS[b.id];
-vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt.building(b.id, info.soon)}</g>`);
-      labels.push(MapArt.label(info.label || info.name, p.x, p.y));
+      const info = HexMap.BUILDINGS[b.id], p = bCenter(b), k = (info.scale || 1.35) / 1.35;
+      if ((b.cells || []).length > 1) for (const c of b.cells) { const q = px(c); vil.push(`<polygon points="${hexPts(q.x, q.y, 0.97)}" class="yard"/>`); }
+      vil.push(`<g class="bldg" data-b="${b.id}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) scale(${k.toFixed(3)})">${MapArt.building(b.id, info.soon)}</g>`);
+      labels.push(MapArt.label(info.label || info.name, p.x, p.y + 21 * (k - 1)));
     }
 
     el['l-terrain'].innerHTML = terr.join('');
@@ -201,11 +211,11 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
         }
         continue;
       }
-      out.push(`<g class="mon" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">
+      out.push(`<g class="mon${sp.boss ? ' boss' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-(sp.id % 7) * 0.37}s">
           <circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>
-          <circle r="21" fill="none" stroke="${col}" stroke-width="3"/>
+          <circle r="21" fill="none" stroke="${col}" stroke-width="3"/>${sp.boss ? `<circle r="25" fill="none" stroke="#f2c94c" stroke-width="2.5" stroke-dasharray="5 3"/><path class="boss-crown" d="M-11 -22 L-7 -31 L-2 -24 L0 -33 L2 -24 L7 -31 L11 -22Z" fill="#f2c94c" stroke="#3a2a08" stroke-width="1.2"/>` : ''}
           <g class="tier-badge" transform="translate(15 14)"><circle r="7.5" fill="${T.color}" stroke="${col}" stroke-width="1.3"/><text y="3.4" fill="${T.ink}">${sp.tier}</text></g>
         </g></g>`);
     }
@@ -268,7 +278,7 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   }
   let camAnim = 0;
   function centerOn(i, smooth = true) {
-    const v = view(), p = px(i);
+    const v = view(), p = typeof i === 'object' ? i : px(i);   // номер соты или точка карты {x, y}
     const tx = v.width / 2 - p.x * cam.s, ty = v.height / 2 - p.y * cam.s;
     cancelAnimationFrame(camAnim);
     if (!smooth) { cam.x = tx; cam.y = ty; clampCam(); applyCam(); return; }
@@ -306,6 +316,15 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     const wx = (clientX - v.left - cam.x) / cam.s, wy = (clientY - v.top - cam.y) / cam.s;
     const h = HexMap.fromPixel(wx, wy, SIZE);
     const i = map.index.get(HexMap.key(h.q, h.r));
+    // Рисунок здания выше своей соты (крыша, труба, флаг заходят на соту сверху). Клик по любой видимой части
+    // здания должен открывать само здание, а не вести героя на соседнюю пустую соту (так «не входилось»
+    // в Кузницу и к Охотникам). Рамка рисунка — как в MapArt.building: x ±30, y от −40 до +19 от центра соты.
+    if (i === undefined || (!map.cells[i].building && !map.cells[i].street && !monsterAt(i))) {
+      for (const b of map.buildings) {    // рамка растёт вместе с рисунком (scale здания), центр — середина его сот
+        const p = bCenter(b), k = (HexMap.BUILDINGS[b.id].scale || 1.35) / 1.35;
+        if (Math.abs(wx - p.x) <= 26 * k && wy - p.y >= -40 * k && wy - p.y <= 4 * k) return b.idx;   // 1.2.9: только крыша, не ряд под зданием
+      }
+    }
     return i === undefined ? -1 : i;
   }
 
@@ -379,22 +398,35 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     });
   }
 
+  // 1.3.1: при наведении на здание светится контур самого здания (рисунок), а не сота под ним.
   function hover(i) {
     if (i === hoverIdx) return;
     hoverIdx = i;
+    const lit = el['l-village'].querySelector('.bldg.lit');
+    if (lit) lit.classList.remove('lit');
+    el['map-svg'].classList.remove('over-bldg');
     if (i < 0) { el['l-hover'].innerHTML = ''; return; }
+    const bid = map.cells[i].building;
+    if (bid && !monsterAt(i)) {
+      const g = el['l-village'].querySelector(`.bldg[data-b="${bid}"]`);
+      if (g) { g.classList.add('lit'); el['map-svg'].classList.add('over-bldg'); }
+      el['l-hover'].innerHTML = '';
+      const info = HexMap.BUILDINGS[bid];
+      el['map-tip'].innerHTML = _t("<b>{0}</b> — {1} Нажмите, чтобы войти.", [info.name, info.desc]);
+      return;
+    }
     const p = px(i);
     el['l-hover'].innerHTML = `<polygon points="${hexPts(p.x, p.y, 0.94)}" class="hover-hex"/>`;
     el['map-tip'].innerHTML = describe(i);
   }
 
   function describe(i) {
-    if (!known(i)) return 'Неизведанная земля';
+    if (!known(i)) return _t("Неизведанная земля");
     const t = tierOfCell(i), sp = monsterAt(i);
-    const zone = t ? ` · зона <b style="color:${Tiers.get(t).edge}">${Tiers.get(t).name}</b>` : '';
+    const zone = t ? _t(" · зона <b style=\"color:{0}\">{1}</b>", [Tiers.get(t).edge, Tiers.get(t).name]) : '';
     if (sp) return `<b>${Bestiary.MONSTERS[sp.species].name}</b> ${tierChip(sp.tier)}${zone}`;
     const s = spawnAt.get(i);
-    if (s && st.defeated[s.id] > Date.now()) return `${HexMap.terrainName(map, i)} · ${Bestiary.MONSTERS[s.species].name} вернётся через ${Math.ceil((st.defeated[s.id] - Date.now()) / 60000)} мин.${zone}`;
+    if (s && st.defeated[s.id] > Date.now()) return _t("{0} · {1} вернётся через {2} мин.{3}", [HexMap.terrainName(map, i), Bestiary.MONSTERS[s.species].name, Math.ceil((st.defeated[s.id] - Date.now()) / 60000), zone]);
     return `${HexMap.terrainName(map, i)}${zone}`;
   }
 
@@ -404,9 +436,10 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     el['map-tip'].innerHTML = describe(i);
     const sp = known(i) ? monsterAt(i) : null;
     if (sp) return showMonster(sp);
+    if (i === st.pos) return Inventory.open('left');   // 1.3.6: нажатие на своего героя — карточка героя и рюкзак
     const c = map.cells[i];
     if (c.building) return goBuilding(c.building, i);
-    if (known(i) && !HexMap.passable(map, i)) return toast(`${HexMap.terrainName(map, i)}: сюда не пройти`);
+    if (known(i) && !HexMap.passable(map, i)) return toast(_t("{0}: сюда не пройти", [HexMap.terrainName(map, i)]));
     if (i === st.pos) return;
     walkTo(i);
   }
@@ -433,7 +466,7 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
       if (!path || (!stopAt.length && !w.adjacent)) {
         walking = null;
         drawPath(null);
-        toast(known(w.goal) ? `${HexMap.terrainName(map, w.goal)}: туда нет пути` : 'Дальше не пройти');
+        toast(known(w.goal) ? _t("{0}: туда нет пути", [HexMap.terrainName(map, w.goal)]) : _t("Дальше не пройти"));
         break;
       }
       drawPath(stopAt);
@@ -451,46 +484,53 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   }
 
   /* ---------- здания ---------- */
+  // Здание из нескольких сот: если герой уже на любой из них — сразу внутрь, иначе идёт к ближайшей.
   function goBuilding(id, i) {
     const open = () => openBuilding(id);
-    if (st.pos === i) return open();
-    walkTo(i, open);
+    const b = map.buildings.find((x) => x.id === id), own = (b && b.cells) || [i];
+    if (own.includes(st.pos)) return open();
+    const near = own.reduce((m, c) => (HexMap.dist(map.cells[st.pos], map.cells[c]) < HexMap.dist(map.cells[st.pos], map.cells[m]) ? c : m), own[0]);
+    walkTo(near, open);
   }
 
   function openBuilding(id) {
     const b = HexMap.BUILDINGS[id];
     if (b.soon) return toast(`${b.name}: ${b.desc}`);
+    if (!Unlocks.isOpen(Profile.data, id)) return toast(Unlocks.reason(Profile.data, id));
     if (id === 'shop') return Screens.openShop();
     if (id === 'forge') return Screens.openForge();
     if (id === 'hunter') return Screens.openBestiary();
-    if (id === 'home') return Inventory.open('left');
+    if (id === 'home') return Inventory.open('left', { armory: true });
     if (id === 'hall') return showHall();
     if (id === 'tavern') return Screens.openTavern();
     if (id === 'mill') return Screens.openMill();
     if (id === 'junker') return Screens.openJunker();
     if (id === 'library') return Screens.openLibrary();
     if (id === 'artistWorkshop') return Screens.openArtistWorkshop();
+    if (id === 'lighthouse') return openLighthouse();
+    if (id === 'wreck') return Screens.openWreck();
+    if (id === 'chest') return Screens.openChest('sapphire');
+    if (id === 'chestRuby') return Screens.openChest('ruby');
+    if (id === 'chestEmerald') return Screens.openChest('emerald');
+    if (id === 'chestObsidian') return Screens.openChest('obsidian');
+    if (id === 'kennel' || id === 'alchemist') return Screens.open(id);
+  }
+
+  // Маяк: смотритель зажигает огонь — открывается карта вокруг побережья (радиус 6), затем открывается его окно.
+  function openLighthouse() {
+    const b = map.buildings.find((x) => x.id === 'lighthouse');
+    if (b) {
+      let added = 0;
+      for (const i of HexMap.area(map, b.idx, 6)) if (!revealed.has(i)) { revealed.add(i); added++; }
+      if (added) { renderFog(); renderMonsters(); save(); toast(_t("Луч маяка осветил берег")); }
+    }
+    Screens.openLighthouse();
   }
 
   function showHall() {
     const explored = Math.round(revealed.size / map.cells.length * 100);
     const aliveCount = map.spawns.filter((sp) => alive(sp)).length;
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body">
-      <b class="mc-title">Ратуша</b><p class="hint">${HexMap.BUILDINGS.hall.desc}</p>
-      <div class="stat-list"><div><span>Уровень</span><b>${Profile.level()}</b><small>опыт ${Profile.levelInfo().into} / ${Profile.levelInfo().need === Infinity ? '—' : Profile.levelInfo().need}</small></div>
-      <div><span>Побед</span><b>${Profile.data.wins}</b><small>всего</small></div>
-      <div><span>Исследовано</span><b>${explored}%</b><small>карты</small></div>
-      <div><span>Существ</span><b>${aliveCount}</b><small>сейчас на карте</small></div></div>
-      <p class="hint">Чем дальше от деревни, тем выше цвет существ и богаче добыча.</p>
-      <div class="fac-row">${factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem')}<span>Ваша фракция: <b>${fac().name}</b> (${fac().people})</span></div>
-      <p class="hint">Сохранение хранится в этом браузере. Чтобы перенести персонажа на другое устройство или в другой браузер — скачайте файл сохранения, а там загрузите его обратно.</p>
-      <div class="mc-act">
-        <button type="button" data-act="faction">Сменить фракцию</button>
-        <button type="button" data-act="export-save">Скачать сохранение</button>
-        <button type="button" data-act="import-save">Загрузить сохранение</button>
-        <button type="button" data-act="close">Закрыть</button>
-      </div>
-      <input type="file" id="hall-import-input" accept=".json,application/json" hidden></div></div>`;
+    el['map-card'].innerHTML = _t("<div class=\"map-card\"><div class=\"mc-body\">\n      <b class=\"mc-title\">Ратуша</b><p class=\"hint\">{0} На площади у Ратуши — Торговые ряды: здесь выставляют объявления о продаже.</p>\n      <div class=\"stat-list\"><div><span>Уровень</span><b>{1}</b><small>опыт {2} / {3}</small></div>\n      <div><span>Побед</span><b>{4}</b><small>всего</small></div>\n      <div><span>Исследовано</span><b>{5}%</b><small>карты</small></div>\n      <div><span>Существ</span><b>{6}</b><small>сейчас на карте</small></div></div>\n      <p class=\"hint\">Чем дальше от деревни, тем выше цвет существ и богаче добыча.</p>\n      <div class=\"fac-row\">{7}<span>Ваша фракция: <b>{8}</b> ({9})</span></div>\n      <p class=\"hint\">Сохранение хранится в этом браузере. Чтобы перенести персонажа на другое устройство или в другой браузер — скачайте файл сохранения, а там загрузите его обратно.</p>\n      <div class=\"mc-act\">\n        <button type=\"button\" class=\"primary\" data-act=\"market\">Торговые ряды</button>\n        <button type=\"button\" data-act=\"faction\">Сменить фракцию</button>\n        <button type=\"button\" data-act=\"export-save\">Скачать сохранение</button>\n        <button type=\"button\" data-act=\"import-save\">Загрузить сохранение</button>\n        <button type=\"button\" data-act=\"close\">Закрыть</button>\n      </div>\n      <input type=\"file\" id=\"hall-import-input\" accept=\".json,application/json\" hidden></div></div>", [HexMap.BUILDINGS.hall.desc, Profile.level(), Profile.levelInfo().into, Profile.levelInfo().need === Infinity ? '—' : Profile.levelInfo().need, Profile.data.wins, explored, aliveCount, factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem'), fac().name, fac().people]);
   }
 
   // Скачивание сохранения. На обычном сайте (GitHub Pages и т.п.) — обычная ссылка-скачивание через blob.
@@ -503,12 +543,12 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     if (typeof window !== 'undefined' && window.claude && typeof window.claude.use === 'function') {
       let downloads = null;
       try { downloads = await window.claude.use('downloads'); } catch (e) { downloads = null; }
-      if (!downloads) { toast('Скачивание здесь недоступно'); return; }
+      if (!downloads) { toast(_t("Скачивание здесь недоступно")); return; }
       try {
         await downloads.save({ filename, data: json });
-        toast('Сохранение скачано');
+        toast(_t("Сохранение скачано"));
       } catch (e) {
-        if (!e || e.code !== 'declined') toast('Не удалось скачать сохранение');
+        if (!e || e.code !== 'declined') toast(_t("Не удалось скачать сохранение"));
       }
       return;
     }
@@ -521,49 +561,44 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast('Сохранение скачано');
+    toast(_t("Сохранение скачано"));
   }
 
   function importSaveFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
       const ok = Profile.importSave(String(reader.result));
-      if (!ok) { toast('Не похоже на файл сохранения «Хрупкого мира»'); return; }
+      if (!ok) { toast(_t("Не похоже на файл сохранения «Хрупкого мира»")); return; }
       closeCard();
-      toast('Сохранение загружено');
+      toast(_t("Сохранение загружено"));
       reset();
     };
-    reader.onerror = () => toast('Не удалось прочитать файл');
+    reader.onerror = () => toast(_t("Не удалось прочитать файл"));
     reader.readAsText(file);
   }
 
   /* ---------- монстры и бой ---------- */
   // Оценка опасности: модель шанса победы «среднего» игрока (combat.js, числа — balance.js, обучена на симуляторе).
-  const DANGER = { easy: ['Лёгкий', '#6ecb7a'], even: ['Равный', '#e0c85a'], hard: ['Опасный', '#f0913a'], deadly: ['Смертельный', '#ff5d5d'] };
+  const DANGER = { easy: [_t("Лёгкий"), '#6ecb7a'], even: [_t("Равный"), '#e0c85a'], hard: [_t("Опасный"), '#f0913a'], deadly: [_t("Смертельный"), '#ff5d5d'] };
+  const spawnScaled = (sp) => { const sc = Bestiary.scaled(sp.species, sp.tier); return sp.boss ? Story.scaleBoss(sc, sp.boss) : sc; };
   function danger(sp) {
-    const sc = Bestiary.scaled(sp.species, sp.tier);
+    const sc = spawnScaled(sp);
     const p = Combat.winChance(myView(), { max: sc.hp, dmg: sc.dmg, stats: sc.stats, ai: sc.ai }, sp.species);
     return [...DANGER[Combat.dangerBand(p)], p];
   }
 
   function showMonster(sp) {
-    const m = Bestiary.MONSTERS[sp.species], sc = Bestiary.scaled(sp.species, sp.tier), col = Tiers.get(sp.tier).edge;
+    const m = Bestiary.MONSTERS[sp.species], sc = spawnScaled(sp), col = Tiers.get(sp.tier).edge;
     const [dz, dcol, p] = danger(sp);
+    const ch = sp.boss && Story.BY_ID[sp.boss], story = Profile.data.story || {};
+    const locked = ch && ch.final && !Story.finalOpen(story);
+    const bossNote = ch ? _t("<p class=\"hint boss-note\">👑 <b>Страж осколка</b>: {0} {1}{2}</p>", [ch.lore, story.shards && story.shards[ch.id] ? _t("Осколок уже у вас — страж даёт двойные монеты.") : _t("За первую победу — осколок Великого Сердца и большая награда."), locked ? _t(" <b class=\"warn\">Спит, пока не собраны 4 осколка ({0}/4).</b>", [Story.shards(story)]) : '']) : '';
     const xp = Hero.xpReward(m, sp.tier, Profile.level());
     const abil = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
     const drops = m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
     const near = HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1;
     const art = sp.species === 'dragon' ? `<div class="dragon-art sm" style="--t:${col}">${Figures.avatar('dragon', null)}</div>` : MonsterArt.bust(sp.species, sp.tier);
-    el['map-card'].innerHTML = `<div class="map-card" style="--t:${col}">
-      <div class="mc-art">${art}</div>
-      <div class="mc-body">
-        <b class="mc-title">${m.name}</b> ${tierChip(sp.tier)} <span class="danger" style="--d:${dcol}" title="Примерный шанс победы: ${Math.round(p * 100)}%">${dz} · ~${Math.round(p * 10) * 10}%</span>
-        <div class="mc-ability">${m.family} · приём <b>${Bestiary.ability(sp.species).name}</b>: ${Bestiary.ability(sp.species).desc}</div>
-        <p class="hint">${m.desc}</p>
-        <div class="chips"><span class="chip">ХП ${sc.hp}</span><span class="chip">ИИ ${sc.ai}</span>${abil}</div>
-        <div class="mc-drops"><span class="hint">Добыча:</span>${drops}<span class="hint">монеты ~${Tiers.moneyText(Math.round(m.coins * Tiers.PRICE_MULT[sp.tier - 1]))} · опыт +${xp}</span></div>
-        <div class="mc-act"><button type="button" class="primary" data-act="attack" data-sp="${sp.id}">${near ? 'В бой!' : 'Подойти и напасть'}</button><button type="button" data-act="close">Закрыть</button></div>
-      </div></div>`;
+    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : m.name, tierChip(sp.tier), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote, sc.hp, sc.ai, abil, drops, Tiers.moneyText(Math.round(m.coins * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
   }
 
   function closeCard() { el['map-card'].innerHTML = ''; }
@@ -571,6 +606,7 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   function attack(sp) {
     closeCard();
     if (!alive(sp)) return;
+    if (sp.boss && Story.BY_ID[sp.boss].final && !Story.finalOpen(Profile.data.story)) return toast(_t("Древний дракон спит: сначала соберите 4 осколка Сердца"));
     if (HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1) return startFight(sp);
     walkTo(sp.idx, () => startFight(sp), true);
   }
@@ -578,7 +614,9 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   function startFight(sp) {
     walking = null;
     battleSpawn = sp;
-    Profile.data.monster = { id: sp.species, tier: sp.tier };
+    st.swarm = st.swarm || {};
+    if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
+    Profile.data.monster = { id: sp.species, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, boss: sp.boss || null };   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -588,11 +626,11 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   // Учебный бой с бобром-хранителем (см. Screens.library): не привязан к конкретному существу на карте,
   // поэтому просто выставляет лёгкого противника и запускает бой тем же путём, что и startFight (без sp —
   // returnFromBattle не начисляет respawn/добычу зоны, что и требуется для тренировки).
-  function startTraining(monsterId, tier) {
+  function startTraining(monsterId, tier, extra) {
     closeCard();
     walking = null;
     battleSpawn = null;
-    Profile.data.monster = { id: monsterId, tier };
+    Profile.data.monster = Object.assign({ id: monsterId, tier }, extra || {});
     save();
     setMode('battle');
     enterBattle();
@@ -607,33 +645,74 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
     setMode('map');
     if (result === 'win' && sp) {
       st.defeated[sp.id] = Date.now() + RESPAWN_MS;
-      toast(`${Bestiary.MONSTERS[sp.species].name} повержен. Существо вернётся через ${RESPAWN_MS / 60000} мин.`);
+      if (st.swarm) delete st.swarm[sp.id];
+      toast(_t("{0} повержен. Существо вернётся через {1} мин.", [Bestiary.MONSTERS[sp.species].name, RESPAWN_MS / 60000]));
     } else if (result === 'win') {
       // Учебный бой (см. startTraining) — sp всегда null, своя реплика вместо «Вы отступили».
-      toast('Учебный бой выигран!');
+      toast(Profile.data.monster && Profile.data.monster.deep ? _t("Щука побеждена! Сундук ваш") : _t("Учебный бой выигран!"));
     } else if (result === 'loss') {
       st.pos = HexMap.center(map);
       revealAround(st.pos);
-      toast('Вы проиграли и очнулись в деревне');
+      toast(_t("Вы проиграли и очнулись в деревне"));
     } else {
-      toast('Вы отступили');
+      toast(_t("Вы отступили"));
     }
     refreshPlayerArt();
     renderMonsters();
     renderHud();
+    marketNews();
     requestAnimationFrame(() => centerOn(st.pos, false));
     save();
+    if (typeof Tutorial !== 'undefined') Tutorial.event('map');
+  }
+
+  // Обучение (js/tutorial.js): камера к зданию и пульсирующее кольцо вокруг него; null — убрать кольцо.
+  function coachRing(id) {
+    const old = el['l-village'] && el['l-village'].querySelector('.coach-ring');
+    if (old) old.remove();
+    if (!id || !map) return;
+    const b = map.buildings.find((x) => x.id === id);
+    if (!b) return;
+    const p = bCenter(b), k = (HexMap.BUILDINGS[id].scale || 1.35) / 1.35;
+    el['l-village'].insertAdjacentHTML('beforeend', `<circle class="coach-ring" cx="${p.x.toFixed(1)}" cy="${(p.y - 10 * k).toFixed(1)}" r="${(34 * k).toFixed(1)}"/>`);
+    centerOn(p);
+  }
+
+  // Летопись Бобра: показать стража осколка на карте (если место уже открыто) или подсказать направление.
+  function focusBoss(id) {
+    const sp = map.spawns.find((x) => x.boss === id), ch = Story.BY_ID[id];
+    if (!sp) return toast(`${ch.title}: ${ch.where}`);
+    if (!known(sp.idx)) { centerOn(sp.idx); return toast(_t("{0} где-то здесь, {1} — подойдите ближе, туман скрывает", [ch.title, ch.where])); }
+    centerOn(sp.idx);
+    if (alive(sp)) showMonster(sp); else toast(_t("{0} повержен и вернётся позже", [ch.title]));
+  }
+
+  // Торговые ряды: купцы могли купить лоты, пока вы были в бою или вне игры.
+  function marketNews() {
+    const sold = Profile.marketTick ? Profile.marketTick() : [];
+    if (sold.length) setTimeout(() => toast(_t("Торговые ряды: продано {0} — деньги уже у вас", [sold.length === 1 ? sold[0].name : sold.length + _t(" лота")])), 1200);
+    renderHud();
   }
 
   /* ---------- интерфейс поверх карты ---------- */
+  // Закрытые здания затемнены; новое открытое — сообщение. Первый запуск у старого героя — молча.
+  function refreshLocks() {
+    if (!map) return;
+    const d = Profile.data, open = Unlocks.openIds(d), first = !d.unlockSeen;
+    d.unlockSeen = d.unlockSeen || [];
+    const fresh = open.filter((id) => !d.unlockSeen.includes(id));
+    if (fresh.length) { d.unlockSeen.push(...fresh); if (!first) toast(_t("Открыто: ") + fresh.map((id) => Unlocks.hint(id)).join('; ')); save(); }
+    for (const id of Object.keys(Unlocks.NEED)) { const g = el['l-village'] && el['l-village'].querySelector(`.bldg[data-b="${id}"]`); if (g) g.classList.toggle('locked', !Unlocks.isOpen(d, id)); }
+    const gs = document.getElementById('goal-strip');
+    if (gs) gs.textContent = Unlocks.goal(d, Quests.list(d));
+  }
+
   function renderHud() {
     if (!map || !el['map-me']) return;
+    refreshLocks();
     const me = myView(), F = fac(), lv = Profile.levelInfo();
     const pct = lv.need === Infinity ? 100 : Math.round(lv.into / lv.need * 100);
-    el['map-me'].innerHTML = `<span class="me-av" style="border-color:${F.color}">${Figures.avatar(myKind(), Profile.gear())}<i class="me-lvl">${lv.level}</i></span>
-      <span class="me-txt"><b>${escText(Profile.data.name) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)}</b><small class="me-fac">${factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem')}${F.name} · ур. ${lv.level}</small>
-        <span class="xpbar" title="Опыт: ${lv.into} / ${lv.need === Infinity ? 'максимум' : lv.need}"><i style="width:${pct}%"></i></span>
-        <small>ХП ${me.max} · побед ${Profile.data.wins}</small>${MonsterArt.moneyHtml(Profile.data.coins)}</span>`;
+    el['map-me'].innerHTML = _t("<span class=\"me-av\" style=\"border-color:{0}\">{1}<i class=\"me-lvl\">{2}</i></span>\n      <span class=\"me-txt\"><b>{3}</b><small class=\"me-fac\">{4}{5} · ур. {6}</small>\n        <span class=\"xpbar\" title=\"Опыт: {7} / {8}\"><i style=\"width:{9}%\"></i></span>\n        <small>ХП {10} · побед {11}</small>{12}</span>", [F.color, Figures.avatar(myKind(), Profile.gear()), lv.level, escText(Profile.data.name) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender), factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem'), F.name, lv.level, lv.into, lv.need === Infinity ? _t("максимум") : lv.need, pct, me.max, Profile.data.wins, MonsterArt.moneyHtml(Profile.data.coins)]);
   }
 
   function toast(text) {
@@ -647,19 +726,24 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   function bindHud() {
     const on = (id, fn) => document.getElementById(id).addEventListener('click', fn);
     on('m-gear', () => Inventory.open('left'));
+    el['map-me'].style.cursor = 'pointer'; el['map-me'].addEventListener('click', () => Inventory.open('left'));
     on('m-best', () => Screens.openBestiary());
     on('m-mute', () => { Sound.setMuted(!Sound.muted); renderMute(); muteLabel(); });
     on('m-fs', () => toggleFullscreen());
+    on('m-help', () => Screens.open('help'));
+    on('m-lang', () => I18N.setLang(I18N.lang === 'ru' ? 'en' : 'ru'));
+    document.getElementById('m-lang').textContent = I18N.lang === 'ru' ? 'EN' : 'RU';   // кнопка показывает язык, на который переключит
     on('m-credits', () => Screens.openCredits());
     on('m-zin', () => { const v = view(); zoomAt(v.width / 2, v.height / 2, 1.25); });
     on('m-zout', () => { const v = view(); zoomAt(v.width / 2, v.height / 2, 1 / 1.25); });
     on('m-me', () => centerOn(st.pos));
-    on('m-home', () => { const h = HexMap.center(map); if (st.pos === h) toast('Вы уже в деревне'); else walkTo(h, () => toast('Вы в деревне')); });
+    on('m-home', () => { const h = HexMap.center(map); if (st.pos === h) toast(_t("Вы уже в деревне")); else walkTo(h, () => toast(_t("Вы в деревне"))); });
     el['map-card'].addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
       if (b.dataset.act === 'close') closeCard();
       if (b.dataset.act === 'faction') { closeCard(); Screens.openFactions(false); }
+      if (b.dataset.act === 'market') { closeCard(); Screens.open('market'); }
       if (b.dataset.act === 'attack') attack(map.spawns[Number(b.dataset.sp)]);
       if (b.dataset.act === 'export-save') exportSave();
       if (b.dataset.act === 'import-save') { const inp = document.getElementById('hall-import-input'); if (inp) inp.click(); }
@@ -669,7 +753,7 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
       if (!inp || !inp.files || !inp.files[0]) return;
       importSaveFile(inp.files[0]);
     });
-    const muteLabel = () => { document.getElementById('m-mute').textContent = Sound.muted ? 'Звук: выкл' : 'Звук: вкл'; };
+    const muteLabel = () => { document.getElementById('m-mute').textContent = Sound.muted ? _t("Звук: выкл") : _t("Звук: вкл"); };
     muteLabel();
   }
 
@@ -686,7 +770,7 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   // Бестиарий: «Показать на карте» — ближайшее открытое живое существо вида.
   function focusSpecies(species) {
     const cands = map.spawns.filter((sp) => sp.species === species && known(sp.idx) && alive(sp));
-    if (!cands.length) { toast('Сейчас на открытой части карты таких существ нет'); return false; }
+    if (!cands.length) { toast(_t("Сейчас на открытой части карты таких существ нет")); return false; }
     cands.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]));
     centerOn(cands[0].idx);
     showMonster(cands[0]);
@@ -694,8 +778,8 @@ vil.push(`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${MapArt
   }
 
   return {
-    init, reset, returnFromBattle, focusSpecies, renderHud, refreshPlayerArt, onFactionChanged, startTraining,
-    get inBattle() { return !!battleSpawn; },
+    init, reset, returnFromBattle, focusSpecies, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
+    get inBattle() { return !!battleSpawn; }, marketNews, focusBoss,
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack,
   };

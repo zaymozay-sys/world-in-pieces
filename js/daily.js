@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Ежедневные механики: поручение Библиотеки (бобёр-хранитель) и билет беспроигрышной лотереи Таверны.
    Обе завязаны на календарную дату по МЕСТНОМУ времени игрока (не UTC — иначе день менялся бы в полночь
    Гринвича, а не в полночь игрока). Дата и счётчики хранятся в Profile.data.daily и сбрасываются здесь же,
@@ -101,7 +102,7 @@ const Daily = (() => {
     } else if (row.kind === 'coins') {
       const n = Math.round(price * row.mult);
       Profile.addCoins(n);
-      text = `${n} монет`;
+      text = _t("{0} монет", [n]);
     } else if (row.kind === 'cons') {
       const kinds = Object.keys(D_G.CONSUMABLES), kind = kinds[Math.floor(rand() * kinds.length)];
       Profile.addConsumable(kind, 1);
@@ -119,7 +120,7 @@ const Daily = (() => {
       Profile.addItem(e);
       const bonus = Math.round(price * 2);
       Profile.addCoins(bonus);
-      text = `Джекпот! ${D_G.item(e).name} и ещё ${bonus} монет`;
+      text = _t("Джекпот! {0} и ещё {1} монет", [D_G.item(e).name, bonus]);
     }
     Profile.save();
     return { ok: true, kind: row.kind, price, text };

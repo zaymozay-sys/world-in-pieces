@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Библиотека вещей: как выглядит каждый предмет на персонаже и в иконке.
    Формы взяты из реального средневековья: норманнский шлем с наносником, большой шлем (топфхельм),
    кольчуга, кираса с наплечниками, латные наручи и поножи, арминговый меч, рондельный кинжал,
@@ -85,6 +86,8 @@ const Parts = (() => {
     'amulet-copper': 'copper', 'amulet-power': 'claw', 'amulet-spark': 'amber',
     'berserk-amulet': 'mjolnir', 'mage-amulet': 'crystal', 'wand-amulet': 'talisman', 'amulet-fox': 'fox',
     'crossbow-heavy': 'crossbow', morningstar: 'mace',
+    'crown-shoulders': 'plate', 'rune-shoulders': 'plate', 'grove-shoulders': 'bark', 'scale-shoulders': 'shell', 'leather-shoulders': 'leatherpad',
+    'crown-gloves': 'gauntlet', 'rune-gloves': 'gauntlet', 'grove-gloves': 'archer', 'scale-gloves': 'claws', 'leather-gloves': 'glove',
   };
   const look = (it) => LOOK[it.id];
 
@@ -230,6 +233,72 @@ const Parts = (() => {
     }).join('');
   }
 
+  /* ================== НАПЛЕЧНИКИ (1.3.2) ================== */
+  // Пара наплечников поверх плеч A.shL / A.shR. Вид — по набору: латы (Корона, Руна), кора (Роща), панцирь (Чешуя), кожа.
+  function pauldrons(c, A, it, single = false) {   // single — один наплечник (для иконки)
+    const P = pal(it), lk = look(it);
+    const M = metal(c, P.metal), T = metal(c, P.trim), L = dye(c, P.leather);
+    return (single ? [A.shL] : [A.shL, A.shR]).map((sh) => {
+      const o = sh.x < 120 ? -1 : 1;                       // наружу от тела
+      const x = sh.x + o * 4, y = sh.y - 4;
+      const dome = (dy, rx, ry) => `M${x - rx} ${y + dy} Q${x - rx} ${y + dy - ry * 1.6} ${x} ${y + dy - ry * 1.7} Q${x + rx} ${y + dy - ry * 1.6} ${x + rx} ${y + dy} Q${x} ${y + dy + ry * 0.55} ${x - rx} ${y + dy}Z`;
+      if (lk === 'bark') {
+        return [0, 7, 14].map((dy, k) => `<path d="${dome(dy, 17 - k * 2, 8)}" fill="${k === 1 ? dye(c, '#4f8f3a') : dye(c, '#e8e0c8')}" stroke="${OUT}" stroke-width="1.5"/>`).join('')
+          + `<path d="M${x - 10} ${y - 4} q4 -2 8 0 M${x + 2} ${y + 3} q4 -2 8 0" stroke="#6b5a3a" stroke-width="1" fill="none"/>`
+          + `<path d="M${x} ${y - 14} q5 3 0 8 q-5 -3 0 -8z" fill="${metal(c, 'silver')}" stroke="${OUT}" stroke-width=".9"/>`;
+      }
+      if (lk === 'shell') {
+        const d = dome(4, 18, 10);
+        return `<path d="${d}" fill="${dye(c, '#9a4a2c')}" stroke="${OUT}" stroke-width="1.7"/>${shadeOn(c, d)}
+          <path d="M${x - 9} ${y - 8} l9 -4 l9 4 l-2 9 h-14z" fill="none" stroke="#5f6a2a" stroke-width="1.6"/>
+          <path d="M${x - 16} ${y + 5} Q${x} ${y + 11} ${x + 16} ${y + 5}" stroke="${metal(c, 'bone')}" stroke-width="3.2" fill="none"/>
+          <path d="M${x - 5} ${y - 13} q-3 -9 -9 -11 q8 1 12 9z M${x + 6} ${y - 13} q2 -9 8 -12 q-3 8 -5 13z" fill="${metal(c, 'bone')}" stroke="${OUT}" stroke-width="1"/>`;
+      }
+      if (lk === 'leatherpad') {
+        const d = dome(4, 16, 9);
+        return `<path d="${d}" fill="${L}" stroke="${OUT}" stroke-width="1.6"/>${shadeOn(c, d)}${stitch(`M${x - 12} ${y + 2} Q${x} ${y - 14} ${x + 12} ${y + 2}`)}
+          <rect x="${x - 3}" y="${y - 12}" width="6" height="6" rx="1" fill="${T}" stroke="${OUT}" stroke-width="1"/>`;
+      }
+      // plate — латные (три пластины, кайма, заклёпка)
+      return [12, 6, 0].map((dy, k) => `<path d="${dome(dy, 19 - k * 2, 8 + k)}" fill="${M}" stroke="${OUT}" stroke-width="1.5"/>`).join('')
+        + `<path d="M${x - 15} ${y + 1} Q${x} ${y - 21} ${x + 15} ${y + 1}" stroke="${T}" stroke-width="2.6" fill="none"/>`
+        + (P.metal === 'darksteel' ? `<path d="M${x - 5} ${y - 9} l4 -4 l2 6 l4 -3" stroke="#ff9a3a" stroke-width="1.6" fill="none"/>` : `<circle cx="${x}" cy="${y - 9}" r="3.4" fill="${dye(c, P.cloth)}" stroke="${OUT}" stroke-width="1"/>`)
+        + rivet(x - 11, y + 12) + rivet(x + 11, y + 12)
+        + `<path d="M${x - 8} ${y - 6} Q${x - 2} ${y - 13} ${x + 4} ${y - 12}" stroke="#fff" stroke-width="1.4" opacity=".45" fill="none"/>`;
+    }).join('');
+  }
+
+  /* ================== ПЕРЧАТКИ (1.3.2) ================== */
+  // Кисть вокруг точки руки h: ладонь, пальцы, манжета. Вид — латная, кожаная, лучника, когтистая.
+  function gloves(c, A, it, hands) {
+    const P = pal(it), lk = look(it);
+    const M = metal(c, P.metal), T = metal(c, P.trim), L = dye(c, lk === 'archer' ? '#4f7a3a' : P.leather);
+    return hands.map((h) => {
+      const x = h.x, y = h.y;
+      const cuff = `M${x - 13} ${y - 14} h26 l-2 10 h-22z`;
+      const palm = `M${x - 11} ${y - 5} h22 l1 12 Q${x} ${y + 15} ${x - 12} ${y + 7}Z`;
+      const fing = (fill, w = 4.4) => [-7.5, -2.5, 2.5, 7.5].map((dx) => `<rect x="${x + dx - w / 2}" y="${y + 5}" width="${w}" height="10" rx="2.1" fill="${fill}" stroke="${OUT}" stroke-width="1"/>`).join('');
+      if (lk === 'gauntlet') {
+        return `<path d="${cuff}" fill="${M}" stroke="${OUT}" stroke-width="1.6"/>${shadeOn(c, cuff)}
+          <path d="${palm}" fill="${M}" stroke="${OUT}" stroke-width="1.5"/>${fing(M)}
+          <path d="M${x - 10} ${y - 1} h20 M${x - 10} ${y + 3} h20" stroke="${OUT}" stroke-width=".9" opacity=".6"/>
+          <path d="M${x - 13} ${y - 14} h26" stroke="${T}" stroke-width="2.4"/>${rivet(x, y - 9)}`;
+      }
+      if (lk === 'claws') {
+        return `<path d="${cuff}" fill="${dye(c, '#6b5a3a')}" stroke="${OUT}" stroke-width="1.5"/>
+          <path d="${palm}" fill="${dye(c, '#5f7a3a')}" stroke="${OUT}" stroke-width="1.5"/>
+          ${[[-6, -1], [0, 3], [6, -1]].map(([dx, dy]) => `<path d="M${x + dx - 3} ${y + dy} q3 -3 6 0" stroke="#3d4f22" stroke-width="1" fill="none"/>`).join('')}
+          ${[-7.5, -2.5, 2.5, 7.5].map((dx) => `<rect x="${x + dx - 2.2}" y="${y + 5}" width="4.4" height="8" rx="2" fill="${dye(c, '#5f7a3a')}" stroke="${OUT}" stroke-width="1"/><path d="M${x + dx - 2} ${y + 12} q2 8 5 9 q-1 -5 -1 -9z" fill="${metal(c, 'bone')}" stroke="${OUT}" stroke-width=".8"/>`).join('')}
+          <circle cx="${x + 9}" cy="${y + 21}" r="1.3" fill="#7fe05a"/>`;
+      }
+      // glove / archer — мягкая кожаная перчатка
+      return `<path d="${cuff}" fill="${L}" stroke="${OUT}" stroke-width="1.5"/>${shadeOn(c, cuff)}
+        <path d="${palm}" fill="${L}" stroke="${OUT}" stroke-width="1.5"/>${fing(L)}
+        ${lk === 'archer' ? `<path d="M${x - 6} ${y - 1} q6 -5 12 0 M${x} ${y - 3} v8" stroke="${metal(c, 'silver')}" stroke-width="1.3" fill="none"/>` : stitch(`M${x - 9} ${y - 2} h18`)}
+        <path d="M${x - 13} ${y - 10} h26" stroke="${dye(c, '#2e1e12')}" stroke-width="2"/>`;
+    }).join('');
+  }
+
   /* ================== ПОНОЖИ И ОБУВЬ ================== */
   function legGuards(c, A, it) {
     const P = pal(it), lk = look(it);
@@ -265,6 +334,56 @@ const Parts = (() => {
   }
 
   /* ================== АМУЛЕТЫ ================== */
+  // 1.3.6: сумка (в ячейке и на иконке): клапан, ремешок, пряжка; вид по id
+  function bag(c, A, it) {
+    const id = it.id || '', cx = 100, cy = 150;
+    const body = id === 'bag-herbal' ? '#5f7d3e' : id === 'bag-courier' ? '#8a5a2c' : id === 'bag-bandolier' ? '#6b4a24' : '#9a6a3a';
+    const dk = dye(c, body), lt = dye(c, '#c99a62');
+    let g = `<path d="M${cx - 30} ${cy - 18} Q${cx} ${cy - 62} ${cx + 30} ${cy - 18}" fill="none" stroke="${OUT}" stroke-width="7"/>
+      <path d="M${cx - 30} ${cy - 18} Q${cx} ${cy - 62} ${cx + 30} ${cy - 18}" fill="none" stroke="${lt}" stroke-width="4.5"/>
+      <path d="M${cx - 34} ${cy - 16} h68 l6 44 q-40 12 -80 0 z" fill="${dk}" stroke="${OUT}" stroke-width="2"/>
+      <path d="M${cx - 34} ${cy - 16} h68 l3 22 q-37 10 -74 0 z" fill="${lt}" stroke="${OUT}" stroke-width="2"/>
+      <rect x="${cx - 6}" y="${cy + 2}" width="12" height="14" rx="2.5" fill="${metal(c, 'gold')}" stroke="${OUT}" stroke-width="1.6"/>`;
+    if (id === 'bag-herbal') g += `<path d="M${cx - 22} ${cy + 22} q6 -14 12 0 M${cx + 10} ${cy + 22} q6 -14 12 0" fill="none" stroke="#9bd06a" stroke-width="3"/>`;
+    if (id === 'bag-bandolier') g += [-24, -12, 12, 24].map((x) => `<rect x="${cx + x - 3}" y="${cy + 10}" width="6" height="14" rx="2" fill="#d6c08a" stroke="${OUT}" stroke-width="1.3"/>`).join('');
+    return g;
+  }
+
+  // 1.3.6: поводок (свёрнутая петля с карабином) и компас (корпус, стрелка)
+  function leash(c, A, it) {
+    const id = it.id || '', cx = 100, cy = 150;
+    const col = id === 'leash-silver' ? metal(c, 'silver') : id === 'leash-chain' ? metal(c, 'darksteel') : dye(c, '#b08a52');
+    let g = '';
+    for (let k = 0; k < 4; k++) g += `<ellipse cx="${cx}" cy="${cy}" rx="${34 - k * 5}" ry="${26 - k * 4}" fill="none" stroke="${OUT}" stroke-width="${id === 'leash-chain' ? 6 : 7}"/><ellipse cx="${cx}" cy="${cy}" rx="${34 - k * 5}" ry="${26 - k * 4}" fill="none" stroke="${col}" stroke-width="${id === 'leash-chain' ? 3.5 : 4.5}" ${id === 'leash-chain' ? 'stroke-dasharray="5 2"' : ''}/>`;
+    g += `<path d="M${cx + 30} ${cy - 10} q18 -22 26 -2" fill="none" stroke="${OUT}" stroke-width="7"/><path d="M${cx + 30} ${cy - 10} q18 -22 26 -2" fill="none" stroke="${col}" stroke-width="4.5"/>
+      <rect x="${cx + 50}" y="${cy - 16}" width="16" height="12" rx="3" fill="${metal(c, 'gold')}" stroke="${OUT}" stroke-width="1.8"/>`;
+    return g;
+  }
+  function compass(c, A, it) {
+    const id = it.id || '', cx = 100, cy = 150;
+    const body = id === 'compass-star' ? metal(c, 'gold') : id === 'compass-sea' ? '#3c6a8c' : metal(c, 'gold');
+    const face = id === 'compass-star' ? '#1d2552' : '#efe3c0';
+    return `<circle cx="${cx}" cy="${cy - 40}" r="7" fill="none" stroke="${OUT}" stroke-width="5"/><circle cx="${cx}" cy="${cy - 40}" r="7" fill="none" stroke="${metal(c, 'silver')}" stroke-width="3"/>
+      <circle cx="${cx}" cy="${cy}" r="36" fill="${body}" stroke="${OUT}" stroke-width="2.5"/><circle cx="${cx}" cy="${cy}" r="28" fill="${face}" stroke="${OUT}" stroke-width="1.5"/>
+      <path d="M${cx} ${cy - 24} v-4 M${cx} ${cy + 24} v4 M${cx - 24} ${cy} h-4 M${cx + 24} ${cy} h4" stroke="#444" stroke-width="2"/>
+      <path d="M${cx} ${cy - 22} L${cx + 6} ${cy} L${cx} ${cy + 22} L${cx - 6} ${cy} Z" fill="#c33" stroke="${OUT}" stroke-width="1.2"/><path d="M${cx} ${cy + 22} L${cx + 6} ${cy} L${cx - 6} ${cy} Z" fill="#e8e8f0" stroke="${OUT}" stroke-width="1.2"/>
+      <circle cx="${cx}" cy="${cy}" r="3" fill="#222"/>`;
+  }
+
+  // 1.3.6: арбалет и петарда
+  function ranged(c, A, it) {
+    const id = it.id || '', cx = 100, cy = 150, wood = dye(c, '#8a5a2c'), st = metal(c, 'steel');
+    if (id.startsWith('petard')) {
+      const body = id === 'petard-fire' ? '#d4552a' : id === 'petard-iron' ? metal(c, 'darksteel') : dye(c, '#a8683a');
+      return `<ellipse cx="${cx}" cy="${cy + 6}" rx="30" ry="34" fill="${body}" stroke="${OUT}" stroke-width="3"/><path d="M${cx - 22} ${cy - 6} q22 10 44 0 M${cx - 24} ${cy + 14} q24 10 48 0" fill="none" stroke="${OUT}" stroke-width="2.5"/>
+        <rect x="${cx - 7}" y="${cy - 34}" width="14" height="10" rx="2" fill="#6b4a2b" stroke="${OUT}" stroke-width="2"/><path d="M${cx} ${cy - 34} q2 -14 14 -16" fill="none" stroke="#3a2a1a" stroke-width="3"/><circle cx="${cx + 16}" cy="${cy - 52}" r="6" fill="#ffcc4d" stroke="${OUT}" stroke-width="1.5"/><circle cx="${cx + 16}" cy="${cy - 52}" r="2.6" fill="#fff"/>`;
+    }
+    const bow = id === 'crossbow-repeater' ? metal(c, 'gold') : id === 'crossbow-siege' ? metal(c, 'darksteel') : '#6b4a2b';
+    return `<path d="M${cx - 50} ${cy - 18} Q${cx} ${cy - 44} ${cx + 50} ${cy - 18}" fill="none" stroke="${OUT}" stroke-width="9"/><path d="M${cx - 50} ${cy - 18} Q${cx} ${cy - 44} ${cx + 50} ${cy - 18}" fill="none" stroke="${bow}" stroke-width="5.5"/>
+      <path d="M${cx - 50} ${cy - 18} L${cx} ${cy + 6} L${cx + 50} ${cy - 18}" fill="none" stroke="#e8dcc0" stroke-width="2"/>
+      <rect x="${cx - 7}" y="${cy - 30}" width="14" height="78" rx="4" fill="${wood}" stroke="${OUT}" stroke-width="2.6"/><path d="M${cx} ${cy - 28} v50" stroke="${st}" stroke-width="3"/><path d="M${cx} ${cy - 40} l-5 12 h10z" fill="${st}" stroke="${OUT}" stroke-width="1.6"/>`;
+  }
+
   function amulet(c, A, it) {
     const t = A.torso, cx = t.x + t.w / 2, P = pal(it), lk = look(it);
     const py = t.y + 40;
@@ -452,6 +571,16 @@ const Parts = (() => {
         ${petal(-2.4, -2.4)}${petal(2.4, -2.4)}${petal(-2.4, 2.4)}${petal(2.4, 2.4)}
         <path d="M40 44 v4" stroke="#ffe27a" stroke-width="1.3"/>`;
     }
+    if (kind === 'storm' || kind === 'stoneskin') {
+      const col = kind === 'storm' ? ['#9fd4ff', '#2a5fb0'] : ['#c8c2b6', '#6e675c'];
+      const g = def(c, 'liq-' + kind, (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset="1" stop-color="${col[1]}"/></linearGradient>`);
+      const body = 'M26 18 H38 L38 26 Q54 32 52 46 Q50 60 32 60 Q14 60 12 46 Q10 32 26 26Z';
+      const mark = kind === 'storm' ? '<path d="M36 34 L27 46 H33 L28 56 L40 42 H34 L38 34Z" fill="#fff6b0" stroke="#3a3a1a" stroke-width="1"/>'
+        : '<path d="M22 46 L30 40 L38 44 L44 38 M24 52 L34 48 L42 52" stroke="#4a443a" stroke-width="2" fill="none"/>';
+      return `<path d="${body}" fill="rgba(215,235,255,.3)" stroke="${OUT}" stroke-width="1.8"/>
+        <path d="M14 40 Q13 57 32 58 Q51 57 50 40 Q32 34 14 40Z" fill="${g}"/>
+        <rect x="26" y="4" width="12" height="11" rx="2" fill="${dye(c, '#8b6a3e')}" stroke="${OUT}" stroke-width="1.4"/>${mark}`;
+    }
     if (kind === 'honeyjar') {
       // Банка мёда — приземистая круглая банка с плотным мёдом и перевязанной тканью крышкой.
       const col = ['#ffcf3a', '#c47a10'];
@@ -472,5 +601,5 @@ const Parts = (() => {
       <path d="M40 48 q-2 8 -6 10 M40 48 q4 6 8 8" stroke="#b3261e" stroke-width="2.2" fill="none"/>`;
   }
 
-  return { newCtx, shade, metal, dye, cyl, def, pal, look, LOOK, helm, chest, armGuards, legGuards, amulet, weapon, shield, consumable, OUT, mailFill, furFill, shadeOn, rivet, stitch };
+  return { newCtx, shade, metal, dye, cyl, def, pal, look, LOOK, helm, chest, armGuards, legGuards, pauldrons, gloves, amulet, bag, leash, compass, ranged, weapon, shield, consumable, OUT, mailFill, furFill, shadeOn, rivet, stitch };
 })();

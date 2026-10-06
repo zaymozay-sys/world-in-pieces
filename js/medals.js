@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Медали: аккаунтная коллекция наград за (а) первую победу над каждым видом бестиария и (б) круглые
    вехи собранных за все бои линий из 5 камней подряд. Каждая медаль даёт небольшой, но НАВСЕГДА
    постоянный бонус характеристики — заметно меньше, чем даёт вещь того же цвета, чтобы десяток-другой
@@ -55,7 +56,7 @@ const Medals = (() => {
   // им добит монстр, засчитывается в эту отдельную серию, не смешиваясь с медалями «первая победа над
   // видом»). Те же по духу вехи, что у похожих «числовых» серий (see STREAK_MILESTONES) — не слишком
   // часто в начале, но и не годами ждать сотую.
-  const STRIKE_MILESTONES = [10, 25, 50, 100];
+  const STRIKE_MILESTONES = [5, 15, 40, 100, 220, 450, 850, 1500, 2500, 4000];
   const strikeMedalId = (n) => 'strike:' + n;
 
   // Заслужена ли следующая веха убийств Ударом. total — счётчик добиваний Ударом за все бои
@@ -65,6 +66,14 @@ const Medals = (() => {
       const id = strikeMedalId(n);
       if (total >= n && !earned.some((m) => m.id === id)) return id;
     }
+    return null;
+  }
+
+  // 1.3.9 «Меткий стрелок»: добивания метательным оружием (болт, лунная стрела). Те же вехи, бонус — Инициатива.
+  const SHOT_MILESTONES = [5, 15, 40, 100, 220, 450, 850, 1500, 2500, 4000];
+  const shotMedalId = (n) => 'shot:' + n;
+  function checkShotMedal(total, earned = []) {
+    for (const n of SHOT_MILESTONES) { const id = shotMedalId(n); if (total >= n && !earned.some((m) => m.id === id)) return id; }
     return null;
   }
 
@@ -85,6 +94,10 @@ const Medals = (() => {
       const amt = 1 + idx;                        // та же логика, что у streak: дальше веха — весомее награда
       return { fury: amt };
     }
+    if (id.startsWith('shot:')) {
+      const idx = Math.max(0, SHOT_MILESTONES.indexOf(Number(id.slice(5))));
+      return { initiative: 1 + idx };
+    }
     return {};
   }
 
@@ -95,7 +108,7 @@ const Medals = (() => {
      открытие вещей по цвету (Hero.itemLevel — один цвет тира на каждые 5 уровней героя). */
   function tierUnlockLevel(id) {
     if (killSpecies(id)) return 1;                              // медали за первую победу видны с самого начала
-    const list = id.startsWith('streak:') ? STREAK_MILESTONES : id.startsWith('strike:') ? STRIKE_MILESTONES : null;
+    const list = id.startsWith('streak:') ? STREAK_MILESTONES : id.startsWith('strike:') ? STRIKE_MILESTONES : id.startsWith('shot:') ? SHOT_MILESTONES : null;
     if (!list) return 1;
     const idx = Math.max(0, list.indexOf(Number(id.slice(id.indexOf(':') + 1))));
     return 1 + idx * 5;                                          // тот же шаг «5 уровней на тир», что и у вещей
@@ -111,13 +124,14 @@ const Medals = (() => {
   // Человекочитаемое название медали (для окна медалей).
   function nameFor(id) {
     const species = killSpecies(id);
-    if (species) return ME_B.MONSTERS[species] ? `Первая победа: ${ME_B.MONSTERS[species].name}` : id;
-    if (id.startsWith('streak:')) return `${id.slice(7)} линий из 5 камней`;
-    if (id.startsWith('strike:')) return `${id.slice(7)} добиваний Ударом`;
+    if (species) return ME_B.MONSTERS[species] ? _t("Первая победа: {0}", [ME_B.MONSTERS[species].name]) : id;
+    if (id.startsWith('streak:')) return _t("{0} линий из 5 камней", [id.slice(7)]);
+    if (id.startsWith('strike:')) return _t("{0} добиваний Ударом", [id.slice(7)]);
+    if (id.startsWith('shot:')) return _t("{0} добиваний метким выстрелом", [id.slice(5)]);
     return id;
   }
 
-  return { KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
+  return { SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
     strikeMedalId, checkKillMedal, checkFiveStreakMedal, checkStrikeMedal, bonusFor, bonusStats, nameFor, tierUnlockLevel };
 })();
 

@@ -58,8 +58,11 @@ assert.ok(mean >= 0.6 && mean <= 0.75, 'средний шанс против «�
   assert.ok(M.sacrifice.hpPct > 0 && M.sacrifice.hpPct <= 25, 'доля ХП Жертвы разумна: ' + M.sacrifice.hpPct);
   assert.ok(M.sacrifice.mult >= 2, 'Жертва должна ощутимо усиливать следующий удар');
   // разблокировка выше 1-го уровня заявлена для всех «поздних» заклинаний, кроме общего для всех Удара
-  for (const k of ['mirror', 'tide', 'sacrifice', 'divination']) assert.ok(Balance.spellUnlock[k] > 1);
+  for (const k of ['mirror', 'tide', 'sacrifice']) assert.ok(Balance.spellUnlock[k] > 1);
   assert.strictEqual(Balance.spellUnlock.strike, undefined, 'Удар доступен всем фракциям с 1-го уровня');
 }
 
 console.log('balance: все тесты пройдены');
+{ const B = require('../js/balance.js'); const A = require('assert');
+  A.strictEqual(B.magic.costs.pierce, 6); A.ok(B.magic.costs.pierce > B.magic.costs.lightning, 'Выпад — самое дорогое заклинание');
+  A.strictEqual(B.spellUnlock.pierce, 35); console.log('pierce ok'); }

@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Графика карты: заливки местности, мелкие детали (деревья, горы, волны, камыш),
    здания деревни и частокол. Все рисунки — SVG в координатах карты (радиус соты SIZE). */
 
@@ -11,6 +12,9 @@ const MapArt = (() => {
     water:    ['#5790bf', '#316390', '#1d4268'],
     mountain: ['#948e87', '#716c66', '#4c4843'],
     village:  ['#b09b70', '#927e5b', '#6b5a40'],
+    sea:      ['#3f86b8', '#1f5f94', '#123f69'],
+    beach:    ['#eadcab', '#d9c78c', '#b5a06a'],
+    cobble:   ['#b3a68c', '#9a8c72', '#7a6d56'],   // 1.3.0: мощёные улица и площадь города
   };
 
   function defs() {
@@ -26,7 +30,18 @@ const MapArt = (() => {
       }
       return `<symbol id="${id}" overflow="visible">${body}</symbol>`;
     };
-    return grads + `
+    // 1.2.8: местность из картинок-текстур (art/map/tex-<местность>), если файл есть; иначе градиент.
+    // Текстуры бесшовные — обычная плитка; z — размер плитки в пикселях карты.
+    const TEX = { sea: 260, water: 200, swamp: 200, beach: 180, village: 220, cobble: 160 };
+    let tex = '', drop = [];
+    for (const [k, z] of Object.entries(TEX)) {
+      if (typeof Art === 'undefined' || !Art.has('map/tex-' + k)) continue;
+      drop.push(k);
+      tex += `<pattern id="t-${k}" patternUnits="userSpaceOnUse" width="${z}" height="${z}"><image href="${Art.url('map/tex-' + k)}" width="${z}" height="${z}"/></pattern>`;
+    }
+    let g = grads;
+    for (const k of drop) g = g.replace(new RegExp(`<radialGradient id="t-${k}"[^]*?<\\/radialGradient>`), '');
+    return g + tex + `
       <radialGradient id="fog-g" cx=".5" cy=".5" r=".7"><stop offset="0" stop-color="#15171c"/><stop offset="1" stop-color="#0b0c0f"/></radialGradient>
       <radialGradient id="glow-door" cx=".5" cy=".6" r=".6"><stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#e0661c"/></radialGradient>
       <clipPath id="clip-token"><circle r="21"/></clipPath>
@@ -42,6 +57,7 @@ const MapArt = (() => {
       ${sym('s-wave', `<path d="M-8 0 q2 -3 4 0 t4 0 t4 0 t4 0" stroke="#bfe0f5" stroke-width="1.2" fill="none" opacity=".75"/>`)}
       ${sym('s-grass', `<path d="M-3 3 L-2 -3 M0 3 L0 -4 M3 3 L2 -3" stroke="#5a7a33" stroke-width="1.1"/>`)}
       ${sym('s-flower', `<circle cx="-3" cy="0" r="1.3" fill="#f2e16b"/><circle cx="2" cy="-2" r="1.3" fill="#f6f6f6"/><circle cx="3" cy="2" r="1.3" fill="#e57a9b"/>`)}
+      ${sym('s-shell', `<path d="M-3 2 Q-3 -3 0 -4 Q3 -3 3 2Z" fill="#f3d9d0" stroke="#a07a6a" stroke-width=".7"/><path d="M0 -4 V2 M-1.6 -3 L-1.4 2 M1.6 -3 L1.4 2" stroke="#c79c8c" stroke-width=".5"/>`)}
       ${sym('s-rock', `<path d="M-5 3 L-3 -2 L2 -3 L5 1 L3 3Z" fill="#8c8a85" stroke="#3f3d39" stroke-width=".8"/><path d="M-3 -2 L2 -3 L0 0Z" fill="#b5b3ad"/>`)}
       ${sym('s-cobble', `<circle cx="-6" cy="-4" r="1.6" fill="#7a6a50"/><circle cx="4" cy="-6" r="1.4" fill="#7a6a50"/><circle cx="6" cy="4" r="1.6" fill="#7a6a50"/><circle cx="-4" cy="6" r="1.3" fill="#7a6a50"/>`)}`;
   }
@@ -58,6 +74,8 @@ const MapArt = (() => {
       }
       case 'hills': return at('s-hill', j(6) - 2, j(4) - 3, 1) + (rand() < 0.6 ? at('s-hill', j(4) + 6, 8, 0.7) : '');
       case 'mountain': return at('s-peak', j(4), j(3) - 1, 1.05) + (rand() < 0.5 ? at('s-peak', 11, 9, 0.5) : '');
+      case 'sea': return at('s-wave', j(6) - 5, -6 + j(3), 1.2) + at('s-wave', j(6) + 3, 5 + j(3), 1.2) + (rand() < 0.3 ? at('s-wave', j(8), j(6), 0.8) : '');
+      case 'beach': return (rand() < 0.5 ? at('s-shell', j(22), j(18)) : '') + (rand() < 0.25 ? at('s-rock', j(20), j(16), 0.7) : '') + (rand() < 0.2 ? at('s-wave', j(8) - 6, 9, 0.6) : '');
       case 'water': return at('s-wave', j(6) - 4, -5 + j(3)) + at('s-wave', j(6) + 2, 6 + j(3));
       case 'swamp': return at('s-puddle', j(6), j(5)) + at('s-reed', -9 + j(3), 4) + at('s-reed', 9 + j(3), -3);
       case 'meadow': {
@@ -75,7 +93,7 @@ const MapArt = (() => {
   }
 
   /* ---------- здания ---------- */
-  const shadow = '<ellipse cy="16" rx="21" ry="4.5" fill="#000" opacity=".32"/>';
+  const shadow = '';                    // 1.2.7: тени-пятна под зданиями убраны (решение владельца)
   const house = (wall, roof, w = 30, h = 18) => `
     <rect x="${-w / 2}" y="${16 - h}" width="${w}" height="${h}" fill="${wall}" stroke="${O}" stroke-width="1"/>
     <path d="M${-w / 2 - 4} ${18 - h} L0 ${-2 - h} L${w / 2 + 4} ${18 - h}Z" fill="${roof}" stroke="${O}" stroke-width="1"/>
@@ -109,6 +127,15 @@ const MapArt = (() => {
       <path d="M-15 -2 L15 16 M15 -2 L-15 16" stroke="#6b4a2b" stroke-width="1" opacity=".0"/>
       <path d="M-15 5 H15 M-8 -2 V16 M8 -2 V16" stroke="#6b4a2b" stroke-width="1.4"/>${door(0)}${win(-11, 2)}${win(11, 2)}
       <path d="M8 -12 V-20 M8 -20 L15 -17.5 L8 -15Z" stroke="${O}" stroke-width=".8" fill="#4a86e8"/>`,
+    // 1.2.6: заглушки новых усадеб (пока без картинок): питомник с загоном и будкой, алхимик с колбой и котлом
+    kennel: () => `${shadow}${house('#b89a6a', '#5a7a3a', 26, 16)}${door(-3)}${win(8, 5)}
+      <path d="M-22 16 V8 M-16 16 V8 M-22 10 H-12 M-22 14 H-12" stroke="#6b4a2b" stroke-width="1.4"/>
+      <path d="M14 16 V10 L19 6 L24 10 V16Z" fill="#8a5a32" stroke="${O}" stroke-width=".8"/><path d="M17.5 16 v-3.5 a1.5 1.5 0 0 1 3 0 V16" fill="#2a1a0e"/>
+      <path d="M-5 -6 q2 -3 5 0 q3 -3 5 0 l-5 5z" fill="#e06a5a" stroke="${O}" stroke-width=".6"/>`,
+    alchemist: () => `${shadow}${house('#a99ac2', '#3f2f62', 28, 18)}${door(-5, true)}${win(8, 4)}
+      <path d="M-2 -18 h4 v5 l5 8 q1 3 -2 3 h-10 q-3 0 -2 -3 l5 -8z" fill="#6ee08a" stroke="${O}" stroke-width=".8"/>
+      <circle cx="1" cy="-21" r="1.4" fill="#bff5c9" opacity=".8"/><circle cx="-1" cy="-25" r="1.8" fill="#bff5c9" opacity=".55"/>
+      <path d="M13 16 q0 -6 5 -6 q5 0 5 6z" fill="#2c2c30" stroke="${O}" stroke-width=".8"/><circle cx="18" cy="9" r="1.6" fill="#6ee08a"/>`,
     tavern: () => `${shadow}
       <rect x="-15" y="-14" width="30" height="30" fill="#d4b88a" stroke="${O}"/>
       <path d="M-15 -4 H15 M-5 -14 V-4 M5 -14 V-4" stroke="#6b4a2b" stroke-width="1.3"/>
@@ -149,7 +176,40 @@ const MapArt = (() => {
       <path d="M0 6 L9 1 M-3 8 L4 4 M-3 11 L4 7" stroke="#5a4630" stroke-width=".6"/>
       <rect x="-14" y="8" width="7" height="8" rx="1" fill="#8a6a42" stroke="${O}" stroke-width=".6"/>
       <circle cx="-10.5" cy="9.5" r="1.1" fill="#3a2f22"/>${win(9, 5)}`,
-    arena: () => `<ellipse cy="12" rx="23" ry="7" fill="#000" opacity=".32"/>
+    lighthouse: () => `
+      <path d="M-12 18 Q0 12 12 18 L10 20 L-10 20Z" fill="#8c8a85" stroke="${O}" stroke-width=".8"/>
+      <path d="M-7 16 L-4.5 -12 H4.5 L7 16Z" fill="#f1ece0" stroke="${O}" stroke-width="1"/>
+      <path d="M-6.2 8 L6.2 8 L5.7 3 L-5.7 3Z M-5.3 -3 L5.3 -3 L4.9 -7.5 L-4.9 -7.5Z" fill="#c8402f"/>
+      <rect x="-5.6" y="-17" width="11.2" height="5.5" fill="#ffd98a" stroke="${O}" stroke-width=".9"/>
+      <path d="M-7 -17 H7 L0 -24Z" fill="#4b6196" stroke="${O}" stroke-width=".9"/><path d="M-8 -12 H8" stroke="${O}" stroke-width="1.4"/>
+      <path d="M5.6 -14 L22 -19 L22 -9Z" fill="#ffe9a8" opacity=".35"/><rect x="-1.8" y="9" width="3.6" height="7" rx="1.6" fill="#3a2614"/>`,
+    wreck: () => `
+      <path d="M-22 5 Q-18 15 -2 14 Q16 14 22 2 L18 2 L12 8 L-16 8 L-18 2Z" fill="#6b4a2b" stroke="${O}" stroke-width="1"/>
+      <path d="M-18 2 L-16 8 L12 8 L18 2 Z" fill="#8a6338" stroke="${O}" stroke-width=".8"/>
+      <path d="M-2 4 V-20 M7 4 L5 -12" stroke="#4a3220" stroke-width="2" stroke-linecap="round"/>
+      <path d="M-2 -19 L-11 -9 L-2 -8Z" fill="#d8cfb8" stroke="${O}" stroke-width=".7" stroke-dasharray="2 1.2"/>
+      <path d="M-16 5 L-9 10 M0 6 L8 11" stroke="#3a2614" stroke-width=".8" opacity=".6"/>
+      <rect x="13" y="6" width="9" height="7" rx="1.3" fill="#9a5b2a" stroke="${O}" stroke-width=".9"/><path d="M13 9 H22" stroke="${O}" stroke-width=".8"/><rect x="16.5" y="8" width="2" height="3" fill="#e9c24a" stroke="${O}" stroke-width=".5"/>`,
+    chest: () => `
+      <path d="M-13 14 V0 Q-13 -9 0 -9 Q13 -9 13 0 V14Z" fill="#6b4226" stroke="${O}" stroke-width="1"/>
+      <path d="M-13 3 H13 M-6 -8 V14 M6 -8 V14" stroke="#2c2c30" stroke-width="2"/><rect x="-3" y="1" width="6" height="7" rx="1.2" fill="#e9c24a" stroke="${O}" stroke-width=".8"/><circle cy="4.2" r="1" fill="${O}"/>
+      <path d="M14 14 q3 -2 6 0 M-18 13 q-3 -2 -6 0" stroke="#d9c78c" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    chestRuby: () => `
+      <path d="M-13 14 V0 Q-13 -9 0 -9 Q13 -9 13 0 V14Z" fill="#6b3a2a" stroke="${O}" stroke-width="1"/>
+      <path d="M-13 3 H13 M-6 -8 V14 M6 -8 V14" stroke="#2c2c30" stroke-width="2"/><rect x="-3" y="1" width="6" height="7" rx="1.2" fill="#e0344a" stroke="${O}" stroke-width=".8"/><circle cy="4.2" r="1" fill="${O}"/>
+      <circle cx="-8" cy="-3" r="1.6" fill="#e0344a" stroke="${O}" stroke-width=".5"/><circle cx="8" cy="-3" r="1.6" fill="#e0344a" stroke="${O}" stroke-width=".5"/>
+      <path d="M14 14 q3 -2 6 0 M-18 13 q-3 -2 -6 0" stroke="#d9c78c" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    chestEmerald: () => `
+      <path d="M-13 14 V0 Q-13 -9 0 -9 Q13 -9 13 0 V14Z" fill="#4a4a2a" stroke="${O}" stroke-width="1"/>
+      <path d="M-13 3 H13 M-6 -8 V14 M6 -8 V14" stroke="#2c2c30" stroke-width="2"/><rect x="-3" y="1" width="6" height="7" rx="1.2" fill="#37c46a" stroke="${O}" stroke-width=".8"/><circle cy="4.2" r="1" fill="${O}"/>
+      <circle cx="-8" cy="-3" r="1.6" fill="#37c46a" stroke="${O}" stroke-width=".5"/><circle cx="8" cy="-3" r="1.6" fill="#37c46a" stroke="${O}" stroke-width=".5"/>
+      <path d="M14 14 q3 -2 6 0 M-18 13 q-3 -2 -6 0" stroke="#d9c78c" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    chestObsidian: () => `
+      <path d="M-13 14 V0 Q-13 -9 0 -9 Q13 -9 13 0 V14Z" fill="#9aa3ad" stroke="${O}" stroke-width="1"/>
+      <path d="M-13 3 H13 M-6 -8 V14 M6 -8 V14" stroke="#d8dde3" stroke-width="2"/><rect x="-3" y="1" width="6" height="7" rx="1.2" fill="#1b1b22" stroke="${O}" stroke-width=".8"/><circle cy="4.2" r="1" fill="${O}"/>
+      <circle cx="-8" cy="-3" r="1.6" fill="#1b1b22" stroke="${O}" stroke-width=".5"/><circle cx="8" cy="-3" r="1.6" fill="#1b1b22" stroke="${O}" stroke-width=".5"/>
+      <path d="M14 14 q3 -2 6 0 M-18 13 q-3 -2 -6 0" stroke="#d9c78c" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    arena: () => `
       <ellipse cy="2" rx="21" ry="12" fill="#b3a88f" stroke="${O}"/><ellipse cy="0" rx="15" ry="7.5" fill="#dcc79a" stroke="${O}" stroke-width=".8"/>
       <path d="M-21 2 V8 Q0 22 21 8 V2" fill="#9d927a" stroke="${O}"/>
       ${[-16, -9, -2, 5, 12].map((x) => `<path d="M${x} 9 q2.5 -4 5 0 v4 h-5z" fill="#4a3f2f"/>`).join('')}
@@ -160,7 +220,7 @@ const MapArt = (() => {
   function building(id, soon) {
     const key = 'map/' + id;
     if (typeof Art !== 'undefined' && Art.has(key)) {
-      return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)"><ellipse cy="14" rx="19" ry="4" fill="#000" opacity=".3"/><image href="${Art.url(key)}" x="-22" y="-26" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></g>`;
+      return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)"><image href="${Art.url(key)}" x="-22" y="-26" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></g>`;
     }
     return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)">${(B[id] || B.home)()}</g>`;
   }

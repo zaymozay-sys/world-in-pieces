@@ -4,13 +4,15 @@ const Gear = require('../js/items.js');
 global.Gear = Gear;
 const Quests = require('../js/quests.js');
 
-// десять заданий (пять от трактирщика, пять от мыши), у каждого — цель, описание и понятная награда
-assert.strictEqual(Quests.LIST.length, 10);
-assert.strictEqual(new Set(Quests.LIST.map((q) => q.id)).size, 10, 'id заданий уникальны');
+// четырнадцать заданий (пять от трактирщика, пять от мыши, четыре от тюленя-смотрителя маяка), у каждого — цель, описание и понятная награда
+assert.strictEqual(Quests.LIST.length, 17);
+assert.strictEqual(new Set(Quests.LIST.map((q) => q.id)).size, 17, 'id заданий уникальны');
 assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'tavern').length, 5, 'у трактирщика пять заданий');
 assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'mill').length, 5, 'у мыши пять заданий');
+assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'lighthouse').length, 6, 'у тюленя шесть заданий');
+assert.ok(Quests.find('lh-key').reward.key, 'последнее поручение тюленя выдаёт ключ');
 for (const q of Quests.LIST) {
-  assert.ok(q.giver === 'tavern' || q.giver === 'mill', q.id);
+  assert.ok(['tavern', 'mill', 'lighthouse', 'junker'].includes(q.giver), q.id);
   assert.ok(q.title && q.desc && q.rewardText, q.id);
   assert.ok(q.goal > 0, q.id);
   if (q.reward.item) assert.ok(Gear.ITEMS.some((i) => i.id === q.reward.item), 'нет такой вещи: ' + q.reward.item);
@@ -134,3 +136,17 @@ assert.ok(d.items && d.items.some((e) => e.id === 'amulet-power'), 'наград
 assert.strictEqual(Quests.claim('ten-wins'), false, 'повторно забрать нельзя');
 
 console.log('quests: все тесты пройдены');
+
+// 1.4.4: цветные ключи и серебряный сундук
+{
+  const Q = require('../js/quests.js'), assert3 = require('assert');
+  const d = { bestiary: {}, seen: {}, wins: 0, chestOpened: true, xchests: { ruby: true, emerald: true } };
+  assert3.strictEqual(Q.list(d, 'lighthouse').find((q) => q.id === 'lh-three').done, true);
+  assert3.strictEqual(Q.list(d, 'junker').length, 1);
+  d.junkSold = 10;
+  assert3.strictEqual(Q.list(d, 'junker')[0].value, 10);
+  d.xchests.obsidian = true;                       // серебряный не считается среди трёх цветных
+  d.xchests.ruby = false;
+  assert3.strictEqual(Q.list(d, 'lighthouse').find((q) => q.id === 'lh-three').value, 2);
+  console.log('quests: цветные ключи ок');
+}

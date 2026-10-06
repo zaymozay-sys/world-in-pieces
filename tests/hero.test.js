@@ -3,6 +3,7 @@ const assert = require('assert');
 global.Tiers = require('../js/tiers.js');
 global.Balance = require('../js/balance.js');
 const Hero = require('../js/hero.js');
+Balance.unlockAll = false;   // тест проверяет пороги открытия по уровням
 global.Hero = Hero;
 global.Gear = require('../js/items.js');
 const Bestiary = require('../js/bestiary.js');
@@ -10,7 +11,7 @@ const Bestiary = require('../js/bestiary.js');
 // опыта на уровень нужно всё больше
 for (let L = 1; L < Hero.MAX_LEVEL - 1; L++) assert.ok(Hero.need(L + 1) > Hero.need(L), 'need растёт на ' + L);
 assert.strictEqual(Hero.need(Hero.MAX_LEVEL), Infinity);
-assert.ok(Hero.need(49) > Hero.need(1) * 20, 'к концу опыта нужно в десятки раз больше');
+assert.ok(Hero.need(99) > Hero.need(1) * 10, 'к концу опыта нужно заметно больше (1.3.8: старт замедлен, кривая положе)');
 
 // уровень по опыту
 for (let L = 1; L <= Hero.MAX_LEVEL; L++) {
@@ -20,14 +21,14 @@ for (let L = 1; L <= Hero.MAX_LEVEL; L++) {
 assert.deepStrictEqual(Hero.levelOf(0), { level: 1, into: 0, need: Hero.need(1), total: 0 });
 assert.strictEqual(Hero.levelOf(1e12).level, Hero.MAX_LEVEL);
 
-// 5 уровней на цвет; вещи цвета N — с уровня (N−1)×5+1
+// 10 уровней на цвет (1.3.9); вещи цвета N — с уровня (N−1)×10+1
 assert.strictEqual(Hero.tierFor(1), 1);
-assert.strictEqual(Hero.tierFor(5), 1);
-assert.strictEqual(Hero.tierFor(6), 2);
-assert.strictEqual(Hero.tierFor(46), 10);
-assert.strictEqual(Hero.tierFor(50), 10);
-assert.deepStrictEqual([1, 2, 3, 10].map(Hero.itemLevel), [1, 6, 11, 46]);
-assert.ok(Hero.canWear(2, 6) && !Hero.canWear(2, 5) && Hero.canWear(1, 1));
+assert.strictEqual(Hero.tierFor(10), 1);
+assert.strictEqual(Hero.tierFor(11), 2);
+assert.strictEqual(Hero.tierFor(91), 10);
+assert.strictEqual(Hero.tierFor(100), 10);
+assert.deepStrictEqual([1, 2, 3, 10].map(Hero.itemLevel), [1, 11, 21, 91]);
+assert.ok(Hero.canWear(2, 11) && !Hero.canWear(2, 10) && Hero.canWear(1, 1));
 
 // ХП и урон героя растут тем же темпом, что ХП и урон существ его цвета
 assert.strictEqual(Hero.baseHp(1), Balance.hero.baseHp);
@@ -36,7 +37,7 @@ for (const t of [1, 3, 6, 10]) {
   assert.strictEqual(Hero.dmgMult(L), Math.round(sc.dmg * 100) / 100, 'урон на цвете ' + t);
   assert.ok(Math.abs(Hero.baseHp(L) / Balance.hero.baseHp - Tiers.GROWTH[t - 1]) < 0.01, 'ХП на цвете ' + t);
 }
-for (let L = 1; L < 50; L++) assert.ok(Hero.baseHp(L + 1) > Hero.baseHp(L) && Hero.budget(L + 1) >= Hero.budget(L));
+for (let L = 1; L < 100; L++) assert.ok(Hero.baseHp(L + 1) > Hero.baseHp(L) && Hero.budget(L + 1) >= Hero.budget(L));
 assert.strictEqual(Hero.budget(1), Balance.hero.budget);
 
 // опыт за победу: сильнее вид и выше цвет — больше; слабых фармить бессмысленно
@@ -49,21 +50,22 @@ assert.strictEqual(Hero.xpReward(M.bandit, 1, 1), Balance.hero.xp.perWin);
 
 // цены расходников растут вместе с доходом
 assert.strictEqual(Hero.consumablePrice(50, 1), 50);
-assert.ok(Hero.consumablePrice(50, 46) === 50 * Tiers.PRICE_MULT[9]);
+assert.ok(Hero.consumablePrice(50, 91) === 50 * Tiers.PRICE_MULT[9]);
 
 /* ---------- разблокировка заклинаний по уровню (Balance.spellUnlock) ---------- */
 
 // стартовая пятёрка и общий для всех фракций Удар не упомянуты в spellUnlock — доступны с 1-го уровня
-for (const k of ['lightning', 'fire', 'transmute', 'heal', 'chaos', 'strike']) {
+for (const k of ['lightning', 'heal', 'divination', 'strike']) {
   assert.strictEqual(Hero.isSpellUnlocked(k, 1), true, k + ' доступен с 1-го уровня');
 }
 // заклинания более высокого уровня закрыты до своего порога и открываются с него
 for (const [kind, lvl] of Object.entries(Balance.spellUnlock)) {
+  if (lvl <= 1) continue;
   assert.strictEqual(Hero.isSpellUnlocked(kind, lvl - 1), false, `${kind} закрыт до уровня ${lvl}`);
   assert.strictEqual(Hero.isSpellUnlocked(kind, lvl), true, `${kind} открыт на уровне ${lvl}`);
   assert.strictEqual(Hero.isSpellUnlocked(kind, Hero.MAX_LEVEL), true, `${kind} остаётся открытым на макс. уровне`);
 }
 // пороги валидны: позже 1-го уровня и не позже максимального
-for (const lvl of Object.values(Balance.spellUnlock)) assert.ok(lvl > 1 && lvl <= Hero.MAX_LEVEL);
+for (const lvl of Object.values(Balance.spellUnlock)) assert.ok(lvl >= 1 && lvl <= Hero.MAX_LEVEL);
 
 console.log('hero: все тесты пройдены');

@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Карта из шестиугольников (без интерфейса — можно тестировать в Node).
 
    Соты в осевых координатах (q, r), «остриём вверх». Карта — большой шестиугольник радиуса RADIUS
@@ -7,45 +8,63 @@
    Цвет (уровень) монстров растёт с удалением от деревни: у стен Красный, на краю карты Фиолетовый. */
 
 const HM_B = (typeof Bestiary !== 'undefined') ? Bestiary : require('./bestiary.js');
+const HM_S = (typeof Story !== 'undefined') ? Story : require('./story.js');
 
 const HexMap = (() => {
-  const RADIUS = 14;                  // средняя карта: 631 сота
-  const VILLAGE_R = 4;                // деревня: центр, пустое кольцо, кольцо зданий, ещё пустое, потом частокол
+  const RADIUS = 23;                  // большая карта: 1657 сот (море на западе и востоке); в 1.2.6 выросла вместе с деревней
+  const VILLAGE_R = 7;                // деревня (1.2.6): Ратуша на 7 сотах, площадь, 12 усадеб по 3 соты, кольцо прохода у частокола
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 
   const TERRAIN = {
-    meadow:   { name: 'Луг',    cost: 1,   pass: true },
-    forest:   { name: 'Лес',    cost: 2,   pass: true },
-    hills:    { name: 'Холмы',  cost: 2,   pass: true },
-    swamp:    { name: 'Болото', cost: 3,   pass: true },
-    water:    { name: 'Озеро',  cost: Infinity, pass: false },
-    mountain: { name: 'Горы',   cost: Infinity, pass: false },
-    village:  { name: 'Деревня', cost: 0.8, pass: true },
+    meadow:   { name: _t("Луг"),    cost: 1,   pass: true },
+    forest:   { name: _t("Лес"),    cost: 2,   pass: true },
+    hills:    { name: _t("Холмы"),  cost: 2,   pass: true },
+    swamp:    { name: _t("Болото"), cost: 3,   pass: true },
+    water:    { name: _t("Озеро"),  cost: Infinity, pass: false },
+    mountain: { name: _t("Горы"),   cost: Infinity, pass: false },
+    village:  { name: _t("Деревня"), cost: 0.8, pass: true },
+    sea:      { name: _t("Море"),   cost: Infinity, pass: false },
+    beach:    { name: _t("Берег"),  cost: 1.4, pass: true },
   };
   const ROAD_COST = 0.6;
 
-  // Здания деревни: кольцо 2 вокруг площади (между ними и площадью — пустая сота, для простора).
-  // dir — направление от центра.
+  // Здания деревни (1.2.7): зеркально-симметричный город. Главная улица идёт с запада на восток через площадь
+  // (ворота только на западе и востоке). Ратуша — «цветок» из 7 сот в центре, вокруг пустое кольцо-площадь;
+  // 12 усадеб по 3 соты (треугольник): 6 над улицей и 6 под ней, каждая половина симметрична слева-направо,
+  // нижняя — зеркало верхней. Между усадьбами минимум сота прохода, до частокола — одно свободное кольцо.
+  // cells — все соты здания (нажатие на любую открывает его); at — первая сота (якорь); scale — масштаб рисунка.
+  const HALL_CELLS = [[0, 0], ...DIRS];
   const BUILDINGS = {
-    hall:   { name: 'Ратуша',          at: [0, 0], desc: 'Центр деревни. Сюда вы возвращаетесь после поражения.' },
-    shop:   { name: 'Лавка',           at: [2, 0], desc: 'Покупка и продажа вещей, расходников и ресурсов.' },
-    forge:  { name: 'Кузница',         at: [2, -2], desc: 'Улучшение цвета вещей и создание новых из ресурсов.' },
-    hunter: { name: 'Охотничий дом',   label: 'Охотники', at: [0, -2], desc: 'Бестиарий: всё о встреченных существах.' },
-    home:   { name: 'Ваш дом',         at: [-2, 0], desc: 'Экипировка и ранец.' },
-    tavern: { name: 'Таверна',         at: [-2, 2], desc: 'Трактирщик даёт задания новичкам и рассказывает слухи.' },
-    arena:  { name: 'Арена',           at: [0, 2], desc: 'Бои с другими игроками. Появится позже.', soon: true },
-    mill:   { name: 'Мельница',        at: [-2, 1], desc: 'Добрый мышь даёт задания и делится мышиной мудростью.' },
-    junker: { name: 'Хижина старьёвщика', label: 'Старьёвщик', at: [2, -1],
-      desc: 'Скупает ненужные вещи не глядя — дешевле Лавки, зато сразу и все разом, без лишней возни.' },
-    library: { name: 'Библиотека', at: [-1, -1],
-      desc: 'Бобёр-хранитель держит бестиарий и знает всё о вещах. Каждый день — новое поручение.' },
-    // Между Ареной и Лавкой — последний свободный слот кольца зданий (были ещё [1,-2] между Кузницей и
-    // Охотничьим домом, [-1,2] между Таверной и Ареной). Соседство с Лавкой логично: руны раньше
-    // продавались там же как временная затычка (см. js/runes.js), теперь у них свой дом.
-    artistWorkshop: { name: 'Мастерская художника', label: 'Мастерская', at: [1, 1],
-      desc: 'Журавль-художник продаёт и вставляет руны — теперь в каждой вещи по 2 гнезда.' },
+    hall: { name: _t("Ратуша"), cells: HALL_CELLS, scale: 3.9, desc: _t("Центр деревни. Сюда вы возвращаетесь после поражения.") },
+    artistWorkshop: { name: _t("Мастерская художника"), label: _t("Мастерская"), desc: _t("Журавль-художник продаёт и вставляет руны — теперь в каждой вещи по 2 гнезда."), cells: [[0, -4], [1, -4], [1, -5]] },
+    junker: { name: _t("Хижина старьёвщика"), label: _t("Старьёвщик"), desc: _t("Скупает ненужные вещи не глядя — дешевле Лавки, зато сразу и все разом, без лишней возни."), cells: [[4, -4], [3, -4], [4, -5]] },
+    forge: { name: _t("Кузница"), desc: _t("Улучшение цвета вещей и создание новых из ресурсов."), cells: [[-2, -2], [-1, -2], [-2, -1]] },
+    shop: { name: _t("Лавка"), desc: _t("Покупка и продажа вещей, расходников и ресурсов."), cells: [[4, -2], [3, -2], [3, -1]] },
+    hunter: { name: _t("Охотничий дом"), label: _t("Охотники"), desc: _t("Бестиарий: всё о встреченных существах."), cells: [[-5, -1], [-4, -1], [-4, -2]] },
+    tavern: { name: _t("Таверна"), desc: _t("Трактирщик даёт задания новичкам и рассказывает слухи."), cells: [[6, -1], [5, -1], [6, -2]] },
+    library: { name: _t("Библиотека"), desc: _t("Бобёр-хранитель держит бестиарий и знает всё о вещах. Каждый день — новое поручение."), cells: [[-4, 2], [-3, 2], [-3, 1]] },
+    home: { name: _t("Ваш дом"), desc: _t("Оружейная: сундук с вещами, кладовая, смена снаряжения."), cells: [[2, 2], [1, 2], [2, 1]] },
+    mill: { name: _t("Мельница"), desc: _t("Добрый мышь даёт задания и делится мышиной мудростью."), cells: [[-4, 4], [-3, 4], [-4, 5]] },
+    kennel: { name: _t("Питомник"), desc: _t("Смотрительница Ласка лечит, кормит и обучает прирученных питомцев."), cells: [[0, 4], [-1, 4], [-1, 5]] },
+    arena: { name: _t("Арена"), soon: true, desc: _t("Бои между живыми игроками равных уровней. Откроется вместе с многопользовательским режимом."), cells: [[-6, 1], [-5, 1], [-6, 2]] },
+    alchemist: { name: _t("Алхимик"), desc: _t("Тётушка Жабка варит зелья и эликсиры из добытых ресурсов."), cells: [[5, 1], [4, 1], [4, 2]] },
   };
-  const GATE_DIRS = [0, 2, 4];         // ворота и дороги: восток, северо-запад, юго-запад
+  for (const b of Object.values(BUILDINGS)) { b.at = b.cells[0]; if (!b.scale) b.scale = 3.0; }
+  // Достопримечательности побережья (версия 1.1.10): стоят на пляже у моря, дороги к ним ведут от ворот.
+  // На западе — маяк с тюленем-смотрителем, на востоке — выброшенная на берег бригантина и запертый сундук.
+  BUILDINGS.lighthouse = { name: _t("Маяк"), at: [-18, 1], landmark: true, gate: 3, scale: 2.3,
+    desc: _t("Старый тюлень-смотритель следит за огнём маяка, даёт поручения и хранит ключ от сундука с затонувшего корабля.") };
+  BUILDINGS.wreck = { name: _t("Кораблекрушение"), label: _t("Бригантина"), at: [18, -1], landmark: true, gate: 0, scale: 2.4,
+    desc: _t("Бригантина села на мель у восточного берега. Рядом на песке стоит запертый сундук, а берег охраняет Капитан.") };
+  BUILDINGS.chest = { name: _t("Запертый сундук"), label: _t("Сундук"), at: [19, -2], landmark: true, gate: 0, scale: 1.7,
+    desc: _t("Окованный железом сундук на песке у бригантины. Ключ хранит тюлень-смотритель маяка.") };
+  BUILDINGS.chestRuby = { name: _t("Рубиновый сундук"), label: _t("Рубиновый"), at: [18, 2], landmark: true, gate: 0, scale: 1.6,
+    desc: _t("Сундук с рубинами в крышке стоит на восточных камнях. Ключ мастерит старьёвщик.") };
+  BUILDINGS.chestEmerald = { name: _t("Изумрудный сундук"), label: _t("Изумрудный"), at: [-18, -1], landmark: true, gate: 3, scale: 1.6,
+    desc: _t("Сундук с изумрудами прячется в зарослях у маяка. Ключ — «Живой ключ» — варит алхимик.") };
+  BUILDINGS.chestObsidian = { name: _t("Серебряный сундук"), label: _t("Серебряный"), at: [20, 0], landmark: true, gate: 0, scale: 1.6,
+    desc: _t("Серебряный сундук с обсидианом лежит под водой у бригантины. Нужно уметь дышать под водой.") };
+  const GATE_DIRS = [0, 3];          // 1.2.7: ворота и главная улица — восток и запад (симметрия города); от каждых ворот 3 дороги
 
   // Где водятся существа: диапазон цветов и любимая местность.
   const SPAWN = {
@@ -62,7 +81,7 @@ const HexMap = (() => {
     orc:      { tiers: [3, 8],  terrain: { hills: 3, meadow: 2, forest: 1 }, nearRoad: 1.5 },
     orcShaman:{ tiers: [4, 9],  terrain: { hills: 2, forest: 2, swamp: 1 } },
     ghoul:    { tiers: [3, 8],  terrain: { swamp: 3, forest: 2 } },
-    crab:     { tiers: [2, 6],  terrain: { swamp: 4, meadow: 1 } },
+    crab:     { tiers: [2, 6],  terrain: { swamp: 4, meadow: 1, beach: 4 } },
     bolotnik: { tiers: [3, 7],  terrain: { swamp: 4, forest: 1 } },
     shadow:   { tiers: [6, 10], terrain: { forest: 2, hills: 2, swamp: 1 }, rare: 0.6 },
     treant:   { tiers: [7, 10], terrain: { forest: 4, hills: 1 } },
@@ -70,9 +89,39 @@ const HexMap = (() => {
     // Опасный: сопоставимо с Тенью/Древенем по цветовому диапазону, но фактическая опасность одной
     // встречи скачет от «лёгкой пчелы» до «смертельного роя» — см. Bestiary.MONSTERS.wildbees.swarm.
     wildbees: { tiers: [6, 10], terrain: { meadow: 3, forest: 2, hills: 1 } },
+    // Рысь (Изворотливость) и Шипастый ёж (Возмездие) — звери ранних зон; без этих строк экран бестиария падал.
+    lynx:     { tiers: [2, 5],  terrain: { forest: 3, hills: 2, meadow: 1 } },
+    hedgehog: { tiers: [1, 4],  terrain: { meadow: 3, forest: 2, hills: 1 } },
+    // 1.2.0: нижние уровни и побережье
+    viper:    { tiers: [1, 4],  terrain: { meadow: 3, hills: 2, forest: 1 }, nearRoad: 1.5 },
+    spider:   { tiers: [1, 5],  terrain: { forest: 4, swamp: 1 } },
+    vulture:  { tiers: [2, 6],  terrain: { hills: 3, meadow: 1 } },
+    wisp:     { tiers: [3, 6],  terrain: { swamp: 4 }, rare: 0.35 },          // мини-босс болот
+    gull:     { tiers: [1, 4],  terrain: { beach: 4, meadow: 0.5 } },
+    hermit:   { tiers: [2, 6],  terrain: { beach: 4 } },
+    smuggler: { tiers: [3, 7],  terrain: { beach: 3, meadow: 1 }, nearRoad: 2 },
+    // 1.3.8: новые звери и чудовища
+    fox: { tiers: [2, 5],  terrain: { forest: 3, meadow: 2, hills: 1 } },
+    badger: { tiers: [2, 5],  terrain: { forest: 2, hills: 3, meadow: 1 } },
+    owl: { tiers: [3, 6],  terrain: { forest: 4, hills: 1 } },
+    otter: { tiers: [2, 5],  terrain: { swamp: 3, beach: 3 } },
+    heron: { tiers: [2, 6],  terrain: { swamp: 3, beach: 2 } },
+    elk: { tiers: [4, 7],  terrain: { forest: 3, meadow: 2 } },
+    goat: { tiers: [4, 8],  terrain: { hills: 4 } },
+    eagle: { tiers: [5, 9],  terrain: { hills: 3, meadow: 1 } },
+    rhino: { tiers: [5, 9],  terrain: { meadow: 3, hills: 2 } },
+    leopard: { tiers: [6, 10], terrain: { hills: 3, forest: 1 } },
+    leech: { tiers: [3, 7],  terrain: { swamp: 4 } },
+    mimic: { tiers: [4, 8],  terrain: { hills: 2, beach: 2, meadow: 1 }, rare: 0.5 },
+    salamander: { tiers: [6, 10], terrain: { hills: 2, swamp: 2 } },
+    bear: { tiers: [4, 8],  terrain: { forest: 4, hills: 1 }, rare: 0.3 },
+    griffin: { tiers: [8, 10], terrain: { hills: 4 }, rare: 0.3 },
+    wyvern: { tiers: [8, 10], terrain: { hills: 2, swamp: 2 }, rare: 0.3 },
+    basilisk: { tiers: [8, 10], terrain: { swamp: 4, forest: 1 }, rare: 0.3 },
+    captain:  { tiers: [8, 8],  terrain: {}, fixed: true },                    // босс востока: ставится вручную у сундука
   };
   // Плотность монстров: у деревни гуще (новичкам есть с кем сражаться), дальше реже.
-  const spawnDensity = (d) => (d <= 6 ? 0.36 : d <= 9 ? 0.2 : 0.13);
+  const spawnDensity = (d) => (d <= VILLAGE_R + 2 ? 0.36 : d <= VILLAGE_R + 5 ? 0.2 : 0.13);
 
   /* ---------- координаты ---------- */
   const key = (q, r) => q + ',' + r;
@@ -145,32 +194,66 @@ const HexMap = (() => {
       else if (m > 0.5) t = 'forest';
       else t = 'meadow';
       c.terrain = t;
+      // Море по краям: западный и восточный берега (извилистая линия прибоя), у воды — полоса пляжа.
+      const xs = c.q + c.r / 2, wig = (fbm(seed + 555, p.x, p.y) - 0.5) * 3.2;
+      if (Math.abs(xs) + wig > RADIUS - 3.5) t = 'sea';
+      else if (Math.abs(xs) + wig > RADIUS - 5.5) t = 'beach';
+      c.terrain = t;
       if (c.d <= VILLAGE_R) c.terrain = 'village';
+    }
+    // место под достопримечательности — всегда пляж
+    for (const b of Object.values(BUILDINGS)) {
+      if (!b.landmark) continue;
+      const ci = cells[index.get(key(b.at[0], b.at[1]))];
+      ci.terrain = 'beach';
+      for (const [dq, dr] of DIRS) { const n = cells[index.get(key(ci.q + dq, ci.r + dr))]; if (n && n.terrain === 'sea' && Math.abs(n.q + n.r / 2) < Math.abs(ci.q + ci.r / 2)) n.terrain = 'beach'; }
     }
 
     // здания
     for (const [id, b] of Object.entries(BUILDINGS)) {
-      const idx = index.get(key(b.at[0], b.at[1]));
-      cells[idx].building = id;
-      map.buildings.push({ id, idx });
+      const own = (b.cells || [b.at]).map(([q, r]) => index.get(key(q, r)));
+      for (const i of own) cells[i].building = id;
+      map.buildings.push({ id, idx: own[0], cells: own });
     }
 
     // ворота и дороги к краю карты
-    for (const dir of GATE_DIRS) {
+    for (const gdir of GATE_DIRS) {
+     const [gq, gr] = DIRS[gdir];
+     const gate = index.get(key(gq * VILLAGE_R, gr * VILLAGE_R));
+     map.gates.push(gate);
+     // от ворот расходятся три дороги: прямо и по соседним направлениям (на северо- и юго-восток/запад)
+     for (const dir of [gdir, (gdir + 1) % 6, (gdir + 5) % 6]) {
       const [dq, dr] = DIRS[dir];
-      const gate = index.get(key(dq * VILLAGE_R, dr * VILLAGE_R));
-      map.gates.push(gate);
       // цель — сота у края в том же направлении, чуть в сторону
       const side = DIRS[(dir + 2) % 6], shift = Math.floor(rand() * 5) - 2;
       let tq = dq * (RADIUS - 1) + side[0] * shift, tr = dr * (RADIUS - 1) + side[1] * shift;
       if (!index.has(key(tq, tr))) { tq = dq * (RADIUS - 1); tr = dr * (RADIUS - 1); }
-      const path = roadPath(map, gate, index.get(key(tq, tr)));
-      for (const i of [gate, ...path]) {
+      while (cells[index.get(key(tq, tr))].terrain === 'sea') { tq -= dq; tr -= dr; }   // дорога не уходит в море
+      // дорога начинается с соты сразу за воротами (иначе путь мог бы «срезать» через деревню)
+      const out = index.get(key(gq * (VILLAGE_R + 1), gr * (VILLAGE_R + 1)));
+      const path = roadPath(map, out, index.get(key(tq, tr)));
+      for (const i of [gate, out, ...path]) {
         const c = cells[i];
         if (c.d <= VILLAGE_R && i !== gate) continue;
         c.road = true;
         if (c.terrain === 'water') c.bridge = true;
         if (c.terrain === 'mountain') c.terrain = 'hills';       // перевал
+      }
+     }
+    }
+
+    // главная улица деревни (от ворот к площади) — c.street: по ней всегда можно пройти нажатием (см. MapView.cellAt)
+    for (const gdir of GATE_DIRS) for (let k = 1; k <= VILLAGE_R; k++) cells[index.get(key(DIRS[gdir][0] * k, DIRS[gdir][1] * k))].street = true;
+
+    // дороги к маяку и кораблю
+    for (const b of Object.values(BUILDINGS)) {
+      if (!b.landmark) continue;
+      const [gq, gr] = DIRS[b.gate], out = index.get(key(gq * (VILLAGE_R + 1), gr * (VILLAGE_R + 1)));
+      for (const i of roadPath(map, out, index.get(key(b.at[0], b.at[1])))) {
+        const c = cells[i];
+        c.road = true;
+        if (c.terrain === 'water') c.bridge = true;
+        if (c.terrain === 'mountain') c.terrain = 'hills';
       }
     }
 
@@ -186,10 +269,32 @@ const HexMap = (() => {
     // монстры
     const nearRoad = (i) => cells[i].road || neighbors(map, i).some((n) => cells[n].road);
     const taken = new Set();
+    let captain = null;
+    // босс побережья: Капитан стоит на пляже рядом с сундуком и бригантиной (место выбирается до остальных существ)
+    {
+      const chest = map.buildings.find((x) => x.id === 'chest').idx;
+      const spot = [...neighbors(map, chest), ...neighbors(map, chest).flatMap((n) => neighbors(map, n))]
+        .find((n) => cells[n].terrain === 'beach' && !cells[n].building && !cells[n].road && reach.has(n));
+      if (spot !== undefined) { taken.add(spot); captain = { idx: spot, species: 'captain', tier: 8, boss: 'b4' }; }
+    }
+    // 1.3.0: стражи осколков (Story.CHAPTERS) — в зоне своего цвета, в своём направлении от деревни
+    const bosses = [];
+    for (const ch of HM_S.CHAPTERS) {
+      if (ch.existing) continue;
+      let best = null, bs = Infinity;
+      for (const c of cells) {
+        if (tierAt(c.d) !== ch.tier || c.road || c.building || !reach.has(c.idx) || !TERRAIN[c.terrain].pass || c.terrain === 'beach') continue;
+        if (taken.has(c.idx) || neighbors(map, c.idx).some((n) => taken.has(n))) continue;
+        const p = toPixel(c.q, c.r, 1);
+        let da = Math.abs(Math.atan2(p.y, p.x) * 180 / Math.PI - ch.angle); if (da > 180) da = 360 - da;
+        if (da < bs) { bs = da; best = c.idx; }
+      }
+      if (best !== null) { taken.add(best); bosses.push({ idx: best, species: ch.species, tier: ch.tier, boss: ch.id }); }
+    }
     for (const c of cells) {
       if (c.d <= VILLAGE_R || c.road || !reach.has(c.idx) || !TERRAIN[c.terrain].pass) continue;
       if (rand() > spawnDensity(c.d)) continue;
-      if (neighbors(map, c.idx).some((n) => taken.has(n))) continue;
+      if (taken.has(c.idx) || neighbors(map, c.idx).some((n) => taken.has(n))) continue;
       let tier = tierAt(c.d);
       const roll = rand();
       if (roll < 0.15 && tier > 1) tier--;
@@ -198,13 +303,15 @@ const HexMap = (() => {
       taken.add(c.idx);
       map.spawns.push({ id: map.spawns.length, idx: c.idx, species, tier });
     }
+    if (captain) map.spawns.push({ id: map.spawns.length, ...captain });
+    for (const b of bosses) map.spawns.push({ id: map.spawns.length, ...b });
     return map;
   }
 
   function pickSpecies(tier, terrain, road, rand) {
     const pool = [];
     for (const [id, s] of Object.entries(SPAWN)) {
-      if (tier < s.tiers[0] || tier > s.tiers[1]) continue;
+      if (s.fixed || tier < s.tiers[0] || tier > s.tiers[1]) continue;
       let w = (s.terrain[terrain] || 0.25) * (s.rare || 1);
       if (road && s.nearRoad) w *= s.nearRoad;
       pool.push([id, w]);
@@ -217,7 +324,7 @@ const HexMap = (() => {
 
   // Дорога: дешевле по лугам, дороже по лесу и болотам; озёра — мостом, горы — перевалом.
   function roadPath(map, from, to) {
-    const cost = (a, i) => ({ meadow: 1, village: 1, forest: 2.2, hills: 2.6, swamp: 3, water: 7, mountain: 14 }[map.cells[i].terrain]);
+    const cost = (a, i) => ({ meadow: 1, village: 1, forest: 2.2, hills: 2.6, swamp: 3, water: 7, mountain: 14, beach: 1.2, sea: 80 }[map.cells[i].terrain]);
     return astar(map, from, to, cost, () => false);
   }
 
@@ -304,8 +411,8 @@ const HexMap = (() => {
   const terrainName = (map, i) => {
     const c = map.cells[i];
     if (c.building) return BUILDINGS[c.building].name;
-    if (c.bridge) return 'Мост';
-    if (c.road) return 'Дорога';
+    if (c.bridge) return _t("Мост");
+    if (c.road) return _t("Дорога");
     return TERRAIN[c.terrain].name;
   };
 

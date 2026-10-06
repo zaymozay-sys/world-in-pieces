@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Персонажи в полный рост (для окна ранца) и аватары (в бою).
    Герои фракций (рыцарь, гном, лучница, ящер) и Дракон нарисованы слоями SVG:
    тело, а поверх — надетые предметы из parts.js. Это временные рисунки:
@@ -13,7 +14,7 @@ const Figures = (() => {
   /* ---------- опорные точки ---------- */
   const FIG = {
     dwarf: {
-      name: 'Старый боевой гном',
+      name: _t("Старый боевой гном"),
       head: { cx: 120, cy: 80, r: 31 }, neckY: 108,
       torso: { x: 78, y: 126, w: 84, h: 108 },
       shL: { x: 84, y: 142 }, shR: { x: 156, y: 142 },
@@ -22,7 +23,7 @@ const Figures = (() => {
       skin: '#d9a982', sleeve: '#7f6242',
     },
     human: {
-      name: 'Странствующий рыцарь',
+      name: _t("Странствующий рыцарь"),
       head: { cx: 120, cy: 78, r: 30 }, neckY: 106,
       torso: { x: 80, y: 124, w: 80, h: 110 },
       shL: { x: 86, y: 140 }, shR: { x: 154, y: 140 },
@@ -31,7 +32,7 @@ const Figures = (() => {
       skin: '#e2b48e', sleeve: '#35558f',
     },
     elf: {
-      name: 'Лесная лучница',
+      name: _t("Лесная лучница"),
       head: { cx: 120, cy: 78, r: 29 }, neckY: 106,
       torso: { x: 84, y: 124, w: 72, h: 110 },
       shL: { x: 90, y: 140 }, shR: { x: 150, y: 140 },
@@ -40,7 +41,7 @@ const Figures = (() => {
       skin: '#f0d3b8', sleeve: '#2f6a3e',
     },
     lizard: {
-      name: 'Ящер-следопыт',
+      name: _t("Ящер-следопыт"),
       head: { cx: 120, cy: 72, r: 32 }, neckY: 104,
       torso: { x: 82, y: 122, w: 76, h: 118 },
       shL: { x: 88, y: 142 }, shR: { x: 152, y: 142 },
@@ -49,7 +50,7 @@ const Figures = (() => {
       skin: '#7c8c3c', sleeve: '#7c8c3c',
     },
     dragon: {
-      name: 'Дракон',
+      name: _t("Дракон"),
       head: { cx: 120, cy: 72, r: 33 }, neckY: 104,
       torso: { x: 82, y: 122, w: 76, h: 118 },
       shL: { x: 88, y: 142 }, shR: { x: 152, y: 142 },
@@ -325,6 +326,8 @@ const Figures = (() => {
     if (it('chest')) parts.push(Parts.chest(c, A, it('chest')));
     parts.push(B.arm(c, A, A.shL, hL), B.arm(c, A, A.shR, hR));
     if (it('arms')) parts.push(Parts.armGuards(c, A, it('arms'), [hL, hR]));
+    if (it('gloves')) parts.push(Parts.gloves(c, A, it('gloves'), [hL, hR]));
+    if (it('shoulders')) parts.push(Parts.pauldrons(c, A, it('shoulders')));
     if (it('amulet')) parts.push(Parts.amulet(c, A, it('amulet')));
     parts.push(B.head(c, A));
     if (it('head')) parts.push(Parts.helm(c, A, it('head')));

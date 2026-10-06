@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Правила боя без интерфейса: урон, блок, броня, рикошет, приёмы существ и фракций, расходники.
    Работают с объектами бойцов; ими пользуются игра (game.js) и симулятор (tools/sim.js).
 
@@ -98,7 +99,18 @@ const Combat = (() => {
     }
     // Банка мёда: гарантированный блок следующего удара (заряд копится в target.shield, см. useConsumable).
     if (!blocked && target.shield > 0) { blocked = true; target.shield--; out.shieldUsed = true; }
-    if (blocked) { out.kind = 'block'; return out; }
+    if (blocked) {
+      out.kind = 'block';
+      // 1.3.8: заблокированный удар может ещё и отразиться — Рикошет проверяется независимо от Блока
+      // (кубик Рикошета; урон отражается за вычетом Брони цели). Тогда kind = 'blockreflect'.
+      if (chance(target.stats.ricochet + buffStat(target, 'retribution'), rand)) {
+        const d = Math.min(C_G.MAX_DEFENSE, target.stats.defense);
+        out.kind = 'blockreflect';
+        out.amount = Math.max(1, Math.round(amount * (1 - d / 100)));
+        out.attackerRevived = loseHp(attacker, out.amount);
+      }
+      return out;
+    }
     out.pierce = attacker.ability === 'backstab' && chance(A.backstab.chance, rand);
     const def = out.pierce ? 0 : Math.min(C_G.MAX_DEFENSE, target.stats.defense);
     amount = Math.max(1, Math.round(amount * (1 - def / 100)));
@@ -204,6 +216,16 @@ const Combat = (() => {
       }
       f.shield = (f.shield || 0) + Kj.shieldHits;
       return { kind, mode: 'shield', hits: Kj.shieldHits };
+    }
+    // 1.3.0, Алхимик: Зелье грозы — бесплатная Шаровая молния на этот ход; Каменная кожа — 2 гарантированных блока.
+    if (kind === 'storm') {
+      if (f.magic) return null;
+      f.magic = true; f.magicFree = true;
+      return { kind };
+    }
+    if (kind === 'stoneskin') {
+      f.stats.defense = (f.stats.defense || 0) + K.stoneskin.armor;
+      return { kind, armor: K.stoneskin.armor };
     }
     return null;
   }

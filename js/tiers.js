@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Уровни-цвета и деньги (без интерфейса — можно тестировать в Node).
 
    Десять уровней по возрастанию мощи: сначала радуга, затем благородные металлы и обсидиан.
@@ -11,16 +12,16 @@
 
 const Tiers = (() => {
   const LIST = [
-    { id: 1,  name: 'Красный',      color: '#e5483f', ink: '#101114' },
-    { id: 2,  name: 'Оранжевый',    color: '#f08a2c', ink: '#101114' },
-    { id: 3,  name: 'Жёлтый',       color: '#f4dc3f', ink: '#101114' },
-    { id: 4,  name: 'Зелёный',      color: '#48b96c', ink: '#101114' },
-    { id: 5,  name: 'Голубой',      color: '#4cc0ee', ink: '#101114' },
-    { id: 6,  name: 'Синий',        color: '#4270e6', ink: '#ffffff' },
-    { id: 7,  name: 'Фиолетовый',   color: '#a262ee', ink: '#ffffff' },
-    { id: 8,  name: 'Серебро',      color: '#c9d0da', ink: '#101114' },
-    { id: 9,  name: 'Золото',       color: '#f0c23c', ink: '#101114' },
-    { id: 10, name: 'Обсидиановый', color: '#3a3148', ink: '#f2ecff', edge: '#b6a5de' },
+    { id: 1,  name: _t("Красный"),      color: '#e5483f', ink: '#101114' },
+    { id: 2,  name: _t("Оранжевый"),    color: '#f08a2c', ink: '#101114' },
+    { id: 3,  name: _t("Жёлтый"),       color: '#f4dc3f', ink: '#101114' },
+    { id: 4,  name: _t("Зелёный"),      color: '#48b96c', ink: '#101114' },
+    { id: 5,  name: _t("Голубой"),      color: '#4cc0ee', ink: '#101114' },
+    { id: 6,  name: _t("Синий"),        color: '#4270e6', ink: '#ffffff' },
+    { id: 7,  name: _t("Фиолетовый"),   color: '#a262ee', ink: '#ffffff' },
+    { id: 8,  name: _t("Серебро"),      color: '#c9d0da', ink: '#101114' },
+    { id: 9,  name: _t("Золото"),       color: '#f0c23c', ink: '#101114' },
+    { id: 10, name: _t("Обсидиановый"), color: '#3a3148', ink: '#f2ecff', edge: '#b6a5de' },
   ];
   for (const t of LIST) if (!t.edge) t.edge = t.color;
   const MAX = LIST.length;
@@ -66,9 +67,9 @@ const Tiers = (() => {
   function moneyText(n) {
     const m = splitMoney(n);
     const parts = [];
-    if (m.gold) parts.push(m.gold + ' зол.');
-    if (m.silver) parts.push(m.silver + ' сер.');
-    if (m.copper || !parts.length) parts.push(m.copper + ' мед.');
+    if (m.gold) parts.push(m.gold + _t(" зол."));
+    if (m.silver) parts.push(m.silver + _t(" сер."));
+    if (m.copper || !parts.length) parts.push(m.copper + _t(" мед."));
     return parts.join(' ');
   }
 

@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Графика из папки art/ (готовится tools/build-art.py).
    Список файлов — в js/art-files.js. Если картинки нет, игра рисует по-старому (встроенными SVG),
    поэтому графику можно добавлять по частям. Рисунки вставляются внутрь SVG (<image>), чтобы старый код
@@ -13,6 +14,11 @@ const Art = (() => {
     const s = 100 * zoom, o = (100 - s) / 2;
     return `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${bg ? `<rect width="100" height="100" fill="${bg}"/>` : ''}` +
       `<image href="${url(key)}" x="${(o + dx).toFixed(1)}" y="${(o + dy).toFixed(1)}" width="${s}" height="${s}" preserveAspectRatio="xMidYMid meet"/></svg>`;
+  }
+
+  // Значок предмета/расходника/ресурса из art/<key>: тот же класс, что у встроенных SVG-иконок.
+  function icon(key, cls = 'item-icon') {
+    return `<svg class="${cls}" viewBox="0 0 100 100" aria-hidden="true"><image href="${url(key)}" x="4" y="4" width="92" height="92" preserveAspectRatio="xMidYMid meet"/></svg>`;
   }
 
   /* ---------- камни ---------- */
@@ -80,7 +86,7 @@ const Art = (() => {
 
   applyGems();
   applyBoard();
-  return { has, url, hasPortrait, portrait, hasBody, body, bodyKey, bodyLevel, hasMonster, monster, hasNpc, npcPortrait, hasScene, sceneUrl };
+  return { has, url, icon, hasPortrait, portrait, hasBody, body, bodyKey, bodyLevel, hasMonster, monster, hasNpc, npcPortrait, hasScene, sceneUrl };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

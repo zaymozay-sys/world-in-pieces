@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Задания от собеседников в зданиях деревни: трактирщик-гоблин в Таверне и мышь на Мельнице.
    Каждое задание нужно сперва ВЗЯТЬ («Взять задание») — до этого прогресс не считается, даже если
    условие уже выполнено на момент разговора. После взятия прогресс проверяется по профилю игрока
@@ -12,6 +13,7 @@ const Quests = (() => {
   const bestiaryCount = (d) => Object.keys(d.bestiary || {}).length;
   const resourceSum = (d) => Object.values(d.resources || {}).reduce((s, n) => s + n, 0);
   const resourceKinds = (d) => new Set(Object.keys(d.resources || {}).map((k) => k.split(':')[0])).size;
+  const chestsOpened = (d) => (d.chestOpened ? 1 : 0) + Object.keys(d.xchests || {}).filter((k) => k !== 'obsidian' && d.xchests[k]).length;
   const seenCount = (d) => Object.keys(d.seen || {}).length;
   const itemCount = (d) => (d.items || []).length;
   const levelOf = (d) => Q_H.levelOf(d.xp || 0).level;
@@ -21,106 +23,124 @@ const Quests = (() => {
     {
       id: 'first-blood',
       giver: 'tavern',
-      title: 'Первая кровь',
-      desc: 'Победите любое существо в бою — покажите, что не зря забрели в наши края.',
+      title: _t("Первая кровь"),
+      desc: _t("Победите любое существо в бою — покажите, что не зря забрели в наши края."),
       need: (d) => d.wins || 0,
       goal: 1,
       reward: { coins: 60 },
-      rewardText: '60 медных монет',
+      rewardText: _t("60 медных монет"),
     },
     {
       id: 'amulet',
       giver: 'tavern',
-      title: 'Оберег в дорогу',
-      desc: 'Наденьте амулет — в бою без него как без второй руки. Купите в лавке или найдите в бою.',
+      title: _t("Оберег в дорогу"),
+      desc: _t("Наденьте амулет — в бою без него как без второй руки. Купите в лавке или найдите в бою."),
       need: (d) => (d.loadout && d.loadout.amulet ? 1 : 0),
       goal: 1,
       reward: { coins: 80 },
-      rewardText: '80 медных монет',
+      rewardText: _t("80 медных монет"),
     },
     {
       id: 'bestiary-3',
       giver: 'tavern',
-      title: 'Гроза бестиария',
-      desc: 'Победите три разных вида существ — узнайте, с кем вообще имеете дело в здешних краях.',
+      title: _t("Гроза бестиария"),
+      desc: _t("Победите три разных вида существ — узнайте, с кем вообще имеете дело в здешних краях."),
       need: bestiaryCount,
       goal: 3,
       reward: { item: 'amulet-copper' },
-      rewardText: 'Медный амулет',
+      rewardText: _t("Медный амулет"),
     },
     {
       id: 'resources-10',
       giver: 'tavern',
-      title: 'Запасливый',
-      desc: 'Соберите 10 единиц любых ресурсов с побеждённых существ — в хозяйстве пригодится всё.',
+      title: _t("Запасливый"),
+      desc: _t("Соберите 10 единиц любых ресурсов с побеждённых существ — в хозяйстве пригодится всё."),
       need: resourceSum,
       goal: 10,
       reward: { coins: 40, cons: { scroll: 2 } },
-      rewardText: '40 монет и 2 свитка спешки',
+      rewardText: _t("40 монет и 2 свитка спешки"),
     },
     {
       id: 'veteran',
       giver: 'tavern',
-      title: 'Проверено боем',
-      desc: 'Победите в шести боях — тогда и поговорим всерьёз.',
+      title: _t("Проверено боем"),
+      desc: _t("Победите в шести боях — тогда и поговорим всерьёз."),
       need: (d) => d.wins || 0,
       goal: 6,
       reward: { cons: { elixir: 1, potion: 2 } },
-      rewardText: 'Эликсир силы и 2 зелья здоровья',
+      rewardText: _t("Боевой настой и 2 зелья здоровья"),
     },
 
     // ---------- Мельница: добрый мышь ----------
     {
       id: 'level-2',
       giver: 'mill',
-      title: 'Второй уровень',
-      desc: 'Наберите опыта до второго уровня — мышь верит, что сила растёт понемногу, зерно к зерну.',
+      title: _t("Второй уровень"),
+      desc: _t("Наберите опыта до второго уровня — мышь верит, что сила растёт понемногу, зерно к зерну."),
       need: (d) => (levelOf(d) >= 2 ? 1 : 0),
       goal: 1,
       reward: { coins: 100 },
-      rewardText: '100 медных монет',
+      rewardText: _t("100 медных монет"),
     },
     {
       id: 'collector',
       giver: 'mill',
-      title: 'Мышиные запасы',
-      desc: 'Накопите десять вещей в ранце и на себе — мышь обожает, когда у соседей полно добра про запас.',
+      title: _t("Мышиные запасы"),
+      desc: _t("Накопите десять вещей в ранце и на себе — мышь обожает, когда у соседей полно добра про запас."),
       need: itemCount,
       goal: 10,
       reward: { cons: { dust: 2 } },
-      rewardText: '2 порции каменной пыли',
+      rewardText: _t("2 порции каменной пыли"),
     },
     {
       id: 'resource-kinds',
       giver: 'mill',
-      title: 'Разносол',
-      desc: 'Соберите ресурсы трёх разных видов — не важно сколько, а сколько видов.',
+      title: _t("Разносол"),
+      desc: _t("Соберите ресурсы трёх разных видов — не важно сколько, а сколько видов."),
       need: resourceKinds,
       goal: 3,
       reward: { coins: 70, cons: { scroll: 1 } },
-      rewardText: '70 монет и свиток спешки',
+      rewardText: _t("70 монет и свиток спешки"),
     },
     {
       id: 'ten-wins',
       giver: 'mill',
-      title: 'Десять побед',
-      desc: 'Победите в десяти боях — мышь считает зарубки на балке.',
+      title: _t("Десять побед"),
+      desc: _t("Победите в десяти боях — мышь считает зарубки на балке."),
       need: (d) => d.wins || 0,
       goal: 10,
       reward: { item: 'amulet-power' },
-      rewardText: 'Амулет силы',
+      rewardText: _t("Амулет силы"),
     },
     {
       id: 'scout',
       giver: 'mill',
-      title: 'Кто бродит вокруг',
-      desc: 'Заметьте на карте пять разных видов существ — мышь сама носа за частокол не сунет, но обожает слушать про тех, кого вы видели.',
+      title: _t("Кто бродит вокруг"),
+      desc: _t("Заметьте на карте пять разных видов существ — мышь сама носа за частокол не сунет, но обожает слушать про тех, кого вы видели."),
       need: seenCount,
       goal: 5,
       reward: { cons: { potion: 2, elixir: 1 } },
-      rewardText: '2 зелья здоровья и эликсир силы',
+      rewardText: _t("2 зелья здоровья и эликсир силы"),
     },
   ];
+
+  // Заглушка: ниже добавляются поручения тюленя-смотрителя маяка (giver 'lighthouse'); последнее выдаёт ключ от сундука.
+  LIST.push(
+    { id: 'lh-scout', giver: 'lighthouse', title: _t("Дальний обзор"), desc: _t("Заметьте на карте восемь разных видов существ — смотритель любит знать, кто бродит у берега."),
+      need: seenCount, goal: 8, reward: { coins: 150 }, rewardText: _t("150 медных монет") },
+    { id: 'lh-wins', giver: 'lighthouse', title: _t("Огонь не гаснет"), desc: _t("Победите в двадцати боях — береговая нечисть не должна подбираться к маяку."),
+      need: (d) => d.wins || 0, goal: 20, reward: { cons: { potion: 3, elixir: 2 } }, rewardText: _t("3 зелья здоровья и 2 эликсира силы") },
+    { id: 'lh-level', giver: 'lighthouse', title: _t("Крепкие ноги"), desc: _t("Дорастите героя до восьмого уровня — к кораблю ведёт долгая дорога."),
+      need: (d) => (levelOf(d) >= 8 ? 1 : 0), goal: 1, reward: { coins: 300 }, rewardText: _t("300 медных монет") },
+    { id: 'lh-three', giver: 'lighthouse', title: _t("Три цветных сундука"), desc: _t("Откройте все три сундука на берегу — сапфировый у бригантины, рубиновый на восточных камнях и изумрудный у маяка. Ключи: у меня, у старьёвщика и у алхимика."),
+      need: (d) => chestsOpened(d), goal: 3, reward: { coins: 300 }, rewardText: _t("300 медных монет") },
+    { id: 'lh-diary', giver: 'lighthouse', title: _t("Дневник капитана"), desc: _t("Победите Капитана: он носит с собой «Морской дневник» — в нём записано, как дышать под водой и где лежит серебряный сундук."),
+      need: (d) => ((d.bestiary && d.bestiary.captain && d.bestiary.captain.wins) ? 1 : 0), goal: 1, reward: { diary: true }, rewardText: _t("«Морской дневник» (рецепт для алхимика)") },
+    { id: 'jk-keyshard', giver: 'junker', title: _t("Ржавый ключ"), desc: _t("Продайте мне десять ненужных вещей — из рухляди я сгребу ключ от рубинового сундука на восточных камнях."),
+      need: (d) => d.junkSold || 0, goal: 10, reward: { keyRuby: true }, rewardText: _t("Ключ от рубинового сундука") },
+    { id: 'lh-key', giver: 'lighthouse', title: _t("Ключ от сундука"), desc: _t("Победите десять разных видов существ — и тюлень отдаст ключ от запертого сундука на восточном берегу, возле бригантины."),
+      need: bestiaryCount, goal: 10, reward: { key: true }, rewardText: _t("Ключ от сундука у бригантины") },
+  );
 
   // Список заданий с текущим прогрессом. data — Profile.data (или похожий объект в тестах).
   // giver — необязательный фильтр ('tavern' | 'mill'); без него возвращаются все задания.
@@ -167,6 +187,9 @@ const Quests = (() => {
     const data = Profile.data;
     if (!canClaim(data, id)) return false;
     const q = find(id), r = q.reward;
+    if (r.key) data.chestKey = true;
+    if (r.keyRuby) { data.xkeys = data.xkeys || {}; data.xkeys.ruby = true; }
+    if (r.diary) data.diary = true;
     if (r.coins) Profile.addCoins(r.coins);
     if (r.item) Profile.addItem(Gear.makeEntry(r.item, 1));
     if (r.cons) for (const [k, n] of Object.entries(r.cons)) Profile.addConsumable(k, n);

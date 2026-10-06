@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Иконки предметов и расходников. Рисуются теми же чертежами, что и снаряжение на персонажах
    (parts.js): предмет вырезается из «одежды» гнома и масштабируется по своим границам. */
 
@@ -8,6 +9,7 @@ const ItemIcons = (() => {
   const DEFAULT_ID = {
     main: 'sword-novice', off: 'shield-wood', head: 'leather-head', chest: 'leather-chest',
     arms: 'leather-arms', legs: 'leather-legs', amulet: 'amulet-copper',
+    shoulders: 'leather-shoulders', gloves: 'leather-gloves', bag: 'bag-satchel', leash: 'leash-rope', compass: 'compass-brass', ranged: 'crossbow-hunt',
   };
 
   function measure(inner) {
@@ -30,6 +32,12 @@ const ItemIcons = (() => {
       case 'arms': return Parts.armGuards(c, A, it, [A.hL]);
       case 'legs': return Parts.legGuards(c, A, it);
       case 'amulet': return Parts.amulet(c, A, it);
+      case 'bag': return Parts.bag(c, A, it);
+      case 'leash': return Parts.leash(c, A, it);
+      case 'compass': return Parts.compass(c, A, it);
+      case 'ranged': return Parts.ranged(c, A, it);
+      case 'shoulders': return Parts.pauldrons(c, A, it, true);
+      case 'gloves': return Parts.gloves(c, A, it, [A.hL]);
       case 'shield': return Parts.shield(c, A, it, { x: 6, y: 40 });
       default: return `<g transform="rotate(38)">${Parts.weapon(c, it, 0, 0, 0)}</g>`;   // оружие — по диагонали
     }
@@ -60,8 +68,8 @@ const ItemIcons = (() => {
 // Иконка предмета (по id) или расходника (potion, elixir, dust, scroll).
 function itemIcon(type, color, id) {
   const it = id ? Gear.item(id) : null;
-  if (it) return ItemIcons.icon(it);
-  if (Gear.CONSUMABLES[type]) return ItemIcons.consumable(type);
+  if (it) return (typeof Art !== 'undefined' && Art.has('items/' + it.id)) ? Art.icon('items/' + it.id) : ItemIcons.icon(it);
+  if (Gear.CONSUMABLES[type]) return (typeof Art !== 'undefined' && Art.has('items/' + type)) ? Art.icon('items/' + type) : ItemIcons.consumable(type);
   return '';
 }
 

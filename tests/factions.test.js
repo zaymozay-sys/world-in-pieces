@@ -58,10 +58,10 @@ assert.ok(l10.health >= l1.health * 8 && l10.power > l1.power && l10.power < l1.
 const e10 = Factions.statsAt('elf', 10);
 assert.ok(e10.initiative > Factions.get('elf').stats.initiative && e10.initiative <= Factions.get('elf').stats.initiative * 2.2);
 
-// у каждой фракции свой набор из 5 вещей
+// у каждой фракции свой набор из 7 вещей (1.3.2: + наплечники и перчатки)
 for (const id of Factions.ORDER) {
   const own = Gear.ITEMS.filter((i) => i.faction === id);
-  assert.strictEqual(own.length, 5, id);
+  assert.strictEqual(own.length, 7, id);
   const set = own[0].set;
   assert.ok(own.every((i) => i.set === set) && Gear.SETS[set].faction === id, id);
   // itemsFor: общие вещи и только свои

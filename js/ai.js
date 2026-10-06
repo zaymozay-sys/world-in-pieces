@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Противник. Сила зависит от уровня 1..100:
    - глубина просчёта: сколько ходов вперёд (свой, ответ игрока, ...) — от 1 до 4;
    - ширина просчёта: сколько лучших вариантов на каждом шаге разбирается глубже;
@@ -115,8 +116,9 @@ const AI = (() => {
     const t = typ.slice(), v = val.slice();
     let burn = 0;
     for (let i = 0; i < t.length; i++) {
-      if ((Math.floor(i / Engine.N) === r0 || i % Engine.N === c0) && t[i] >= 0) {
-        burn += v[i]; t[i] = -1; v[i] = 0;
+      const rr = Math.floor(i / Engine.N), cc = i % Engine.N;
+      if ((rr === r0 || cc === c0) && Math.abs(rr - r0) <= 2 && Math.abs(cc - c0) <= 2 && t[i] >= 0) {   // крест 5x5, как в игре
+        if (t[i] === ONYX) burn += v[i]; t[i] = -1; v[i] = 0;
       }
     }
     Engine.gravity(t, v);
@@ -127,6 +129,22 @@ const AI = (() => {
   }
 
   // Превращение: выбранный камень и все камни его цвета в области 3x3 становятся обсидианом.
+  // Захват 3x3: собирает камни в копилку; урон — как у Креста (фикс + базовый + обсидианы), здесь — оценка.
+  function squareSim(typ, val, idx) {
+    const r0 = Math.floor(idx / Engine.N), c0 = idx % Engine.N;
+    const t = typ.slice(), v = val.slice();
+    let burn = 0;
+    for (let i = 0; i < t.length; i++) {
+      if (Math.abs(Math.floor(i / Engine.N) - r0) <= 1 && Math.abs(i % Engine.N - c0) <= 1 && t[i] >= 0) {
+        if (t[i] === ONYX) burn += v[i]; t[i] = -1; v[i] = 0;
+      }
+    }
+    Engine.gravity(t, v);
+    Engine.shiftRight(t, v);
+    const g = [0, 0, 0, 0];
+    Engine.resolve(t, v, g, ONYX);
+    return { t, v, dmg: burn + g[3], s: burn * NORMAL.w[3] + score(g, NORMAL) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
+  }
   function transmuteSim(typ, val, idx) {
     const ct = typ[idx];
     if (ct < 0 || ct === ONYX) return null;
@@ -179,7 +197,7 @@ const AI = (() => {
     const A = typeof afford === 'boolean' ? { lightning: afford, fire: afford, transmute: afford, heal: afford, chaos: afford } : afford;
     const cfg = settings(level);
     rootFilter = ctx.locked && ctx.locked.length ? new Set(ctx.locked) : null;
-    const canMagic = A.lightning || A.fire || A.transmute || A.heal || A.chaos;
+    const canMagic = A.lightning || A.fire || A.square || A.transmute || A.heal || A.chaos;
     const considerMagic = canMagic && Math.random() < 0.3 + 0.7 * cfg.level / 100;
     const budget = considerMagic ? TIME_BUDGET_MS / 5 : TIME_BUDGET_MS;
 
@@ -201,6 +219,10 @@ const AI = (() => {
       if (A.fire) {
         const fb = cellBest(burnSim, typ, val, hpMe, hpOpp, cfg, performance.now() + budget);
         if (fb) offer({ kind: 'fire', idx: fb.idx }, fb.v);
+      }
+      if (A.square) {
+        const sb = cellBest(squareSim, typ, val, hpMe, hpOpp, cfg, performance.now() + budget);
+        if (sb) offer({ kind: 'square', idx: sb.idx }, sb.v);
       }
       if (A.transmute) {
         const tb = cellBest(transmuteSim, typ, val, hpMe, hpOpp, cfg, performance.now() + budget);
@@ -236,7 +258,34 @@ const AI = (() => {
     return { kind, a: pick.a, b: pick.b };
   }
 
-  return { choose, settings };
+  /* 1.3.8: Прорицание и Хаос игрока. ADVISE — оценка «для героя»: обсидиан бьёт сильнее всего, цветные камни дают
+     магию, линия 4+ даёт доп. ход; из очков вычитается лучший ответ противника (риск). */
+  const ADVISE = { w: [1.5, 1.5, 1.5, 3] };
+  const bestOf = (typ, val, mode) => {
+    let best = null;
+    for (const c of expand(typ, val, Engine.legalMoves(typ), mode)) if (!best || c.s > best.s) best = c;
+    return best;
+  };
+  // Лучший ход для игрока: { a, b, s } или null.
+  function advise(typ, val) {
+    const cands = expand(typ, val, Engine.legalMoves(typ), { w: ADVISE.w, dmg: (g) => g[3] }).sort((x, y) => y.s - x.s).slice(0, 10);
+    let best = null;
+    for (const c of cands) {
+      const reply = c.extra ? 0 : (bestOf(c.t, c.v, NORMAL) || { s: 0 }).s;
+      const v = c.s - 0.7 * reply;
+      if (!best || v > best.v) best = { a: c.m.a, b: c.m.b, s: c.s, v };
+    }
+    return best;
+  }
+  // Ценность расклада поля для игрока, когда первым ходит противник: мой лучший ход минус его лучший ход.
+  function layoutValue(typ, val) {
+    if (Engine.bonusMap(typ)) return -Infinity;            // готовых линий быть не должно
+    const me = bestOf(typ, val, { w: ADVISE.w, dmg: (g) => g[3] }), en = bestOf(typ, val, NORMAL);
+    if (!me) return -Infinity;
+    return me.s - (en ? en.s : 0);
+  }
+
+  return { choose, settings, advise, layoutValue };
 })();
 
 // Для симулятора и тестов в Node.js (в браузере не используется).

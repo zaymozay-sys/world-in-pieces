@@ -31,17 +31,19 @@
     <div class="map-top">
       <div class="map-me" id="map-me"></div>
       <div class="map-btns">
-        <button id="m-gear" type="button">Экипировка</button>
+        <button id="m-gear" type="button">Рюкзак</button>
         <button id="m-best" type="button">Бестиарий</button>
         <button id="m-mute" type="button">Звук</button>
         <button id="m-fs" type="button" title="Полный экран (клавиша F)"><span class="lg">Полный экран</span><span class="sm">Экран</span></button>
+        <button id="m-lang" type="button" class="icon-btn" title="Language / Язык">EN</button>
+        <button id="m-help" type="button" class="icon-btn" title="Как играть">?</button>
         <button id="m-credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
       </div>
     </div>
     <div class="map-toast" id="map-toast" role="status"></div>
     <div class="map-card-wrap" id="map-card"></div>
     <div class="map-bottom">
-      <div class="map-info"><div class="zones" id="map-zones"></div><div class="map-tip" id="map-tip">Нажмите на соту, чтобы идти. Нажмите на существо, чтобы узнать о нём и напасть.</div></div>
+      <div class="map-info"><div class="goal-strip" id="goal-strip"></div><div class="zones" id="map-zones"></div><div class="map-tip" id="map-tip">Нажмите на соту, чтобы идти. Нажмите на существо, чтобы узнать о нём и напасть.</div></div>
       <div class="map-ctrl">
         <button id="m-zin" type="button" title="Приблизить">+</button>
         <button id="m-zout" type="button" title="Отдалить">−</button>
@@ -72,7 +74,7 @@
           </div>
         </div>
         <div class="menu">
-          <button id="gear" type="button" title="Ранец и экипировка">Экипировка</button>
+          <button id="gear" type="button" title="Рюкзак: эликсиры, расходники, боеприпасы">Рюкзак</button>
           <button id="bestiary" type="button" title="Сведения о существах">Бестиарий</button>
           <button id="credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
         </div>
@@ -109,7 +111,7 @@
         <li>Фракции: Люди (родной камень — сапфир), Гномы (обсидиан), Эльфы (изумруд), Ящеры (рубин). Родные камни заряжают приём фракции (15 камней с учётом номиналов и бонусов линии), приём ход не тратит. Знамя: +50% урона на 3 хода. Рунный молот: 3 камня становятся обсидианом x3. Корни: противник не может трогать выбранный столбец свой следующий ход. Ядовитый укус: противник теряет здоровье в начале 3 своих ходов. Фракционные вещи носит только своя фракция. Сменить фракцию можно в Ратуше.</li>
         <li>У каждого вида существ свой приём (воровство, вой, туман, окаменение, огненное дыхание и другие): он указан в карточке существа и в бестиарии.</li>
         <li>Неверный ход: −5% максимума ХП (на 1-м уровне это 5–6 ХП) и ход переходит к противнику. Три неверных хода подряд — поражение.</li>
-        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Инициативу (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно до первого хода боя; лимит очков растёт с уровнем героя.</li>
+        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Инициативу (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной Вашего дома; в дорогу в рюкзаке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
         <li>Уровень героя растёт от опыта за победы (опыта на уровень нужно всё больше). С уровнем растут ХП, урон камней и лимит очков снаряжения; вещь цвета N можно надеть с уровня (N − 1) × 5 + 1. Сильнее существо и выше его цвет — больше опыта.</li>
         <li>Ранец: зелье здоровья, эликсир силы, каменная пыль и свиток спешки используются в бою, ход не тратят. Победа даёт новый предмет и расходники.</li>
         <li>Цвета-уровни (по возрастанию): Красный, Оранжевый, Жёлтый, Зелёный, Голубой, Синий, Фиолетовый, Серебро, Золото, Обсидиановый. Цвет есть у вещей, монстров и ресурсов: чем выше, тем сильнее. Оценка опасности существа (Лёгкий, Равный, Опасный, Смертельный) показывает примерный шанс победы.</li>
@@ -120,6 +122,8 @@
     </details>
   </main>
 
+  <script src="js/en.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/gems.js"></script>
   <script src="js/art-files.js"></script>
   <script src="js/art.js"></script>
@@ -137,17 +141,23 @@
   <script src="js/bestiary.js"></script>
   <script src="js/parts.js"></script>
   <script src="js/figures.js"></script>
+  <script src="js/story.js"></script>
   <script src="js/hexmap.js"></script>
   <script src="js/mapart.js"></script>
   <script src="js/monsterart.js"></script>
   <script src="js/itemicons.js"></script>
   <script src="js/medals.js"></script>
+  <script src="js/elixirs.js"></script>
   <script src="js/pets.js"></script>
+  <script src="js/ammo.js"></script>
+  <script src="js/market.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/quests.js"></script>
+  <script src="js/unlocks.js"></script>
   <script src="js/daily.js"></script>
   <script src="js/screens.js"></script>
   <script src="js/mapview.js"></script>
+  <script src="js/tutorial.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

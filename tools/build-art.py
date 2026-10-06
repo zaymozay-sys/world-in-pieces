@@ -20,6 +20,7 @@ RULES = {
     'heroes-portrait': dict(size=384, trim=False),
     'heroes-body': dict(size=720, trim=False),
     'monsters': dict(size=384, trim=True),
+    'pets': dict(size=384, trim=True),
     'gems': dict(size=128, trim=True),
     'items': dict(size=192, trim=True),
     'spells': dict(size=128, trim=True),
@@ -29,6 +30,7 @@ RULES = {
     'map-sprite': dict(size=256, trim=True),
     'texture': dict(size=512, trim=False),
     'background': dict(size=1280, trim=False),
+    'ui-piece': dict(size=768, trim=False, crop=True),   # свиток, рамки, печать: сохраняем пропорции
 }
 TEXTURES = ('board', 'tex-', 'panel')
 BACKGROUNDS = ('bg-', 'app-icon')
@@ -42,6 +44,8 @@ def spec_files():
 
 def rule_for(rel):
     name = os.path.basename(rel)
+    if name.startswith(('card-', 'hero-panel', 'slot-frame', 'parchment')):
+        return RULES['ui-piece']
     if name.startswith(TEXTURES) or name == 'board.png':
         return RULES['texture']
     if name.startswith(BACKGROUNDS):
@@ -49,10 +53,11 @@ def rule_for(rel):
     if rel.startswith('art/heroes/'):
         return RULES['heroes-body'] if '-body-' in name else RULES['heroes-portrait']
     if rel.startswith('art/monsters/'): return RULES['monsters']
+    if rel.startswith('art/pets/'): return RULES['pets']
     if rel.startswith('art/gems/'): return RULES['gems']
     if rel.startswith('art/items/'): return RULES['items']
     if rel.startswith('art/spells/'): return RULES['spells']
-    if rel.startswith('art/resources/'): return RULES['resources']
+    if rel.startswith('art/resources/') or rel.startswith('art/runes/'): return RULES['resources']
     if name.startswith('emblem-'): return RULES['ui-emblem']
     if name.startswith('coin-'): return RULES['ui-coin']
     if rel.startswith('art/map/'): return RULES['map-sprite']
@@ -134,6 +139,9 @@ def main():
             done += made
             continue
         rule = rule_for(rel)
+        if rule.get('crop'):
+            al = np.array(im.getchannel('A')); ys, xs = np.where(al > 24)
+            if len(xs): im = im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
         if rule['trim']: im = trim_square(im)
         opaque = np.array(im.getchannel('A')).min() > 250
         out = save(shrink(im, rule['size']), rel, game)

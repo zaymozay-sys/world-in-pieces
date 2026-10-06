@@ -1,3 +1,4 @@
+if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Руны: маленький слой усиления снаряжения, отдельный от предметов и наборов (items.js).
    Руна вставляется в вещь (2 гнезда на вещь — открыты Мастерской художника, Журавль-художник продаёт
    и вставляет руны) и одновременно даёт прибавку к характеристике И меняет значок вещи (маленький
@@ -10,14 +11,14 @@ const Runes = (() => {
   // Каталог рун: по одной-две на характеристику. value подобран по образцу вещей 1-го уровня (items.js)
   // так, чтобы руна была заметным, но не решающим бонусом — примерно треть среднего вклада одной вещи.
   const CATALOG = {
-    'rune-might':    { name: 'Руна мощи',       stat: 'power',      value: 4,  color: '#e0605a', desc: '+4% Сила' },
-    'rune-vitality': { name: 'Руна жизни',      stat: 'health',     value: 8,  color: '#5fc98a', desc: '+8 Здоровье' },
-    'rune-ward':     { name: 'Руна оберега',    stat: 'defense',    value: 2,  color: '#6aa8e8', desc: '+2% Броня' },
-    'rune-insight':  { name: 'Руна прозрения',  stat: 'magic',      value: 1,  color: '#b58cff', desc: '+1 Магия' },
-    'rune-haste':    { name: 'Руна спешки',     stat: 'initiative', value: 3,  color: '#f4dc3f', desc: '+3% Инициатива' },
-    'rune-thorn':    { name: 'Руна шипа',       stat: 'ricochet',   value: 2,  color: '#c9573c', desc: '+2% Рикошет' },
-    'rune-bulwark':  { name: 'Руна стены',      stat: 'block',      value: 2,  color: '#a9adb8', desc: '+2% Блок' },
-    'rune-fury':     { name: 'Руна ярости',     stat: 'fury',       value: 4,  color: '#d08a3a', desc: '+4% Ярость' },
+    'rune-might':    { name: _t("Руна мощи"),       stat: 'power',      value: 4,  color: '#e0605a', desc: _t("+4% Сила") },
+    'rune-vitality': { name: _t("Руна жизни"),      stat: 'health',     value: 8,  color: '#5fc98a', desc: _t("+8 Здоровье") },
+    'rune-ward':     { name: _t("Руна оберега"),    stat: 'defense',    value: 2,  color: '#6aa8e8', desc: _t("+2% Броня") },
+    'rune-insight':  { name: _t("Руна прозрения"),  stat: 'magic',      value: 1,  color: '#b58cff', desc: _t("+1 Магия") },
+    'rune-haste':    { name: _t("Руна спешки"),     stat: 'initiative', value: 3,  color: '#f4dc3f', desc: _t("+3% Инициатива") },
+    'rune-thorn':    { name: _t("Руна шипа"),       stat: 'ricochet',   value: 2,  color: '#c9573c', desc: _t("+2% Рикошет") },
+    'rune-bulwark':  { name: _t("Руна стены"),      stat: 'block',      value: 2,  color: '#a9adb8', desc: _t("+2% Блок") },
+    'rune-fury':     { name: _t("Руна ярости"),     stat: 'fury',       value: 4,  color: '#d08a3a', desc: _t("+4% Ярость") },
   };
   const ORDER = Object.keys(CATALOG);
 
@@ -74,7 +75,15 @@ const Runes = (() => {
     return s;
   }
 
-  return { CATALOG, ORDER, socketsFor, insert, remove, statsOf, bonusForGear };
+  // 1.2.8: значок руны — картинка art/runes/<id>, если есть, иначе цветной кружок (cls — класс-заглушка).
+  function icon(id, cls = 'rune-icon') {
+    const r = CATALOG[id];
+    if (!r) return '';
+    if (typeof Art !== 'undefined' && Art.has('runes/' + id)) return `<img class="${cls} rune-img" src="${Art.url('runes/' + id)}" alt="" title="${r.name}">`;
+    return `<span class="${cls}" style="--rc:${r.color}" title="${r.name}"></span>`;
+  }
+
+  return { CATALOG, ORDER, socketsFor, insert, remove, statsOf, bonusForGear, icon };
 })();
 
 // Для тестов в Node.js (в браузере не используется).
