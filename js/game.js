@@ -17,10 +17,19 @@ const MAGIC_TYPES = ['sapphire', 'ruby', 'emerald'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (n) => Math.floor(Math.random() * n);
 
-const boardEl = document.getElementById('board');
-const movesEl = document.getElementById('moves');
-const statusEl = document.getElementById('status');
-const timerEl = document.getElementById('turn-timer');
+// Бой как фабрика: основной экземпляр — на странице, второй (поле питомца) — на копии разметки.
+function createBattle(host) {
+  const root = host.root;
+  const $ = (id) => root.querySelector('#' + id) || (host.main ? document.getElementById(id) : null);
+  const SND = host.sound || Sound;
+const PET = host.role === 'pet';          // поле питомца: тот же бой на копии разметки, за героя играет питомец
+let autopilot = !!host.autopilot;         // ходы нашей стороны ведёт ИИ
+let autoLevel = host.autoLevel || 100;    // уровень ИИ автопилота, 1..100 (у питомца растёт с опытом)
+let autoPending = false;
+const boardEl = $('board');
+const movesEl = $('moves');
+const statusEl = $('status');
+const timerEl = $('turn-timer');
 
 let grid = [];          // grid[r][c] = { type, ti, value, el } | null
 let moves = 0;
@@ -68,10 +77,10 @@ const fighters = {
 
 
 
-const fEl = (side) => document.getElementById('fighter-' + side);
+const fEl = (side) => $('fighter-' + side);
 // kind — какое заклинание ('lightning' по умолчанию): у каждого своя цена (Balance.magic.costs).
 const magicCostOf = (side, kind = 'lightning') => Combat.spellCost(fighters[side], kind);
-const canAffordMagic = (side, kind = 'lightning') => MAGIC_TYPES.every((t) => fighters[side].counts[t] >= magicCostOf(side, kind));
+const canAffordMagic = (side, kind = 'lightning') => !fighters[side].isPet && MAGIC_TYPES.every((t) => fighters[side].counts[t] >= magicCostOf(side, kind));
 // Может ли сторона позволить себе хоть одно из пяти заклинаний (для ИИ — решает, стоит ли вообще думать про магию).
 const anyMagicAffordable = (side) => Object.keys(MAGICS).some((k) => canAffordMagic(side, k));
 // { lightning, fire, transmute, heal, chaos } → может ли сторона позволить себе именно это заклинание (для ИИ).
@@ -122,7 +131,7 @@ const itemColor = (it) => (it.set && Gear.SETS[it.set] ? Gear.SETS[it.set].color
 // Идёт ли бой (или игрок на карте). Снаряжение можно менять вне боя, до первого хода и после конца боя.
 let inBattle = false;
 function enterBattle() { inBattle = true; }
-function leaveBattle() { inBattle = false; }
+function leaveBattle() { inBattle = false; if (!PET && typeof Duo !== 'undefined') Duo.end(); }
 const canEditGear = () => !inBattle || (moves === 0 && !busy) || over;
 
 // Тестовый режим «x10» (переключатель в окне «О разработчиках»): все характеристики, ХП и урон своего героя ×10.
@@ -131,6 +140,7 @@ const testMult = () => (typeof Profile !== 'undefined' && Profile.data && Profil
 
 function recalcStats(side) {
   const f = fighters[side];
+  if (PET && side === 'left') return;               // боец питомца уже посчитан (Pets.petFighter)
   f.stats = Gear.combine(side === 'left' ? Gear.statsFor(f.gear, Profile.level()) : Gear.stats(f.gear), f.innate || {});   // предметы + врождённые способности
   if (side === 'left') {
     f.stats = Gear.combine(f.stats, Profile.medalsBonus());
@@ -171,7 +181,10 @@ function renderAvatar(side) {
   const box = fEl(side).querySelector('.avatar');
   if (!box) return;
   const f = fighters[side];
-  if (side === 'left') {
+  if (side === 'left' && f.isPet) {
+    box.innerHTML = petPortrait(f);
+    box.style.borderColor = tierColor(f.tier);
+  } else if (side === 'left') {
     box.innerHTML = Figures.avatar(Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender), f.gear);
   } else {
     box.innerHTML = f.monsterId === 'dragon' ? Figures.avatar('dragon', f.gear)
@@ -398,7 +411,7 @@ function furyState() {
   return { ok: Engine.dominantType(typ, val) === home, home, mine, other };
 }
 
-const spellbarEl = document.getElementById('spellbar');
+const spellbarEl = $('spellbar');
 
 function buildSpellbar() {
   spellbarEl.innerHTML = `<button type="button" class="magic fac" data-kind="faction"></button>` + Object.keys(MAGICS).map((k) =>
@@ -416,7 +429,7 @@ function buildSpellbar() {
 }
 
 // Доступность заклинания для игрока.
-const bagEl = document.getElementById('bagbar');
+const bagEl = $('bagbar');
 
 function bagDisabled(kind) {
   const f = fighters.left, bag = Profile.data.backpack;
@@ -463,7 +476,7 @@ function useAmmo(kind, cell = null) {
   if (kind === 'bolt') {
     const dealt = dealDamage('right', Ammo.boltDamage(base), true);
     e.buffs = []; e.shield = 0; e.mirrorReady = false; e.tripleNext = false;
-    Sound.fire();
+    SND.fire();
     showFloat('right', _t("Болт!"), 'buff');
     logEvent('left', _t("{0}: Освящённый болт — урон {1}, усиления и щит противника сняты", [f.name, dealt]));
   } else if (kind === 'moonarrow') {
@@ -471,13 +484,13 @@ function useAmmo(kind, cell = null) {
     const got = Ammo.steal(e.counts, MAGIC_TYPES);
     for (const [t, n] of Object.entries(got)) { e.counts[t] -= n; f.counts[t] += n; }
     renderCounters('left', Object.keys(got)); renderCounters('right');
-    Sound.lightning();
+    SND.lightning();
     logEvent('left', _t("{0}: Лунная стрела — урон {1}, украдено камней: {2}", [f.name, dealt, Object.values(got).reduce((a, b) => a + b, 0)]));
   } else if (kind === 'dart') {
     const dmg = Combat.venomTick(Combat.power(f), f.dmg);
     e.poison = { turns: Math.max(Ammo.DART_TURNS, (e.poison && e.poison.turns) || 0), dmg: Math.max(dmg, (e.poison && e.poison.dmg) || 0) };
     showFloat('right', _t("Яд!"), 'venom');
-    Sound.transmute();
+    SND.transmute();
     logEvent('left', _t("{0}: Ядовитый дротик — {1} урона в начале каждого из {2} ходов противника", [f.name, dmg, Ammo.DART_TURNS]));
   } else if (kind === 'bomb') {
     stopTurnTimer();
@@ -508,36 +521,36 @@ function useConsumable(side, kind) {
   const ef = Combat.useConsumable(f, kind, MAGIC_TYPES);
   if (!ef) return false;
   if (kind === 'potion') {
-    Sound.heal();
+    SND.heal();
     showCenterPop('+' + ef.heal, 'heal', _t("Зелье здоровья"));
     logEvent(side, _t("{0}: Зелье здоровья, +{1} ХП", [f.name, ef.heal]));
   } else if (kind === 'elixir') {
-    Sound.lightning();
+    SND.lightning();
     logEvent(side, _t("{0}: Боевой настой, +{1}% к урону до конца хода", [f.name, ef.power]));
     note(_t("{0}: Боевой настой", [f.name]));
   } else if (kind === 'dust') {
     renderCounters(side);
-    Sound.match(4, 1);
+    SND.match(4, 1);
     logEvent(side, _t("{0}: Каменная пыль, +{1} камня каждого вида", [f.name, ef.stones]));
   } else if (kind === 'scroll') {
-    Sound.lightning();
+    SND.lightning();
     logEvent(side, _t("{0}: Свиток спешки", [f.name]));
     note(_t("{0}: следующий ход даст дополнительный ход", [f.name]));
   } else if (kind === 'storm') {
-    Sound.lightning();
+    SND.lightning();
     renderMagic();
     logEvent(side, _t("{0}: Зелье грозы — Шаровая молния на этот ход", [f.name]));
     note(_t("Зелье грозы: Шаровая молния включена!"));
   } else if (kind === 'stoneskin') {
-    Sound.heal();
+    SND.heal();
     showFloat(side, _t("Каменная кожа"), 'buff');
     logEvent(side, _t("{0}: Каменная кожа — Броня +{1} до конца боя", [f.name, ef.armor]));
   } else if (kind === 'luck') {
-    Sound.lightning();
+    SND.lightning();
     logEvent(side, _t("{0}: Свиток удачи — +{1}% к монетам и ресурсам за победу в этом бою", [f.name, ef.pct]));
     note(_t("{0}: Свиток удачи применён", [f.name]));
   } else if (kind === 'honeyjar') {
-    Sound.heal();
+    SND.heal();
     if (ef.mode === 'hp') {
       showCenterPop('+' + ef.amount, 'heal', _t("Банка мёда"));
       logEvent(side, _t("{0}: Банка мёда — +{1} к максимуму ХП до конца боя", [f.name, ef.amount]));
@@ -562,7 +575,7 @@ async function enemyUseItems() {
 let pet = null;
 // Питомец погиб (0 ХП) в ЭТОМ бою — дальше герой сражается с тем же монстром один (см. Combat.turnOrder).
 let petFell = false;
-const petEl = () => document.getElementById('pet-panel');
+const petEl = () => $('pet-panel');
 const petName = () => (Profile.pet() ? Pets.petDisplayName(Profile.pet().speciesId) : '');
 // Жив ли питомец и в строю ли он ПРЯМО СЕЙЧАС (участвует в раунде — см. Combat.turnOrder).
 const petAlive = () => !!pet && pet.hp > 0 && !petFell;
@@ -577,6 +590,7 @@ function setupPet() {
     if (tr.hpMult > 1) { pet.max = Math.round(pet.max * tr.hpMult); pet.hp = pet.max; }
     if (tr.defense) pet.stats = Gear.combine(pet.stats, { defense: tr.defense });
     pet.fedBonus = Math.max(Pets.useFeed(Profile.pet()), tr.power);
+    pet.intBonus = tr.int + (pet.fedBonus > 1 && tr.power < pet.fedBonus ? Pets.DOPE_BONE : 0);   // допинг: угощения повышают ум в этом бою
     if (tr.hpMult > 1 || tr.defense) logEvent('left', _t("{0}: угощение даёт {1}{2}{3}", [petName(), tr.hpMult > 1 ? _t("больше здоровья") : '', tr.hpMult > 1 && tr.defense ? _t(" и ") : '', tr.defense ? _t("крепче броню") : '']));
     Profile.save();
     if (pet.fedBonus > 1) logEvent('left', _t("{0} сыт: удары сильнее на {1}% в этом бою", [petName(), Math.round((pet.fedBonus - 1) * 100)])); }
@@ -636,7 +650,7 @@ async function passToEnemy() {
    (Combat.monsterTurnStart 'clone'), бьёт героя сразу после хода оригинала (Combat.turnOrder, cloneTurn)
    и принимает на себя удары героя и питомца (Combat.enemyTarget в dealDamage/petTurn). */
 const CLONE_NAME = _t("Двойник гриба");
-const cloneEl = () => document.getElementById('clone-panel');
+const cloneEl = () => $('clone-panel');
 
 function renderClonePanel() {
   const el = cloneEl(), f = fighters.right, c = f.clone;
@@ -667,7 +681,7 @@ async function cloneTurn() {
     logEvent('right', _t("{0}: удар отлетел обратно, двойник получает {1}", [CLONE_NAME, r.amount]));
   } else {
     showDamage('left', r.amount);
-    Sound.hit(r.amount);
+    SND.hit(r.amount);
     logEvent('right', _t("{0}: бьёт — урон {1}", [CLONE_NAME, r.amount]));
   }
   renderFighters();
@@ -717,7 +731,7 @@ function renderMagic() {
     btn.disabled = spellDisabled(kind, on, ready);
   }
   renderFactionButton();
-  const title = document.querySelector('.spell-title');
+  const title = root.querySelector('.spell-title');
   if (title) title.textContent = _t("Магия: цена зависит от заклинания (см. подсказку)");
   renderBadge('left');
   renderBadge('right');
@@ -745,7 +759,7 @@ function renderBadge(side) {
    собственное: приём (с отсчётом до срабатывания, если он «каждый N-й ход»), действующие на него эффекты
    (f.buffs, яд, молния, спешка), споры Спороносца и расходники противника (f.bag). Подробности — в title.
    В оформлениях «1» и «2» столбец скрыт CSS-ом и не рисуется вовсе. */
-const enemyColEl = document.getElementById('enemy-col');
+const enemyColEl = $('enemy-col');
 const EC_GLYPH = {
   shield: '<path d="M12 3l7 3v5c0 5-3.4 8.2-7 10-3.6-1.8-7-5-7-10V6z"/>',
   spikes: '<path d="M3 19h18M5 19l2.5-8L10 19M10 19l2-11 2 11M14 19l2.5-8L19 19"/>',
@@ -852,14 +866,14 @@ async function useFactionAbility() {
   if (id === 'banner') {
     f.buffs.push({ kind: 'banner', amount: F.banner.power, turns: F.banner.turns });
     showFloat('left', _t("Знамя!"), 'buff');
-    Sound.lightning();
+    SND.lightning();
     logEvent('left', _t("{0}: Знамя — +{1}% к урону на {2} хода", [f.name, F.banner.power, F.banner.turns]));
     note(_t("Знамя поднято: +{0}% к урону на {1} хода", [F.banner.power, F.banner.turns]));
   } else if (id === 'venom') {
     const e = fighters.right, dmg = Combat.venomTick(Combat.power(f), f.dmg);
     e.poison = { turns: F.venom.turns, dmg };
     showFloat('right', _t("Яд!"), 'venom');
-    Sound.transmute();
+    SND.transmute();
     logEvent('left', _t("{0}: Ядовитый укус — {1} урона в начале каждого из {2} ходов противника", [f.name, dmg, F.venom.turns]));
     note(_t("Яд: {0} будет терять по {1} ХП {2} хода", [e.name, dmg, F.venom.turns]));
   } else if (id === 'hammer') {
@@ -885,7 +899,7 @@ async function runeHammer() {
     grid[r][c] = { type: 'onyx', ti: ONYX, value: H.value, el: old.el };  // для проверки следующих камней
     picked.push({ r, c, old });
   }
-  Sound.transmute();
+  SND.transmute();
   logEvent('left', _t("{0}: Рунный молот — {1} камня стали обсидианом x{2}", [fighters.left.name, picked.length, H.value]));
   note(_t("Рунный молот!"));
   for (const p of picked) p.old.el.classList.add('morph');
@@ -926,7 +940,7 @@ async function growthBody(cell) {
   const picks = [cell];
   while (picks.length < G.stones && near.length) picks.push(near.splice(rnd(near.length), 1)[0]);
   note(_t("Дикий рост!"));
-  Sound.heal();
+  SND.heal();
   logEvent('left', _t("{0}: Дикий рост — {1} камня стали изумрудами x{2}", [f.name, picks.length, value]));
   for (const p of picks) grid[p.r][p.c].el.classList.add('morph');
   await sleep(600);
@@ -962,7 +976,7 @@ function toggleMagic() {
     renderCounters('left');
   } else if (canAffordMagic('left', 'lightning')) { f.magicPaid = magicCostOf('left', 'lightning'); f.magic = true; spendMagic('left', -1, 'lightning'); }
   renderMagic();
-  if (f.magic) { Sound.lightning(); logEvent('left', _t("Игрок включил Шаровую молнию")); if (TUT()) Tutorial.event('lightning'); }
+  if (f.magic) { SND.lightning(); logEvent('left', _t("Игрок включил Шаровую молнию")); if (TUT()) Tutorial.event('lightning'); }
   note(f.magic ? _t("Шаровая молния: каждый собранный камень наносит урон") : _t("Ваш ход"));
 }
 
@@ -1038,7 +1052,7 @@ function dealDamage(target, amount, raw = false, cover = true) {
     turnEvents.reflected += r.amount;
     turnEvents.attacker = attackerSide;
     renderFighters();
-    Sound.hit(r.amount);
+    SND.hit(r.amount);
     shake();
     return 0;
   }
@@ -1046,7 +1060,7 @@ function dealDamage(target, amount, raw = false, cover = true) {
     showFloat(target, _t("Блок!"), 'block');
     turnEvents.block++;
     turnEvents.blockTarget = target;
-    Sound.swap();
+    SND.swap();
     return 0;
   }
   if (r.pierce) showFloat(attackerSide, _t("Подлый удар!"), 'buff');
@@ -1060,7 +1074,7 @@ function dealDamage(target, amount, raw = false, cover = true) {
     turnEvents.reflected += r.amount;
     turnEvents.attacker = attackerSide;
     renderFighters();
-    Sound.hit(r.amount);
+    SND.hit(r.amount);
     shake();
     return 0;
   }
@@ -1073,7 +1087,7 @@ function dealDamage(target, amount, raw = false, cover = true) {
   turnDamage.amount += r.amount;
   if (r.heal > 0) showFloat(attackerSide, '+' + r.heal, 'heal');
   renderFighters();
-  Sound.hit(r.amount);
+  SND.hit(r.amount);
   if (r.amount >= victim.max * 0.1) shake();
   return r.amount;
 }
@@ -1109,7 +1123,7 @@ function flushTurnDamage() {
 }
 
 function shake() {
-  const g = document.querySelector('.game');
+  const g = root.querySelector('.game') || root;
   g.classList.remove('shake');
   void g.offsetWidth;
   g.classList.add('shake');
@@ -1118,7 +1132,7 @@ function shake() {
 /* ---------- журнал ходов ---------- */
 
 function logEvent(side, text) {
-  const list = document.getElementById('log');
+  const list = $('log');
   if (!list) return;
   const li = document.createElement('li');
   li.className = side;
@@ -1149,7 +1163,7 @@ function setTurn(side) {
   if (side === 'left') fighters.left.ammoShot = false;     // боеприпас: один выстрел за свой ход
   fEl('left').classList.toggle('active', side === 'left');
   fEl('right').classList.toggle('active', side === 'right');
-  statusEl.textContent = side === 'left' ? _t("Ваш ход") : _t("Противник думает…");
+  statusEl.textContent = side === 'left' ? (PET && !autopilot ? _t("Ход питомца — ваш") : PET ? _t("Ход питомца") : _t("Ваш ход")) : _t("Противник думает…");
   boardEl.classList.toggle('enemy-turn', side === 'right');   // поле темнее, пока ходит противник
   renderMagic();
   if (side === 'left' && !over) startTurnTimer(); else stopTurnTimer();
@@ -1172,6 +1186,7 @@ function stopTurnTimer() {
 
 function startTurnTimer() {
   stopTurnTimer();
+  if (autopilot) { kickAuto(); return; }            // нашу сторону ведёт ИИ — таймера нет
   if (TUT()) return;                               // в обучении таймера нет — учимся без спешки
   turnTimerLeft = Combat.TURN_TIMER.seconds;
   renderTurnTimer();
@@ -1192,7 +1207,7 @@ async function onTurnTimeout() {
   const r = Combat.registerSkip(skipStreak);
   skipStreak = r.skips;
   logEvent('left', _t("Игрок: ход пропущен по таймеру ({0}/{1} подряд)", [skipStreak, Combat.TURN_TIMER.skipLimit]));
-  if (r.defeated) { showOverlay(_t("Поражение")); return; }
+  if (r.defeated) { defeat(); return; }
   note(_t("Ход пропущен по таймеру ({0}/{1} подряд)", [skipStreak, Combat.TURN_TIMER.skipLimit]));
   busy = true;
   await passToEnemy();
@@ -1227,12 +1242,12 @@ function showOverlay(text, sub = '') {
   if (text === _t("Поражение") && pet) Profile.petLoseDurability();
   if (text === _t("Поражение")) Profile.tickElixirs();
   logEvent(text === _t("Победа!") ? 'left' : 'right', text);
-  if (text === _t("Победа!")) Sound.win(); else Sound.lose();
+  if (text === _t("Победа!")) SND.win(); else SND.lose();
   statusEl.textContent = text;
   renderMagic();
 }
 function hideOverlay() {
-  const o = document.getElementById('overlay');
+  const o = $('overlay');
   if (o) o.remove();
   over = false;
 }
@@ -1425,7 +1440,7 @@ function startGame() {
   aimCell = null;
   stopTurnTimer();
   skipStreak = 0;
-  const logEl = document.getElementById('log');
+  const logEl = $('log');
   if (logEl) logEl.innerHTML = '';
   hideOverlay();
   buildBoard();
@@ -1450,7 +1465,11 @@ function startGame() {
     buildFighter(s);
   }
   setupPet();   // приручённый и годный питомец (если есть) выходит в бой вместе с героем — см. pets.js
+  if (!PET && typeof Duo !== 'undefined') Duo.end();
+  const duoPet = (!PET && pet && typeof Duo !== 'undefined' && Duo.wanted()) ? pet : null;
+  if (duoPet) { pet = null; renderPetPanel(); }       // питомец играет на втором поле (см. Duo)
   if (pet) logEvent('left', _t("{0} выходит с вами в бой!", [petName()]));
+  if (duoPet) logEvent('left', _t("{0} выходит на второе поле — переключайтесь между вкладками", [petName()]));
   let trainKey = null;                             // «Отточить мастерство»: какое заклинание тренируем
   if (beaverTip) {
     const tip = beaverTip;
@@ -1491,6 +1510,7 @@ function startGame() {
   turnDamage = { target: null, amount: 0 };
   turnEvents = { block: 0, blockTarget: null, reflected: 0, attacker: null };
 
+  if (duoPet) Duo.begin(duoPet);
   // Инициатива решает, кто ходит первым.
   const chanceLeft = Combat.firstMoveChance(fighters.left, fighters.right);
   const elxFirst = elxSide('initiative');
@@ -1512,7 +1532,7 @@ function startGame() {
 
 // Меняет два камня. Если ничего не собралось — возвращает обратно и отвечает false.
 async function attemptSwap(a, b) {
-  Sound.swap();
+  SND.swap();
   swapCells(a, b);
   placeTile(a);
   placeTile(b);
@@ -1520,7 +1540,7 @@ async function attemptSwap(a, b) {
 
   if (hasMatches()) return true;
 
-  Sound.bad();
+  SND.bad();
   swapCells(a, b);
   placeTile(a);
   placeTile(b);
@@ -1536,12 +1556,26 @@ function grantRewards() {
   const txt = grantRewardsBase();
   return deep ? `${txt}<br>${Screens.deepReward()}` : txt;
 }
+// Бой вдвоём: за каждого убитого противника — своя награда (при победе, поражении и отступлении).
+function grantDuoRewards(foes, extra) {
+  if (rewarded) return '';
+  rewarded = true;
+  if (!foes.length) return '';
+  if (moves < Balance.rewards.minMoves || fighters.left.hpEdited || fighters.right.hpEdited) return _t("Награда не выдана: проверочный бой (ХП изменено вручную) или слишком лёгкий бой");
+  const deep = !!(Profile.data.monster && Profile.data.monster.deep);
+  const txt = foes.map((f, i) => rewardFor(f, i === 0)).join('<br>');
+  return deep && extra ? `${txt}<br>${Screens.deepReward()}` : txt;
+}
 function grantRewardsBase() {
   if (rewarded) return '';
   rewarded = true;
   if (isTraining()) return _t("Учебный бой: опыт, монеты и добыча не начисляются — это просто тренировка.");
   if (moves < Balance.rewards.minMoves || fighters.left.hpEdited || fighters.right.hpEdited) return _t("Награда не выдана: проверочный бой (ХП изменено вручную) или слишком лёгкий бой");
-  const f = fighters.right, R = Balance.rewards;
+  return rewardFor(fighters.right);
+}
+// Награда за одного поверженного противника f (в бою вдвоём — за каждого убитого своя).
+function rewardFor(f, first = true) {
+  const R = Balance.rewards;
   const xp = Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level());
   const drops = Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction);
   // 1.2.9: в режиме «×10» награда выдаётся как обычно (просьба владельца — проверять добычу и ошибки сильным героем).
@@ -1557,8 +1591,8 @@ function grantRewardsBase() {
   Profile.addCoins(drops.coins);
   const up = Profile.addXp(xp);
   const killMedal = Profile.checkKillMedal(f.monsterId, Hero.tierFor(Profile.level()));   // первая победа над видом
-  const shotMedal = shotKilledMonster ? Profile.registerShotKill(Hero.tierFor(Profile.level())) : null;
-  const strikeMedal = strikeKilledMonster ? Profile.registerStrikeKill(Hero.tierFor(Profile.level())) : null;
+  const shotMedal = first && shotKilledMonster ? Profile.registerShotKill(Hero.tierFor(Profile.level())) : null;
+  const strikeMedal = first && strikeKilledMonster ? Profile.registerStrikeKill(Hero.tierFor(Profile.level())) : null;
   const lines = [_t("Опыт: +{0}", [xp]), _t("Монеты: {0}{1}", [Tiers.moneyText(drops.coins), luckPct ? _t(" (со Свитком удачи)") : ''])];
   const eggKind = Profile.rollEgg(f.monsterId);
   if (eggKind) lines.push(_t("<b class=\"lvlup\">Находка!</b> {0} — высиживается в Питомнике", [Pets.EGGS[eggKind].name]));
@@ -1585,7 +1619,7 @@ function grantRewardsBase() {
       (Hero.itemLevel(t) === L ? _t(". Теперь можно надевать вещи цвета «{0}»", [Tiers.get(t).name]) : ''));
     const opened = Object.entries(Balance.spellUnlock).filter(([k, lv]) => lv > up.from && lv <= up.to && MAGICS[k]).map(([k]) => MAGICS[k].name);
     if (opened.length) lines.splice(1, 0, _t("<b class=\"lvlup\">Новое заклинание:</b> {0}", [opened.join(', ')]));   // 1.4.3: не пропустить открытие магии
-    Sound.win();
+    SND.win();
   }
   // 1.3.0: страж осколка — двойные монеты; первая победа — осколок Великого Сердца и награда сюжета.
   const bossId = Profile.data.monster && Profile.data.monster.boss;
@@ -1610,12 +1644,157 @@ function grantRewardsBase() {
   return lines.join('<br>');
 }
 
+// Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
+function defeat() {
+  if (host.coord) finishBoard('loss'); else showOverlay(_t("Поражение"));
+}
+function finishBoard(result) {
+  over = true; busy = true;
+  stopTurnTimer();
+  statusEl.textContent = result === 'win' ? _t("Противник повержен") : _t("Боец пал");
+  renderMagic();
+  host.coord.ended(host.id, result);
+}
+
+/* ---------- автопилот и поле питомца (бой вдвоём, см. Duo внизу файла) ---------- */
+
+const portraitOf = (p) => (typeof Art !== 'undefined' && Art.has('pets/' + p.speciesId)) ? `<img src="${Art.url('pets/' + p.speciesId)}" alt="">` : MonsterArt.bust(Pets.donorOf(p.speciesId), p.tier);
+function petPortrait(p) { return portraitOf(p); }
+
+// Включает/выключает автопилот нашей стороны на этом поле.
+function setAutopilot(on, level) {
+  autopilot = !!on;
+  if (level) autoLevel = level;
+  if (autopilot) { if (aiming) stopAim(); stopTurnTimer(); kickAuto(); }
+  else if (turnSide === 'left' && !busy && !over) startTurnTimer();
+  renderMagic();
+}
+function kickAuto() {
+  if (!autopilot || over || busy || turnSide !== 'left' || autoPending) return;
+  autoPending = true;
+  setTimeout(() => { autoTurn(); }, 450);
+}
+// Ход нашей стороны ведёт ИИ (тот же AI.choose, что у противника, но за 'left').
+async function autoTurn() {
+  autoPending = false;
+  if (!autopilot || over || busy || turnSide !== 'left') return;
+  if (aiming) stopAim();
+  busy = true;
+  skipStreak = 0;
+  stopTurnTimer();
+  renderMagic();
+  const SPELL_NAMES = { fire: _t("Огненный крест"), square: _t("Захват"), transmute: _t("Превращение"), heal: _t("Целебный дождь"), chaos: _t("Хаос") };
+  for (;;) {
+    await sleep(RULES.timing.think);
+    if (over) return;
+    if (!autopilot) { busy = false; renderMagic(); startTurnTimer(); return; }   // управление передали нам посреди хода
+    const f = fighters.left;
+    const v = Combat.aiView(f, fighters.right);
+    const afford = (f.isPet || f.magic) ? {} : Object.fromEntries(Object.keys(MAGICS).map((k) => [k, spellOpen(k) && canAffordMagic('left', k)]));
+    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, autoLevel, afford, { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('left') });
+    if (!mv) { note(_t("{0} не нашёл хода", [f.name])); break; }
+    let res;
+    if (SPELL_NAMES[mv.kind]) {
+      note(_t("{0}: {1}!", [f.name, SPELL_NAMES[mv.kind]]));
+      await sleep(500);
+      const cell = mv.idx !== undefined ? { r: Math.floor(mv.idx / N), c: mv.idx % N } : null;
+      res = mv.kind === 'fire' ? await castFire('left', cell)
+        : mv.kind === 'square' ? await castFire('left', cell, { shape: 'square' })
+        : mv.kind === 'transmute' ? await castTransmute('left', cell)
+        : mv.kind === 'heal' ? await castHeal('left')
+        : await castChaos('left');
+    } else {
+      if (mv.kind === 'lightning') {
+        f.magicPaid = magicCostOf('left', 'lightning'); f.magic = true;
+        spendMagic('left', -1, 'lightning');
+        renderMagic();
+        SND.lightning();
+        await sleep(500);
+      }
+      const a = { r: Math.floor(mv.a / N), c: mv.a % N };
+      const b = { r: Math.floor(mv.b / N), c: mv.b % N };
+      res = await takeTurn('left', a, b);
+    }
+    if (over) return;
+    if (res !== 2 || fighters.left.hp <= 0) break;
+  }
+  busy = true;
+  await passToEnemy();
+}
+
+// Поле питомца: точная копия противника героя против питомца. cfg: { fighter (Pets.petFighter+), foe (снимок), level (ум), name, speciesId, tier }
+function startPetGame(cfg) {
+  aiming = false; aimCell = null;
+  stopTurnTimer();
+  skipStreak = 0;
+  hideOverlay();
+  buildBoard();
+  rewarded = true;
+  clearLocks();
+  veiled.clear();
+  cfg.fighter.max = Math.round(cfg.fighter.max * Pets.BOARD_HP); cfg.fighter.hp = cfg.fighter.max;
+  Object.assign(fighters.left, cfg.fighter, {
+    isPet: true, name: cfg.name, speciesId: cfg.speciesId, tier: cfg.tier,
+    gear: Gear.emptyLoadout(), innate: {}, base: cfg.fighter.max, level: cfg.level,
+    counts: Object.fromEntries(GEM_TYPES.map((t) => [t, 0])), buffs: [], haste: false, magic: false, charge: 0, shield: 0, luck: 0,
+  });
+  adoptFoe(cfg.foe, true);
+  buildFighter('left');
+  const el = fEl('left');
+  const nm = el.querySelector('.fname');
+  if (nm) nm.textContent = cfg.name;
+  for (const sel of ['.wallet', '.gearrow', '.hero-lvl']) { const x = el.querySelector(sel); if (x) x.style.display = 'none'; }
+  renderAvatar('left'); renderCounters('left');
+  moves = 0; movesEl.textContent = 0;
+  selected = null; invalidStreak = 0;
+  grid = Array.from({ length: N }, () => Array(N).fill(null));
+  const startCells = fillEmpty();
+  spawnFilled(startCells);
+  busy = false;
+  renderFighters();
+  setTurn('left');
+  turnDamage = { target: null, amount: 0 };
+  turnEvents = { block: 0, blockTarget: null, reflected: 0, attacker: null };
+  const chanceLeft = Combat.firstMoveChance(fighters.left, fighters.right);
+  if (Math.random() * 100 < chanceLeft) logEvent('left', _t("Первым ходит питомец"));
+  else {
+    logEvent('right', _t("Первым ходит противник"));
+    busy = true;
+    setTimeout(() => { if (!over) enemyTurn(); }, 900);
+  }
+}
+
+// Подставляет на поле противника (снимок): при старте поля питомца и когда уцелевший боец добивает чужого противника.
+function adoptFoe(foe, fresh) {
+  const keep = fighters.right;
+  for (const k of Object.keys(keep)) delete keep[k];
+  Object.assign(keep, structuredClone(foe));
+  if (fresh) Object.assign(keep, { hp: keep.max, buffs: [], clone: null, counts: Object.fromEntries(GEM_TYPES.map((t) => [t, 0])) });
+  clearLocks('right');
+  buildFighter('right');
+  renderAvatar('right'); renderGear('right'); renderCounters('right');
+  renderEnemyColumn();
+  renderFighters();
+}
+// Продолжить бой на этом поле против новой подстановки: поле жива, ход за нами.
+function resumeAfterAdopt() {
+  over = false; busy = false;
+  const o = $('overlay'); if (o) o.remove();
+  renderMagic();
+  setTurn('left');
+}
+function brief() {
+  const l = fighters.left, r = fighters.right;
+  return { hp: l.hp, max: l.max, name: l.name, foeHp: r.hp, foeMax: r.max, foeName: r.name, over, turn: turnSide, tier: l.tier, foe: r };
+}
+
 function checkEnd() {
   if (over) return true;                      // бой уже окончен
   if (TUT()) Tutorial.guard();                // обучение: Бобёр не падает раньше последнего шага
+  if (host.coord && Combat.enemyDefeated(fighters.right)) { finishBoard('win'); return true; }   // бой вдвоём: итог подводит Duo
   // Победа — только когда пал оригинал И нет живого двойника гриба (награда одна, за одного противника).
   if (Combat.enemyDefeated(fighters.right)) { showOverlay(_t("Победа!"), grantRewards()); if (TUT()) Tutorial.event('win'); return true; }
-  if (fighters.left.hp <= 0) { Profile.refreshShop(); showOverlay(_t("Поражение")); return true; }
+  if (fighters.left.hp <= 0) { Profile.refreshShop(); defeat(); return true; }
   return false;
 }
 
@@ -1710,7 +1889,7 @@ async function castFire(side, cell, opts = {}) {
   clearSelection();
   if (!opts.free) spendMagic(side, -1, shape === 'point' ? 'pierce' : shape === 'square' ? 'square' : 'fire');
   note(`${title}!`);
-  Sound.fire();
+  SND.fire();
 
   const target = other(side);
   const burning = [];
@@ -1821,7 +2000,7 @@ async function castHeal(side) {
   const amount = Combat.rainHeal(f, sum);
   for (const t of soaked) setTileValue(t, t.value >= 5 ? 3 : 1);
   note(_t("Целебный дождь!"));
-  Sound.heal();
+  SND.heal();
 
   const rain = document.createElement('div');
   rain.className = 'rain';
@@ -1849,7 +2028,7 @@ async function castChaosArea(side, cell) {
   clearSelection();
   spendMagic(side, -1, 'chaos');
   note(_t("Хаос!"));
-  Sound.chaos();
+  SND.chaos();
   const cells = [];
   for (let r = Math.max(0, cell.r - 1); r <= Math.min(N - 1, cell.r + 1); r++)
     for (let c = Math.max(0, cell.c - 1); c <= Math.min(N - 1, cell.c + 1); c++) if (grid[r][c]) cells.push({ r, c });
@@ -1888,7 +2067,7 @@ async function castChaos(side) {
   clearSelection();
   spendMagic(side, -1, 'chaos');
   note(_t("Хаос!"));
-  Sound.chaos();
+  SND.chaos();
   logEvent(side, _t("{0}: Хаос, поле перемешано", [fighters[side].name]));
 
   const cells = [];
@@ -1932,7 +2111,7 @@ async function castTransmute(side, cell) {
     }
   }
   note(_t("Превращение!"));
-  Sound.transmute();
+  SND.transmute();
   logEvent(side, _t("{0}: Превращение, {1} в обсидиан", [fighters[side].name, targets.length]));
   for (const t of targets) t.tile.el.classList.add('morph');
   await sleep(600);
@@ -1952,7 +2131,7 @@ async function castMirror(side) {
   spendMagic(side, -1, 'mirror');
   Combat.applyMirror(fighters[side]);
   note(_t("Зеркало!"));
-  Sound.transmute();
+  SND.transmute();
   logEvent(side, _t("{0}: Зеркало — следующий полученный удар отразится обратно", [fighters[side].name]));
   return afterSpell(side);
 }
@@ -1964,7 +2143,7 @@ async function castSacrifice(side) {
   const f = fighters[side];
   const r = Combat.applySacrifice(f);
   note(_t("Жертва!"));
-  Sound.heal();
+  SND.heal();
   logEvent(side, _t("{0}: Жертва — {1} ХП, следующий собранный камень нанесёт тройной урон", [f.name, r.loss]));
   showDamage(side, r.loss);
   if (r.revived) onRevived(side);
@@ -1981,7 +2160,7 @@ async function castFury(side) {
   const f = fighters[side];
   Combat.applyFury(f);
   note(_t("Кулак ярости!"));
-  Sound.transmute();
+  SND.transmute();
   logEvent(side, _t("Кулак ярости: следующий удар — двойной"));
   renderFighters();
   return afterSpell(side);
@@ -1999,7 +2178,7 @@ async function castTide(side) {
   const rest = GEM_TYPES.map((_, i) => i).filter((ti) => ti !== ONYX && ti !== from);
   const to = rest[rnd(rest.length)];
   note(_t("Прилив: {0} → {1}!", [GEM_NAMES[GEM_TYPES[from]], GEM_NAMES[GEM_TYPES[to]]]));
-  Sound.transmute();
+  SND.transmute();
   const changed = [];
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const t = grid[r][c];
@@ -2024,7 +2203,7 @@ async function castDivination(side) {
   spendMagic(side, -1, 'divination');
   const best = AI.advise(typOf(), valOf());
   note(best ? _t("Прорицание: лучший ход подсвечен") : _t("Прорицание: ходов нет"));
-  Sound.heal();
+  SND.heal();
   logEvent(side, _t("{0}: Прорицание{1}", [fighters[side].name, best ? _t(" — лучший ход найден") : '']));
   if (side === 'left' && best) {
     const hl = Balance.magic.divination.turns * 4000;
@@ -2051,7 +2230,7 @@ async function castStrike(side) {
   const f = fighters[side], target = other(side);
   const dmg = Combat.strikeDamage(f);
   note(_t("Удар!"));
-  Sound.fire();
+  SND.fire();
   const dealt = dealDamage(target, dmg, true);
   logEvent(side, _t("{0}: Удар, урон {1}", [f.name, dealt]));
   if (sideDown(target) && side === 'left') strikeKilledMonster = true;
@@ -2142,7 +2321,7 @@ async function playerMove(a, b) {
     logEvent('left', _t("Игрок: неверный ход, -{0} ХП ({1}/{2})", [pen, invalidStreak, lim]));
     flushTurnDamage();
     if (!TUT() && (invalidStreak >= lim || fighters.left.hp <= 0)) {
-      showOverlay(_t("Поражение"));
+      defeat();
       return;                                   // busy остаётся true до новой игры
     }
     note(_t("Неверный ход: -{0} ХП ({1}/{2} подряд). Ход переходит к противнику", [pen, invalidStreak, lim]));
@@ -2203,7 +2382,7 @@ async function enemyTurn() {
         spendMagic('right', -1, 'lightning');
         renderMagic();
         note(_t("Противник использует Шаровую молнию!"));
-        Sound.lightning();
+        SND.lightning();
         logEvent('right', _t("Противник использует Шаровую молнию"));
         await sleep(700);
       }
@@ -2219,7 +2398,7 @@ async function enemyTurn() {
   if (Combat.turnOrder(false, false, Combat.cloneAlive(fighters.right)).includes('clone')) await cloneTurn();
   if (over) return;
   clearLocks('right');                         // Корни держат только один ход противника
-  if (Profile.data.monster && Profile.data.monster.deep) {   // «У дна»: под водой течение сковывает один столбец на ваш ход
+  if (!PET && Profile.data.monster && Profile.data.monster.deep) {   // «У дна»: под водой течение сковывает один столбец на ваш ход
     setLock(rnd(N), 'left');
     logEvent('right', _t("Течение: один столбец скован на ваш ход"));
   }
@@ -2373,11 +2552,11 @@ async function resolveBoard(side) {
     for (let i = 0; i < N * N; i++) { if (bon[i]) cleared++; if (bon[i] === 3) has5 = true; }
     turnStats.stones += cleared;
     turnStats.bonus = Math.max(turnStats.bonus, maxBonus);
-    Sound.match(cleared, maxBonus);
+    SND.match(cleared, maxBonus);
     if (maxBonus > 1) { extra = true; note(_t("Бонус x{0}! Дополнительный ход", [maxBonus])); }
     // Линия ровно из 5 камней (бонус x3, см. Engine.bonusFor) копится в счётчик медалей игрока
     // (см. js/medals.js) — вехи считаются по всем боям сразу, не по одному бою.
-    if (side === 'left' && has5 && !isTraining()) {
+    if (side === 'left' && has5 && !isTraining() && !PET) {
       const medal = Profile.registerFiveStreak(Hero.tierFor(Profile.level()));
       if (medal) note(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(medal.id)]));
     }
@@ -2544,11 +2723,11 @@ function showHint() {
   }
   note(_t("Подсказка: этот обмен собирает камни"));
 }
-document.getElementById('hint').addEventListener('click', showHint);
+$('hint').addEventListener('click', showHint);
 
-const muteBtn = document.getElementById('mute');
-const renderMute = () => { muteBtn.textContent = Sound.muted ? _t("Звук: выкл") : _t("Звук: вкл"); };
-muteBtn.addEventListener('click', () => { Sound.setMuted(!Sound.muted); renderMute(); Sound.swap(); });
+const muteBtn = $('mute');
+const renderMute = () => { muteBtn.classList.toggle('off', !!SND.muted); muteBtn.textContent = SND.muted ? _t("Звук: выкл") : _t("Звук: вкл"); };
+muteBtn.addEventListener('click', () => { SND.setMuted(!SND.muted); renderMute(); SND.swap(); });
 renderMute();
 
 // Оформление экрана боя: «1» — прежнее, «2» — новое (та же разметка, другая облицовка, см. css/style.css).
@@ -2559,7 +2738,7 @@ renderMute();
 // Кнопка ходит по кругу 1 → 2 → 3 → 1; неизвестное значение в старом сохранении считается «1».
 const UI_SKINS = ['classic', 'modern', 'columns'];
 const UI_SKIN_TIPS = [_t("новое оформление экрана боя"), _t("оформление «колонки»"), _t("прежнее оформление экрана боя")];
-const uiSkinBtn = document.getElementById('ui-skin');
+const uiSkinBtn = $('ui-skin');
 function renderUiSkin() {
   const i = Math.max(0, UI_SKINS.indexOf(Profile.data.ui));
   const skin = UI_SKINS[i];
@@ -2585,38 +2764,42 @@ function loadSettings() {
   try { localStorage.removeItem(SETTINGS_KEY); } catch (e) { /* без хранилища */ }
 }
 
-document.getElementById('gear').addEventListener('click', () => Inventory.open('left'));
-document.getElementById('bestiary').addEventListener('click', () => Screens.openBestiary());
-document.getElementById('credits').addEventListener('click', () => Screens.openCredits());
+$('gear').addEventListener('click', () => Inventory.open('left'));
+$('bestiary').addEventListener('click', () => Screens.openBestiary());
+$('credits').addEventListener('click', () => Screens.openCredits());
 
 // Новый бой с выбранным в бестиарии противником.
 function startBattle() { if (!busy || over) startGame(); }
 boardEl.addEventListener('pointerleave', () => { if (aiming) hideCross(); });
-document.addEventListener('keydown', (e) => {
+if (host.main) document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && aiming) { stopAim(); note(_t("Ваш ход")); }
 });
 
 // «Отступить»: уйти с поля боя на карту (награды нет, существо остаётся). Нужно подтверждение.
 let fleeArmed = null;
-const restartBtn = document.getElementById('restart');
+const restartBtn = $('restart');
 restartBtn.addEventListener('click', () => {
-  if (over) return MapView.returnFromBattle(Combat.enemyDefeated(fighters.right) ? 'win' : 'loss');
-  if (busy) return;
+  const duoOn = !!(host.coord && host.coord.on());
+  if (over && !duoOn) return MapView.returnFromBattle(Combat.enemyDefeated(fighters.right) ? 'win' : 'loss');
+  if (busy && !duoOn) return;
   if (!fleeArmed) {
     restartBtn.textContent = _t("Точно отступить?");
-    fleeArmed = setTimeout(() => { restartBtn.textContent = _t("Отступить"); fleeArmed = null; }, 2500);
+    restartBtn.classList.add('armed');
+    fleeArmed = setTimeout(() => { restartBtn.textContent = _t("Отступить"); restartBtn.classList.remove('armed'); fleeArmed = null; }, 2500);
     return;
   }
   clearTimeout(fleeArmed);
   fleeArmed = null;
   restartBtn.textContent = _t("Отступить");
+  restartBtn.classList.remove('armed');
   stopTurnTimer();
+  if (duoOn) host.coord.flee();                    // награда за уже убитых противников — и при отступлении
   MapView.returnFromBattle('flee');
 });
 
 // Полноэкранный режим. Где браузер не умеет (например, iPhone Safari) — запасной режим:
 // страница занимает всё окно. Ещё удобнее добавить игру на главный экран: она откроется без панелей браузера.
-const fsBtn = document.getElementById('fullscreen');
+const fsBtn = $('fullscreen');
 const rootEl = document.documentElement;
 const fsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 function renderFs() {
@@ -2637,13 +2820,439 @@ async function toggleFullscreen() {
   renderFs();
 }
 fsBtn.addEventListener('click', toggleFullscreen);
-document.addEventListener('fullscreenchange', renderFs);
-document.addEventListener('webkitfullscreenchange', renderFs);
-document.addEventListener('keydown', (e) => {
+if (host.main) document.addEventListener('fullscreenchange', renderFs);
+if (host.main) document.addEventListener('webkitfullscreenchange', renderFs);
+if (host.main) document.addEventListener('keydown', (e) => {
   if ((e.key === 'f' || e.key === 'F' || e.key === 'а' || e.key === 'А') && !/INPUT|TEXTAREA/.test(e.target.tagName)) toggleFullscreen();
 });
 renderFs();
 
+// Телефон (1.4.9): пиктограммы вместо кнопок, редкие кнопки — в меню ☰
+if (host.main) {
+  const moreBtn = $('more'), moreMenu = $('more-menu');
+  const phoneMq = () => {
+    const small = Math.min(window.innerWidth, window.innerHeight) <= 520 && matchMedia('(pointer: coarse)').matches;
+    document.body.classList.toggle('phone', small || /[?&]phone\b/.test(location.search));
+  };
+  phoneMq(); window.addEventListener('resize', phoneMq); window.addEventListener('orientationchange', phoneMq);
+  moreBtn.addEventListener('click', (e) => { e.stopPropagation(); moreMenu.hidden = !moreMenu.hidden; });
+  document.addEventListener('click', (e) => { if (!moreMenu.hidden && !moreMenu.contains(e.target)) moreMenu.hidden = true; });
+  moreMenu.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-do]'); if (!b) return;
+    moreMenu.hidden = true;
+    if (b.dataset.do === 'log') { const d = $('log-wrap'); d.open = !d.open; d.scrollIntoView({ block: 'nearest' }); }
+    else $(b.dataset.do).click();
+  });
+  if (!(rootEl.requestFullscreen || rootEl.webkitRequestFullscreen)) moreMenu.querySelector('[data-do=fullscreen]').remove();   // iOS
+}
+
+  return Object.defineProperties({}, {
+  BUFF_NAMES: { get: () => BUFF_NAMES, enumerable: true, configurable: true },
+  CHARGE: { get: () => CHARGE, enumerable: true, configurable: true },
+  CLONE_NAME: { get: () => CLONE_NAME, enumerable: true, configurable: true },
+  EC_BUFFS: { get: () => EC_BUFFS, enumerable: true, configurable: true },
+  EC_GLYPH: { get: () => EC_GLYPH, enumerable: true, configurable: true },
+  FIRE_RADIUS: { get: () => FIRE_RADIUS, enumerable: true, configurable: true },
+  INSTANT_CASTERS: { get: () => INSTANT_CASTERS, enumerable: true, configurable: true },
+  MAGICS: { get: () => MAGICS, enumerable: true, configurable: true },
+  PET: { get: () => PET, enumerable: true, configurable: true },
+  SETTINGS_KEY: { get: () => SETTINGS_KEY, enumerable: true, configurable: true },
+  TUT: { get: () => TUT, enumerable: true, configurable: true },
+  UI_SKINS: { get: () => UI_SKINS, enumerable: true, configurable: true },
+  UI_SKIN_TIPS: { get: () => UI_SKIN_TIPS, enumerable: true, configurable: true },
+  WEAPON_PERK_NAMES: { get: () => WEAPON_PERK_NAMES, enumerable: true, configurable: true },
+  addCharge: { get: () => addCharge, enumerable: true, configurable: true },
+  adjacent: { get: () => adjacent, enumerable: true, configurable: true },
+  adoptFoe: { get: () => adoptFoe, enumerable: true, configurable: true },
+  affordability: { get: () => affordability, enumerable: true, configurable: true },
+  afterPlayerSpell: { get: () => afterPlayerSpell, enumerable: true, configurable: true },
+  afterSpell: { get: () => afterSpell, enumerable: true, configurable: true },
+  aimCell: { get: () => aimCell, set: (v) => { aimCell = v; }, enumerable: true, configurable: true },
+  aimKind: { get: () => aimKind, set: (v) => { aimKind = v; }, enumerable: true, configurable: true },
+  aiming: { get: () => aiming, set: (v) => { aiming = v; }, enumerable: true, configurable: true },
+  ammoDisabled: { get: () => ammoDisabled, enumerable: true, configurable: true },
+  announceNewSpells: { get: () => announceNewSpells, enumerable: true, configurable: true },
+  anyMagicAffordable: { get: () => anyMagicAffordable, enumerable: true, configurable: true },
+  applyCunning: { get: () => applyCunning, enumerable: true, configurable: true },
+  applyFaction: { get: () => applyFaction, enumerable: true, configurable: true },
+  applyLevel: { get: () => applyLevel, enumerable: true, configurable: true },
+  attemptSwap: { get: () => attemptSwap, enumerable: true, configurable: true },
+  autoLevel: { get: () => autoLevel, set: (v) => { autoLevel = v; }, enumerable: true, configurable: true },
+  autoPending: { get: () => autoPending, set: (v) => { autoPending = v; }, enumerable: true, configurable: true },
+  autoTurn: { get: () => autoTurn, enumerable: true, configurable: true },
+  autopilot: { get: () => autopilot, set: (v) => { autopilot = v; }, enumerable: true, configurable: true },
+  bagDisabled: { get: () => bagDisabled, enumerable: true, configurable: true },
+  bagEl: { get: () => bagEl, enumerable: true, configurable: true },
+  beaverPortrait: { get: () => beaverPortrait, enumerable: true, configurable: true },
+  beaverTip: { get: () => beaverTip, set: (v) => { beaverTip = v; }, enumerable: true, configurable: true },
+  boardEl: { get: () => boardEl, enumerable: true, configurable: true },
+  brief: { get: () => brief, enumerable: true, configurable: true },
+  buffPower: { get: () => buffPower, enumerable: true, configurable: true },
+  buildBoard: { get: () => buildBoard, enumerable: true, configurable: true },
+  buildFighter: { get: () => buildFighter, enumerable: true, configurable: true },
+  buildSpellbar: { get: () => buildSpellbar, enumerable: true, configurable: true },
+  busy: { get: () => busy, set: (v) => { busy = v; }, enumerable: true, configurable: true },
+  canAffordMagic: { get: () => canAffordMagic, enumerable: true, configurable: true },
+  canEditGear: { get: () => canEditGear, enumerable: true, configurable: true },
+  castChaos: { get: () => castChaos, enumerable: true, configurable: true },
+  castChaosArea: { get: () => castChaosArea, enumerable: true, configurable: true },
+  castDivination: { get: () => castDivination, enumerable: true, configurable: true },
+  castFire: { get: () => castFire, enumerable: true, configurable: true },
+  castFury: { get: () => castFury, enumerable: true, configurable: true },
+  castGrowth: { get: () => castGrowth, enumerable: true, configurable: true },
+  castHeal: { get: () => castHeal, enumerable: true, configurable: true },
+  castMirror: { get: () => castMirror, enumerable: true, configurable: true },
+  castSacrifice: { get: () => castSacrifice, enumerable: true, configurable: true },
+  castStrike: { get: () => castStrike, enumerable: true, configurable: true },
+  castTide: { get: () => castTide, enumerable: true, configurable: true },
+  castTransmute: { get: () => castTransmute, enumerable: true, configurable: true },
+  cellFromEvent: { get: () => cellFromEvent, enumerable: true, configurable: true },
+  checkEnd: { get: () => checkEnd, enumerable: true, configurable: true },
+  chooseFaction: { get: () => chooseFaction, enumerable: true, configurable: true },
+  clearLocks: { get: () => clearLocks, enumerable: true, configurable: true },
+  clearSelection: { get: () => clearSelection, enumerable: true, configurable: true },
+  clearVeils: { get: () => clearVeils, enumerable: true, configurable: true },
+  cloneEl: { get: () => cloneEl, enumerable: true, configurable: true },
+  cloneTurn: { get: () => cloneTurn, enumerable: true, configurable: true },
+  createTile: { get: () => createTile, enumerable: true, configurable: true },
+  dealDamage: { get: () => dealDamage, enumerable: true, configurable: true },
+  defeat: { get: () => defeat, enumerable: true, configurable: true },
+  drag: { get: () => drag, set: (v) => { drag = v; }, enumerable: true, configurable: true },
+  ecSvg: { get: () => ecSvg, enumerable: true, configurable: true },
+  elxImmune: { get: () => elxImmune, enumerable: true, configurable: true },
+  elxSide: { get: () => elxSide, enumerable: true, configurable: true },
+  endPlayerAction: { get: () => endPlayerAction, enumerable: true, configurable: true },
+  enemyBag: { get: () => enemyBag, enumerable: true, configurable: true },
+  enemyColEl: { get: () => enemyColEl, enumerable: true, configurable: true },
+  enemyTurn: { get: () => enemyTurn, enumerable: true, configurable: true },
+  enemyTurnStart: { get: () => enemyTurnStart, enumerable: true, configurable: true },
+  enemyUseItems: { get: () => enemyUseItems, enumerable: true, configurable: true },
+  enterBattle: { get: () => enterBattle, enumerable: true, configurable: true },
+  fEl: { get: () => fEl, enumerable: true, configurable: true },
+  fighters: { get: () => fighters, enumerable: true, configurable: true },
+  fillEmpty: { get: () => fillEmpty, enumerable: true, configurable: true },
+  finishAction: { get: () => finishAction, enumerable: true, configurable: true },
+  finishBoard: { get: () => finishBoard, enumerable: true, configurable: true },
+  fleeArmed: { get: () => fleeArmed, set: (v) => { fleeArmed = v; }, enumerable: true, configurable: true },
+  flushTurnDamage: { get: () => flushTurnDamage, enumerable: true, configurable: true },
+  fsActive: { get: () => fsActive, enumerable: true, configurable: true },
+  fsBtn: { get: () => fsBtn, enumerable: true, configurable: true },
+  furyState: { get: () => furyState, enumerable: true, configurable: true },
+  grantDuoRewards: { get: () => grantDuoRewards, enumerable: true, configurable: true },
+  grantRewards: { get: () => grantRewards, enumerable: true, configurable: true },
+  grantRewardsBase: { get: () => grantRewardsBase, enumerable: true, configurable: true },
+  gravityDown: { get: () => gravityDown, enumerable: true, configurable: true },
+  grid: { get: () => grid, set: (v) => { grid = v; }, enumerable: true, configurable: true },
+  growthBody: { get: () => growthBody, enumerable: true, configurable: true },
+  hasMatches: { get: () => hasMatches, enumerable: true, configurable: true },
+  hideCross: { get: () => hideCross, enumerable: true, configurable: true },
+  hideOverlay: { get: () => hideOverlay, enumerable: true, configurable: true },
+  inBattle: { get: () => inBattle, set: (v) => { inBattle = v; }, enumerable: true, configurable: true },
+  invalidStreak: { get: () => invalidStreak, set: (v) => { invalidStreak = v; }, enumerable: true, configurable: true },
+  isEmptyBoard: { get: () => isEmptyBoard, enumerable: true, configurable: true },
+  isLocked: { get: () => isLocked, enumerable: true, configurable: true },
+  isTraining: { get: () => isTraining, enumerable: true, configurable: true },
+  itemColor: { get: () => itemColor, enumerable: true, configurable: true },
+  kickAuto: { get: () => kickAuto, enumerable: true, configurable: true },
+  leaveBattle: { get: () => leaveBattle, enumerable: true, configurable: true },
+  loadSettings: { get: () => loadSettings, enumerable: true, configurable: true },
+  lockedCells: { get: () => lockedCells, enumerable: true, configurable: true },
+  locks: { get: () => locks, set: (v) => { locks = v; }, enumerable: true, configurable: true },
+  logEvent: { get: () => logEvent, enumerable: true, configurable: true },
+  logTurn: { get: () => logTurn, enumerable: true, configurable: true },
+  loseHp: { get: () => loseHp, enumerable: true, configurable: true },
+  magicCostOf: { get: () => magicCostOf, enumerable: true, configurable: true },
+  makesLine: { get: () => makesLine, enumerable: true, configurable: true },
+  monsterAbility: { get: () => monsterAbility, enumerable: true, configurable: true },
+  moves: { get: () => moves, set: (v) => { moves = v; }, enumerable: true, configurable: true },
+  movesEl: { get: () => movesEl, enumerable: true, configurable: true },
+  muteBtn: { get: () => muteBtn, enumerable: true, configurable: true },
+  note: { get: () => note, enumerable: true, configurable: true },
+  noteTimer: { get: () => noteTimer, set: (v) => { noteTimer = v; }, enumerable: true, configurable: true },
+  onEconomyChanged: { get: () => onEconomyChanged, enumerable: true, configurable: true },
+  onGearChanged: { get: () => onGearChanged, enumerable: true, configurable: true },
+  onRevived: { get: () => onRevived, enumerable: true, configurable: true },
+  onTurnTimeout: { get: () => onTurnTimeout, enumerable: true, configurable: true },
+  other: { get: () => other, enumerable: true, configurable: true },
+  over: { get: () => over, set: (v) => { over = v; }, enumerable: true, configurable: true },
+  passToEnemy: { get: () => passToEnemy, enumerable: true, configurable: true },
+  pet: { get: () => pet, set: (v) => { pet = v; }, enumerable: true, configurable: true },
+  petAlive: { get: () => petAlive, enumerable: true, configurable: true },
+  petEl: { get: () => petEl, enumerable: true, configurable: true },
+  petFell: { get: () => petFell, set: (v) => { petFell = v; }, enumerable: true, configurable: true },
+  petName: { get: () => petName, enumerable: true, configurable: true },
+  petPortrait: { get: () => petPortrait, enumerable: true, configurable: true },
+  petTurn: { get: () => petTurn, enumerable: true, configurable: true },
+  placeTile: { get: () => placeTile, enumerable: true, configurable: true },
+  playerCast: { get: () => playerCast, enumerable: true, configurable: true },
+  playerFaction: { get: () => playerFaction, enumerable: true, configurable: true },
+  playerInstant: { get: () => playerInstant, enumerable: true, configurable: true },
+  playerMove: { get: () => playerMove, enumerable: true, configurable: true },
+  portraitOf: { get: () => portraitOf, enumerable: true, configurable: true },
+  prankSwap: { get: () => prankSwap, enumerable: true, configurable: true },
+  recalcStats: { get: () => recalcStats, enumerable: true, configurable: true },
+  refillBoard: { get: () => refillBoard, enumerable: true, configurable: true },
+  refreshEnemyGear: { get: () => refreshEnemyGear, enumerable: true, configurable: true },
+  renderAvatar: { get: () => renderAvatar, enumerable: true, configurable: true },
+  renderBadge: { get: () => renderBadge, enumerable: true, configurable: true },
+  renderBag: { get: () => renderBag, enumerable: true, configurable: true },
+  renderClonePanel: { get: () => renderClonePanel, enumerable: true, configurable: true },
+  renderCounters: { get: () => renderCounters, enumerable: true, configurable: true },
+  renderEnemyColumn: { get: () => renderEnemyColumn, enumerable: true, configurable: true },
+  renderFactionButton: { get: () => renderFactionButton, enumerable: true, configurable: true },
+  renderFighters: { get: () => renderFighters, enumerable: true, configurable: true },
+  renderFs: { get: () => renderFs, enumerable: true, configurable: true },
+  renderGear: { get: () => renderGear, enumerable: true, configurable: true },
+  renderLocks: { get: () => renderLocks, enumerable: true, configurable: true },
+  renderMagic: { get: () => renderMagic, enumerable: true, configurable: true },
+  renderMute: { get: () => renderMute, enumerable: true, configurable: true },
+  renderPetPanel: { get: () => renderPetPanel, enumerable: true, configurable: true },
+  renderTurnTimer: { get: () => renderTurnTimer, enumerable: true, configurable: true },
+  renderUiSkin: { get: () => renderUiSkin, enumerable: true, configurable: true },
+  renderWallet: { get: () => renderWallet, enumerable: true, configurable: true },
+  resolveBoard: { get: () => resolveBoard, enumerable: true, configurable: true },
+  restartBtn: { get: () => restartBtn, enumerable: true, configurable: true },
+  resumeAfterAdopt: { get: () => resumeAfterAdopt, enumerable: true, configurable: true },
+  rewardFor: { get: () => rewardFor, enumerable: true, configurable: true },
+  rewarded: { get: () => rewarded, set: (v) => { rewarded = v; }, enumerable: true, configurable: true },
+  rootEl: { get: () => rootEl, enumerable: true, configurable: true },
+  rotateHint: { get: () => rotateHint, enumerable: true, configurable: true },
+  runeHammer: { get: () => runeHammer, enumerable: true, configurable: true },
+  saveSettings: { get: () => saveSettings, enumerable: true, configurable: true },
+  selected: { get: () => selected, set: (v) => { selected = v; }, enumerable: true, configurable: true },
+  setAutopilot: { get: () => setAutopilot, enumerable: true, configurable: true },
+  setBeaverTip: { get: () => setBeaverTip, enumerable: true, configurable: true },
+  setLock: { get: () => setLock, enumerable: true, configurable: true },
+  setPos: { get: () => setPos, enumerable: true, configurable: true },
+  setTileValue: { get: () => setTileValue, enumerable: true, configurable: true },
+  setTurn: { get: () => setTurn, enumerable: true, configurable: true },
+  setupEnemy: { get: () => setupEnemy, enumerable: true, configurable: true },
+  setupPet: { get: () => setupPet, enumerable: true, configurable: true },
+  setupTrainerBeaver: { get: () => setupTrainerBeaver, enumerable: true, configurable: true },
+  shake: { get: () => shake, enumerable: true, configurable: true },
+  shiftRight: { get: () => shiftRight, enumerable: true, configurable: true },
+  shotKilledMonster: { get: () => shotKilledMonster, set: (v) => { shotKilledMonster = v; }, enumerable: true, configurable: true },
+  showCenterPop: { get: () => showCenterPop, enumerable: true, configurable: true },
+  showCross: { get: () => showCross, enumerable: true, configurable: true },
+  showDamage: { get: () => showDamage, enumerable: true, configurable: true },
+  showFloat: { get: () => showFloat, enumerable: true, configurable: true },
+  showHint: { get: () => showHint, enumerable: true, configurable: true },
+  showOverlay: { get: () => showOverlay, enumerable: true, configurable: true },
+  sideDown: { get: () => sideDown, enumerable: true, configurable: true },
+  spawnFilled: { get: () => spawnFilled, enumerable: true, configurable: true },
+  spellDisabled: { get: () => spellDisabled, enumerable: true, configurable: true },
+  spellIconHtml: { get: () => spellIconHtml, enumerable: true, configurable: true },
+  spellOpen: { get: () => spellOpen, enumerable: true, configurable: true },
+  spellbarEl: { get: () => spellbarEl, enumerable: true, configurable: true },
+  spendMagic: { get: () => spendMagic, enumerable: true, configurable: true },
+  startBattle: { get: () => startBattle, enumerable: true, configurable: true },
+  startGame: { get: () => startGame, enumerable: true, configurable: true },
+  startPetGame: { get: () => startPetGame, enumerable: true, configurable: true },
+  startTurnTimer: { get: () => startTurnTimer, enumerable: true, configurable: true },
+  statusEl: { get: () => statusEl, enumerable: true, configurable: true },
+  stopAim: { get: () => stopAim, enumerable: true, configurable: true },
+  stopTurnTimer: { get: () => stopTurnTimer, enumerable: true, configurable: true },
+  strikeKilledMonster: { get: () => strikeKilledMonster, set: (v) => { strikeKilledMonster = v; }, enumerable: true, configurable: true },
+  swapCells: { get: () => swapCells, enumerable: true, configurable: true },
+  takeTurn: { get: () => takeTurn, enumerable: true, configurable: true },
+  testMult: { get: () => testMult, enumerable: true, configurable: true },
+  timerEl: { get: () => timerEl, enumerable: true, configurable: true },
+  toggleAim: { get: () => toggleAim, enumerable: true, configurable: true },
+  toggleFullscreen: { get: () => toggleFullscreen, enumerable: true, configurable: true },
+  toggleMagic: { get: () => toggleMagic, enumerable: true, configurable: true },
+  turnDamage: { get: () => turnDamage, set: (v) => { turnDamage = v; }, enumerable: true, configurable: true },
+  turnEvents: { get: () => turnEvents, set: (v) => { turnEvents = v; }, enumerable: true, configurable: true },
+  turnSide: { get: () => turnSide, set: (v) => { turnSide = v; }, enumerable: true, configurable: true },
+  turnStats: { get: () => turnStats, set: (v) => { turnStats = v; }, enumerable: true, configurable: true },
+  turnTimerHandle: { get: () => turnTimerHandle, set: (v) => { turnTimerHandle = v; }, enumerable: true, configurable: true },
+  turnsWord: { get: () => turnsWord, enumerable: true, configurable: true },
+  typOf: { get: () => typOf, enumerable: true, configurable: true },
+  uiSkinBtn: { get: () => uiSkinBtn, enumerable: true, configurable: true },
+  useAmmo: { get: () => useAmmo, enumerable: true, configurable: true },
+  useConsumable: { get: () => useConsumable, enumerable: true, configurable: true },
+  useFactionAbility: { get: () => useFactionAbility, enumerable: true, configurable: true },
+  valOf: { get: () => valOf, enumerable: true, configurable: true },
+  veil: { get: () => veil, enumerable: true, configurable: true },
+  veiled: { get: () => veiled, enumerable: true, configurable: true },
+  wispBlocks: { get: () => wispBlocks, enumerable: true, configurable: true }
+  });
+}
+const BATTLE_TEMPLATE = (typeof document !== 'undefined' && document.querySelector('main.game')) ? document.querySelector('main.game').cloneNode(true) : null;
+const MAIN_HOST = { main: true, id: 'hero', root: (typeof document !== 'undefined' && document.querySelector('main.game')) || document };
+const MAIN_BATTLE = createBattle(MAIN_HOST);
+Object.defineProperties(globalThis, Object.getOwnPropertyDescriptors(MAIN_BATTLE));
+
+/* ---------- Бой вдвоём: два поля одновременно (1.4.8) ----------
+   Герой дерётся со своим противником на основном поле, питомец — с точной копией того же противника на втором
+   (createBattle с role 'pet'). Питомца ведёт ИИ с «умом» из его опыта (Pets.intellect); игрок может переключиться
+   на вкладку «Питомец» и взять его под себя («Играть за питомца») — тогда героя ведёт ИИ на полную силу.
+   Итог подводит Duo: убитые противники дают награду при победе, поражении и отступлении; если один из наших пал,
+   а другой выжил, выживший добивает оставшегося противника на своём поле. */
+const Duo = (() => {
+  let petB = null, petHost = null, bar = null, tick = null, st = null;
+  const M = () => MAIN_BATTLE;
+  const mainEl = () => MAIN_HOST.root;
+  const silent = new Proxy({}, { get: (_, k) => {
+    const real = typeof Sound !== 'undefined' ? Sound[k] : undefined;
+    if (typeof real !== 'function') return real;
+    return (...a) => (st && st.tab === 'pet' ? real.apply(Sound, a) : undefined);
+  } });
+
+  const on = () => !!st;
+  function wanted() {
+    return !isTrainingNow() && !(typeof Tutorial !== 'undefined' && Tutorial.inBattle()) && !(Profile.data.monster && Profile.data.monster.boss) && Profile.petInBattle();
+  }
+  const isTrainingNow = () => MAIN_BATTLE.fighters.right.monsterId === 'beaver';
+  const boards = () => ({ hero: M(), pet: petB });
+
+  function begin(petF) {
+    end();
+    const pd = Profile.pet();
+    if (!BATTLE_TEMPLATE || !pd) return;
+    st = { control: 'hero', tab: 'hero', result: { hero: null, pet: null }, kills: [], petOutcomes: [], done: false, pd };
+    const root = BATTLE_TEMPLATE.cloneNode(true);
+    root.classList.add('duo-pet', 'duo-hidden');
+    mainEl().after(root);
+    petHost = { role: 'pet', id: 'pet', root, sound: silent, autopilot: true, autoLevel: Pets.dopedIntellect(pd, petF.intBonus), coord: Duo };
+    MAIN_HOST.coord = Duo;
+    petB = createBattle(petHost);
+    petB.buildSpellbar();
+    petB.startPetGame({
+      fighter: petF, foe: structuredClone(M().fighters.right), level: Pets.dopedIntellect(pd, petF.intBonus),
+      name: Pets.petDisplayName(pd.speciesId), speciesId: pd.speciesId, tier: pd.tier,
+    });
+    buildBar();
+    document.body.classList.add('duo-battle');
+    tick = setInterval(renderBar, 400);
+  }
+
+  function buildBar() {
+    bar = document.createElement('div');
+    bar.className = 'duo-bar';
+    bar.innerHTML = '<button type="button" class="duo-tab on" data-tab="hero"><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small></button>' +
+      '<button type="button" class="duo-tab" data-tab="pet"><span class="dt-av"></span><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small></button>' +
+      '<button type="button" class="duo-take"></button>';
+    bar.querySelector('[data-tab=pet] .dt-av').innerHTML = petB.petPortrait(petB.fighters.left);
+    bar.addEventListener('click', (e) => {
+      const t = e.target.closest('.duo-tab'), k = e.target.closest('.duo-take');
+      if (t) setTab(t.dataset.tab);
+      else if (k) setControl(st.control === 'pet' ? 'hero' : 'pet', true);
+    });
+    mainEl().before(bar);
+    renderBar();
+  }
+
+  function renderBar() {
+    if (!st || !bar) return;
+    const h = M().brief(), p = petB.brief();
+    const fill = (b, f, o) => { b.querySelector('.dt-hp i').style.width = Math.max(0, f.hp / f.max * 100) + '%'; };
+    const th = bar.querySelector('[data-tab=hero]'), tp = bar.querySelector('[data-tab=pet]');
+    th.querySelector('.dt-name').textContent = _t("Герой");
+    th.querySelector('small').textContent = `${Math.max(0, h.hp)}/${h.max} · ${_t("враг")} ${Math.max(0, h.foeHp)}/${h.foeMax}`;
+    tp.querySelector('.dt-name').textContent = _t("Питомец");
+    tp.querySelector('small').textContent = `${Math.max(0, p.hp)}/${p.max} · ${_t("враг")} ${Math.max(0, p.foeHp)}/${p.foeMax}`;
+    fill(th, h); fill(tp, p);
+    th.classList.toggle('on', st.tab === 'hero'); tp.classList.toggle('on', st.tab === 'pet');
+    th.classList.toggle('mine', st.control === 'hero'); tp.classList.toggle('mine', st.control === 'pet');
+    th.classList.toggle('down', !!st.result.hero); tp.classList.toggle('down', !!st.result.pet);
+    const take = bar.querySelector('.duo-take');
+    const petOver = !!st.result.pet, heroOver = !!st.result.hero;
+    take.textContent = st.control === 'pet' ? _t("Играть за героя") : _t("Играть за питомца");
+    take.hidden = st.done || (st.control === 'hero' ? petOver || (petB.brief().hp <= 0) : heroOver);
+  }
+
+  function setTab(t) {
+    if (!st) return;
+    st.tab = t;
+    mainEl().classList.toggle('duo-hidden', t === 'pet');
+    petHost.root.classList.toggle('duo-hidden', t !== 'pet');
+    renderBar();
+  }
+  function setControl(c, follow) {
+    if (!st) return;
+    st.control = c;
+    M().setAutopilot(c === 'pet', 100);
+    petB.setAutopilot(c === 'hero', Pets.dopedIntellect(st.pd, petB.fighters.left.intBonus));
+    if (follow) setTab(c);
+    renderBar();
+  }
+
+  // Поле id закончилось: 'win' — противник повержен, 'loss' — наш боец пал.
+  function ended(id, result) {
+    if (!st) return;
+    const b = boards()[id];
+    const foe = structuredClone(b.fighters.right);
+    st.result[id] = { result, foe };
+    if (result === 'win') st.kills.push(foe);
+    if (id === 'pet') st.petOutcomes.push({ tier: foe.tier, won: result === 'win' });
+    const other = id === 'hero' ? 'pet' : 'hero';
+    if (!st.result[other]) {                              // второе поле ещё идёт — переключаем игрока на него
+      if (st.control === id) setControl(other, true);
+      else if (st.tab === id) setTab(other);
+    }
+    renderBar();
+    evaluate();
+  }
+  function evaluate() {
+    const r = st.result;
+    if (!r.hero || !r.pet) return;
+    const alive = ['hero', 'pet'].filter((k) => r[k].result === 'win');
+    const foesLeft = ['hero', 'pet'].filter((k) => r[k].result === 'loss' && !r[k].taken);
+    if (!foesLeft.length) return finish('win');
+    if (!alive.length) return finish('loss');
+    const k = alive[0], src = r[foesLeft[0]], foe = src.foe;       // выживший добивает оставшегося противника
+    src.taken = true;
+    r[k] = null;
+    boards()[k].adoptFoe(foe, false);
+    boards()[k].resumeAfterAdopt();
+    setControl(k, true);
+    renderBar();
+  }
+  function finish(result) {
+    st.done = true;
+    const m = M();
+    if (result === 'loss' && st.result.pet && st.petOutcomes.some((o) => !o.won)) Profile.petLoseDurability();
+    let txt = m.grantDuoRewards(st.kills, result === 'win');
+    txt += petGrowth();
+    setTab('hero');
+    m.showOverlay(result === 'win' ? _t("Победа!") : _t("Поражение"), txt);
+    renderBar();
+  }
+  // Питомец копит опыт: растут ум и цвет.
+  function petGrowth() {
+    const pd = Profile.pet();
+    if (!pd || !st.petOutcomes.length) return '';
+    const before = Pets.intellect(pd), tier0 = pd.tier, heroTier = Hero.tierFor(Profile.level());
+    let gain = 0;
+    for (const o of st.petOutcomes) gain += Pets.xpGain(o.tier, o.won);
+    const up = Pets.addXp(pd, gain, heroTier);
+    Profile.save();
+    const name = Pets.petDisplayName(pd.speciesId), after = Pets.intellect(pd);
+    let line = _t("<br>{0}: опыт +{1}, ум {2} → {3}", [name, gain, before, after]);
+    if (up) line += _t(". <b class=\"lvlup\">Новый цвет: {0}!</b>", [Tiers.get(pd.tier).name]);
+    return line;
+  }
+  // Отступление: награда за уже убитых противников.
+  function flee() {
+    if (!st || st.done) return;
+    st.done = true;
+    const txt = M().grantDuoRewards(st.kills, false);
+    petGrowth();
+    if (txt) setTimeout(() => MapView.toast(_t("Отступили, но добыча за павших врагов — ваша")), 50);
+  }
+  function end() {
+    if (tick) { clearInterval(tick); tick = null; }
+    if (petB) { petB.over = true; petB.stopTurnTimer(); petB.setAutopilot(false); }
+    if (petHost) petHost.root.remove();
+    if (bar) bar.remove();
+    bar = null; petB = null; petHost = null; st = null;
+    MAIN_HOST.coord = null;
+    mainEl().classList.remove('duo-hidden');
+    document.body.classList.remove('duo-battle');
+    if (MAIN_BATTLE.autopilot) MAIN_BATTLE.setAutopilot(false);
+  }
+  return { wanted, begin, end, ended, flee, on, setTab, setControl, get state() { return st; }, get pet() { return petB; } };
+})();
 buildSpellbar();
 loadSettings();
 onGearChanged();

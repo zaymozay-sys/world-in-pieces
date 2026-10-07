@@ -1,8 +1,9 @@
 {
   "name": "world-in-pieces",
-  "version": "1.4.7",
+  "version": "1.4.9",
   "description": "World in Pieces (Хрупкий мир) — три в ряд на поле 6x6 с противником и магией",
   "scripts": {
+    "test:duo": "node tests/duo.e2e.js",
     "test": "node tests/unlocks.test.js && node tests/engine.test.js && node tests/gear.test.js && node tests/economy.test.js && node tests/map.test.js && node tests/factions.test.js && node tests/hero.test.js && node tests/combat.test.js && node tests/balance.test.js && node tests/art.test.js && node tests/quests.test.js && node tests/daily.test.js && node tests/names.test.js && node tests/medals.test.js && node tests/elixirs.test.js && node tests/pets.test.js && node tests/runes.test.js && node tests/obsidian-live.test.js && node tests/obsidian-composite.test.js && node tests/clone.test.js && node tests/i18n.test.js",
     "balance": "node tools/balance.js --n=60 --tiers=1,4,7,10",
     "career": "node tools/career.js --runs=2"

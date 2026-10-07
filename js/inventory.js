@@ -263,6 +263,10 @@ const Profile = (() => {
     pet() { const c = api.petChoice(); return c === 'none' ? null : c === 'home' ? api.homePet() : data.pet; },
     tamedPet: () => data.pet,
     hasUsablePet() { return I_PT.isUsable(api.pet()); },
+    // 1.4.8: «оставить питомца дома» на один выход (переключатель перед боем): питомец остаётся выбранным, но в бой не идёт.
+    petStay: () => !!data.petStay,
+    setPetStay(v) { data.petStay = !!v; save(); },
+    petInBattle() { return api.hasUsablePet() && !data.petStay; },
     // Яйца и инкубатор (1.3.9)
     eggs: () => data.eggs || {},
     addEgg(k) { data.eggs = data.eggs || {}; data.eggs[k] = (data.eggs[k] || 0) + 1; save(); },

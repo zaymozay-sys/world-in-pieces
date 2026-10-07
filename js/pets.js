@@ -117,10 +117,10 @@ const Pets = (() => {
   /* ---------- Угощения (1.3.8): продаются в Питомнике, действуют несколько боёв ----------
      bone — прежняя «сытность» (pet.fed); остальные хранятся в pet.treats = { kind: боёв_осталось }. */
   const TREATS = {
-    bone:    { name: _t("Сочная косточка"),   price: 45,  battles: 3, desc: _t("Удары питомца сильнее на 25%") },
-    biscuit: { name: _t("Хрустящий сухарик"), price: 55,  battles: 3, desc: _t("Броня питомца +15") },
-    honey:   { name: _t("Медовая лепёшка"),   price: 60,  battles: 3, desc: _t("ХП питомца больше на 30%") },
-    apple:   { name: _t("Золотое яблоко"),    price: 200, battles: 2, desc: _t("Всё сразу: удар +25%, броня +15, ХП +30%") },
+    bone:    { name: _t("Сочная косточка"),   price: 45,  battles: 3, desc: _t("Удары питомца сильнее на 25%, ум +8") },
+    biscuit: { name: _t("Хрустящий сухарик"), price: 55,  battles: 3, desc: _t("Броня питомца +15, ум +8") },
+    honey:   { name: _t("Медовая лепёшка"),   price: 60,  battles: 3, desc: _t("ХП питомца больше на 30%, ум +8") },
+    apple:   { name: _t("Золотое яблоко"),    price: 200, battles: 2, desc: _t("Всё сразу: удар +25%, броня +15, ХП +30%, ум +25") },
   };
   const TREAT_ORDER = ['bone', 'biscuit', 'honey', 'apple'];
   const treatCost = (pet, kind) => Math.round(TREATS[kind].price * mult(pet.tier));
@@ -133,19 +133,38 @@ const Pets = (() => {
   }
   // Начало боя: прибавки от угощений (без «сочной косточки» — её тратит useFeed) и расход одного боя.
   function useTreats(pet) {
-    const out = { defense: 0, hpMult: 1, power: 1 };
+    const out = { defense: 0, hpMult: 1, power: 1, int: 0 };
     if (!pet || !pet.treats) return out;
     for (const k of Object.keys(pet.treats)) {
       if (!(pet.treats[k] > 0)) continue;
       if (k === 'biscuit' || k === 'apple') out.defense += 15;
       if (k === 'honey' || k === 'apple') out.hpMult = 1.3;
       if (k === 'apple') out.power = FEED_BONUS;
+      out.int += k === 'apple' ? 25 : 8;                  // допинг: угощение на время боя повышает ум
       pet.treats[k]--;
     }
     return out;
   }
 
-  return { HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,
+  /* ---------- Опыт питомца (1.4.8): растут ум и цвет ----------
+     Питомец играет на своём поле сам (ИИ). Опыт копится за каждый бой на его поле; чем больше опыта,
+     тем выше «ум» — уровень ИИ 1..100 (глубина просчёта поля, см. AI.settings; на 100 — максимум), и
+     тем раньше он перейдёт на следующий цвет (не выше цвета героя). */
+  const BOARD_HP = 1.25;                   // на своём поле питомец крепче: слабому уму нужен запас здоровья
+  const INT_XP = 1500, DOPE_BONE = 8;     // ум в бою = ум по опыту + допинг от угощений (до 100)
+  const dopedIntellect = (pet, bonus) => Math.min(100, intellect(pet) + (bonus || 0));
+  const intellect = (pet) => Math.min(100, Math.max(1, 1 + Math.round(99 * (1 - Math.exp(-((pet && pet.xp) || 0) / INT_XP)))));
+  const tierXp = (tier) => Math.round(120 * Math.pow(tier, 1.7));          // опыт, с которого питомец переходит с цвета tier на следующий
+  const xpGain = (foeTier, won) => Math.round((won ? 14 : 6) * (1 + 0.4 * (Math.max(1, foeTier) - 1)));
+  // Начисляет опыт; цвет растёт сам, но не выше heroTier. Возвращает, на сколько цветов вырос.
+  function addXp(pet, n, heroTier) {
+    pet.xp = (pet.xp || 0) + Math.max(0, n);
+    let up = 0;
+    while (pet.tier < Math.min(PT_T.MAX, heroTier) && pet.xp >= tierXp(pet.tier)) { pet.tier++; up++; }
+    return up;
+  }
+
+  return { BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,
     repairCost, feedCost, trainCost, feed, train, useFeed };
 })();
 

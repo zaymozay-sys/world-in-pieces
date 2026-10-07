@@ -42,10 +42,10 @@ def art_replacer(match):
             from PIL import Image
             import io
             im = Image.open(io.BytesIO(raw))
-            lim = 480 if re.match(r'art/(monsters|pets)/', path) else 900   # новые рисунки существ — 768 px; для предпросмотра хватает 480
+            lim = 360 if re.match(r'art/(monsters|pets)/', path) else 256 if path.startswith('art/items/') else 640   # только для предпросмотра (лимит 16 МБ); в игре картинки полного размера
             im.thumbnail((lim, lim))
             buf = io.BytesIO()
-            im.save(buf, 'WEBP', quality=68, method=6)
+            im.save(buf, 'WEBP', quality=62, method=6)
             if buf.tell() < len(raw):
                 raw = buf.getvalue()
         except Exception:

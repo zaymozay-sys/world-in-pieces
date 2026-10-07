@@ -150,3 +150,36 @@ console.log('pets: все тесты пройдены');
   assert.strictEqual(Pets.petDisplayName('dragonling'), 'Дракончик');
 }
 console.log('pets 1.3.9 ok');
+
+// 1.4.8: опыт, ум и допинг питомца
+{
+  const ints = [0, 50, 200, 500, 1500, 4000, 9000, 50000].map((xp) => Pets.intellect({ xp }));
+  assert.strictEqual(ints[0], 1, 'без опыта ум = 1');
+  assert.strictEqual(ints[ints.length - 1], 100, 'ум упирается в 100');
+  for (let i = 1; i < ints.length; i++) assert.ok(ints[i] >= ints[i - 1], 'ум не падает с опытом');
+  assert.ok(ints.every((v) => v >= 1 && v <= 100));
+  assert.strictEqual(Pets.intellect(null), 1);
+  // допинг не выше 100
+  assert.strictEqual(Pets.dopedIntellect({ xp: 0 }, 8), 9);
+  assert.strictEqual(Pets.dopedIntellect({ xp: 50000 }, 25), 100);
+  assert.strictEqual(Pets.dopedIntellect({ xp: 0 }), 1);
+  // цвет растёт от опыта, но не выше цвета героя
+  const p = Pets.makePet('dog', 1);
+  assert.strictEqual(Pets.addXp(p, 10, 5), 0); assert.strictEqual(p.tier, 1);
+  assert.ok(Pets.addXp(p, 1000, 2) === 1 && p.tier === 2, 'потолок — цвет героя');
+  assert.ok(Pets.addXp(p, 100000, 4) === 2 && p.tier === 4);
+  assert.ok(p.xp > 100000);
+  // награда за опыт: победа больше поражения, старший цвет больше
+  assert.ok(Pets.xpGain(1, true) > Pets.xpGain(1, false));
+  assert.ok(Pets.xpGain(5, true) > Pets.xpGain(1, true));
+  // угощения: допинг уму, и они тратятся
+  const t = Pets.makePet('dog', 1);
+  Pets.giveTreat(t, 'honey'); Pets.giveTreat(t, 'apple');
+  const left0 = Pets.treatLeft(t, 'apple');
+  const tr = Pets.useTreats(t);
+  assert.strictEqual(tr.int, 8 + 25);
+  assert.strictEqual(Pets.treatLeft(t, 'apple'), left0 - 1);
+  assert.strictEqual(Pets.useTreats(Pets.makePet('dog', 1)).int, 0);
+  assert.ok(Pets.BOARD_HP > 1);
+}
+console.log('pets 1.4.8 ok');

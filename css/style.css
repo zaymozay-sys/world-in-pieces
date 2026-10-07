@@ -1813,6 +1813,7 @@ body.ui-columns .log-wrap { margin: 0; align-self: start; min-width: 0; }
   body.ui-columns .fighter .statline { grid-area: sl; display: block; }
   body.ui-columns .fighter .badge { grid-area: bd; min-height: 0; }
   body.ui-columns .fighter .pet-panel { grid-area: pt; }
+  body.ui-columns .fighter .pt-wrap { grid-area: pt; }
   body.ui-columns { --av: clamp(84px, 11vw, 168px); --bagi: clamp(24px, calc(var(--sb) * .6), 32px); }
 }
 
@@ -2377,3 +2378,132 @@ body.ui-columns #board { contain: layout; }
 button.magic.new-spell { animation: newspell 1.2s ease-in-out infinite; border-color: #f1d98a; }
 @keyframes newspell { 0%, 100% { box-shadow: 0 0 0 0 rgba(241, 217, 138, .0); } 50% { box-shadow: 0 0 12px 4px rgba(241, 217, 138, .85); } }
 @media (prefers-reduced-motion: reduce) { button.magic.new-spell { animation: none; box-shadow: 0 0 10px 3px rgba(241, 217, 138, .8); } }
+
+/* 1.4.8: бой вдвоём — два поля (герой / питомец) на вкладках */
+.duo-hidden { display: none !important; }
+.duo-bar { position: fixed; z-index: 60; top: env(safe-area-inset-top, 0px); left: 0; right: 0; display: flex; gap: 4px; align-items: stretch; padding: 4px; background: rgba(15, 16, 19, .94); border-bottom: 1px solid #3a3d44; }
+.duo-bar .duo-tab { flex: 1; min-width: 0; }
+body.duo-battle main.game { padding-top: 54px; }
+@media (min-width: 700px) and (min-aspect-ratio: 5/4) { .duo-bar { left: 50%; right: auto; transform: translateX(-50%); width: min(760px, calc(100vw - 16px)); border: 1px solid #3a3d44; border-top: 0; border-radius: 0 0 10px 10px; } }
+.duo-tab { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "av nm" "av hp" "av sm"; column-gap: 6px; align-items: center; min-width: 0; padding: 4px 10px 4px 6px; border-radius: 8px; border: 2px solid #4a4d55; background: #23262b; color: inherit; text-align: left; cursor: pointer; }
+.duo-tab:first-child { grid-template-areas: "nm" "hp" "sm"; grid-template-columns: 1fr; padding-left: 10px; }
+.duo-tab.on { border-color: #e3c98a; background: #2c2f36; }
+.duo-tab.mine .dt-name::after { content: " · вы"; opacity: .7; font-weight: 400; }
+.duo-tab.down { opacity: .55; filter: grayscale(.6); }
+.duo-tab .dt-av { grid-area: av; width: 34px; height: 34px; border-radius: 6px; overflow: hidden; background: #1b1d21; }
+.duo-tab .dt-av svg, .duo-tab .dt-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.duo-tab .dt-name { grid-area: nm; font-weight: 600; font-size: 12px; }
+.duo-tab .dt-hp { grid-area: hp; height: 7px; border-radius: 4px; background: #14161a; overflow: hidden; margin: 2px 0; }
+.duo-tab .dt-hp i { display: block; height: 100%; background: linear-gradient(#6fd36f, #2f8f3a); transition: width .3s; }
+.duo-tab small { grid-area: sm; font-size: 10px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 699px), (max-aspect-ratio: 5/4) { .duo-tab small { font-size: 9px; } .duo-take { flex: none; padding: 2px 8px; font-size: 11px; max-width: 92px; line-height: 1.1; } .duo-tab .dt-av { width: 26px; height: 26px; } }
+.duo-take { padding: 6px 14px; border-radius: 8px; border: 2px solid #e3c98a; background: #3a3220; color: #f1d98a; font-weight: 600; cursor: pointer; }
+.duo-take[hidden] { display: none; }
+.duo-pet #spellbar, .duo-pet #bagbar, .duo-pet .row-actions, .duo-pet #restart, .duo-pet #gear, .duo-pet #hint { display: none; }
+.pet-toggle { display: flex; gap: 8px; align-items: center; margin: 8px 0 2px; font-size: 13px; }
+.fighter .avatar > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ===================== 1.4.9: телефон — «Вертикальный A» и «Горизонтальный A» (body.ui-columns.phone) =====================
+   Магия и эликсиры всегда под рукой, редкие кнопки — пиктограммы внизу, остальное — в меню ☰ (#more-menu).
+   Класс phone ставит game.js: сенсорный экран с короткой стороной ≤ 520 px (или ?phone в адресе — для проверки). */
+.pic-only, .more-menu { display: none; }
+body.ui-columns.phone .more-menu:not([hidden]) {
+  display: grid; position: fixed; right: 8px; bottom: 64px; z-index: 60; gap: 4px; padding: 6px;
+  background: #1b150c; border: 1px solid #8a6d32; border-radius: 10px; box-shadow: 0 6px 24px #000a;
+}
+body.ui-columns.phone .more-menu button { padding: 10px 14px; font-size: 14px; text-align: left; min-width: 180px; }
+body.ui-columns.phone .pic-only { display: block; }
+body.ui-columns.phone h1, body.ui-columns.phone .rules, body.ui-columns.phone .spell-title,
+body.ui-columns.phone #bestiary, body.ui-columns.phone #credits, body.ui-columns.phone #ui-skin, body.ui-columns.phone #fullscreen,
+body.ui-columns.phone .enemy-col, body.ui-columns.phone .bar > span:first-child, body.ui-columns.phone .fighter .counters,
+body.ui-columns.phone .fighter .gearrow, body.ui-columns.phone .fighter .statline, body.ui-columns.phone .fighter .wallet,
+body.ui-columns.phone .fighter .ability-line, body.ui-columns.phone .fighter .badge { display: none !important; }
+body.ui-columns.phone .menu, body.ui-columns.phone .bar, body.ui-columns.phone .bar .btns { display: contents; }
+body.ui-columns.phone #hint { grid-area: p1; } body.ui-columns.phone #mute { grid-area: p2; }
+body.ui-columns.phone #gear { grid-area: p3; } body.ui-columns.phone #restart { grid-area: p4; } body.ui-columns.phone #more { grid-area: p5; }
+body.ui-columns.phone :is(#hint, #mute, #gear, #restart, #more) {
+  font-size: 0; padding: 0; min-height: 40px; height: 100%; width: 100%; border-radius: 10px;
+  background-repeat: no-repeat; background-position: center; background-size: 58%; overflow: hidden;
+}
+body.ui-columns.phone #hint { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z'/></svg>"); }
+body.ui-columns.phone #mute { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 9v6h4l5 4V5L8 9H4zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12'/></svg>"); }
+body.ui-columns.phone #mute.off { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 9v6h4l5 4V5L8 9H4zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12'/></svg>")off; opacity: .7; }
+body.ui-columns.phone #gear { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 8a5 5 0 0 1 10 0v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V8zM9 14h6M9 9h6'/></svg>"); }
+body.ui-columns.phone #restart { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 21V4M5 4h13l-3 4.5 3 4.5H5'/></svg>"); border-color: #8a2d2d; }
+body.ui-columns.phone #restart.armed { background-color: #7a1d1d; font-size: 11px; background-size: 0; color: #fff; }
+body.ui-columns.phone #more { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h16M4 12h16M4 17h16'/></svg>"); }
+body.ui-columns.phone .fighter { padding: 4px; column-gap: 6px; grid-template-columns: 36px minmax(0, 1fr); align-content: start; }
+body.ui-columns.phone .fighter .avatar { width: 36px; height: 36px; margin: 0; }
+body.ui-columns.phone .fighter .name { font-size: 12px; margin: 0; flex-wrap: nowrap; overflow: hidden; }
+body.ui-columns.phone .fighter .pet-panel { margin-top: 3px; padding-top: 3px; grid-column: 1 / -1; }
+body.ui-columns.phone .status { height: 20px; line-height: 20px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.ui-columns.phone .turn-timer { font-size: 13px; line-height: 20px; text-align: right; }
+body.ui-columns.phone .game { padding: 6px 8px; }
+body.ui-columns.phone #board { justify-self: center; }
+body.ui-columns.phone .spellbar { align-content: start; }
+
+@media (orientation: portrait) {
+  body.ui-columns.phone { --sg: 3px; --board: min(calc(100vw - 16px), calc(100dvh - 350px)); --pic: 44px; }
+  body.ui-columns.phone .arena {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    grid-template-rows: auto 20px auto auto auto var(--pic) auto;
+    grid-template-areas:
+      "l  l  l  l  l  r  r  r  r  r"
+      "st st st st st st st st tm tm"
+      "b  b  b  b  b  b  b  b  b  b"
+      "sp sp sp sp sp sp sp sp sp sp"
+      "bg bg bg bg bg bg bg bg bg bg"
+      "p1 p1 p2 p2 p3 p3 p4 p4 p5 p5"
+      "lg lg lg lg lg lg lg lg lg lg";
+    gap: 5px; justify-content: stretch; width: 100%;
+  }
+  body.ui-columns.phone .spellbar { --sb: calc((100% - 6 * var(--sg)) / 7); grid-template-columns: repeat(7, 1fr); grid-auto-rows: auto; width: 100%; }
+  body.ui-columns.phone .spellbar button.magic { width: 100%; height: auto; aspect-ratio: 1; min-height: 38px; }
+  body.ui-columns.phone .spellbar .magic-icon { width: 72%; height: 72%; }
+  body.ui-columns.phone .bagbar { grid-template-columns: repeat(9, 1fr); gap: 3px; }
+  body.ui-columns.phone .bagitem { padding: 2px 0; min-height: 38px; }
+  body.ui-columns.phone .bagitem .item-icon { width: 24px; height: 24px; }
+  body.ui-columns.phone .bagitem b { font-size: 9px; padding: 0 3px; line-height: 12px; }
+  body.ui-columns.phone #board { width: var(--board); }
+}
+@media (orientation: landscape) {
+  body.ui-columns.phone { --sg: 3px; --sb: 40px; --board: calc(100dvh - 12px - 22px); --lw: calc(3 * var(--sb) + 2 * var(--sg)); }
+  body.ui-columns.phone .game { width: 100%; max-width: none; }
+  body.ui-columns.phone .arena {
+    grid-template-columns: repeat(3, var(--sb)) var(--board) repeat(3, var(--sb));
+    grid-template-rows: 20px minmax(0, 1fr) calc(3 * var(--sb) + 2 * var(--sg)) var(--sb) var(--sb);
+    grid-template-areas:
+      "st st st b  tm tm tm"
+      "l  l  l  b  r  r  r"
+      "sp sp sp b  bg bg bg"
+      "sp sp sp b  p1 p2 p3"
+      "sp sp sp b  p4 p5 .";
+    gap: var(--sg); justify-content: center; height: calc(100dvh - 12px); align-items: stretch;
+  }
+  body.ui-columns.phone #board { grid-row: 1 / -1; align-self: start; width: var(--board); }
+  body.ui-columns.phone .spellbar { grid-template-columns: repeat(3, var(--sb)); grid-auto-rows: var(--sb); align-content: start; }
+  body.ui-columns.phone .bagbar { grid-template-columns: repeat(3, var(--sb)); grid-auto-rows: var(--sb); gap: var(--sg); align-content: start; }
+  body.ui-columns.phone .bagitem { padding: 1px; min-height: 0; }
+  body.ui-columns.phone .bagitem .item-icon { width: 26px; height: 26px; }
+  body.ui-columns.phone .fighter { overflow: hidden; }
+  body.ui-columns.phone .log-wrap { display: none; }
+}
+body.phone .duo-bar { left: 0; right: 0; transform: none; width: auto; border-radius: 0; border-left: 0; border-right: 0; }
+@media (orientation: landscape) {
+  body.phone .duo-bar small { display: none; }
+  body.phone .duo-tab { padding: 2px 8px; grid-template-areas: "nm" "hp"; grid-template-columns: 1fr; }
+  body.phone .duo-tab .dt-av { display: none; }
+  body.phone .duo-take { font-size: 11px; padding: 2px 10px; max-width: none; }
+  body.phone.duo-battle main.game { padding-top: 44px; }
+  body.ui-columns.phone.duo-battle { --board: calc(100dvh - 12px - 22px - 38px); }
+  body.ui-columns.phone.duo-battle .arena { height: calc(100dvh - 12px - 38px); }
+}
+@media (orientation: portrait) {
+  body.ui-columns.phone.duo-battle .game { padding-top: 56px; }
+  body.ui-columns.phone.duo-battle { --board: min(calc(100vw - 16px), calc(100dvh - 400px)); }
+}
+body.ui-columns.phone.duo-battle .game { padding-bottom: 6px; }
+@media (orientation: landscape) { body.ui-columns.phone.duo-battle .game { padding-top: 44px; } }
+body.ui-columns.phone .fighter label.lvl { display: none; }
+body.ui-columns.phone .fighter .name .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (orientation: landscape) { body.ui-columns.phone .fighter .name { font-size: 11px; gap: 3px; } body.ui-columns.phone .fighter .name .tier, body.ui-columns.phone .fighter .name .badge-tier { display: none; } }

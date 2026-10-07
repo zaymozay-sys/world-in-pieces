@@ -233,6 +233,28 @@ const MapView = (() => {
     pl.style.transition = animate ? `transform ${ms}ms linear` : 'none';
     pl.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
   }
+  // Плавный шаг (1.4.9): позиция фигуры и камера меняются каждый кадр (rAF), без пауз между сотами.
+  let glideEnd = 0;
+  function glide(a, b, ms) {
+    const pl = el['l-player'].firstChild;
+    if (!pl) return sleep(ms);
+    pl.style.transition = 'none';
+    return new Promise((res) => {
+      const now = performance.now(), t0 = (glideEnd > now - 40 && glideEnd <= now + 16) ? glideEnd : now;
+      glideEnd = t0 + ms;
+      const frame = (t) => {
+        const k = Math.max(0, Math.min(1, (t - t0) / ms));
+        const x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
+        pl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+        const v = view(), sx = x * cam.s + cam.x, sy = y * cam.s + cam.y;
+        const dx = sx - v.width / 2, dy = sy - v.height / 2, zx = v.width * 0.18, zy = v.height * 0.18;
+        const ox = Math.abs(dx) > zx ? dx - Math.sign(dx) * zx : 0, oy = Math.abs(dy) > zy ? dy - Math.sign(dy) * zy : 0;
+        if (ox || oy) { cam.x -= ox * 0.15; cam.y -= oy * 0.15; clampCam(); applyCam(); }
+        if (k < 1) requestAnimationFrame(frame); else res();
+      };
+      requestAnimationFrame(frame);
+    });
+  }
   function refreshPlayerArt() { if (!map) return; el['l-player'].innerHTML = ''; placePlayer(false); }
 
   function drawPath(path) {
@@ -472,11 +494,11 @@ const MapView = (() => {
       drawPath(stopAt);
       const next = path[0];
       const ms = Math.round(Math.max(90, Math.min(460, STEP_MS * HexMap.moveCost(map, next))));
+      const from = px(st.pos);
       st.pos = next;
-      placePlayer(true, ms);
-      if (revealAround(next)) renderMonsters();
-      follow();
-      await sleep(ms);
+      const reveal = revealAround(next);
+      if (reveal) renderMonsters();
+      await glide(from, px(next), ms);
     }
     stepping = false;
     renderHud();
@@ -599,6 +621,11 @@ const MapView = (() => {
     const near = HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1;
     const art = sp.species === 'dragon' ? `<div class="dragon-art sm" style="--t:${col}">${Figures.avatar('dragon', null)}</div>` : MonsterArt.bust(sp.species, sp.tier);
     el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : m.name, tierChip(sp.tier), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote, sc.hp, sc.ai, abil, drops, Tiers.moneyText(Math.round(m.coins * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
+    // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
+    if (Profile.hasUsablePet()) {
+      const act = el['map-card'].querySelector('.mc-act');
+      if (act) act.insertAdjacentHTML('beforebegin', `<label class="pet-toggle"><input type="checkbox" id="mc-pet"${Profile.petStay() ? '' : ' checked'}> ${_t("Взять питомца в бой: {0}", [Pets.petDisplayName(Profile.pet().speciesId)])}</label>`);
+    }
   }
 
   function closeCard() { el['map-card'].innerHTML = ''; }
@@ -749,6 +776,8 @@ const MapView = (() => {
       if (b.dataset.act === 'import-save') { const inp = document.getElementById('hall-import-input'); if (inp) inp.click(); }
     });
     el['map-card'].addEventListener('change', (e) => {
+      const pt = e.target.closest('#mc-pet');
+      if (pt) { Profile.setPetStay(!pt.checked); return; }
       const inp = e.target.closest('#hall-import-input');
       if (!inp || !inp.files || !inp.files[0]) return;
       importSaveFile(inp.files[0]);

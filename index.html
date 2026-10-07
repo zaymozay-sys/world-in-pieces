@@ -86,8 +86,16 @@
             <button id="mute" type="button">Звук: вкл</button>
             <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
             <button id="restart" type="button" title="Уйти с поля боя на карту">Отступить</button>
+            <button id="more" type="button" class="pic-only" title="Меню: бестиарий, оформление, полный экран, журнал">☰</button>
           </span>
         </footer>
+        <div class="more-menu" id="more-menu" hidden>
+          <button type="button" data-do="bestiary">Бестиарий</button>
+          <button type="button" data-do="credits">О разработчиках</button>
+          <button type="button" data-do="ui-skin">Оформление</button>
+          <button type="button" data-do="fullscreen">Полный экран</button>
+          <button type="button" data-do="log">Журнал боя</button>
+        </div>
         <details class="log-wrap" id="log-wrap">
           <summary>Журнал боя</summary>
           <ol class="log" id="log" aria-label="Журнал ходов"></ol>
