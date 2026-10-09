@@ -87,8 +87,9 @@ const Combat = (() => {
       out.charged = true;
     }
     if (chance(attacker.stats.fury, rand)) {
-      amount *= 2;
+      amount *= 2 + (attacker.critExtra || 0);          // 1.5.1: эликсир ярости — первый крит сильнее
       out.crit = true;
+      if (attacker.critExtra) { out.critExtra = attacker.critExtra; attacker.critExtra = 0; }
     }
     // Арбалет: если Блок цели должен был сработать, с шансом pierceBlock.chance% болт пробивает его насквозь.
     // Изворотливость добавляет временный Блок сверх базового (см. buffStat/monsterTurnStart 'evasion').

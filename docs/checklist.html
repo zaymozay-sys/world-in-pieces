@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Чек-лист Хрупкий мир</title>
+<style>
+:root{--bg:#f6f1e7;--card:#fffaf0;--ink:#2a2216;--mute:#6e6350;--line:#dccfb4;--acc:#8a5a14;--ok:#2f7a45;--warn:#b3402a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17130c;--card:#211a10;--ink:#f1e6cc;--mute:#a89c82;--line:#3a2f1c;--acc:#e0b050;--ok:#6fcf8a;--warn:#ff8f78;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17130c;--card:#211a10;--ink:#f1e6cc;--mute:#a89c82;--line:#3a2f1c;--acc:#e0b050;--ok:#6fcf8a;--warn:#ff8f78;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:20px;max-width:760px;margin-inline:auto}
+h1{font:700 24px/1.2 Georgia,"Times New Roman",serif;margin:0 0 4px;text-wrap:balance}
+.sub{color:var(--mute);margin:0 0 16px}
+.dev{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:16px}
+.dev b{color:var(--acc)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:8px;z-index:2}
+.tabs button{flex:1 1 140px;padding:10px 8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;font:inherit;font-weight:600;cursor:pointer;display:grid;gap:2px;text-align:center}
+.tabs button small{font-weight:400;color:var(--mute);font-size:12px}
+.tabs button[aria-selected=true]{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:6px 0 14px}
+.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .2s}
+.meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--mute);font-size:13px}
+section{margin-bottom:18px}
+h2{font:700 13px/1.3 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin:0 0 6px;display:flex;justify-content:space-between}
+ul{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+li+li{border-top:1px solid var(--line)}
+label.chk{display:grid;grid-template-columns:24px 1fr auto;gap:10px;padding:10px 12px;cursor:pointer;align-items:start}
+input[type=checkbox]{width:20px;height:20px;margin:1px 0 0;accent-color:var(--ok)}
+label span small{display:block;color:var(--mute);font-size:13px}
+input[type=checkbox]:checked+span{color:var(--mute);text-decoration:line-through}
+.note{display:block;width:calc(100% - 24px);margin:0 12px 10px;padding:6px 8px;border:1px dashed var(--line);border-radius:6px;background:transparent;color:var(--ink);font:inherit;font-size:13px}
+button.reset{margin-top:6px;padding:8px 12px;border:1px solid var(--line);background:transparent;color:var(--warn);border-radius:8px;font:inherit;cursor:pointer}
+.base{display:grid;grid-template-columns:1fr;gap:4px;padding:0;margin-bottom:8px;font-size:13px;color:var(--mute)}
+.base input{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+a.go{align-self:center;white-space:nowrap;padding:6px 10px;border:1px solid var(--acc);border-radius:8px;color:var(--acc);text-decoration:none;font-size:13px;font-weight:600}
+label.row{grid-template-columns:24px 1fr auto}
+</style>
+<h1>Чек-лист: как выглядит игра</h1>
+<p class="sub">Версия 1.5.1. Пройдите пункты на каждом устройстве и отметьте. Отметки и заметки хранятся в этом браузере.</p>
+<div class="dev"><b>Как пользоваться:</b> нажмите «Открыть ↗» у пункта: игра откроется в новой вкладке сразу в нужной местности, здании, бою или окне, с тестовым героем (характеристики ×10, все заклинания). Смотрите графику, возвращайтесь и отмечайте. Телефон: поворачивайте экран между пунктами. Режим разработчика также есть в игре: ⓘ («О разработчиках»).</div>
+<div class="dev"><label class="base">Адрес игры<input type="text" id="base" spellcheck="false" autocapitalize="off"></label>
+<label class="base">Цвет противника в боях, 1–10<input type="number" id="tier" min="1" max="10" value="3"></label>
+<small>Ссылки «Открыть» ведут в игру сразу в нужное место (режим разработчика). По умолчанию — превью игры; если игра у вас на другом адресе (например, на GitHub Pages), вставьте его выше.</small></div>
+<div class="tabs" role="tablist" id="tabs"></div>
+<div class="meta"><span id="count"></span><span id="size"></span></div>
+<div class="bar"><i id="bar"></i></div>
+<div id="list"></div>
+<button class="reset" id="reset" type="button">Сбросить отметки этого устройства</button>
+<script>
+var DEV=[
+ {id:'pv',name:'Телефон вертикально',small:'≈ 390 × 800',size:'Держите телефон вертикально (экран ≈ 390 × 800)'},
+ {id:'pl',name:'Телефон горизонтально',small:'≈ 800 × 380',size:'Держите телефон горизонтально (экран ≈ 800 × 380)'},
+ {id:'pc',name:'Компьютер',small:'1280 × 800 и больше',size:'Окно браузера на компьютере, также попробуйте сузить окно до 700 px'}];
+var COMMON=[
+ ['Начало',[
+  ['Выбор клана и пола','карточки не обрезаны, кнопка «Начать игру!» видна (откройте игру без ссылки)'],
+  ['Обучение (Бобёр-хранитель)','окно подсказки не перекрывает кнопки (откройте игру без ссылки на новом профиле)'],
+  ['Язык ru и en','переключите язык кнопкой EN: надписи не вылезают за кнопки']]],
+ ['Карта: местность',[
+  ['Луг','','map-meadow'],['Лес','','map-forest'],['Холмы','видимость дальше на 1 соту','map-hills'],['Болото','','map-swamp'],['Горы','','map-mountain'],
+  ['Пляж','береговая линия, нет пустых дыр','map-beach'],['Море','','map-sea'],['Деревня','здания не наезжают друг на друга','map-village'],
+  ['Ходьба героя','нажмите на соту: движение плавное, камера плавно догоняет','map-meadow'],
+  ['Туман войны','соты открываются при ходьбе, края тумана мягкие','map-meadow'],
+  ['Жетоны монстров','покачиваются, цвет рамки равен цвету уровня, у босса корона','map-forest'],
+  ['Приближение и перетаскивание','пальцами или колесом, карта не теряется за краем','map-village']]],
+ ['Здания',[
+  ['Ратуша','','bld-hall'],['Мастерская художника','','bld-artistWorkshop'],['Хижина старьёвщика','','bld-junker'],['Кузница','','bld-forge'],['Лавка','','bld-shop'],['Охотничий дом','','bld-hunter'],['Таверна','','bld-tavern'],['Библиотека','','bld-library'],
+  ['Ваш дом (экипировка)','','bld-home'],['Мельница','','bld-mill'],['Питомник','вкладки «Питомец», «Уход», «Инкубатор»; шесть занятий: учёба, мяч, клад, дрессировка, отдых, разведка','bld-kennel'],['Арена','','bld-arena'],['Алхимик','','bld-alchemist'],
+  ['Маяк','','bld-lighthouse'],['Кораблекрушение','','bld-wreck'],['Сундук','','bld-chest'],['Рубиновый сундук','','bld-chestRuby'],['Изумрудный сундук','','bld-chestEmerald'],['Серебряный сундук','','bld-chestObsidian']]],
+ ['Окна',[
+  ['Улучшения деревни','пять зданий по пять уровней, уровень k — с цвета 2k; кнопка «Улучшить» списывает золото; вкладка «Гардероб»: титулы и рамки (кнопка есть и в Ратуше)','scr-village'],
+  ['Закалка в Кузнице','вкладка «Закалка»: выберите вещь, «Закалить» даёт +1…+5 (предел растёт с улучшением Кузницы), в названии «+N»','bld-forge'],
+  ['Рюкзак и экипировка','','scr-bag'],['Бестиарий','','scr-best'],['Медали и библиотека','','scr-medals'],['О разработчиках','переключатели режима разработчика','scr-credits']]],
+ ['Бой',[
+  ['Полоса сверху в любом бою','в бою без питомца и со стражем сверху — полоса с именем противника и цветом (у стража «Страж осколка N»); поле стоит там же, где в бою с питомцем','fight-rat-1-solo'],
+  ['Номер цвета рядом с цветом','на значках ресурсов, в ячейках куклы и в добыче есть цифра цвета (1–10)','result-win'],
+  ['Обычный бой','поле квадратное, камни падают вниз и вправо, ничего не зависает','fight-rat-1'],
+  ['Бой с питомцем','полоска «Герой / Питомец» сверху, вкладки, кнопка «Играть за питомца»','fight-wolf-2'],
+  ['Приёмы питомца','нажмите «Играть за питомца»: слева под питомцем кнопка «Приём» (перезарядка 3 хода); при уме от 20 ИИ применяет приёмы сам','fight-bandit-3'],
+  ['Заклинания','14 иконок, цены и подсказки, прицел выбора клетки','fight-goblin-3'],
+  ['Эликсиры и ранец в бою','9 ячеек с количеством','fight-troll-4'],
+  ['Счётчики камней','у героя и у противника видно, сколько камней собрано','fight-skeleton-3'],
+  ['Победа','карточка награды помещается в экран, кнопка «На карту» видна, иконки добычи нажимаются','result-win'],
+  ['Поражение','','result-loss']]],
+ ['Сюжет: стражи осколков',[
+  ['Вожак стаи (осколок 1)','','boss-b1'],['Атаман разбойников (осколок 2)','','boss-b2'],['Шаман Орды (осколок 3)','','boss-b3'],['Капитан (осколок 4)','','boss-b4'],['Древний дракон (финал)','','boss-b5']]],
+ ['Существа: как выглядят в бою (цвет задаётся вверху)',[['Крыса-падальщик','','fight-rat'],['Волк','','fight-wolf'],['Разбойник','','fight-bandit'],['Гоблин','','fight-goblin'],['Скелет-воин','','fight-skeleton'],['Кабан-секач','','fight-boar'],['Тролль','','fight-troll'],['Каменный голем','','fight-golem'],['Призрак','','fight-wraith'],['Дракон','','fight-dragon'],['Орк-рубака','','fight-orc'],['Орк-шаман','','fight-orcShaman'],['Упырь','','fight-ghoul'],['Болотный рак','','fight-crab'],['Болотник','','fight-bolotnik'],['Тень','','fight-shadow'],['Древень','','fight-treant'],['Дикий гриб','','fight-mushroom'],['Рысь','','fight-lynx'],['Шипастый ёж','','fight-hedgehog'],['Дикие пчёлы','','fight-wildbees'],['Гадюка','','fight-viper'],['Лесной паук','','fight-spider'],['Стервятник','','fight-vulture'],['Болотный огонёк','','fight-wisp'],['Чайка-воришка','','fight-gull'],['Краб-отшельник','','fight-hermit'],['Контрабандист','','fight-smuggler'],['Капитан','','fight-captain'],['Щука-глубинница','','fight-pike'],['Лиса-огневка','','fight-fox'],['Барсук','','fight-badger'],['Филин','','fight-owl'],['Выдра-разбойница','','fight-otter'],['Цапля','','fight-heron'],['Лось','','fight-elk'],['Горный козёл','','fight-goat'],['Орёл','','fight-eagle'],['Носорог','','fight-rhino'],['Снежный барс','','fight-leopard'],['Гигантская пиявка','','fight-leech'],['Мимик','','fight-mimic'],['Саламандра','','fight-salamander'],['Медведь-шатун','','fight-bear'],['Грифон','','fight-griffin'],['Виверна','','fight-wyvern'],['Василиск','','fight-basilisk']]]
+];
+var PHONE=[
+ ['Раскладка телефона (оформление 3)',[
+  ['Магия и эликсиры всегда на экране','без прокрутки страницы','fight-goblin-3'],
+  ['Пять пиктограмм','лампочка, звук, рюкзак, флаг, меню ☰ — все нажимаются пальцем','fight-goblin-3'],
+  ['Меню ☰','бестиарий, о разработчиках, оформление, полный экран, журнал боя','fight-goblin-3'],
+  ['Нет лишнего','нет кнопок «Бестиарий», ⓘ, «Оформление», «Полный экран» и поля «ИИ» на экране боя','fight-goblin-3'],
+  ['Клетки поля','не меньше 40 px, камни не слипаются','fight-goblin-3'],
+  ['Карта: одна строка сверху','герой, рюкзак, бестиарий, ☰; звук, экран, язык, «?», ⓘ — в меню ☰','map-meadow'],
+  ['Карта: две круглые кнопки внизу','◎ и «Домой»; «+» и «−» нет (масштаб щипком); плашка в одну строку, нажатие раскрывает','map-meadow'],
+  ['Знаки событий на карте','сундук, алтарь, тележка, лапа, кусты с «?», пещера логова с цветом — видны и нажимаются','ev-altar'],
+  ['Элитные существа','золотое кольцо и звезда на жетоне; в карточке строка «★ Элитное существо»','map-meadow'],
+  ['Арена','две вкладки, ранг со звёздами, фигура тени, кнопки «В бой» и «Другой противник»','scr-arena'],
+  ['Испытание дня','противник дня, попытки, лучший результат, кнопка «Скопировать результат»','scr-trial'],
+  ['Нет горизонтальной прокрутки','ни в бою, ни на карте, ни в окнах','map-village']]]];
+var PCX=[
+ ['Компьютер',[
+  ['Единственное оформление боя','кнопки «Оформление» больше нет (ни на экране, ни в меню ☰); поле не сдвигается между ходами','fight-goblin-3'],
+  ['Полный экран (клавиша F)',''],
+  ['Широкое окно и узкое окно','колонки не наезжают друг на друга','fight-goblin-3']]]];
+function sections(d){return COMMON.concat(d==='pc'?PCX:PHONE)}
+var store={};try{store=JSON.parse(localStorage.getItem('wip-checklist')||'{}')}catch(e){}
+function save(){try{localStorage.setItem('wip-checklist',JSON.stringify(store))}catch(e){}}
+var cur='pv';try{cur=localStorage.getItem('wip-checklist-tab')||'pv'}catch(e){}
+var DEFBASE='https://claude.ai/artifact/CUSxYrQRehi33fhDP24VPD';
+var base=DEFBASE,tier='3';try{base=localStorage.getItem('wip-cl-base')||DEFBASE;tier=localStorage.getItem('wip-cl-tier')||'3'}catch(e){}
+function link(cmd){var c=cmd;if(/^fight-[A-Za-z]+$/.test(c))c+='-'+tier;return base.split('#')[0]+'#dev-'+c}
+function key(d,s,i){return d+'|'+s+'|'+i}
+function total(d){var n=0;sections(d).forEach(function(s){n+=s[1].length});return n}
+function done(d){var n=0;sections(d).forEach(function(s){s[1].forEach(function(it,i){if(store[key(d,s[0],i)])n++})});return n}
+function draw(){
+ var t=document.getElementById('tabs');t.innerHTML='';
+ DEV.forEach(function(d){var b=document.createElement('button');b.setAttribute('role','tab');b.setAttribute('aria-selected',d.id===cur);b.innerHTML=d.name+'<small>'+done(d.id)+' из '+total(d.id)+'</small>';b.onclick=function(){cur=d.id;try{localStorage.setItem('wip-checklist-tab',cur)}catch(e){}draw()};t.appendChild(b)});
+ var dv=DEV.filter(function(d){return d.id===cur})[0];
+ document.getElementById('size').textContent=dv.size;
+ var list=document.getElementById('list');list.innerHTML='';
+ sections(cur).forEach(function(s){
+  var sec=document.createElement('section');var h=document.createElement('h2');var c=0;s[1].forEach(function(it,i){if(store[key(cur,s[0],i)])c++});
+  h.innerHTML='<span>'+s[0]+'</span><span>'+c+'/'+s[1].length+'</span>';sec.appendChild(h);
+  var ul=document.createElement('ul');
+  s[1].forEach(function(it,i){
+   var k=key(cur,s[0],i),li=document.createElement('li'),lb=document.createElement('label'),cb=document.createElement('input');cb.type='checkbox';cb.checked=!!store[k];
+   cb.onchange=function(){if(cb.checked)store[k]=1;else delete store[k];save();draw()};
+   var sp=document.createElement('span');sp.textContent=it[0];if(it[1]){var sm=document.createElement('small');sm.textContent=it[1];sp.appendChild(sm)}
+   lb.className='chk';lb.appendChild(cb);lb.appendChild(sp);
+   if(it[2]){var a=document.createElement('a');a.className='go';a.textContent='Открыть ↗';a.target='_blank';a.rel='noopener';a.href=link(it[2]);a.onclick=function(e){e.stopPropagation()};lb.appendChild(a)}
+   li.appendChild(lb);
+   var nk='note|'+k,ta=document.createElement('input');ta.type='text';ta.className='note';ta.placeholder='Заметка: что не так (необязательно)';ta.value=store[nk]||'';
+   ta.onchange=function(){if(ta.value)store[nk]=ta.value;else delete store[nk];save()};
+   li.appendChild(ta);ul.appendChild(li)});
+  sec.appendChild(ul);list.appendChild(sec)});
+ var a=done(cur),b=total(cur);document.getElementById('count').textContent='Отмечено '+a+' из '+b;document.getElementById('bar').style.width=(100*a/b)+'%';
+}
+document.getElementById('reset').onclick=function(){Object.keys(store).forEach(function(k){if(k.indexOf(cur+'|')===0||k.indexOf('note|'+cur+'|')===0)delete store[k]});save();draw()};
+var bi=document.getElementById('base'),ti=document.getElementById('tier');bi.value=base;ti.value=tier;
+bi.onchange=function(){base=bi.value.trim()||DEFBASE;try{localStorage.setItem('wip-cl-base',base)}catch(e){}draw()};
+ti.onchange=function(){tier=String(Math.max(1,Math.min(10,+ti.value||3)));ti.value=tier;try{localStorage.setItem('wip-cl-tier',tier)}catch(e){}draw()};
+draw();
+</script>

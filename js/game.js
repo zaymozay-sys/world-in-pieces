@@ -53,6 +53,8 @@ let beaverTip = null;
 function setBeaverTip(tip) { beaverTip = tip; }
 // Таймер хода игрока (30с): не походил вовремя — ход автопропускается; 3 таких пропуска подряд — поражение.
 let turnTimerHandle = null, turnTimerLeft = 0, skipStreak = 0;
+let boardRand = Math.random;                         // 1.5.4: генератор новых камней (в Испытании дня — по зерну дня)
+let specialDone = false;                             // 1.5.4: итог арены/испытания уже записан
 // Скованные столбцы: forSide — чья сторона не может трогать эти камни (Окаменение голема).
 let locks = { cols: new Set(), forSide: null };
 const veiled = new Set();   // камни, скрытые Туманом призрака (до конца хода игрока)
@@ -141,6 +143,11 @@ const testMult = () => (typeof Profile !== 'undefined' && Profile.data && Profil
 function recalcStats(side) {
   const f = fighters[side];
   if (PET && side === 'left') return;               // боец питомца уже посчитан (Pets.petFighter)
+  if (side === 'left' && isChallenge()) {           // 1.5.4: Испытание дня — одинаковый для всех герой без вещей и бонусов
+    f.stats = Gear.combine(Gear.stats(Gear.emptyLoadout()), {});
+    f.max = f.base + f.stats.health; f.hp = Math.min(f.hp, f.max); f.weaponPerk = null;
+    return;
+  }
   f.stats = Gear.combine(side === 'left' ? Gear.statsFor(f.gear, Profile.level()) : Gear.stats(f.gear), f.innate || {});   // предметы + врождённые способности
   if (side === 'left') {
     f.stats = Gear.combine(f.stats, Profile.medalsBonus());
@@ -153,6 +160,7 @@ function recalcStats(side) {
     }
   }
   f.max = (side === 'left' ? f.base * testMult() : f.base) + f.stats.health;
+  if (side === 'left' && f.bless === 'stone') f.max = Math.round(f.max * (1 + World.BLESSINGS.stone.amount / 100));   // 1.5.4: алтарь
   f.hp = Math.min(f.hp, f.max);
   f.weaponPerk = Gear.weaponPerk(f.gear);                       // приём особого оружия (арбалет, утренняя звезда)
 }
@@ -187,7 +195,8 @@ function renderAvatar(side) {
   } else if (side === 'left') {
     box.innerHTML = Figures.avatar(Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender), f.gear);
   } else {
-    box.innerHTML = f.monsterId === 'dragon' ? Figures.avatar('dragon', f.gear)
+    box.innerHTML = f.shadowHero ? Figures.avatar(Factions.heroKind(f.shadowHero.faction, f.shadowHero.gender), f.gear)
+      : f.monsterId === 'dragon' ? Figures.avatar('dragon', f.gear)
       : f.monsterId === 'beaver' ? beaverPortrait() : MonsterArt.bust(f.monsterId, f.tier);
     box.style.borderColor = tierColor(f.tier);                       // цвет уровня — на рамке аватара
     box.style.boxShadow = `0 0 12px ${tierColor(f.tier)}88`;
@@ -273,6 +282,10 @@ function applyFaction() {
 // по нему наград не даётся (см. grantRewards) и вехи медалей за линию из 5 не копятся (см. resolveBoard).
 const TUT = () => (typeof Tutorial !== 'undefined' && Tutorial.inBattle());
 const isTraining = () => fighters.right.monsterId === 'beaver';
+// 1.5.4: особые бои — Арена теней (sel.arena) и Испытание дня (sel.challenge): без питомца, награда своя.
+const selNow = () => (host.main && Profile.data.monster) || {};
+const isChallenge = () => !!selNow().challenge;
+const isArena = () => !!selNow().arena;
 
 // Бобёр-хранитель как тренировочный противник: переиспользует характеристики крысы первого тира
 // (Bestiary.scaled) — лёгкий, точно проходимый бой, — но без способности, снаряжения и добычи,
@@ -282,7 +295,7 @@ function setupTrainerBeaver() {
   const sc = Bestiary.scaled('rat', tier, 1);
   if (f.monsterId !== 'beaver') f.levelOverride = null;
   Object.assign(f, {
-    monsterId: 'beaver', tier, swarmSize: 1,
+    monsterId: 'beaver', tier, swarmSize: 1, affixes: [], elite: false, guardian: null, enraged: false, shadowHero: null,
     name: _t("Бобёр-хранитель"),
     base: f.hpEdited ? f.base : sc.hp, innate: sc.stats, gearBudget: 0,
     dmg: sc.dmg, ability: null,
@@ -297,6 +310,7 @@ function setupTrainerBeaver() {
 function setupEnemy() {
   const sel = Profile.data.monster;
   if (sel.id === 'beaver') return setupTrainerBeaver();
+  if (sel.arena) return setupShadow(sel.arena);
   const id = Bestiary.MONSTERS[sel.id] ? sel.id : 'rat';
   const tier = Tiers.clamp(sel.tier);
   const m = Bestiary.MONSTERS[id], f = fighters.right;
@@ -304,15 +318,41 @@ function setupEnemy() {
   // (см. Bestiary.rollSwarmSize/scaled). У видов без поля swarm всегда 1 и ни на что не влияет.
   const swarmSize = sel.swarm || Bestiary.rollSwarmSize(id, Math.random);
   let sc = Bestiary.scaled(id, tier, swarmSize);
-  if (sel.boss) sc = Story.scaleBoss(sc, sel.boss);          // 1.3.0: страж осколка — вдвое крепче
+  if (sel.boss) sc = Story.scaleBoss(sc, sel.boss, Story.cycle(Profile.data.story));          // 1.3.0: страж осколка — вдвое крепче
+  // 1.5.4: элитное существо — крепче, злее и со свойством (вторым приёмом); у стража — свои свойства и особый приём.
+  const G = sel.boss && World.GUARDIANS[sel.boss];
+  const affixes = sel.elite ? [World.affixFor(sel.elite, m.ability)] : G ? G.affixes.filter((a) => a !== m.ability) : [];
+  if (sel.elite) sc = { ...sc, hp: Math.round(sc.hp * World.ELITE.hp), dmg: sc.dmg * World.ELITE.dmg };
   if (f.monsterId !== id || f.tier !== tier) f.levelOverride = null;
+  if (sel.boss && host.main && Story.BY_ID[sel.boss]) setTimeout(() => logEvent('right', Story.BY_ID[sel.boss].taunt), 300);   // 1.5.1: страж говорит перед боем
   Object.assign(f, {
     monsterId: id, tier, swarmSize,
-    name: sel.boss ? Story.bossName(sel.boss, m.name) : m.swarm ? `${m.name} ×${swarmSize}` : m.name,
+    name: (sel.boss ? Story.bossName(sel.boss, m.name) : m.swarm ? `${m.name} ×${swarmSize}` : m.name) + (sel.elite ? ' ★' : ''),
+    affixes, elite: !!sel.elite, guardian: sel.boss || null, enraged: false, shadowHero: null,
     base: f.hpEdited ? f.base : sc.hp, innate: sc.stats, gearBudget: sc.gearBudget,
     dmg: sc.dmg, ability: m.ability,
     level: f.levelOverride || sc.ai,
-    gear: sc.gearBudget ? Gear.randomLoadout(sc.gearBudget, Math.random, tier) : Gear.emptyLoadout(),
+    gear: sc.gearBudget ? Gear.randomLoadout(sc.gearBudget, sel.challenge ? HexMap.rng(sel.challenge.seed + 1) : Math.random, tier) : Gear.emptyLoadout(),   // испытание: снаряжение по зерну дня
+  });
+  f.bag = enemyBag(f.level);
+  if (host.main && (affixes.length || (G && G.mech))) setTimeout(() => {
+    for (const a of affixes) logEvent('right', _t("{0}: свойство «{1}» — {2}", [f.name, World.AFFIXES[a].name, World.AFFIXES[a].desc]));
+    if (G && G.mech) logEvent('right', _t("{0}: «{1}» — {2}", [f.name, G.name, G.desc]));
+  }, 400);
+}
+
+// 1.5.4: Арена теней — противник-тень, копия героя другого народа под управлением ИИ (World.shadow).
+// Внутри — вид «разбойник» (для служебных таблиц), но без его приёма и добычи; портрет — фигура героя.
+function setupShadow(a) {
+  const f = fighters.right, L = a.level, t = Hero.tierFor(L);
+  f.levelOverride = null;
+  const rand = HexMap.rng(a.seed || 1);
+  Object.assign(f, {
+    monsterId: 'bandit', tier: t, swarmSize: 1, name: a.nick,
+    base: Hero.baseHp(L), innate: Factions.statsAt(a.faction, Hero.tierFloat(L)), gearBudget: Hero.budget(L),
+    dmg: Hero.dmgMult(L), ability: null, affixes: [], elite: false, guardian: null, enraged: false,
+    level: a.ai, gear: Gear.randomLoadout(Hero.budget(L), rand, t),
+    shadowHero: { faction: a.faction, gender: a.gender },
   });
   f.bag = enemyBag(f.level);
 }
@@ -337,6 +377,7 @@ function renderFighters() {
     el.classList.toggle('dead', f.hp <= 0);
   }
   renderClonePanel();                                      // двойник Дикого гриба (скрыт, если его нет)
+  renderElxBadges();
   renderMagic();
 }
 
@@ -416,6 +457,7 @@ const spellbarEl = $('spellbar');
 function buildSpellbar() {
   spellbarEl.innerHTML = `<button type="button" class="magic fac" data-kind="faction"></button>` + Object.keys(MAGICS).map((k) =>
     `<button type="button" class="magic ${k}" data-kind="${k}" title="${MAGICS[k].tip}"></button>`).join('');
+  [...spellbarEl.children].forEach((b, i) => { if (i < 10) b.dataset.key = String((i + 1) % 10); });   // 1.5.5: клавиши 1–9, 0 (на компьютере в углу кнопки)
   spellbarEl.addEventListener('click', (e) => {
     const b = e.target.closest('button.magic');
     if (!b || b.disabled) return;
@@ -433,7 +475,7 @@ const bagEl = $('bagbar');
 
 function bagDisabled(kind) {
   const f = fighters.left, bag = Profile.data.backpack;
-  if (busy || over || aiming || !(bag[kind] > 0)) return true;
+  if (busy || over || aiming || !(bag[kind] > 0) || isChallenge()) return true;
   if (kind === 'potion') return f.hp >= f.max;
   if (kind === 'elixir') return f.buffs.some((b) => b.kind === 'power');
   if (kind === 'scroll') return f.haste;
@@ -455,7 +497,7 @@ function renderBag() {
 function ammoDisabled() {
   const ak = Profile.shotKind();
   if (aiming && aimKind === 'bomb') return false;            // повторное нажатие снимает прицел
-  return busy || over || aiming || turnSide !== 'left' || fighters.left.ammoShot || !(Profile.ammo(ak) > 0);
+  return busy || over || aiming || turnSide !== 'left' || fighters.left.ammoShot || !(Profile.ammo(ak) > 0) || isChallenge();
 }
 if (bagEl) bagEl.addEventListener('click', (e) => {
   const a = e.target.closest('button.bagitem.ammo');
@@ -473,21 +515,23 @@ function useAmmo(kind, cell = null) {
   Profile.takeAmmo(kind);
   f.ammoShot = true;
   const base = Math.round(Combat.strikeDamage(f) * Gear.shotMult(Profile.gear()));   // метательное оружие: сила по цвету
+  const fam = (Bestiary.MONSTERS[e.monsterId] || {}).family, am = Ammo.mult(kind, fam);   // 1.5.1: слабости семейств
+  if (am > 1) showFloat('right', _t("Слабое место!"), 'crit'); else if (am < 1) showFloat('right', _t("Не берёт!"), 'debuff');
   if (kind === 'bolt') {
-    const dealt = dealDamage('right', Ammo.boltDamage(base), true);
+    const dealt = dealDamage('right', Math.round(Ammo.boltDamage(base) * am), true);
     e.buffs = []; e.shield = 0; e.mirrorReady = false; e.tripleNext = false;
     SND.fire();
     showFloat('right', _t("Болт!"), 'buff');
     logEvent('left', _t("{0}: Освящённый болт — урон {1}, усиления и щит противника сняты", [f.name, dealt]));
   } else if (kind === 'moonarrow') {
-    const dealt = dealDamage('right', Ammo.arrowDamage(base), true);
+    const dealt = dealDamage('right', Math.round(Ammo.arrowDamage(base) * am), true);
     const got = Ammo.steal(e.counts, MAGIC_TYPES);
     for (const [t, n] of Object.entries(got)) { e.counts[t] -= n; f.counts[t] += n; }
     renderCounters('left', Object.keys(got)); renderCounters('right');
     SND.lightning();
     logEvent('left', _t("{0}: Лунная стрела — урон {1}, украдено камней: {2}", [f.name, dealt, Object.values(got).reduce((a, b) => a + b, 0)]));
   } else if (kind === 'dart') {
-    const dmg = Combat.venomTick(Combat.power(f), f.dmg);
+    const dmg = Math.max(1, Math.round(Combat.venomTick(Combat.power(f), f.dmg) * am));
     e.poison = { turns: Math.max(Ammo.DART_TURNS, (e.poison && e.poison.turns) || 0), dmg: Math.max(dmg, (e.poison && e.poison.dmg) || 0) };
     showFloat('right', _t("Яд!"), 'venom');
     SND.transmute();
@@ -496,7 +540,7 @@ function useAmmo(kind, cell = null) {
     stopTurnTimer();
     busy = true;
     renderMagic();
-    castFire('left', cell, { shape: 'square', free: true, name: _t("Пороховая шашка") }).then(() => {
+    castFire('left', cell, { shape: 'square', free: true, mult: am, name: _t("Пороховая шашка") }).then(() => {
       if (over) return;
       busy = false;
       renderMagic(); renderBag(); renderFighters();
@@ -582,7 +626,7 @@ const petAlive = () => !!pet && pet.hp > 0 && !petFell;
 
 // Готовит питомца к новому бою (вызывается из startGame, после того как панель игрока построена).
 function setupPet() {
-  pet = Profile.hasUsablePet() ? Pets.petFighter(Profile.pet()) : null;
+  pet = Profile.hasUsablePet() && !isArena() && !isChallenge() ? Pets.petFighter(Profile.pet()) : null;
   if (pet) {
     const tr = Pets.useTreats(Profile.pet());                        // 1.3.8: угощения Питомника
     const lk = Profile.slotStats('leash');                          // 1.3.9: поводок усиливает питомца
@@ -706,6 +750,7 @@ function spellDisabled(kind, on, ready) {
 
 function renderMagic() {
   const f = fighters.left;
+  updatePetSkill();
   for (const kind of Object.keys(MAGICS)) {
     const btn = spellbarEl.querySelector(`button.${kind}`);
     if (!btn) continue;
@@ -1016,32 +1061,72 @@ function loseHp(side, amount) {
 // Кровопийца, Неупокоенный. raw = true — урон без модификаторов (штраф, яд). Возвращает урон, который получила цель.
 // cover = true: по противнику сначала бьёт живой двойник Дикого гриба (Combat.enemyTarget), перебор урона на
 // оригинал не переходит; яд передаёт cover = false — он всегда жжёт того, на кого наложен (оригинал).
-// 1.3.6: побочный эффект действующего эликсира (с 5-го цвета)
-function elxSide(kind) { const a = Profile.data.elixirs && Profile.data.elixirs.active[kind]; return !!(a && a.left > 0 && a.tier >= 5); }
-
-// Эликсир брони (5+): герой невосприимчив к Мороку, Трясине и Смоле — снимаем только что наложенное.
-function elxImmune(kind) {
-  if (!elxSide('defense')) return false;
-  const b = fighters.left.buffs, i = b.map((x) => x.kind).lastIndexOf(kind);
-  if (i >= 0) b.splice(i, 1);
-  showFloat('left', _t("Не берёт!"), 'buff'); logEvent('left', _t("Эликсир брони: {0} не действует", [BUFF_NAMES[kind]]));
-  return true;
+// 1.5.1: эликсиры с 5-го цвета дают один заметный эффект за бой (Elixirs.effect), он срабатывает сам.
+// Только для героя (поле питомца эликсиры не пьёт). Значки действующих эликсиров — над портретом героя.
+function elxTier(kind) {
+  if (!host.main || isChallenge()) return 0;
+  const a = Profile.data.elixirs && Profile.data.elixirs.active[kind];
+  return a && a.left > 0 && a.tier >= Elixirs.FX_MIN ? a.tier : 0;
 }
+const elxSide = (kind) => elxTier(kind) > 0;
+function elxMark(kind) {                                   // эффект сработал: значок гаснет, строка в журнале
+  const f = fighters.left; f.elxUsed = f.elxUsed || {};
+  f.elxUsed[kind] = true;
+  showFloat('left', Elixirs.KINDS[kind].name, 'buff');
+  logEvent('left', _t("Эликсир сработал: {0} — {1}", [Elixirs.KINDS[kind].name, Elixirs.sideText(kind, elxTier(kind))]));
+  renderElxBadges();
+}
+function elxFire(kind) {                                   // один раз за бой; вернёт эффект или null
+  const f = fighters.left, t = elxTier(kind);
+  if (!t || (f.elxUsed && f.elxUsed[kind])) return null;
+  elxMark(kind);
+  return Elixirs.effect(kind, t);
+}
+function elxArm() {                                        // начало боя: ярость взводит первый крит
+  const f = fighters.left, t = elxTier('fury');
+  f.elxUsed = {}; f.elxBlockNext = false;
+  f.critExtra = t ? Elixirs.effect('fury', t).v - 2 : 0;
+  renderElxBadges();
+}
+let elxBadgeKey = '';
+function renderElxBadges() {
+  if (!host.main) return;
+  const box = fEl('left'); if (!box) return;
+  const used = fighters.left.elxUsed || {};
+  const act = Elixirs.ORDER.filter((k) => elxTier(k));
+  const key = act.map((k) => k + elxTier(k) + (used[k] ? 'u' : '')).join('|');
+  if (key === elxBadgeKey && box.querySelector('.elx-badges')) return;
+  elxBadgeKey = key;
+  let row = box.querySelector('.elx-badges');
+  if (!act.length) { if (row) row.remove(); return; }
+  if (!row) { row = document.createElement('div'); row.className = 'elx-badges'; box.appendChild(row); }
+  row.innerHTML = act.map((k) => `<span class="elx-badge${used[k] ? ' used' : ''}" title="${Elixirs.KINDS[k].name}: ${Elixirs.sideText(k, elxTier(k))}${used[k] ? ' — ' + _t("уже сработал") : ''}">${Elixirs.icon(k, elxTier(k))}</span>`).join('');
+}
+function elxImmune() { return false; }                      // 1.5.1: невосприимчивость заменена «первым ударом слабее»
 
 function dealDamage(target, amount, raw = false, cover = true) {
   if (amount <= 0) return 0;
   const attackerSide = other(target), attacker = fighters[attackerSide];
   const victim = target === 'right' && cover ? Combat.enemyTarget(fighters.right) : fighters[target];
-  if (!raw && attackerSide === 'left') {                       // эликсиры силы и блока (5+)
-    if (elxSide('power') && victim.buffs && victim.buffs.some((b) => b.kind === 'weaken') || (elxSide('power') && victim.poison && victim.poison.turns > 0)) amount = Math.round(amount * 1.1);
-    if (attacker.elxBlockNext) { amount = Math.round(amount * 1.1); attacker.elxBlockNext = false; }
+  if (!raw && attackerSide === 'left') {                       // эликсир силы: первый ваш удар в бою сильнее
+    const fx = elxFire('power'); if (fx) amount = Math.round(amount * fx.v);
+  }
+  if (!raw && target === 'left') {                             // эликсир брони: первый удар по вам слабее
+    const fx = elxFire('defense'); if (fx) amount = Math.max(1, Math.round(amount * (1 - fx.v / 100)));
   }
   const r = Combat.hit(attacker, victim, amount, raw);
   if (r.charged) showFloat(attackerSide, _t("Натиск!"), 'buff');
   if (r.pierceBlock) showFloat(attackerSide, _t("Пробивной болт!"), 'buff');
-  if (target === 'left' && (r.kind === 'block' || r.kind === 'blockreflect') && elxSide('block')) victim.elxBlockNext = true;
-  if (target === 'left' && (r.kind === 'reflect' || r.kind === 'blockreflect') && elxSide('ricochet')) {   // эликсир рикошета: отражённый удар лечит на 5%
-    const h = Math.max(1, Math.round(victim.max * 0.05)); victim.hp = Math.min(victim.max, victim.hp + h); showFloat('left', '+' + h, 'heal');
+  if (target === 'left' && (r.kind === 'block' || r.kind === 'blockreflect')) {     // эликсир блока: контрудар
+    const fx = elxFire('block');
+    if (fx) {
+      const d = Math.max(1, Math.round(amount * fx.v / 100)), rev = Combat.loseHp(attacker, d);
+      showFloat(attackerSide, _t("Контрудар!"), 'ricochet'); showDamage(attackerSide, d); if (rev) onRevived(attackerSide);
+    }
+  }
+  if (target === 'left' && (r.kind === 'reflect' || r.kind === 'blockreflect')) {   // эликсир рикошета: первый рикошет лечит
+    const fx = elxFire('ricochet');
+    if (fx) { const h = Math.max(1, Math.round(victim.max * fx.v / 100)); victim.hp = Math.min(victim.max, victim.hp + h); showFloat('left', '+' + h, 'heal'); }
   }
   if (r.kind === 'blockreflect') {              // 1.3.8: удар заблокирован и ещё отражён атакующему
     showFloat(target, _t("Блок + Рикошет!"), 'ricochet');
@@ -1065,7 +1150,7 @@ function dealDamage(target, amount, raw = false, cover = true) {
   }
   if (r.pierce) showFloat(attackerSide, _t("Подлый удар!"), 'buff');
   if (r.shred > 0) showFloat(target, _t("Броня трещит!"), 'debuff');
-  if (r.crit && attackerSide === 'left' && elxSide('fury')) { const h = Math.max(1, Math.round(attacker.max * 0.03)); attacker.hp = Math.min(attacker.max, attacker.hp + h); showFloat('left', '+' + h, 'heal'); }
+  if (r.critExtra) elxMark('fury');                        // эликсир ярости: первый крит бил сильнее
   if (r.crit) { showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
   if (r.kind === 'reflect') {
     showFloat(target, _t("Рикошет!"), 'ricochet');
@@ -1078,8 +1163,9 @@ function dealDamage(target, amount, raw = false, cover = true) {
     shake();
     return 0;
   }
-  if (target === 'left' && victim.hp <= 0 && !victim.elxSaved && elxSide('health')) {   // эликсир жизни: раз за бой выживаем с 1 ХП
-    victim.elxSaved = true; victim.hp = 1; showFloat('left', _t("Выжил!"), 'heal'); logEvent('left', _t("{0}: Эликсир жизни — выживание с 1 ХП", [victim.name]));
+  if (target === 'left' && victim.hp <= 0) {                   // эликсир жизни: раз за бой выживаем
+    const fx = elxFire('health');
+    if (fx) { victim.hp = Math.max(1, Math.round(victim.max * fx.v / 100)); showFloat('left', _t("Выжил!"), 'heal'); }
   }
   showDamage(target, r.amount);
   if (r.revived) onRevived(target);
@@ -1153,6 +1239,7 @@ function logTurn(side) {
 
 let turnSide = 'left';
 function setTurn(side) {
+  const prevTurn = turnSide;
   if (side !== turnSide) {
     Combat.clearTurnEndBuffs(fighters[turnSide]);   // эликсир силы и т.п. — до конца хода
     fighters[turnSide].magic = false;               // Шаровая молния тоже гаснет, когда ход переходит
@@ -1160,6 +1247,7 @@ function setTurn(side) {
     fighters[turnSide].magicFree = false;
   }
   turnSide = side;
+  if (side === 'left' && fighters.left.skillCd > 0 && side !== prevTurn) fighters.left.skillCd--;
   if (side === 'left') fighters.left.ammoShot = false;     // боеприпас: один выстрел за свой ход
   fEl('left').classList.toggle('active', side === 'left');
   fEl('right').classList.toggle('active', side === 'right');
@@ -1209,6 +1297,7 @@ async function onTurnTimeout() {
   logEvent('left', _t("Игрок: ход пропущен по таймеру ({0}/{1} подряд)", [skipStreak, Combat.TURN_TIMER.skipLimit]));
   if (r.defeated) { defeat(); return; }
   note(_t("Ход пропущен по таймеру ({0}/{1} подряд)", [skipStreak, Combat.TURN_TIMER.skipLimit]));
+  if (petPrank) { petPrank = false; if (prankSwap()) { note(_t("Пакость питомца: поле перемешано")); await sleep(500); } }
   busy = true;
   await passToEnemy();
 }
@@ -1232,14 +1321,26 @@ function showOverlay(text, sub = '') {
   const o = document.createElement('div');
   o.className = 'overlay';
   o.id = 'overlay';
-  o.innerHTML = _t("<div>{0}{1}<button type=\"button\" class=\"primary to-map\">На карту</button></div>", [text, sub ? `<small>${sub}</small>` : '']);
+  o.innerHTML = _t("<div>{0}{1}<button type=\"button\" class=\"primary to-map\">На карту</button></div>", [text, sub ? `<small>${sub}</small><div class="loot-cap"></div>` : '']);
   const result = text === _t("Победа!") ? 'win' : 'loss';
   o.querySelector('.to-map').addEventListener('click', () => MapView.returnFromBattle(result));
-  boardEl.appendChild(o);
+  if (result === 'loss' && host.main && MapView.reviveOk && MapView.reviveOk()) {      // платное воскрешение на месте гибели
+    const cost = World.reviveCost(Hero.tierFloat(Profile.level())), b = document.createElement('button');
+    b.type = 'button'; b.className = 'revive-btn'; b.disabled = Profile.data.coins < cost;
+    b.innerHTML = _t("Воскреснуть на месте — {0}", [MonsterArt.moneyHtml(cost)]);
+    b.addEventListener('click', () => { if (Profile.spend(cost)) MapView.returnFromBattle('revive'); });
+    o.querySelector('.to-map').insertAdjacentElement('beforebegin', b);
+  }
+  (root.nodeType === 1 ? root : boardEl).appendChild(o);
+  o.addEventListener('click', (e) => {                       // 1.5.0: добыча — картинки, по нажатию подробности
+    const c = e.target.closest('.loot-chip'); if (!c) return;
+    if (c.dataset.uid && Profile.item(c.dataset.uid)) return ItemInfo.open(c.dataset.uid);
+    const cap = o.querySelector('.loot-cap'); if (cap) cap.textContent = c.dataset.cap || '';
+  });
   over = true;
   // Поражение с питомцем в бою (взят в бой, хоть бы уже и павшим по ходу схватки) — питомец теряет
   // 1 прочность (см. Pets.loseDurability); победа и отступление прочность не трогают.
-  if (text === _t("Поражение") && pet) Profile.petLoseDurability();
+  if (text === _t("Поражение") && pet) { Profile.petLoseDurability(); logEvent('left', Story.PET_LINES.hurt); }
   if (text === _t("Поражение")) Profile.tickElixirs();
   logEvent(text === _t("Победа!") ? 'left' : 'right', text);
   if (text === _t("Победа!")) SND.win(); else SND.lose();
@@ -1300,14 +1401,16 @@ function setLock(col, forSide) {
   renderLocks();
 }
 function clearLocks(forSide) {
+  if (!forSide) { for (const t of foeVeiled) t.el.classList.remove('veiled'); foeVeiled.clear(); }
   if (forSide && locks.forSide !== forSide) return;
   locks = { cols: new Set(), forSide: null };
   renderLocks();
 }
 const isLocked = (side, cell) => locks.forSide === side && locks.cols.has(cell.c);
 const lockedCells = (side) => {
-  if (locks.forSide !== side) return null;
   const out = [];
+  if (side === 'right' && foeVeiled.size) for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (grid[r][c] && foeVeiled.has(grid[r][c])) out.push(r * N + c);
+  if (locks.forSide !== side) return out.length ? out : null;
   for (const c of locks.cols) for (let r = 0; r < N; r++) out.push(r * N + c);
   return out;
 };
@@ -1380,7 +1483,7 @@ const makesLine = (r, c, ti) => Engine.makesLine(typOf(), r * N + c, ti);
 // Если оставшимися камнями этого не добиться — поле пересобирается целиком.
 function fillEmpty() {
   const typ = typOf(), val = valOf();
-  const res = Engine.fillEmpty(typ, val, Math.random, Balance.board.multiplierChance, GEM_TYPES.length);
+  const res = Engine.fillEmpty(typ, val, boardRand, Balance.board.multiplierChance, GEM_TYPES.length);
   if (res.rebuilt) {
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { if (grid[r][c] && grid[r][c].el) grid[r][c].el.remove(); grid[r][c] = null; }
   }
@@ -1445,16 +1548,28 @@ function startGame() {
   hideOverlay();
   buildBoard();
   rewarded = false;
+  specialDone = false;
   strikeKilledMonster = false; shotKilledMonster = false;
   fighters.left.hpEdited = fighters.right.hpEdited = false;   // ручная правка ХП действует только в одном бою
   applyFaction();
   fighters.left.gear = Profile.gear();
+  const sel0 = selNow();
+  boardRand = sel0.challenge ? HexMap.rng(sel0.challenge.seed) : Math.random;      // 1.5.4: поле испытания одно на всех
+  if (sel0.challenge) {
+    const L = World.CH_HERO.level;
+    Object.assign(fighters.left, { gear: Gear.emptyLoadout(), innate: {}, base: Hero.baseHp(L), dmg: Hero.dmgMult(L), level: L });
+  }
+  // 1.5.4: благословение алтаря — на несколько обычных боёв (не на арене и не в испытании)
+  const bl = host.main && !sel0.arena && !sel0.challenge && sel0.id !== 'beaver' && Profile.data.blessing && Profile.data.blessing.fights > 0 ? Profile.data.blessing.kind : null;
+  fighters.left.bless = bl;
+  if (bl === 'might') fighters.left.dmg *= 1 + World.BLESSINGS.might.amount / 100;
   setupEnemy();
   clearLocks();
   veiled.clear();
   fighters.left.charge = 0;
   Object.assign(fighters.right, { turnNo: 0, revived: false, charged: false, poison: null, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
-  Object.assign(fighters.left, { elxSaved: false, revived: false, charged: false, poison: null, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
+  Object.assign(fighters.left, { revived: false, charged: false, poison: null, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
+  elxArm();                                          // 1.5.1: эффекты эликсиров на новый бой
   for (const s of ['left', 'right']) {
     fighters[s].buffs = [];
     fighters[s].haste = false;
@@ -1464,6 +1579,8 @@ function startGame() {
     fighters[s].counts = Object.fromEntries(GEM_TYPES.map((t) => [t, 0]));
     buildFighter(s);
   }
+  if (host.main && sel0.lairHp != null) fighters.left.hp = Math.max(1, Math.min(fighters.left.max, Math.round(sel0.lairHp)));   // 1.5.4: логово — ХП между боями не восстанавливается
+  if (bl) logEvent('left', _t("Благословение алтаря: {0} (ещё боёв: {1})", [World.BLESSINGS[bl].desc, Profile.data.blessing.fights]));
   setupPet();   // приручённый и годный питомец (если есть) выходит в бой вместе с героем — см. pets.js
   if (!PET && typeof Duo !== 'undefined') Duo.end();
   const duoPet = (!PET && pet && typeof Duo !== 'undefined' && Duo.wanted()) ? pet : null;
@@ -1511,11 +1628,12 @@ function startGame() {
   turnEvents = { block: 0, blockTarget: null, reflected: 0, attacker: null };
 
   if (duoPet) Duo.begin(duoPet);
+  else if (!PET && !TUT() && typeof Duo !== 'undefined') Duo.solo();
+  if (!PET && typeof fitBattleHeight === 'function') requestAnimationFrame(fitBattleHeight);
   // Инициатива решает, кто ходит первым.
   const chanceLeft = Combat.firstMoveChance(fighters.left, fighters.right);
-  const elxFirst = elxSide('initiative');
-  const first = TUT() ? 'left' : RULES.firstMove || (elxFirst ? 'left' : (Math.random() * 100 < chanceLeft ? 'left' : 'right'));
-  if (elxFirst) logEvent('left', _t("Эликсир инициативы: первый ход ваш"));
+  const elxFirst = !!elxFire('initiative');
+  const first = TUT() || isChallenge() ? 'left' : RULES.firstMove || (elxFirst ? 'left' : (Math.random() * 100 < chanceLeft ? 'left' : 'right'));
   logEvent('left', _t("Инициатива: ваш шанс первого хода {0}%", [chanceLeft]));
   if (first === 'left') {
     logEvent('left', _t("Первым ходит игрок"));
@@ -1570,14 +1688,19 @@ function grantRewardsBase() {
   if (rewarded) return '';
   rewarded = true;
   if (isTraining()) return _t("Учебный бой: опыт, монеты и добыча не начисляются — это просто тренировка.");
+  if (isArena() || isChallenge()) return specialResult(true);
   if (moves < Balance.rewards.minMoves || fighters.left.hpEdited || fighters.right.hpEdited) return _t("Награда не выдана: проверочный бой (ХП изменено вручную) или слишком лёгкий бой");
   return rewardFor(fighters.right);
 }
 // Награда за одного поверженного противника f (в бою вдвоём — за каждого убитого своя).
-function rewardFor(f, first = true) {
+function rewardFor(f, first = true, opts = {}) {
   const R = Balance.rewards;
-  const xp = Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level());
+  // 1.5.4: элитное — опыт и монеты больше; быстрый бой — половина, без вещей и находок
+  const k = (opts.quick ? World.QUICK.share : 1), ke = f.elite ? World.ELITE : null;
+  const xp = Math.round(Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level()) * k * (ke ? ke.xp : 1));
   const drops = Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction);
+  drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1));
+  if (opts.quick) drops.item = null;
   // 1.2.9: в режиме «×10» награда выдаётся как обычно (просьба владельца — проверять добычу и ошибки сильным героем).
   drops.coins = Math.round(drops.coins * Factions.perk(Profile.data.faction, 'coins'));   // люди: +10% монет
   const luckPct = fighters.left.luck || 0;                    // Свиток удачи: +% к монетам и ресурсам с этой победы
@@ -1593,25 +1716,31 @@ function rewardFor(f, first = true) {
   const killMedal = Profile.checkKillMedal(f.monsterId, Hero.tierFor(Profile.level()));   // первая победа над видом
   const shotMedal = first && shotKilledMonster ? Profile.registerShotKill(Hero.tierFor(Profile.level())) : null;
   const strikeMedal = first && strikeKilledMonster ? Profile.registerStrikeKill(Hero.tierFor(Profile.level())) : null;
-  const lines = [_t("Опыт: +{0}", [xp]), _t("Монеты: {0}{1}", [Tiers.moneyText(drops.coins), luckPct ? _t(" (со Свитком удачи)") : ''])];
-  const eggKind = Profile.rollEgg(f.monsterId);
+  const chips = [];
+  const lines = [_t("Опыт: +{0}", [xp]), _t("Монеты: {0}{1}", [MonsterArt.moneyHtml(drops.coins), luckPct ? _t(" (со Свитком удачи)") : ''])];
+  const eggKind = opts.quick ? null : Profile.rollEgg(f.monsterId);
   if (eggKind) lines.push(_t("<b class=\"lvlup\">Находка!</b> {0} — высиживается в Питомнике", [Pets.EGGS[eggKind].name]));
   if (killMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(killMedal.id)]));
   if (shotMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(shotMedal.id)]));
   if (strikeMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(strikeMedal.id)]));
   for (const r of drops.resources) {
+    if (Math.random() < Village.granaryChance(Profile.data.village)) r.n *= 2;      // 1.5.1: амбар Мельницы — находка удваивается
     Profile.addRes(r.kind, r.tier, r.n);
     lines.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}`);
+    chips.push(`<button type="button" class="loot-chip" data-cap="${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}" title="${Bestiary.RESOURCES[r.kind].name}">${MonsterArt.resIcon(r.kind, r.tier)}<b>×${r.n}</b></button>`);
   }
   if (drops.item) {
     Profile.addItem(drops.item);
     const it = Gear.item(drops.item);
+    if (it.rarity && it.rarity !== 'common') setTimeout(() => SND.rare(), 900);      // 1.5.1: звон редкой добычи
     lines.push(_t("Вещь: {0} ({1})", [it.name, Tiers.get(it.tier).name]));
+    chips.push(`<button type="button" class="loot-chip item r-${it.rarity}" data-uid="${drops.item.uid}" data-cap="${it.name}" title="${it.name}" style="--t:${Tiers.get(it.tier).color}">${itemIcon(it.type, '', it.id)}</button>`);
   }
-  if (Math.random() < R.consumableChance) {
+  if (!opts.quick && Math.random() < R.consumableChance) {
     const kinds = Object.keys(Gear.CONSUMABLES), k = kinds[rnd(kinds.length)];
     Profile.addConsumable(k);
     lines.push(`+1 ${Gear.CONSUMABLES[k].name}`);
+    chips.push(`<button type="button" class="loot-chip" data-cap="${Gear.CONSUMABLES[k].name}: ${Gear.CONSUMABLES[k].desc}" title="${Gear.CONSUMABLES[k].name}">${itemIcon(k)}<b>+1</b></button>`);
   }
   if (up.to > up.from) {
     const L = up.to, t = Hero.tierFor(L);
@@ -1627,26 +1756,83 @@ function rewardFor(f, first = true) {
     const story = Profile.data.story = Profile.data.story || { shards: {} };
     story.shards = story.shards || {};
     Profile.addCoins(drops.coins);
-    lines.push(_t("Страж: монеты ×2 (+{0})", [Tiers.moneyText(drops.coins)]));
+    lines.push(_t("Страж: монеты ×2 (+{0})", [MonsterArt.moneyHtml(drops.coins)]));
+    lines.push(`<i class="boss-defeat">${Story.BY_ID[bossId].defeat}</i>`);
     if (!story.shards[bossId]) {
       story.shards[bossId] = true;
-      const rw = Story.shardReward(bossId), ch = Story.BY_ID[bossId];
+      const rw = Story.shardReward(bossId, Story.cycle(story)), ch = Story.BY_ID[bossId];
       Profile.addCoins(rw.coins);
       Profile.addXp(rw.xp);
       lines.unshift(ch.final
-        ? _t("<b class=\"lvlup\">Сердцевина Великого Сердца!</b> Грань снова цела — сюжет пройден. +{0}, опыт +{1}", [Tiers.moneyText(rw.coins), rw.xp])
-        : _t("<b class=\"lvlup\">Осколок Великого Сердца! ({0}/4)</b> +{1}, опыт +{2}{3}", [Story.shards(story), Tiers.moneyText(rw.coins), rw.xp, Story.finalOpen(story) ? _t(". На севере пробудился Древний дракон…") : '']));
+        ? _t("<b class=\"lvlup\">Сердцевина Великого Сердца!</b> Грань снова цела — сюжет пройден. +{0}, опыт +{1}", [MonsterArt.moneyHtml(rw.coins), rw.xp])
+        : _t("<b class=\"lvlup\">Осколок Великого Сердца! ({0}/4)</b> +{1}, опыт +{2}{3}", [Story.shards(story), MonsterArt.moneyHtml(rw.coins), rw.xp, Story.finalOpen(story) ? _t(". На севере пробудился Древний дракон…") : '']));
+      setTimeout(() => SND.shard(), 700);
+      lines.push(ch.final ? `<i class="story-news">${Story.EPILOGUE}</i>` : `<i class="story-news">${Story.news(story)}</i>`);
     }
   }
   Profile.refreshShop();
   Profile.save();
   onEconomyChanged();
-  return lines.join('<br>');
+  return lines.join('<br>') + (chips.length ? `<div class="loot">${chips.join('')}</div>` : '');
 }
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
 function defeat() {
-  if (host.coord) finishBoard('loss'); else showOverlay(_t("Поражение"));
+  if (host.coord) finishBoard('loss'); else showOverlay(_t("Поражение"), host.main && (isArena() || isChallenge()) ? specialResult(false) : '');
+}
+
+// 1.5.4: быстрый бой с картой (MapView.quickFight) — награда за слабое, уже побеждённое существо без боя.
+function quickReward(monsterId, tier) {
+  const keep = { luck: fighters.left.luck, shot: shotKilledMonster, strike: strikeKilledMonster };
+  fighters.left.luck = 0; shotKilledMonster = false; strikeKilledMonster = false;
+  try { return rewardFor({ monsterId, tier }, false, { quick: true }); } finally { fighters.left.luck = keep.luck; shotKilledMonster = keep.shot; strikeKilledMonster = keep.strike; }
+}
+
+// 1.5.4: итог боя на Арене теней или в Испытании дня (победа, поражение, отступление — один раз за бой).
+function specialResult(win) {
+  if (specialDone) return '';
+  specialDone = true;
+  const sel = selNow(), d = Profile.data, lines = [], T = Hero.tierFor(Profile.level());
+  if (sel.arena) {
+    const a = d.arena = Object.assign(World.freshArena(), d.arena || {});
+    if (a.day !== Daily.today()) { a.day = Daily.today(); a.fights = 0; }
+    const before = a.rank, r = World.arenaResult(a, win);
+    if (win) {
+      if (a.fights < World.ARENA_DAILY) {
+        a.fights++;
+        const c = World.arenaCoins(T, a.rank);
+        Profile.addCoins(c);
+        lines.push(_t("Монеты: {0} (боёв с наградой сегодня: {1}/{2})", [MonsterArt.moneyHtml(c), a.fights, World.ARENA_DAILY]));
+      } else lines.push(_t("Сегодня монеты за арену уже получены ({0}/{0}) — звёзды по-прежнему идут в зачёт", [World.ARENA_DAILY]));
+      Profile.data.wins++;
+      Daily.registerWin();
+    }
+    if (r.rankUp) {
+      const c = World.rankCoins(T, a.rank);
+      Profile.addCoins(c);
+      lines.unshift(_t("<b class=\"lvlup\">Новый ранг: {0}!</b> +{1}", [World.RANKS[a.rank], MonsterArt.moneyHtml(c)]));
+      const tid = World.RANK_TITLES[a.rank];
+      d.cosmetics = d.cosmetics || Village.fresh();
+      if (tid && !d.cosmetics.titles.includes(tid)) { d.cosmetics.titles.push(tid); lines.splice(1, 0, _t("<b class=\"lvlup\">Титул!</b> «{0}» — наденьте в Гардеробе Ратуши", [Village.TITLES.find((t) => t.id === tid).name])); }
+    }
+    lines.push(_t("{0}: звёзды {1}/{2}", [World.RANKS[a.rank], '★'.repeat(a.stars) + '☆'.repeat(World.STARS - a.stars), World.STARS]) + (!win && before === a.rank ? _t(" (поражение: −1 звезда)") : ''));
+  } else if (sel.challenge) {
+    const c = d.challenge = Object.assign(World.freshChallenge(), d.challenge || {});
+    const L = fighters.left, R = fighters.right;
+    const score = World.challengeScore(win, L.hp / L.max, moves, 1 - Math.max(0, R.hp) / R.max);
+    const first = c.paid !== sel.challenge.day;
+    c.best = c.day === sel.challenge.day ? Math.max(c.best, score) : score;
+    c.day = sel.challenge.day;
+    c.history[c.day] = c.best;
+    const keys = Object.keys(c.history).sort();
+    while (keys.length > 14) delete c.history[keys.shift()];
+    lines.push(_t("Очки: <b>{0}</b> · лучший результат сегодня: {1}", [score, c.best]));
+    lines.push(win ? _t("Победа за {0} ходов, осталось {1}% ХП", [moves, Math.round(L.hp / L.max * 100)]) : _t("Нанесено урона: {0}%", [Math.round((1 - Math.max(0, R.hp) / R.max) * 100)]));
+    if (first) { c.paid = sel.challenge.day; const cn = World.arenaCoins(T, 2); Profile.addCoins(cn); lines.push(_t("За участие сегодня: {0}", [MonsterArt.moneyHtml(cn)])); }
+  }
+  Profile.save();
+  onEconomyChanged();
+  return lines.join('<br>');
 }
 function finishBoard(result) {
   over = true; busy = true;
@@ -1675,6 +1861,97 @@ function kickAuto() {
   setTimeout(() => { autoTurn(); }, 450);
 }
 // Ход нашей стороны ведёт ИИ (тот же AI.choose, что у противника, но за 'left').
+// Кнопка приёма питомца, когда им играет человек: раз в 3 хода питомца, ход не тратит.
+const PET_SKILL_CD = 3;
+function updatePetSkill() {
+  const f = fighters.left, box = fEl('left');
+  if (!box) return;
+  let btn = box.querySelector('.pet-skill');
+  const has = !!(host.role === 'pet' && f.isPet && f.ability && PET_ABILITIES.includes(f.ability));
+  if (!has) { if (btn) btn.remove(); return; }
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'pet-skill';
+    btn.addEventListener('click', usePetSkill);
+    box.appendChild(btn);
+  }
+  const cd = f.skillCd || 0, ready = !autopilot && !over && !busy && turnSide === 'left' && cd === 0;
+  const nm = (Bestiary.ability(f.ability) || {}).name || '';
+  btn.hidden = autopilot;
+  btn.disabled = !ready;
+  btn.textContent = cd > 0 ? _t("Приём «{0}»: ещё {1} {2}", [nm, cd, cd === 1 ? _t("ход") : _t("хода")]) : _t("Приём «{0}»", [nm]);
+  btn.title = (Bestiary.ability(f.ability) || {}).desc || '';
+}
+async function usePetSkill() {
+  const f = fighters.left;
+  if (autopilot || over || busy || turnSide !== 'left' || (f.skillCd || 0) > 0) return;
+  busy = true; stopTurnTimer();
+  const ok = await petAbility(true);
+  if (over) return;
+  if (ok) f.skillCd = PET_SKILL_CD; else note(_t("Приём сейчас ни к чему"));
+  busy = false; startTurnTimer(); renderMagic();
+}
+
+// 1.5.0: приём питомца — приём вида-донора в начале хода питомца, когда ум ≥ PET_ABILITY_INT (1.5.1: 5 — с первого боя).
+// Только те, что не требуют поля противника: лечение, воровство камней, вой, бубен, морок, панцирь, трясина, смола.
+const PET_ABILITY_INT = 5, PET_ABILITIES = ['regen', 'steal', 'howl', 'drum', 'weaken', 'pinch', 'mire', 'sap', 'petrify', 'veil', 'breath', 'prank'];
+const foeVeiled = new Set();                       // туман питомца: камни, которые противник не может двигать на свой ход
+let petPrank = false;                              // пакость питомца — в конце его хода, чтобы не портить поле ему самому
+// 1.5.1: вспышка приёма — цветное свечение на том бойце, на кого приём действует, и звук.
+const PET_FX = { regen: ['left', 'heal'], howl: ['left', 'buff'], drum: ['left', 'buff'], pinch: ['left', 'block'], prank: ['left', 'buff'],
+  steal: ['right', 'steal'], weaken: ['right', 'weaken'], mire: ['right', 'mire'], sap: ['right', 'sap'], petrify: ['right', 'stone'], veil: ['right', 'veil'], breath: ['right', 'fire'] };
+function petFx(kind) {
+  const fx = PET_FX[kind]; if (!fx) return;
+  const box = fEl(fx[0]); if (!box) return;
+  const cls = 'pskill-' + fx[1];
+  box.classList.remove(cls); void box.offsetWidth; box.classList.add(cls);
+  setTimeout(() => box.classList.remove(cls), 1100);
+  if (kind === 'howl' || kind === 'breath' || kind === 'petrify') SND.growl(); else SND.pet();
+}
+async function petAbility(force = false) {
+  const f = fighters.left;
+  if (!f.isPet || !f.ability || !PET_ABILITIES.includes(f.ability) || (!force && autoLevel < PET_ABILITY_INT)) return false;
+  const t0 = f.turnNo || 0;
+  let act = null;
+  for (let k = 0; k < (force ? 30 : 1) && !act; k++) {      // force — кнопка: подбираем ход, на котором приём точно срабатывает
+    f.turnNo = force ? (k + 1) * 12 - 1 : t0;
+    f.turnNo++;
+    act = Combat.monsterTurnStart(f, fighters.right, MAGIC_TYPES);
+  }
+  if (force) f.turnNo = t0;
+  const foe = fighters.right;
+  if (!act) return false;
+  petFx(act.kind);
+  const A = Balance.abilities, nm = (Bestiary.ability(f.ability) || {}).name || '';
+  if (act.kind === 'regen') { showFloat('left', '+' + act.heal, 'heal'); renderFighters(); }
+  else if (act.kind === 'howl' || act.kind === 'drum' || act.kind === 'pinch') showFloat('left', nm, 'buff');
+  else if (act.kind === 'steal') { f.counts[act.type] = (f.counts[act.type] || 0) + act.stones; renderCounters('left'); renderCounters('right'); showFloat('right', `−${act.stones}`, 'ricochet'); }
+  else if (act.kind === 'weaken' || act.kind === 'mire') showFloat('right', nm, 'debuff');
+  else if (act.kind === 'petrify') {
+    const cols = [...Array(N).keys()].filter((c) => grid.some((row) => row[c]));
+    if (!cols.length) return false;
+    setLock(cols[rnd(cols.length)], 'right'); showFloat('right', nm, 'debuff');
+  } else if (act.kind === 'veil') {
+    const tiles = grid.flat().filter(Boolean);
+    for (let k = 0; k < act.stones && tiles.length; k++) { const t = tiles.splice(rnd(tiles.length), 1)[0]; t.el.classList.add('veiled'); foeVeiled.add(t); }
+    showFloat('right', nm, 'debuff');
+  } else if (act.kind === 'prank') { petPrank = true; }
+  else if (act.kind === 'breath') {
+    const pick = () => { let best = -1, bestN = 0; for (let r = 0; r < N; r++) { const n = grid[r].filter(Boolean).length; if (n > bestN) { bestN = n; best = r; } } return best; };
+    if (pick() < 0) return false;
+    logEvent('left', _t("{0}: приём «{1}»", [f.name, nm]));
+    await sleep(500);
+    if (over) return false;
+    const row = pick();                       // за полсекунды поле могло измениться
+    if (row < 0) return false;
+    await castFire('left', { r: row, c: 0 }, { free: true, shape: 'row', mult: act.mult, name: nm });
+    return true;
+  }
+  logEvent('left', _t("{0}: приём «{1}»", [f.name, nm]));
+  renderMagic();
+  return true;
+}
+
 async function autoTurn() {
   autoPending = false;
   if (!autopilot || over || busy || turnSide !== 'left') return;
@@ -1684,6 +1961,8 @@ async function autoTurn() {
   stopTurnTimer();
   renderMagic();
   const SPELL_NAMES = { fire: _t("Огненный крест"), square: _t("Захват"), transmute: _t("Превращение"), heal: _t("Целебный дождь"), chaos: _t("Хаос") };
+  await petAbility();
+  if (over) return;
   for (;;) {
     await sleep(RULES.timing.think);
     if (over) return;
@@ -1732,7 +2011,8 @@ function startPetGame(cfg) {
   rewarded = true;
   clearLocks();
   veiled.clear();
-  cfg.fighter.max = Math.round(cfg.fighter.max * Pets.BOARD_HP); cfg.fighter.hp = cfg.fighter.max;
+  cfg.fighter.dmg = (cfg.fighter.dmg || 1) * (cfg.dmgMult || Pets.BOARD_DMG);
+  cfg.fighter.max = Math.round(cfg.fighter.max * (cfg.hpMult || Pets.BOARD_HP)); cfg.fighter.hp = cfg.fighter.max;
   Object.assign(fighters.left, cfg.fighter, {
     isPet: true, name: cfg.name, speciesId: cfg.speciesId, tier: cfg.tier,
     gear: Gear.emptyLoadout(), innate: {}, base: cfg.fighter.max, level: cfg.level,
@@ -1785,7 +2065,7 @@ function resumeAfterAdopt() {
 }
 function brief() {
   const l = fighters.left, r = fighters.right;
-  return { hp: l.hp, max: l.max, name: l.name, foeHp: r.hp, foeMax: r.max, foeName: r.name, over, turn: turnSide, tier: l.tier, foe: r };
+  return { hp: l.hp, max: l.max, name: l.name, foeHp: r.hp, foeMax: r.max, foeName: r.name, over, turn: turnSide, tier: l.tier, foe: r, pet: pet ? { name: petName(), hp: pet.hp, max: pet.max, alive: petAlive() } : null };
 }
 
 function checkEnd() {
@@ -1928,6 +2208,7 @@ async function castFire(side, cell, opts = {}) {
     const B = Balance.magic, fx = (shape === 'square' ? B.square : B.cross).fixed;
     const stones = fighters[side].magic ? Math.round(all * B.lightning.mult) : obs;
     dmg = shape === 'point' ? 0 : fx + Combat.strikeDamage(fighters[side]) + stones;   // Выпад: урона нет, ценна позиция
+    if (mult !== 1 && dmg > 0) dmg = Math.max(1, Math.round(dmg * mult));            // 1.5.1: слабость семейства (шашка)
     renderCounters(side, [...gotTypes]);
     if (charge) addCharge(charge);
     turnStats.stones += burning.length;
@@ -2398,6 +2679,8 @@ async function enemyTurn() {
   if (Combat.turnOrder(false, false, Combat.cloneAlive(fighters.right)).includes('clone')) await cloneTurn();
   if (over) return;
   clearLocks('right');                         // Корни держат только один ход противника
+  for (const t of foeVeiled) t.el.classList.remove('veiled');
+  foeVeiled.clear();
   if (!PET && Profile.data.monster && Profile.data.monster.deep) {   // «У дна»: под водой течение сковывает один столбец на ваш ход
     setLock(rnd(N), 'left');
     logEvent('right', _t("Течение: один столбец скован на ваш ход"));
@@ -2424,9 +2707,10 @@ async function enemyTurnStart() {
     if (checkEnd()) return true;
   }
 
-  const act = Combat.monsterTurnStart(f, me, MAGIC_TYPES);
-  let acted = !!act;
   const A = Balance.abilities;
+  // Показ приёма существа (и свойства элитного/стража — тот же набор приёмов).
+  const showAct = async (act) => {
+  let acted = !!act;
   if (act) switch (act.kind) {
     case 'regen':
       showFloat('right', '+' + act.heal, 'heal'); renderFighters(); say(_t("Регенерация, +{0} ХП", [act.heal]));
@@ -2487,6 +2771,38 @@ async function enemyTurnStart() {
       break;
     }
     default: acted = false;
+  }
+  return acted;
+  };
+  let acted = await showAct(Combat.monsterTurnStart(f, me, MAGIC_TYPES));
+  if (over) return true;
+  // 1.5.4: свойства элитного существа и стража — вторым действием в начале хода
+  for (const ax of f.affixes || []) {
+    if (acted) await sleep(450);
+    const keep = f.ability;
+    let a2 = null;
+    f.ability = ax;
+    try { a2 = Combat.monsterTurnStart(f, me, MAGIC_TYPES); } finally { f.ability = keep; }
+    acted = (await showAct(a2)) || acted;
+    if (over) return true;
+  }
+  const G = f.guardian && World.GUARDIANS[f.guardian];
+  if (G && G.mech === 'pack' && f.hp > 0 && f.turnNo % World.PACK.every === 0) {
+    if (acted) await sleep(450);
+    showFloat('left', _t("Стая"), 'debuff');
+    const dealt = dealDamage('left', Math.max(1, Math.round(me.max * World.PACK.bite)), true, false);
+    say(_t("Зов стаи: волки кусают на {0} ХП", [dealt]));
+    flushTurnDamage(); renderFighters(); renderMagic();
+    acted = true;
+    await sleep(650);
+    if (checkEnd()) return true;
+  }
+  if (G && G.mech === 'enrage' && !f.enraged && f.hp > 0 && f.hp <= f.max * World.ENRAGE.at) {
+    f.enraged = true;
+    f.dmg *= 1 + World.ENRAGE.power / 100;
+    showFloat('right', _t("Ярость!"), 'buff');
+    say(_t("Ярость дракона: урон +{0}% до конца боя", [World.ENRAGE.power]));
+    acted = true;
   }
   if (acted) await sleep(650);
   return over;
@@ -2578,7 +2894,7 @@ async function resolveBoard(side) {
       grid[r][c].el.remove();
       grid[r][c] = null;
     }
-    if (sideDown(target) || sideDown(side)) return extra;                // бой окончен (в т. ч. рикошетом)
+    if (sideDown(target) || sideDown(side)) { gravityDown(); shiftRight(); return extra; }   // бой окончен (в т. ч. рикошетом); 1.5.0: камни не зависают
 
     gravityDown();                                  // 1. вертикально вниз
     await sleep(RULES.timing.fall);
@@ -2730,30 +3046,50 @@ const renderMute = () => { muteBtn.classList.toggle('off', !!SND.muted); muteBtn
 muteBtn.addEventListener('click', () => { SND.setMuted(!SND.muted); renderMute(); SND.swap(); });
 renderMute();
 
-// Оформление экрана боя: «1» — прежнее, «2» — новое (та же разметка, другая облицовка, см. css/style.css).
-// Переключается прямо в бою, оба варианта остаются доступны, выбор запоминается в профиле.
-// «3» — «колонки» (Profile.data.ui = 'columns'): та же бронзовая облицовка, что у «2» (класс ui-modern), плюс
+// Оформление экрана боя — «колонки» (раньше были ещё «1» и «2», убраны в 1.5.2): бронзовая облицовка (класс ui-modern), плюс
 // своя раскладка (класс ui-columns): герой | столбец заклинаний | поле | столбец противника | противник,
 // ранец под полем. Раскладка целиком в CSS; game.js только рисует столбец противника (renderEnemyColumn).
-// Кнопка ходит по кругу 1 → 2 → 3 → 1; неизвестное значение в старом сохранении считается «1».
-const UI_SKINS = ['classic', 'modern', 'columns'];
-const UI_SKIN_TIPS = [_t("новое оформление экрана боя"), _t("оформление «колонки»"), _t("прежнее оформление экрана боя")];
-const uiSkinBtn = $('ui-skin');
-function renderUiSkin() {
-  const i = Math.max(0, UI_SKINS.indexOf(Profile.data.ui));
-  const skin = UI_SKINS[i];
-  document.body.classList.toggle('ui-modern', skin === 'modern' || skin === 'columns');
-  document.body.classList.toggle('ui-columns', skin === 'columns');
-  uiSkinBtn.textContent = _t("Оформление: ") + (i + 1);
-  uiSkinBtn.title = _t("Переключить на ") + UI_SKIN_TIPS[i];
-  renderEnemyColumn();
+
+// 1.5.2: подгонка высоты. Поле берёт высоту окна минус «обвязка» (--chrome, на телефоне и планшете — свои числа), но
+// обвязка зависит от экрана, оформления, полосы сверху и числа рядов ранца, поэтому заранее её не угадать. Меряем, на
+// сколько страница выше окна, и уменьшаем сторону поля (--board; от неё считаются и кнопки заклинаний, и столбцы), пока
+// нижний ряд кнопок не окажется на экране. Если уменьшение ничего не даёт, возвращаем как было.
+let fitBusy = false;
+function fitBattleHeight() {
+  if (!host.main || fitBusy) return;
+  const b = document.body;
+  fitBusy = true;
+  try {
+    b.style.removeProperty('--board');
+    if (!b.classList.contains('mode-battle') || !b.classList.contains('ui-columns')) return;   // прежние оформления 1 и 2 — длинная страница с прокруткой, их не трогаем
+    const H = () => Math.max(document.documentElement.scrollHeight, b.scrollHeight);
+    let ov = H() - window.innerHeight;
+    if (ov <= 0) return;
+    const start = boardEl.getBoundingClientRect().width;
+    let size = start;
+    for (let i = 0; i < 4 && ov > 0; i++) {
+      size = Math.max(150, size - ov - 1);
+      b.style.setProperty('--board', size + 'px');
+      const now = H() - window.innerHeight;
+      if (now >= ov) { b.style.removeProperty('--board'); return; }   // не помогло
+      ov = now;
+    }
+  } finally { fitBusy = false; }
 }
-uiSkinBtn.addEventListener('click', () => {
-  const i = Math.max(0, UI_SKINS.indexOf(Profile.data.ui));
-  Profile.data.ui = UI_SKINS[(i + 1) % UI_SKINS.length];
-  Profile.save();
-  renderUiSkin();
-});
+if (host.main) {
+  let fitT = 0;
+  const later = () => { clearTimeout(fitT); fitT = setTimeout(fitBattleHeight, 120); };
+  window.addEventListener('resize', later); window.addEventListener('orientationchange', later);
+  document.addEventListener('fullscreenchange', later); document.addEventListener('webkitfullscreenchange', later);
+  window.addEventListener('load', later);
+}
+// 1.5.2: оформления «1» и «2» убраны, остались «колонки» (прежнее «3») — единственное оформление боя.
+// Профиль по-прежнему хранит поле ui, но оно не используется; старые сохранения открываются так же.
+function renderUiSkin() {
+  document.body.classList.add('ui-modern', 'ui-columns');
+  renderEnemyColumn();
+  if (host.main) setTimeout(fitBattleHeight, 0);
+}
 renderUiSkin();
 
 // Настройки для проверки баланса. ХП теперь задают уровень героя и цвет существа; ручная правка ХП
@@ -2771,6 +3107,48 @@ $('credits').addEventListener('click', () => Screens.openCredits());
 // Новый бой с выбранным в бестиарии противником.
 function startBattle() { if (!busy || over) startGame(); }
 boardEl.addEventListener('pointerleave', () => { if (aiming) hideCross(); });
+// 1.5.5: горячие клавиши боя (по коду клавиши — работают и в русской раскладке): H — подсказка, I — сумка, B — бестиарий, 1–9 и 0 — заклинания по порядку.
+if (host.main) document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (!document.body.classList.contains('mode-battle') || document.querySelector('.modal, .overlay')) return;
+  const c = e.code, press = (id) => { const b = $(id); if (b && !b.disabled) { e.preventDefault(); b.click(); } };
+  if (c === 'KeyH') return press('hint');
+  if (c === 'KeyI') return press('gear');
+  if (c === 'KeyB') return press('bestiary');
+  const m = /^Digit(\d)$/.exec(c);
+  if (m) { const b = spellbarEl.children[(Number(m[1]) + 9) % 10]; if (b && !b.disabled && b.offsetParent) { e.preventDefault(); b.click(); } }
+});
+// 1.5.9: долгое нажатие на заклинание или предмет (сенсорный экран) показывает описание — всплывающая подсказка title на телефоне и планшете не видна
+(function longPressTips() {
+  try {
+  let pop = document.querySelector('.lp-tip');
+  if (!pop) { pop = document.createElement('div'); pop.className = 'lp-tip'; pop.hidden = true; document.body.appendChild(pop); }
+  const HOLD = 450;
+  let timer = null, hideT = null, swallow = false, sx = 0, sy = 0;
+  const hide = () => { pop.hidden = true; clearTimeout(hideT); };
+  for (const box of [spellbarEl, bagEl].filter((x) => x && typeof x.addEventListener === 'function')) {
+    box.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      const b = e.target.closest('button[title]');
+      if (!b || !b.title) return;
+      hide(); sx = e.clientX; sy = e.clientY; clearTimeout(timer);
+      timer = setTimeout(() => {
+        pop.textContent = b.title; pop.hidden = false; swallow = true;
+        const r = b.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+        pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+        pop.style.top = (r.top - h - 10 < 8 ? r.bottom + 10 : r.top - h - 10) + 'px';
+        if (navigator.vibrate) { try { navigator.vibrate(15); } catch (er) { /* не страшно */ } }
+      }, HOLD);
+    });
+    const end = () => { clearTimeout(timer); if (!pop.hidden) { clearTimeout(hideT); hideT = setTimeout(hide, 3000); } };
+    box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+    box.addEventListener('pointermove', (e) => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 12) clearTimeout(timer); });
+    box.addEventListener('contextmenu', (e) => { if (e.pointerType !== 'mouse') e.preventDefault(); });
+    box.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  }
+  document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !e.target.closest('.magic, .bagitem')) hide(); }, true);
+  } catch (err) { /* подсказки по долгому нажатию — не критично */ }
+})();
 if (host.main) document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && aiming) { stopAim(); note(_t("Ваш ход")); }
 });
@@ -2832,7 +3210,7 @@ if (host.main) {
   const moreBtn = $('more'), moreMenu = $('more-menu');
   const phoneMq = () => {
     const small = Math.min(window.innerWidth, window.innerHeight) <= 520 && matchMedia('(pointer: coarse)').matches;
-    document.body.classList.toggle('phone', small || /[?&]phone\b/.test(location.search));
+    document.body.classList.toggle('phone', small || (typeof location !== 'undefined' && /[?&]phone\b/.test(location.search)));
   };
   phoneMq(); window.addEventListener('resize', phoneMq); window.addEventListener('orientationchange', phoneMq);
   moreBtn.addEventListener('click', (e) => { e.stopPropagation(); moreMenu.hidden = !moreMenu.hidden; });
@@ -2856,10 +3234,11 @@ if (host.main) {
   INSTANT_CASTERS: { get: () => INSTANT_CASTERS, enumerable: true, configurable: true },
   MAGICS: { get: () => MAGICS, enumerable: true, configurable: true },
   PET: { get: () => PET, enumerable: true, configurable: true },
+  PET_ABILITY_INT: { get: () => PET_ABILITY_INT, enumerable: true, configurable: true },
+  PET_FX: { get: () => PET_FX, enumerable: true, configurable: true },
+  PET_SKILL_CD: { get: () => PET_SKILL_CD, enumerable: true, configurable: true },
   SETTINGS_KEY: { get: () => SETTINGS_KEY, enumerable: true, configurable: true },
   TUT: { get: () => TUT, enumerable: true, configurable: true },
-  UI_SKINS: { get: () => UI_SKINS, enumerable: true, configurable: true },
-  UI_SKIN_TIPS: { get: () => UI_SKIN_TIPS, enumerable: true, configurable: true },
   WEAPON_PERK_NAMES: { get: () => WEAPON_PERK_NAMES, enumerable: true, configurable: true },
   addCharge: { get: () => addCharge, enumerable: true, configurable: true },
   adjacent: { get: () => adjacent, enumerable: true, configurable: true },
@@ -2886,6 +3265,7 @@ if (host.main) {
   beaverPortrait: { get: () => beaverPortrait, enumerable: true, configurable: true },
   beaverTip: { get: () => beaverTip, set: (v) => { beaverTip = v; }, enumerable: true, configurable: true },
   boardEl: { get: () => boardEl, enumerable: true, configurable: true },
+  boardRand: { get: () => boardRand, set: (v) => { boardRand = v; }, enumerable: true, configurable: true },
   brief: { get: () => brief, enumerable: true, configurable: true },
   buffPower: { get: () => buffPower, enumerable: true, configurable: true },
   buildBoard: { get: () => buildBoard, enumerable: true, configurable: true },
@@ -2919,8 +3299,13 @@ if (host.main) {
   defeat: { get: () => defeat, enumerable: true, configurable: true },
   drag: { get: () => drag, set: (v) => { drag = v; }, enumerable: true, configurable: true },
   ecSvg: { get: () => ecSvg, enumerable: true, configurable: true },
+  elxArm: { get: () => elxArm, enumerable: true, configurable: true },
+  elxBadgeKey: { get: () => elxBadgeKey, set: (v) => { elxBadgeKey = v; }, enumerable: true, configurable: true },
+  elxFire: { get: () => elxFire, enumerable: true, configurable: true },
   elxImmune: { get: () => elxImmune, enumerable: true, configurable: true },
+  elxMark: { get: () => elxMark, enumerable: true, configurable: true },
   elxSide: { get: () => elxSide, enumerable: true, configurable: true },
+  elxTier: { get: () => elxTier, enumerable: true, configurable: true },
   endPlayerAction: { get: () => endPlayerAction, enumerable: true, configurable: true },
   enemyBag: { get: () => enemyBag, enumerable: true, configurable: true },
   enemyColEl: { get: () => enemyColEl, enumerable: true, configurable: true },
@@ -2933,8 +3318,11 @@ if (host.main) {
   fillEmpty: { get: () => fillEmpty, enumerable: true, configurable: true },
   finishAction: { get: () => finishAction, enumerable: true, configurable: true },
   finishBoard: { get: () => finishBoard, enumerable: true, configurable: true },
+  fitBattleHeight: { get: () => fitBattleHeight, enumerable: true, configurable: true },
+  fitBusy: { get: () => fitBusy, set: (v) => { fitBusy = v; }, enumerable: true, configurable: true },
   fleeArmed: { get: () => fleeArmed, set: (v) => { fleeArmed = v; }, enumerable: true, configurable: true },
   flushTurnDamage: { get: () => flushTurnDamage, enumerable: true, configurable: true },
+  foeVeiled: { get: () => foeVeiled, enumerable: true, configurable: true },
   fsActive: { get: () => fsActive, enumerable: true, configurable: true },
   fsBtn: { get: () => fsBtn, enumerable: true, configurable: true },
   furyState: { get: () => furyState, enumerable: true, configurable: true },
@@ -2949,6 +3337,8 @@ if (host.main) {
   hideOverlay: { get: () => hideOverlay, enumerable: true, configurable: true },
   inBattle: { get: () => inBattle, set: (v) => { inBattle = v; }, enumerable: true, configurable: true },
   invalidStreak: { get: () => invalidStreak, set: (v) => { invalidStreak = v; }, enumerable: true, configurable: true },
+  isArena: { get: () => isArena, enumerable: true, configurable: true },
+  isChallenge: { get: () => isChallenge, enumerable: true, configurable: true },
   isEmptyBoard: { get: () => isEmptyBoard, enumerable: true, configurable: true },
   isLocked: { get: () => isLocked, enumerable: true, configurable: true },
   isTraining: { get: () => isTraining, enumerable: true, configurable: true },
@@ -2977,11 +3367,14 @@ if (host.main) {
   over: { get: () => over, set: (v) => { over = v; }, enumerable: true, configurable: true },
   passToEnemy: { get: () => passToEnemy, enumerable: true, configurable: true },
   pet: { get: () => pet, set: (v) => { pet = v; }, enumerable: true, configurable: true },
+  petAbility: { get: () => petAbility, enumerable: true, configurable: true },
   petAlive: { get: () => petAlive, enumerable: true, configurable: true },
   petEl: { get: () => petEl, enumerable: true, configurable: true },
   petFell: { get: () => petFell, set: (v) => { petFell = v; }, enumerable: true, configurable: true },
+  petFx: { get: () => petFx, enumerable: true, configurable: true },
   petName: { get: () => petName, enumerable: true, configurable: true },
   petPortrait: { get: () => petPortrait, enumerable: true, configurable: true },
+  petPrank: { get: () => petPrank, set: (v) => { petPrank = v; }, enumerable: true, configurable: true },
   petTurn: { get: () => petTurn, enumerable: true, configurable: true },
   placeTile: { get: () => placeTile, enumerable: true, configurable: true },
   playerCast: { get: () => playerCast, enumerable: true, configurable: true },
@@ -2990,6 +3383,7 @@ if (host.main) {
   playerMove: { get: () => playerMove, enumerable: true, configurable: true },
   portraitOf: { get: () => portraitOf, enumerable: true, configurable: true },
   prankSwap: { get: () => prankSwap, enumerable: true, configurable: true },
+  quickReward: { get: () => quickReward, enumerable: true, configurable: true },
   recalcStats: { get: () => recalcStats, enumerable: true, configurable: true },
   refillBoard: { get: () => refillBoard, enumerable: true, configurable: true },
   refreshEnemyGear: { get: () => refreshEnemyGear, enumerable: true, configurable: true },
@@ -2998,6 +3392,7 @@ if (host.main) {
   renderBag: { get: () => renderBag, enumerable: true, configurable: true },
   renderClonePanel: { get: () => renderClonePanel, enumerable: true, configurable: true },
   renderCounters: { get: () => renderCounters, enumerable: true, configurable: true },
+  renderElxBadges: { get: () => renderElxBadges, enumerable: true, configurable: true },
   renderEnemyColumn: { get: () => renderEnemyColumn, enumerable: true, configurable: true },
   renderFactionButton: { get: () => renderFactionButton, enumerable: true, configurable: true },
   renderFighters: { get: () => renderFighters, enumerable: true, configurable: true },
@@ -3019,6 +3414,7 @@ if (host.main) {
   rotateHint: { get: () => rotateHint, enumerable: true, configurable: true },
   runeHammer: { get: () => runeHammer, enumerable: true, configurable: true },
   saveSettings: { get: () => saveSettings, enumerable: true, configurable: true },
+  selNow: { get: () => selNow, enumerable: true, configurable: true },
   selected: { get: () => selected, set: (v) => { selected = v; }, enumerable: true, configurable: true },
   setAutopilot: { get: () => setAutopilot, enumerable: true, configurable: true },
   setBeaverTip: { get: () => setBeaverTip, enumerable: true, configurable: true },
@@ -3028,6 +3424,7 @@ if (host.main) {
   setTurn: { get: () => setTurn, enumerable: true, configurable: true },
   setupEnemy: { get: () => setupEnemy, enumerable: true, configurable: true },
   setupPet: { get: () => setupPet, enumerable: true, configurable: true },
+  setupShadow: { get: () => setupShadow, enumerable: true, configurable: true },
   setupTrainerBeaver: { get: () => setupTrainerBeaver, enumerable: true, configurable: true },
   shake: { get: () => shake, enumerable: true, configurable: true },
   shiftRight: { get: () => shiftRight, enumerable: true, configurable: true },
@@ -3040,6 +3437,8 @@ if (host.main) {
   showOverlay: { get: () => showOverlay, enumerable: true, configurable: true },
   sideDown: { get: () => sideDown, enumerable: true, configurable: true },
   spawnFilled: { get: () => spawnFilled, enumerable: true, configurable: true },
+  specialDone: { get: () => specialDone, set: (v) => { specialDone = v; }, enumerable: true, configurable: true },
+  specialResult: { get: () => specialResult, enumerable: true, configurable: true },
   spellDisabled: { get: () => spellDisabled, enumerable: true, configurable: true },
   spellIconHtml: { get: () => spellIconHtml, enumerable: true, configurable: true },
   spellOpen: { get: () => spellOpen, enumerable: true, configurable: true },
@@ -3067,10 +3466,11 @@ if (host.main) {
   turnTimerHandle: { get: () => turnTimerHandle, set: (v) => { turnTimerHandle = v; }, enumerable: true, configurable: true },
   turnsWord: { get: () => turnsWord, enumerable: true, configurable: true },
   typOf: { get: () => typOf, enumerable: true, configurable: true },
-  uiSkinBtn: { get: () => uiSkinBtn, enumerable: true, configurable: true },
+  updatePetSkill: { get: () => updatePetSkill, enumerable: true, configurable: true },
   useAmmo: { get: () => useAmmo, enumerable: true, configurable: true },
   useConsumable: { get: () => useConsumable, enumerable: true, configurable: true },
   useFactionAbility: { get: () => useFactionAbility, enumerable: true, configurable: true },
+  usePetSkill: { get: () => usePetSkill, enumerable: true, configurable: true },
   valOf: { get: () => valOf, enumerable: true, configurable: true },
   veil: { get: () => veil, enumerable: true, configurable: true },
   veiled: { get: () => veiled, enumerable: true, configurable: true },
@@ -3100,7 +3500,8 @@ const Duo = (() => {
 
   const on = () => !!st;
   function wanted() {
-    return !isTrainingNow() && !(typeof Tutorial !== 'undefined' && Tutorial.inBattle()) && !(Profile.data.monster && Profile.data.monster.boss) && Profile.petInBattle();
+    const sel = Profile.data.monster || {};
+    return !isTrainingNow() && !(typeof Tutorial !== 'undefined' && Tutorial.inBattle()) && !sel.boss && !sel.arena && !sel.challenge && Profile.petInBattle();
   }
   const isTrainingNow = () => MAIN_BATTLE.fighters.right.monsterId === 'beaver';
   const boards = () => ({ hero: M(), pet: petB });
@@ -3119,7 +3520,7 @@ const Duo = (() => {
     petB.buildSpellbar();
     petB.startPetGame({
       fighter: petF, foe: structuredClone(M().fighters.right), level: Pets.dopedIntellect(pd, petF.intBonus),
-      name: Pets.petDisplayName(pd.speciesId), speciesId: pd.speciesId, tier: pd.tier,
+      name: Pets.petDisplayName(pd.speciesId), speciesId: pd.speciesId, tier: pd.tier, hpMult: Pets.boardHp(pd), dmgMult: Pets.boardDmg(pd),
     });
     buildBar();
     document.body.classList.add('duo-battle');
@@ -3140,6 +3541,34 @@ const Duo = (() => {
     });
     mainEl().before(bar);
     renderBar();
+  }
+
+  // 1.5.2: бой без питомца — та же полоса сверху (имя и цвет противника, у стража — подпись), чтобы поле стояло на месте
+  // в любом бою: с питомцем, без него и со стражем.
+  function solo() {
+    end();
+    bar = document.createElement('div');
+    bar.className = 'duo-bar solo';
+    bar.innerHTML = '<div class="duo-tab solo-tab"><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small></div>';
+    mainEl().before(bar);
+    document.body.classList.add('duo-battle', 'solo-battle');
+    renderSolo();
+    tick = setInterval(renderSolo, 400);
+    if (typeof fitBattleHeight === 'function') fitBattleHeight();
+  }
+  function renderSolo() {
+    if (!bar || st) return;
+    const b = M().brief(), f = b.foe, boss = Profile.data.monster && Profile.data.monster.boss, ch = boss && typeof Story !== 'undefined' ? Story.BY_ID[boss] : null;
+    const nm = bar.querySelector('.dt-name');
+    const label = ch ? (ch.id === 'b5' ? _t("Последний осколок") : _t("Страж осколка {0}", [ch.id.slice(1)])) : '';
+    const key = f.name + '|' + f.tier + '|' + label;
+    if (nm.dataset.key !== key) {
+      nm.dataset.key = key; nm.textContent = f.name + (label ? ' · ' + label + ' ' : ' ');
+      nm.insertAdjacentHTML('beforeend', tierChip(f.tier));
+    }
+    bar.querySelector('.dt-hp i').style.width = Math.max(0, b.foeHp / b.foeMax * 100) + '%';
+    const pt = b.pet ? ` · ${b.pet.name}${b.pet.alive ? '' : _t(" (пал в бою)")} ${Math.max(0, b.pet.hp)}/${b.pet.max}` : '';
+    bar.querySelector('small').textContent = `${_t("Герой")} ${Math.max(0, b.hp)}/${b.max}${pt} · ${_t("враг")} ${Math.max(0, b.foeHp)}/${b.foeMax}`;
   }
 
   function renderBar() {
@@ -3205,6 +3634,8 @@ const Duo = (() => {
     r[k] = null;
     boards()[k].adoptFoe(foe, false);
     boards()[k].resumeAfterAdopt();
+    boards()[k].note(k === 'hero' ? _t("Добиваем врага питомца!") : _t("Добиваем врага героя!"));
+    boards()[k].logEvent('left', _t("Бой продолжается: впереди ещё один противник"));
     setControl(k, true);
     renderBar();
   }
@@ -3230,6 +3661,7 @@ const Duo = (() => {
     const name = Pets.petDisplayName(pd.speciesId), after = Pets.intellect(pd);
     let line = _t("<br>{0}: опыт +{1}, ум {2} → {3}", [name, gain, before, after]);
     if (up) line += _t(". <b class=\"lvlup\">Новый цвет: {0}!</b>", [Tiers.get(pd.tier).name]);
+    if (!pd.firstWin && st.petOutcomes.some((o) => o.won)) { pd.firstWin = true; line += `<br><i>${Story.PET_LINES.firstWin}</i>`; Profile.save(); }
     return line;
   }
   // Отступление: награда за уже убитых противников.
@@ -3248,16 +3680,17 @@ const Duo = (() => {
     bar = null; petB = null; petHost = null; st = null;
     MAIN_HOST.coord = null;
     mainEl().classList.remove('duo-hidden');
-    document.body.classList.remove('duo-battle');
+    document.body.classList.remove('duo-battle', 'solo-battle');
+    if (typeof fitBattleHeight === 'function') fitBattleHeight();
     if (MAIN_BATTLE.autopilot) MAIN_BATTLE.setAutopilot(false);
   }
-  return { wanted, begin, end, ended, flee, on, setTab, setControl, get state() { return st; }, get pet() { return petB; } };
+  return { wanted, begin, solo, end, ended, flee, on, setTab, setControl, get state() { return st; }, get pet() { return petB; } };
 })();
 buildSpellbar();
 loadSettings();
 onGearChanged();
 MapView.init();                 // игра начинается на карте; бой — при нападении на существо
-if (typeof Tutorial !== 'undefined') Tutorial.resumeIfStarted();   // перезагрузка посреди обучения — заново
+if (typeof Tutorial !== 'undefined') Tutorial.boot();   // 1.5.4: новичок — сразу в учебный бой; перезагрузка посреди обучения — заново
 MapView.marketNews();           // Торговые ряды: что купили, пока игра была закрыта
 
 // Заставка на 2 секунды при запуске (поверх карты/регистрации — см. z-index в CSS). Фон зависит от
@@ -3275,7 +3708,9 @@ MapView.marketNews();           // Торговые ряды: что купил�
     // 1.2.8: в альбомной ориентации — широкая картина (bg-splash-landscape), если есть; афиши — для портретной.
     const g = (typeof Profile !== 'undefined' && Profile.data && Profile.data.gender) || (Math.random() < 0.5 ? 'm' : 'f');
     const posters = (g === 'f' ? ['f'] : ['m', 'm2']).map((x) => 'ui/bg-splash-poster-' + x).filter((k) => typeof Art !== 'undefined' && Art.has(k));
-    const poster = posters[Math.floor(Math.random() * posters.length)];
+    const anyPoster = ['m', 'm2', 'f'].map((x) => 'ui/bg-splash-poster-' + x).filter((k) => typeof Art !== 'undefined' && Art.has(k));   // нет афиши своего пола — любая есть
+    const pool = posters.length ? posters : anyPoster;
+    const poster = pool[Math.floor(Math.random() * pool.length)];
     const wide = !portrait && typeof Art !== 'undefined' && Art.has(key);
     el.classList.remove('has-poster');
     if (poster && !wide) {

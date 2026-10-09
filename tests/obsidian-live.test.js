@@ -51,7 +51,7 @@ function makeStubEl() {
   };
   Object.defineProperty(el, 'innerHTML', { get() { return el._html || ''; }, set(v) { el._html = v; } });
   Object.defineProperty(el, 'textContent', { get() { return el._text || ''; }, set(v) { el._text = v; } });
-  el.style.setProperty = () => {};
+  el.style.setProperty = () => {}; el.style.removeProperty = () => {};
   return new Proxy(el, {
     get(target, prop) {
       if (prop in target) return target[prop];

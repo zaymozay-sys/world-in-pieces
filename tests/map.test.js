@@ -147,7 +147,7 @@ for (const seed of [1, 42, 777, 2024]) {
 // 1.2.6: город из усадеб — Ратуша на 7 сотах, 12 зданий по 3 соты, симметрично, с проходами и свободными улицами
 {
   const m = HexMap.generate(42);
-  const village = m.buildings.filter((b) => !HexMap.BUILDINGS[b.id].landmark);
+  const village = m.buildings.filter((b) => !HexMap.BUILDINGS[b.id].landmark && !HexMap.BUILDINGS[b.id].post);
   assert.strictEqual(village.length, 13);
   assert.strictEqual(village.find((b) => b.id === 'hall').cells.length, 7);
   const owner = new Map();
@@ -192,10 +192,27 @@ for (const seed of [1, 42, 777, 2024]) {
     }
   }
   const sc = Story.scaleBoss({ hp: 100, stats: { power: 5 } }, 'b1');
-  assert.strictEqual(sc.hp, 200); assert.strictEqual(sc.stats.power, 25);
+  assert.strictEqual(sc.hp, 300); assert.strictEqual(sc.stats.power, 45);
   assert.strictEqual(Story.scaleBoss({ hp: 100, stats: {} }, 'b4').hp, 100, 'Капитан не усиливается повторно');
   assert.ok(!Story.finalOpen({ shards: { b1: true, b2: true, b3: true } }) && Story.finalOpen({ shards: { b1: true, b2: true, b3: true, b4: true } }));
   console.log('map: стражи осколков — все тесты пройдены');
+}
+// 1.5.1: реплики стражей, вести, концовка, новый поход
+{
+  const Story = require('../js/story.js');
+  for (const ch of Story.CHAPTERS) assert.ok(ch.taunt && ch.defeat, 'у стража есть реплики: ' + ch.id);
+  assert.strictEqual(Story.newsAll({ shards: {} }).length, 0);
+  assert.strictEqual(Story.newsAll({ shards: { b1: true, b2: true } }).length, 2);
+  assert.strictEqual(Story.news({ shards: { b1: true, b2: true } }), Story.NEWS[1]);
+  const done = { shards: { b1: true, b2: true, b3: true, b4: true, b5: true } };
+  assert.strictEqual(Story.newsAll(done).length, 5);
+  assert.ok(!Story.newCycle({ shards: { b1: true } }), 'новый поход только после финала');
+  assert.ok(Story.newCycle(done)); assert.strictEqual(Story.cycle(done), 1); assert.strictEqual(Story.shards(done), 0);
+  const base = Story.scaleBoss({ hp: 100, stats: { power: 5 } }, 'b1', 0), c1 = Story.scaleBoss({ hp: 100, stats: { power: 5 } }, 'b1', 1);
+  assert.ok(c1.hp > base.hp && c1.stats.power > base.stats.power, 'в новом походе страж крепче');
+  assert.ok(Story.scaleBoss({ hp: 100, stats: {} }, 'b4', 1).hp > 100, 'Капитан в новом походе тоже крепче');
+  assert.ok(Story.shardReward('b1', 1).coins > Story.shardReward('b1', 0).coins);
+  console.log('story 1.5.1 ok');
 }
 // 1.3.0: торговые ряды — продажа по цене
 {
@@ -214,6 +231,13 @@ for (const seed of [1, 42, 777, 2024]) {
   const Ammo = require('../js/ammo.js');
   assert.deepStrictEqual(['human', 'dwarf', 'elf', 'lizard'].map(Ammo.forFaction), ['bolt', 'bomb', 'moonarrow', 'dart']);
   assert.strictEqual(Ammo.boltDamage(10), 40); assert.strictEqual(Ammo.arrowDamage(10), 30);
+  // 1.5.1: слабости семейств
+  assert.strictEqual(Ammo.mult('bolt', 'Нежить'), 1.5); assert.strictEqual(Ammo.mult('bolt', 'Звери'), 1);
+  assert.strictEqual(Ammo.mult('dart', 'Нежить'), 0.7); assert.strictEqual(Ammo.mult('bomb', 'Каменные стражи'), 1.5);
+  const Bst = require('../js/bestiary.js'), fams = new Set(Object.values(Bst.MONSTERS).map((m) => m.family));
+  for (const f of fams) assert.ok(Ammo.ORDER.some((k) => Ammo.mult(k, f) > 1), 'у семейства есть слабость: ' + f);
+  for (const k of Ammo.ORDER) for (const f of fams) assert.ok(!(Ammo.WEAK[k] || []).some((n) => n === f) || !(Ammo.RESIST[k] || []).some((n) => n === f), 'не слабость и стойкость сразу');
+  assert.ok(/слабое место/.test(Ammo.hint('bolt', 'Нежить')) && Ammo.hint('bolt', 'Звери') === '');
   assert.deepStrictEqual(Ammo.steal({ sapphire: 5, ruby: 1, emerald: 0 }, ['sapphire', 'ruby', 'emerald']), { sapphire: 2, ruby: 1 });
   console.log('ammo: все тесты пройдены');
 }

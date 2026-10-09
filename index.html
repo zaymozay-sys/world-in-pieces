@@ -25,19 +25,27 @@
       <defs id="map-defs"></defs>
       <g id="map-world">
         <g id="l-terrain"></g><g id="l-roads"></g><g id="l-deco"></g><g id="l-village"></g>
-        <g id="l-fog"></g><g id="l-hover"></g><g id="l-path"></g><g id="l-mon"></g><g id="l-player"></g>
+        <g id="l-fog"></g><g id="l-hover"></g><g id="l-path"></g><g id="l-ev"></g><g id="l-mon"></g><g id="l-player"></g>
       </g>
     </svg>
     <div class="map-top">
       <div class="map-me" id="map-me"></div>
       <div class="map-btns">
-        <button id="m-gear" type="button">Рюкзак</button>
-        <button id="m-best" type="button">Бестиарий</button>
+        <button id="m-gear" type="button" title="Сумка (I)">Сумка</button>
+        <button id="m-best" type="button" title="Бестиарий (B)">Бестиарий</button>
         <button id="m-mute" type="button">Звук</button>
         <button id="m-fs" type="button" title="Полный экран (клавиша F)"><span class="lg">Полный экран</span><span class="sm">Экран</span></button>
         <button id="m-lang" type="button" class="icon-btn" title="Language / Язык">EN</button>
         <button id="m-help" type="button" class="icon-btn" title="Как играть">?</button>
         <button id="m-credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
+        <button id="m-more" type="button" title="Меню" aria-haspopup="true">☰</button>
+        <div class="map-menu" id="map-menu" hidden>
+          <button type="button" id="mm-mute" data-mdo="m-mute">Звук</button>
+          <button type="button" data-mdo="m-fs">Полный экран</button>
+          <button type="button" id="mm-lang" data-mdo="m-lang">English</button>
+          <button type="button" data-mdo="m-help">Как играть</button>
+          <button type="button" data-mdo="m-credits">О разработчиках</button>
+        </div>
       </div>
     </div>
     <div class="map-toast" id="map-toast" role="status"></div>
@@ -48,7 +56,7 @@
         <button id="m-zin" type="button" title="Приблизить">+</button>
         <button id="m-zout" type="button" title="Отдалить">−</button>
         <button id="m-me" type="button" title="К игроку">◎</button>
-        <button id="m-home" type="button" title="Вернуться в деревню">Домой</button>
+        <button id="m-home" type="button" title="Вернуться в деревню (Home)">Домой</button>
       </div>
     </div>
   </section>
@@ -74,25 +82,23 @@
           </div>
         </div>
         <div class="menu">
-          <button id="gear" type="button" title="Рюкзак: эликсиры, расходники, боеприпасы">Рюкзак</button>
-          <button id="bestiary" type="button" title="Сведения о существах">Бестиарий</button>
+          <button id="gear" type="button" title="Сумка: эликсиры, расходники, боеприпасы (I)">Сумка</button>
+          <button id="bestiary" type="button" title="Сведения о существах (B)">Бестиарий</button>
           <button id="credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
         </div>
         <footer class="bar">
           <span>Ходы: <b id="moves">0</b></span>
           <span class="btns">
-            <button id="ui-skin" type="button" title="Переключить оформление экрана боя — старое или новое">Оформление: 1</button>
-            <button id="hint" type="button" title="Показать лучший обмен">Подсказка</button>
+            <button id="hint" type="button" title="Показать лучший обмен (H)">Подсказка</button>
             <button id="mute" type="button">Звук: вкл</button>
             <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
             <button id="restart" type="button" title="Уйти с поля боя на карту">Отступить</button>
-            <button id="more" type="button" class="pic-only" title="Меню: бестиарий, оформление, полный экран, журнал">☰</button>
+            <button id="more" type="button" class="pic-only" title="Меню: бестиарий, полный экран, журнал">☰</button>
           </span>
         </footer>
         <div class="more-menu" id="more-menu" hidden>
           <button type="button" data-do="bestiary">Бестиарий</button>
           <button type="button" data-do="credits">О разработчиках</button>
-          <button type="button" data-do="ui-skin">Оформление</button>
           <button type="button" data-do="fullscreen">Полный экран</button>
           <button type="button" data-do="log">Журнал боя</button>
         </div>
@@ -119,7 +125,7 @@
         <li>Фракции: Люди (родной камень — сапфир), Гномы (обсидиан), Эльфы (изумруд), Ящеры (рубин). Родные камни заряжают приём фракции (15 камней с учётом номиналов и бонусов линии), приём ход не тратит. Знамя: +50% урона на 3 хода. Рунный молот: 3 камня становятся обсидианом x3. Корни: противник не может трогать выбранный столбец свой следующий ход. Ядовитый укус: противник теряет здоровье в начале 3 своих ходов. Фракционные вещи носит только своя фракция. Сменить фракцию можно в Ратуше.</li>
         <li>У каждого вида существ свой приём (воровство, вой, туман, окаменение, огненное дыхание и другие): он указан в карточке существа и в бестиарии.</li>
         <li>Неверный ход: −5% максимума ХП (на 1-м уровне это 5–6 ХП) и ход переходит к противнику. Три неверных хода подряд — поражение.</li>
-        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Инициативу (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной Вашего дома; в дорогу в рюкзаке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
+        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Инициативу (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной Вашего дома; в дорогу в сумке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
         <li>Уровень героя растёт от опыта за победы (опыта на уровень нужно всё больше). С уровнем растут ХП, урон камней и лимит очков снаряжения; вещь цвета N можно надеть с уровня (N − 1) × 5 + 1. Сильнее существо и выше его цвет — больше опыта.</li>
         <li>Ранец: зелье здоровья, эликсир силы, каменная пыль и свиток спешки используются в бою, ход не тратят. Победа даёт новый предмет и расходники.</li>
         <li>Цвета-уровни (по возрастанию): Красный, Оранжевый, Жёлтый, Зелёный, Голубой, Синий, Фиолетовый, Серебро, Золото, Обсидиановый. Цвет есть у вещей, монстров и ресурсов: чем выше, тем сильнее. Оценка опасности существа (Лёгкий, Равный, Опасный, Смертельный) показывает примерный шанс победы.</li>
@@ -151,6 +157,7 @@
   <script src="js/figures.js"></script>
   <script src="js/story.js"></script>
   <script src="js/hexmap.js"></script>
+  <script src="js/world.js"></script>
   <script src="js/mapart.js"></script>
   <script src="js/monsterart.js"></script>
   <script src="js/itemicons.js"></script>
@@ -159,6 +166,7 @@
   <script src="js/pets.js"></script>
   <script src="js/ammo.js"></script>
   <script src="js/market.js"></script>
+  <script src="js/village.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/quests.js"></script>
   <script src="js/unlocks.js"></script>
@@ -167,5 +175,6 @@
   <script src="js/mapview.js"></script>
   <script src="js/tutorial.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/devjump.js"></script>
 </body>
 </html>

@@ -11,6 +11,8 @@ async function open(b, vp) {
   p.on('pageerror', (e) => errs.push(e.message));
   await p.addInitScript(() => { try { localStorage.setItem('wip-lang', 'ru'); } catch (e) {} });
   await p.goto(URL); await p.waitForTimeout(1800);
+  // 1.5.4: новичок сначала идёт в учебный бой; пропуск обучения открывает выбор народа
+  await p.evaluate(() => { if (!Profile.data.faction && typeof Tutorial !== 'undefined') { Tutorial.start(); Tutorial.finish(false); } }); await p.waitForTimeout(300);
   await p.click('text=Горные кланы').catch(() => {}); await p.click('text=Мужской').catch(() => {});
   await p.fill('input', 'Тест').catch(() => {}); await p.click('text=Начать игру!').catch(() => {});
   await p.waitForTimeout(1000);
@@ -18,6 +20,7 @@ async function open(b, vp) {
 }
 const attack = (p) => p.evaluate(() => {
   for (const k in RULES.timing) RULES.timing[k] = 5;
+  try { Balance.rewards.minMoves = 0; } catch (e) { /* без правки */ }   // слишком быстрый бой бота не должен лишать награды
   const m = MapView.map, me = MapView.state.pos;
   const a = m.spawns.filter((s) => MapView.alive(s)).sort((x, y) => HexMap.dist(m.cells[x.idx], m.cells[me]) - HexMap.dist(m.cells[y.idx], m.cells[me]));
   MapView.attack(a[0]);
@@ -29,7 +32,7 @@ const attack = (p) => p.evaluate(() => {
   // 1. старт: два поля, копия противника, питомец на автопилоте, вкладки
   {
     const { p, errs } = await open(b);
-    await attack(p); await p.waitForTimeout(2500);
+    await attack(p); await p.waitForFunction(() => Duo.on() && Duo.pet, null, { timeout: 15000 }); await p.waitForTimeout(1500);
     const s = await p.evaluate(() => ({
       on: Duo.on(), mains: document.querySelectorAll('main.game').length, bar: !!document.querySelector('.duo-bar'),
       isPet: Duo.pet.fighters.left.isPet, sameSpecies: Duo.pet.fighters.right.monsterId === fighters.right.monsterId,
@@ -102,9 +105,10 @@ const attack = (p) => p.evaluate(() => {
   {
     const { p, errs } = await open(b);
     await p.evaluate(() => Profile.setPetStay(true));
-    await attack(p); await p.waitForTimeout(1500);
+    await attack(p); await p.waitForFunction(() => document.body.classList.contains('mode-battle'), null, { timeout: 20000 }); await p.waitForTimeout(1000);   // герой сначала идёт к существу
     const s = await p.evaluate(() => [Duo.on(), document.querySelectorAll('main.game').length, document.querySelectorAll('.duo-bar').length]);
-    assert.deepStrictEqual(s, [false, 1, 0]);
+    assert.deepStrictEqual(s, [false, 1, 1], 'без питомца — одно поле и одна полоса сверху (имя противника)');
+    assert.deepStrictEqual(await p.evaluate(() => [document.querySelectorAll('.duo-bar.solo').length, document.querySelectorAll('.duo-bar .duo-tab').length, document.querySelectorAll('.duo-take').length, document.body.classList.contains('solo-battle')]), [1, 1, 0, true]);
     assert.deepStrictEqual(errs, []);
     await p.close();
   }

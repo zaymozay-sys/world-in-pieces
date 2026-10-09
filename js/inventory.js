@@ -30,7 +30,9 @@ const Profile = (() => {
       quests: {},                                  // задания трактирщика: id → true (награда уже получена)
       accepted: {},                                // задания, которые игрок взял (см. js/quests.js): id → true
       daily: { date: '', wins: 0, questClaimed: false, lottery: false },   // ежедневные механики (см. js/daily.js)
-      elixirs: { active: {}, bag: {} },            // 1.3.6: эликсиры — действующие и в рюкзаке
+      elixirs: { active: {}, bag: {} },            // 1.3.6: эликсиры — действующие и в сумке
+      village: {},                                 // 1.5.1: уровни улучшений зданий (js/village.js)
+      cosmetics: { titles: [], frames: [], title: null, frame: null },   // 1.5.1: титулы и рамки портрета
       medals: { earned: [], fiveStreaks: 0, strikeKills: 0 },   // медали: полученные { id, tier }, счётчик линий из 5
                                                      // камней и счётчик добиваний Ударом (js/medals.js)
       monster: { id: 'rat', tier: 1 },             // текущий (последний) противник
@@ -44,16 +46,32 @@ const Profile = (() => {
       uiVer: 2,                                    // 2 = оформление боя «колонки» по умолчанию (см. миграцию ниже)
       pet: null,                                    // прирученный питомец: { speciesId, tier, durability, maxDurability } (см. pets.js) или null
       runeBag: {},                                  // запас рун (см. runes.js): id руны → количество
-      ammo: {},                                     // 1.3.0: боеприпасы в рюкзаке (см. ammo.js): вид → количество
+      ammo: {},                                     // 1.3.0: боеприпасы в сумке (см. ammo.js): вид → количество
       ammoStart: false,                             // выдана ли первая пачка боеприпасов своего народа
       market: { lots: [], log: [] },                // 1.3.0: Торговые ряды (см. market.js)
       story: { shards: {} },                        // 1.3.0: осколки Великого Сердца (см. story.js): id стража → true
     };
   };
 
+  // 1.5.4: поле неверного типа (правленный руками файл, битое сохранение) берётся из нового профиля, а не роняет игру.
+  // Поля, которые в новом профиле null (карта, питомец, народ…), бывают разных видов — их не проверяем.
+  const kindOf = (v) => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+  function sanitize(saved) {
+    const base = fresh(), out = {};
+    for (const [k, v] of Object.entries(saved)) {
+      if (!(k in base) || base[k] === null) { out[k] = v; continue; }
+      const want = kindOf(base[k]);
+      if (kindOf(v) === want && !(want === 'number' && !Number.isFinite(v))) out[k] = v;
+    }
+    if (out.faction && typeof Factions !== 'undefined' && !Factions.ORDER.includes(out.faction)) out.faction = null;
+    return out;
+  }
+
   let data = fresh();
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    let saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && (typeof saved !== 'object' || Array.isArray(saved))) saved = null;
+    if (saved) saved = sanitize(saved);
     if (saved) {
       data = { ...fresh(), ...saved };
       data.loadout = { ...Gear.emptyLoadout(), ...(saved.loadout || {}) };
@@ -61,6 +79,8 @@ const Profile = (() => {
       // старые сохранения могли не знать о счётчике добиваний Ударом (см. Medals.STRIKE_MILESTONES)
       data.medals = { earned: [], fiveStreaks: 0, strikeKills: 0, ...(saved.medals || {}) };
       data.elixirs = { active: {}, bag: {}, ...(saved.elixirs || {}) };
+      data.village = { ...(saved.village || {}) };
+      data.cosmetics = { titles: [], frames: [], title: null, frame: null, ...(saved.cosmetics || {}) };
       // прогресс из версии без уровней: опыт по числу побед (примерно 4 победы на уровень)
       if (saved.xp === undefined) data.xp = Hero.totalFor(1 + Math.floor((saved.wins || 0) / 4));
     } else {
@@ -104,8 +124,12 @@ const Profile = (() => {
     return { top, stock };
   }
 
+  // 1.5.4: браузер не даёт хранить данные (приватный режим, запрет сайта) — карта предупредит, что прогресс не сохранится.
+  let storageOk = true;
+  try { localStorage.setItem('wip-probe', '1'); localStorage.removeItem('wip-probe'); } catch (e) { storageOk = false; }
   const api = {
     get data() { return data; },
+    get storageOk() { return storageOk; },
     save,
     reset() { data = fresh(); save(); },
 
@@ -138,6 +162,12 @@ const Profile = (() => {
     // Деньги
     addCoins(n) { data.coins += n; save(); },
     spend(n) { if (data.coins < n) return false; data.coins -= n; save(); return true; },
+    // 1.5.1: улучшения деревни и косметика (js/village.js)
+    village() { return data.village; },
+    buyVillage(id) { const p = Village.buy(data.village, id, Hero.tierFor(api.level()), data.coins); if (!p) return false; data.coins -= p; save(); return true; },
+    buyCosmetic(kind, id) { const p = Village.buyCosmetic(data.cosmetics, kind, id, data.coins, !!(data.story && data.story.shards && data.story.shards.b5)); if (!p) return false; data.coins -= p; save(); return true; },
+    equipCosmetic(kind, id) { const ok = Village.equip(data.cosmetics, kind, id); if (ok) save(); return ok; },
+    heroName() { return Village.fullName(data.name || '', data.cosmetics); },
 
     // Ресурсы
     res: (kind, tier) => data.resources[resKey(kind, tier)] || 0,
@@ -160,7 +190,7 @@ const Profile = (() => {
     drinkElixir(kind, tier) {
       const k = Elixirs.key(kind, tier);
       if (!(data.elixirs.bag[k] > 0)) return false;
-      if (!Elixirs.drink(data.elixirs.active, kind, tier)) return false;
+      if (!Elixirs.drink(data.elixirs.active, kind, tier, Village.elixirExtra(data.village))) return false;
       data.elixirs.bag[k]--; save(); return true;
     },
     elixirBonus: () => Elixirs.bonusStats(data.elixirs.active),
@@ -311,6 +341,7 @@ const Profile = (() => {
       try { parsed = JSON.parse(json); } catch (e) { return false; }
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
       if (typeof parsed.coins !== 'number' || !Array.isArray(parsed.items) || typeof parsed.loadout !== 'object') return false;
+      parsed = sanitize(parsed);
       data = { ...fresh(), ...parsed };
       data.loadout = { ...Gear.emptyLoadout(), ...(parsed.loadout || {}) };
       save();
@@ -336,7 +367,7 @@ const fmtStat = (k, v) => ({
 }[k]);
 const fmtBonus = (b) => Object.entries(b).map(([k, v]) => fmtStat(k, v)).join(', ');
 const statChips = (stats) => Object.entries(stats).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
-const tierChip = (t) => _t("<span class=\"tier-chip\" data-tier=\"{0}\" style=\"--t:{1};--ti:{2}\">Ур.{3} {4}</span>", [t, Tiers.get(t).color, Tiers.get(t).ink, t, Tiers.get(t).name]);
+const tierChip = (t) => _t("<span class=\"tier-chip\" data-tier=\"{0}\" style=\"--t:{1};--ti:{2}\">Ур.{3} {4}</span>", [t, Tiers.get(t).color, Tiers.get(t).ink, t, `<span class="tc-name">${Tiers.get(t).name}</span>`]);
 
 // Карточка предмета: иконка со свечением цвета уровня, название, характеристики и произвольная нижняя строка.
 // Если у предмета есть uid (это экземпляр игрока/противника, не абстрактный образец из энциклопедии),
@@ -553,8 +584,9 @@ const Inventory = (() => {
   let toast = '';
   let resetArmed = false;
   // 1.3.0: armory — окно открыто в Вашем доме (оружейная: сундук с вещами, кладовая, смена снаряжения);
-  // иначе это рюкзак в дороге: только эликсиры, расходники и боеприпасы, снаряжение посмотреть, но не сменить.
+  // иначе это сумка в дороге: только эликсиры, расходники и боеприпасы, снаряжение посмотреть, но не сменить.
   let armory = false;
+  let bagTab = 'elix';       // 1.5.7: подвкладки сумки: elix (эликсиры) | res (ресурсы)
   let invTab = 'hero';       // вкладки окна на телефоне: hero | gear | pack (на широком экране показано всё сразу)
 
   function open(which = 'left', opts = {}) {
@@ -648,19 +680,19 @@ const Inventory = (() => {
     const resHtml = mine ? (Profile.resList().map((r) => `<div class="bag-row">${MonsterArt.resIcon(r.kind, r.tier)}<span><b>${resLabel(r.kind, r.tier)}</b> × ${r.n}</span></div>`).join('') || _t("<p class=\"hint\">Ресурсов пока нет: они выпадают из монстров.</p>")) : '';
 
     const pct = budget ? Math.min(100, Math.round(used / budget * 100)) : 0;
-    const enemyName = Bestiary.MONSTERS[monsterId].name;
+    const enemyName = (Bestiary.MONSTERS[monsterId] || {}).name || fighters.right.name || '—';   // у Бобра-учителя записи в бестиарии нет
     let left = '';
     if (dragon || mine) left = `<div class="figure-box">${Figures.figure(mine ? Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender) : 'dragon', gear)}</div>`;
     else left = `<div class="figure-box monster-box">${MonsterArt.bust(monsterId, fighters.right.tier)}</div>`;
 
-    root.innerHTML = _t("\n      <div class=\"modal\" role=\"dialog\" aria-label=\"Ранец и экипировка\">\n        <header>\n          <h2>Ранец и экипировка</h2>\n          <span class=\"wallet-head\">{0}</span>\n          {1}\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        <div class=\"tabs\">\n          <button type=\"button\" class=\"{2}\" data-tab=\"left\">{3}</button>\n          <button type=\"button\" class=\"{4}\" data-tab=\"right\">Противник: {5}</button>\n        </div>\n        <div class=\"gear-layout\">\n          <section class=\"gear-left\">\n            {6}\n            {7}\n            {8}\n          </section>\n          <section class=\"gear-right\">\n            {9}\n            {10}\n            {11}\n            <div class=\"gear-toast\">{12}</div>\n            {13}\n            {14}\n            <h3>Ранец</h3>{15}\n            {16}\n            {17}\n          </section>\n        </div>\n      </div>", [MonsterArt.moneyHtml(Profile.data.coins), mine ? _t("<button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>") : '', mine ? 'on' : '', Profile.data.name ? escText(Profile.data.name) : fac.name + ': ' + Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender), mine ? '' : 'on', enemyName, left, mine ? heroLine(lv, stats) : '', statsBlock(stats), showGear ? _t("<div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{0}%\" class=\"{1}\"></i></div>\n              <span>Очки снаряжения: <b>{2}</b> / {3}{4}</span></div>", [pct, used > budget ? 'over' : '', used, budget, mine ? _t(" (растут с уровнем)") : '']) : '', mine && !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно до первого хода боя или после его окончания.</p>") : '', showGear ? `<div class="slots">${slots}</div>` : _t("<p class=\"hint\">{0}<br>У этого существа нет снаряжения — только врождённые способности (слева).</p>", [Bestiary.MONSTERS[monsterId].desc]), toast, mine ? _t("<h3>{0}: ваши вещи</h3><div class=\"item-list\">{1}</div>", [Gear.SLOT_NAMES[sel], list]) : '', showGear ? _t("<h3>Наборы</h3>{0}", [sets]) : '', bagHtml, mine ? _t("<h3>Ресурсы</h3>{0}", [resHtml]) : '', mine ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
+    root.innerHTML = _t("\n      <div class=\"modal\" role=\"dialog\" aria-label=\"Ранец и экипировка\">\n        <header>\n          <h2>Ранец и экипировка</h2>\n          <span class=\"wallet-head\">{0}</span>\n          {1}\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        <div class=\"tabs\">\n          <button type=\"button\" class=\"{2}\" data-tab=\"left\">{3}</button>\n          <button type=\"button\" class=\"{4}\" data-tab=\"right\">Противник: {5}</button>\n        </div>\n        <div class=\"gear-layout\">\n          <section class=\"gear-left\">\n            {6}\n            {7}\n            {8}\n          </section>\n          <section class=\"gear-right\">\n            {9}\n            {10}\n            {11}\n            <div class=\"gear-toast\">{12}</div>\n            {13}\n            {14}\n            <h3>Ранец</h3>{15}\n            {16}\n            {17}\n          </section>\n        </div>\n      </div>", [MonsterArt.moneyHtml(Profile.data.coins), mine ? _t("<button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>") : '', mine ? 'on' : '', Profile.data.name ? escText(Profile.data.name) : fac.name + ': ' + Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender), mine ? '' : 'on', enemyName, left, mine ? heroLine(lv, stats) : '', statsBlock(stats), showGear ? _t("<div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{0}%\" class=\"{1}\"></i></div>\n              <span>Очки снаряжения: <b>{2}</b> / {3}{4}</span></div>", [pct, used > budget ? 'over' : '', used, budget, mine ? _t(" (растут с уровнем)") : '']) : '', mine && !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно до первого хода боя или после его окончания.</p>") : '', showGear ? `<div class="slots">${slots}</div>` : _t("<p class=\"hint\">{0}<br>У этого существа нет снаряжения — только врождённые способности (слева).</p>", [((Bestiary.MONSTERS[monsterId] || {}).desc || '')]), toast, mine ? _t("<h3>{0}: ваши вещи</h3><div class=\"item-list\">{1}</div>", [Gear.SLOT_NAMES[sel], list]) : '', showGear ? _t("<h3>Наборы</h3>{0}", [sets]) : '', bagHtml, mine ? _t("<h3>Ресурсы</h3>{0}", [resHtml]) : '', mine ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
   }
 
 
-  /* ---------- «Мой дом»: герой в полный рост, вокруг надетые вещи; справа — рюкзак ---------- */
+  /* ---------- «Мой дом»: герой в полный рост, вокруг надетые вещи; справа — сумка ---------- */
   // Ячейки вокруг фигуры: слева голова/грудь/наручи, справа амулет/поножи, внизу — правая рука, спец. снаряд
   // (пока в разработке, пустой) и левая рука. Двуручное оружие занимает обе руки.
-  let pick = null;            // uid выбранной вещи в рюкзаке
+  let pick = null;            // uid выбранной вещи в сумке
   function dollSlot(gear, s, editable) {
     const it = Gear.item(gear[s]);
     const main = Gear.item(gear.main);
@@ -744,10 +776,10 @@ const Inventory = (() => {
     const pct = budget ? Math.min(100, Math.round(used / budget * 100)) : 0;
     const ak = Profile.shotKind(), AM = Ammo.CATALOG[ak], an = Profile.ammo(ak);
 
-    const heroName = (typeof Profile.data.name === 'string' && Profile.data.name) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender);
+    const heroName = (typeof Profile.data.name === 'string' && Profile.data.name && Profile.heroName()) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender);
     const doll = _t("<div class=\"doll\">\n      <div class=\"df-cap\"><b>{0}</b><span>Уровень {1} · очки снаряжения {2} / {3}</span></div>\n      <div class=\"doll-frame{4}\">\n        <div class=\"df-col l\">{5}</div>\n        <div class=\"doll-fig\">{6}</div>\n        <div class=\"df-col r\">{7}</div>\n        <div class=\"df-hands\">{8}\n          {9}\n          {10}</div>\n      </div>\n    </div>", [heroName, lv.level, used, budget, typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? ' p5' : '', ['head', 'shoulders', 'chest', 'arms', 'leash'].map((s) => dollSlot(gear, s, editable)).join(''), Figures.figure(Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender), gear), ['amulet', 'gloves', 'legs', 'bag', 'compass'].map((s) => dollSlot(gear, s, editable)).join(''), dollSlot(gear, 'main', editable), dollSlot(gear, 'ranged', editable).replace('</button>', `<b class="ammo-n" title="${AM.name} × ${an}">${an}</b></button>`), dollSlot(gear, 'off', editable)]);
 
-    // Подробности: выбранная вещь из рюкзака (надеть) или надетая в выбранной ячейке (снять).
+    // Подробности: выбранная вещь из сумки (надеть) или надетая в выбранной ячейке (снять).
     let detail = '';
     const pickEntry = pick && Profile.item(pick);
     if (false && pickEntry && !Profile.equippedUid(pick)) {
@@ -783,17 +815,40 @@ const Inventory = (() => {
     const exActive = Object.entries(ex.active).filter(([, a]) => a && a.left > 0)
       .map(([k, a]) => _t("<div class=\"bag-row\">{0}<span><b>{1}</b> · ещё {2} бо.<br><small>{3}</small></span></div>", [Elixirs.icon(k, a.tier), Elixirs.KINDS[k].name, a.left, Elixirs.describe(k, a.tier)])).join('');
     const exBag = Profile.elixirBag().map((e) => _t("<div class=\"bag-row\">{0}<span><b>{1}</b> · цвет «{2}» × {3}<br><small>{4}</small></span>\n      <button type=\"button\" data-drink=\"{5}:{6}\" {7}>Выпить</button></div>", [Elixirs.icon(e.kind, e.tier), Elixirs.KINDS[e.kind].name, Tiers.get(e.tier).name, e.n, Elixirs.describe(e.kind, e.tier), e.kind, e.tier, canEditGear() ? '' : 'disabled'])).join('');
-    const exHtml = (exActive || exBag) ? `${exActive ? _t("<h3>Действуют эликсиры</h3>") + exActive : ''}${exBag ? _t("<h3>Рюкзак: эликсиры (варит Тётушка Жабка)</h3>") + exBag : ''}` : '';
+    const exHtml = (exActive || exBag) ? `${exActive ? _t("<h3>Действуют эликсиры</h3>") + exActive : ''}${exBag ? _t("<h3>Сумка: эликсиры (варит Тётушка Жабка)</h3>") + exBag : ''}` : '';
     const runeBag = Profile.data.runeBag || {};
     const runes = (typeof Runes !== 'undefined' ? Runes.ORDER : []).filter((id) => runeBag[id] > 0)
       .map((id) => `<div class="bag-row">${Runes.icon(id, 'rune-dot')}<span><b>${Runes.CATALOG[id].name}</b> × ${runeBag[id]}<br><small>${Runes.CATALOG[id].desc}</small></span></div>`).join('');
-    const res = Profile.resList().map((r) => `<div class="bag-row">${MonsterArt.resIcon(r.kind, r.tier)}<span><b>${resLabel(r.kind, r.tier)}</b> × ${r.n}</span></div>`).join('')
+    const res = Profile.resList().map((r) => `<div class="bag-row" data-bkey="r:${r.kind}:${r.tier}">${MonsterArt.resIcon(r.kind, r.tier)}<span><b>${resLabel(r.kind, r.tier)}</b> × ${r.n}</span></div>`).join('')
       || _t("<p class=\"hint\">Ресурсов пока нет: они выпадают из монстров.</p>");
+    // 1.5.7: сумка — две подвкладки с ячейками (эликсиры и расходники / ресурсы); под ячейками — список с описаниями
+    const inB = typeof inBattle !== 'undefined' && inBattle;
+    const tabsBattle = inB ? `<div class="tabs"><button type="button" class="on" data-tab="left">${Profile.data.name ? escText(Profile.data.name) : fac.name + ': ' + Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)}</button>${_t("<button type=\"button\" data-tab=\"right\">Противник: {0}</button>", [Bestiary.MONSTERS[fighters.right.monsterId] ? Bestiary.MONSTERS[fighters.right.monsterId].name : '—'])}</div>` : '';
+    const BAG_ROW = 6, BAG_MIN = 12;
+    const bagGrid = (cells) => {
+      const total = Math.max(BAG_MIN, Math.ceil(cells.length / BAG_ROW) * BAG_ROW);
+      let h = '';
+      for (let i = 0; i < total; i++) {
+        const c = cells[i];
+        h += c ? `<button type="button" class="stash-cell btile bag-cell" data-bcell="${c.key}" style="--c:${c.color}" title="${c.title}">${c.icon}<b class="bc-n">${c.n}</b></button>` : '<div class="stash-cell empty" aria-hidden="true"></div>';
+      }
+      return `<div class="stash-grid bag-grid">${h}</div>`;
+    };
+    const elixCells = [
+      ...Profile.elixirBag().map((e) => ({ key: `${e.kind}:${e.tier}`, icon: Elixirs.icon(e.kind, e.tier), n: e.n, color: tierColor(e.tier), title: _t("{0} · цвет «{1}» × {2}", [Elixirs.KINDS[e.kind].name, Tiers.get(e.tier).name, e.n]) })),
+      ...Object.entries(Gear.CONSUMABLES).filter(([k]) => bag[k] > 0).map(([k, c]) => ({ key: 'c:' + k, icon: itemIcon(k), n: bag[k], color: '#c9b48a', title: `${c.name} × ${bag[k]}` })),
+    ];
+    const resCells = Profile.resList().map((r) => ({ key: `r:${r.kind}:${r.tier}`, icon: MonsterArt.resIcon(r.kind, r.tier), n: r.n, color: tierColor(r.tier), title: `${resLabel(r.kind, r.tier)} × ${r.n}` }));
+    const bagTabsHtml = `<div class="tabs bag-tabs">${[['elix', _t("Эликсиры")], ['res', _t("Ресурсы")]].map(([k, l]) => `<button type="button" class="${bagTab === k ? 'on' : ''}" data-btab="${k}">${l}</button>`).join('')}</div>`;
+    const paneElix = `<div class="bp-pane" data-p="elix">${exActive ? _t("<h3>Действуют эликсиры</h3>") + exActive : ''}${bagGrid(elixCells)}${exBag ? _t("<h3>Сумка: эликсиры (варит Тётушка Жабка)</h3>") + exBag : ''}${_t("<h3>Сумка: расходники</h3>")}${cons}${_t("<h3>Сумка: боеприпасы</h3>")}${ammoRow}${keyItemsHtml()}</div>`;
+    const paneRes = `<div class="bp-pane" data-p="res">${bagGrid(resCells)}${_t("<h3>Список ресурсов</h3>{0}", [res])}${armory && runes ? _t("<h3>Кладовая: руны</h3>{0}", [runes]) : ''}</div>`;
     const sets = Gear.setProgress(gear).map((p) => _t("\n      <div class=\"set\" style=\"--c:{0}\"><b>Набор «{1}» {2}/{3}</b>\n        {4}\n        {5}\n      </div>", [p.color, p.name, p.count, p.total, p.active.map((a) => _t("<div class=\"on\">{0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join(''), p.next.slice(0, 1).map((a) => _t("<div class=\"off\">ещё до {0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join('')])).join('') || _t("<p class=\"hint\">Наборов нет: собирайте предметы одного набора — они усиливают друг друга.</p>");
 
-    root.innerHTML = _t("\n      <div class=\"modal home-modal{0}\" role=\"dialog\" aria-label=\"Ранец и экипировка\" style=\"{1}\">\n        <header>\n          <h2>{2}</h2>\n          <span class=\"wallet-head\">{3}</span>\n          <button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        <div class=\"tabs\">\n          <button type=\"button\" class=\"on\" data-tab=\"left\">{4}</button>\n          {5}\n        </div>\n        <div class=\"tabs inv-tabs\">{6}</div>\n        <div class=\"gear-toast toast-phone\">{7}</div>\n        <div class=\"home-layout\" data-itab=\"{8}\" data-arm=\"{9}\">\n          <section class=\"home-hero\">\n            {10}\n            {11}\n            <div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{12}%\" class=\"{13}\"></i></div>\n              <span>Очки снаряжения: <b>{14}</b> / {15} (растут с уровнем)</span></div>\n          </section>\n          <section class=\"home-stats\">\n            {16}\n            {17}\n            <h3>Наборы</h3>{18}\n          </section>\n          <section class=\"home-bag\">\n            <div class=\"gear-toast toast-desk\">{19}</div>\n            <div class=\"bag-gear\">\n            {20}\n {21}\n            </div>\n            <div class=\"bag-pack\">\n            <h3>Рюкзак: боеприпасы</h3>{22}\n            {23}\n            <h3>Рюкзак: расходники</h3>{24}\n            {25}\n            {26}\n            {27}\n            <h3>Деньги</h3><div class=\"bag-row money-row\">{28}</div>\n            {29}\n          </div>\n          </section>\n        </div>\n      </div>", [armory && typeof Art !== 'undefined' && Art.hasScene('home') ? ' has-scene' : '', typeof Art !== 'undefined' ? artVar('scene', 'ui/bg-home') + artVar('hpanel', typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? 'ui/hero-panel-5' : 'ui/hero-panel') + artVar('sframe', 'ui/slot-frame') : '', armory ? _t("Ваш дом · Оружейная") : _t("Рюкзак"), MonsterArt.moneyHtml(Profile.data.coins), Profile.data.name ? escText(Profile.data.name) : fac.name + ': ' + Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender), typeof inBattle !== 'undefined' && inBattle ? _t("<button type=\"button\" data-tab=\"right\">Противник: {0}</button>", [Bestiary.MONSTERS[fighters.right.monsterId] ? Bestiary.MONSTERS[fighters.right.monsterId].name : '—']) : '', [['hero', _t("Герой")], ...(armory ? [['gear', _t("Вещи")]] : []), ['pack', _t("Рюкзак")]].map(([k, l]) => `<button type="button" class="${(invTab === k || (!armory && invTab === 'gear' && k === 'pack')) ? 'on' : ''}" data-itab="${k}">${l}</button>`).join(''), toast, !armory && invTab === 'gear' ? 'pack' : invTab, armory ? 1 : 0, doll, !armory ? _t("<p class=\"hint\">Снаряжение меняется в оружейной Вашего дома.</p>") : !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно вне боя.</p>") : '', pct, used > budget ? 'over' : '', used, budget, heroLine(lv, stats), statsBlock(stats), sets, toast, detail, armory ? _t("<h3>Ячейки хранения · {0} / {1}</h3>\n            <p class=\"hint\">Нажмите на вещь — откроется её карточка с кнопкой «Надеть» или «Снять». Название вещи видно при наведении, цвет уровня — свечение вокруг.</p>\n            <div class=\"stash-grid\">{2}</div>\n            {3}\n            <div class=\"stash-buy\">{4}</div>", [stash.filter(Boolean).length, stashCap(), tiles, stash.length > stashCap() ? _t("<p class=\"hint warn\">Сундук переполнен: {0} вещей на {1} ячеек. Докупите ячейки или продайте лишнее в Лавке.</p>", [stash.filter(Boolean).length, stashCap()]) : '', (Profile.data.stashRows || 0) < STASH_MAX_ROWS
+    root.innerHTML = _t("\n      <div class=\"modal home-modal{0}\" role=\"dialog\" aria-label=\"Ранец и экипировка\" style=\"{1}\">\n        <header>\n          <h2>{2}</h2>\n          <span class=\"wallet-head\">{3}</span>\n          <button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        {4}{5}\n        <div class=\"tabs inv-tabs\">{6}</div>\n        <div class=\"gear-toast toast-phone\">{7}</div>\n        <div class=\"home-layout\" data-itab=\"{8}\" data-arm=\"{9}\">\n          <section class=\"home-hero\">\n            {10}\n            {11}\n            <div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{12}%\" class=\"{13}\"></i></div>\n              <span>Очки снаряжения: <b>{14}</b> / {15} (растут с уровнем)</span></div>\n          </section>\n          <section class=\"home-stats\">\n            {16}\n            {17}\n            <h3>Наборы</h3>{18}\n          </section>\n          <section class=\"home-bag\">\n            <div class=\"gear-toast toast-desk\">{19}</div>\n            <div class=\"bag-gear\">\n            {20}\n {21}\n            </div>\n            <div class=\"bag-pack\" data-btab=\"{22}\">\n            {23}\n            {24}\n            {25}\n            <h3>Деньги</h3><div class=\"bag-row money-row\">{26}</div>\n            {27}\n          </div>\n          </section>\n        </div>\n      </div>", [armory && typeof Art !== 'undefined' && Art.hasScene('home') ? ' has-scene' : '', typeof Art !== 'undefined' ? artVar('scene', 'ui/bg-home') + artVar('hpanel', typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? 'ui/hero-panel-5' : 'ui/hero-panel') + artVar('sframe', 'ui/slot-frame') : '', armory ? _t("Ваш дом · Оружейная") : _t("Сумка"), MonsterArt.moneyHtml(Profile.data.coins), tabsBattle, '', [['hero', _t("Герой")], ...(armory ? [['gear', _t("Вещи")]] : []), ['pack', _t("Сумка")]].map(([k, l]) => `<button type="button" class="${(invTab === k || (!armory && invTab === 'gear' && k === 'pack')) ? 'on' : ''}" data-itab="${k}">${l}</button>`).join(''), toast, !armory && invTab === 'gear' ? 'pack' : invTab, armory ? 1 : 0, doll, !armory ? _t("<p class=\"hint\">Снаряжение меняется в оружейной Вашего дома.</p>") : !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно вне боя.</p>") : '', pct, used > budget ? 'over' : '', used, budget, heroLine(lv, stats), statsBlock(stats), sets, toast, detail, armory ? _t("<h3>Ячейки хранения · {0} / {1}</h3>\n            <p class=\"hint\">Нажмите на вещь — откроется её карточка с кнопкой «Надеть» или «Снять». Название вещи видно при наведении, цвет уровня — свечение вокруг.</p>\n            <div class=\"stash-grid\">{2}</div>\n            {3}\n            <div class=\"stash-buy\">{4}</div>", [stash.filter(Boolean).length, stashCap(), tiles, stash.length > stashCap() ? _t("<p class=\"hint warn\">Сундук переполнен: {0} вещей на {1} ячеек. Докупите ячейки или продайте лишнее в Лавке.</p>", [stash.filter(Boolean).length, stashCap()]) : '', (Profile.data.stashRows || 0) < STASH_MAX_ROWS
               ? _t("<button type=\"button\" data-act=\"buyrow\" {0}>Докупить ряд ячеек (+{1}) — {2}</button>", [Profile.data.coins >= rowPrice() ? '' : 'disabled', STASH_ROW, MonsterArt.moneyHtml(rowPrice())])
-              : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это рюкзак: в дорогу берутся только эликсиры, расходники и боеприпасы. Вещи, ресурсы и руны хранятся в оружейной Вашего дома — там же меняется снаряжение.</p>"), ammoRow, exHtml, cons, keyItemsHtml(), armory && runes ? _t("<h3>Кладовая: руны</h3>{0}", [runes]) : '', armory ? _t("<h3>Кладовая: ресурсы</h3>{0}", [res]) : '', MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
+              : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это сумка: эликсиры, расходники, боеприпасы и ресурсы. Вещи и руны хранятся в оружейной Вашего дома — там же меняется снаряжение.</p>"), bagTab, bagTabsHtml, paneElix, paneRes, MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
+    const fc = Village.frameColor(Profile.data.cosmetics), dfr = root.querySelector('.doll-frame');   // 1.5.1: рамка из гардероба
+    if (fc && dfr) dfr.style.boxShadow = `0 0 0 3px ${fc}, 0 0 14px 4px ${fc}`;
   }
 
   // Особые предметы квестов: ключи к сундукам побережья, «Морской дневник», зелье подводного дыхания
@@ -805,7 +860,7 @@ const Inventory = (() => {
     if (xk.emerald && !xc.emerald) out.push(row('🌿', _t("Живой ключ"), _t("Отпирает изумрудный сундук у маяка.")));
     if (d.diary) out.push(row('📖', _t("Морской дневник"), _t("Дневник Капитана: рецепт зелья подводного дыхания и путь к серебряному сундуку.")));
     if (d.breath) out.push(row('🫧', _t("Зелье подводного дыхания"), _t("Хватит на один нырок к серебряному сундуку.")));
-    return out.length ? _t("<h3>Рюкзак: особые предметы</h3>{0}", [out.join('')]) : '';
+    return out.length ? _t("<h3>Сумка: особые предметы</h3>{0}", [out.join('')]) : '';
   }
 
   function say(text) { toast = text; render(); }
@@ -817,6 +872,14 @@ const Inventory = (() => {
     if (t.dataset.act === 'close') return close();
     if (t.dataset.act === 'valor') { if (typeof Screens !== 'undefined') Screens.openValor(); return; }
     if (t.dataset.itab) { invTab = t.dataset.itab; return render(); }
+    if (t.dataset.btab) { bagTab = t.dataset.btab; return render(); }
+    if (t.dataset.bcell) {   // ячейка сумки: показываем и подсвечиваем её строку в списке ниже
+      const k = t.dataset.bcell, drink = root.querySelector(`[data-drink="${k}"]`);
+      const row = drink ? drink.closest('.bag-row') : root.querySelector(`.bag-row[data-bkey="${k}"]`);
+      if (row) { row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1000); }
+      return;
+    }
+
     if (t.dataset.tab) { tab = t.dataset.tab; sel = tab === 'left' ? null : 'main'; pick = null; toast = ''; return render(); }
     if (t.dataset.drink) {
       const { kind, tier } = Elixirs.split(t.dataset.drink);
@@ -835,6 +898,11 @@ const Inventory = (() => {
       if (wuid) return ItemInfo.open(wuid);
       invTab = 'gear';
       return say(_t("Ячейка «{0}» пуста — нажмите вещь в ячейках хранения и выберите «Надеть»", [Gear.SLOT_NAMES[t.dataset.slot]]));
+    }
+    if (t.dataset.slot && tab === 'left' && !armory) {   // 1.5.7: карточка героя вне дома — нажатие на надетую вещь открывает её карточку (только просмотр)
+      const wuid = Profile.data.loadout[t.dataset.slot];
+      if (wuid) return ItemInfo.open(wuid);
+      return say(_t("Ячейка «{0}» пуста — снаряжение меняется в оружейной Вашего дома", [Gear.SLOT_NAMES[t.dataset.slot]]));
     }
     if (t.dataset.slot) { sel = (tab === 'left' && sel === t.dataset.slot) ? null : t.dataset.slot; pick = null; toast = ''; resetArmed = false; return render(); }
     if (t.dataset.pick) { pick = pick === t.dataset.pick ? null : t.dataset.pick; toast = ''; return render(); }

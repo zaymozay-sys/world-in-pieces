@@ -3,6 +3,7 @@ const assert = require('assert');
 const E = require('../js/elixirs.js');
 assert.strictEqual(E.ORDER.length, 7);
 assert.strictEqual(E.bonus(1), 3); assert.strictEqual(E.bonus(10), 30);
+assert.strictEqual(E.bonus(10, 'power'), 30); assert.strictEqual(E.bonus(10, 'block'), 20); assert.strictEqual(E.bonus(3, 'ricochet'), 6, 'защитные виды +2 за цвет');
 assert.deepStrictEqual([1, 3, 4, 6, 7, 10].map(E.battles), [3, 3, 5, 5, 8, 8]);
 const a = {};
 assert.ok(E.drink(a, 'power', 3)); assert.strictEqual(a.power.left, 3);

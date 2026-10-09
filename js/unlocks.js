@@ -5,9 +5,9 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
    Чистые функции от Profile.data — удобно проверять тестами. */
 const Unlocks = (() => {
   // Сколько побед нужно для здания. Здания, которых здесь нет, открыты всегда.
-  const NEED = { lighthouse: 5, junker: 3, alchemist: 5, kennel: 8, artistWorkshop: 10 };
-  const NAMES = { lighthouse: _t("Маяк"), junker: _t("Хижина старьёвщика"), alchemist: _t("Алхимик"), kennel: _t("Питомник"), artistWorkshop: _t("Мастерская художника") };
-  const HINTS = { lighthouse: _t("тюлень даёт поручения и ключ к сундуку"), junker: _t("скупает ненужные вещи и даёт поручения"), alchemist: _t("варит зелья и эликсиры из добычи"), kennel: _t("выбор спутника, уход и яйца питомцев"), artistWorkshop: _t("руны для вещей") };
+  const NEED = { lighthouse: 5, junker: 3, alchemist: 5, kennel: 8, artistWorkshop: 10, arena: 6 };
+  const NAMES = { arena: _t("Арена"), lighthouse: _t("Маяк"), junker: _t("Хижина старьёвщика"), alchemist: _t("Алхимик"), kennel: _t("Питомник"), artistWorkshop: _t("Мастерская художника") };
+  const HINTS = { arena: _t("Арена теней и Испытание дня"), lighthouse: _t("тюлень даёт поручения и ключ к сундуку"), junker: _t("скупает ненужные вещи и даёт поручения"), alchemist: _t("варит зелья и эликсиры из добычи"), kennel: _t("выбор спутника, уход и яйца питомцев"), artistWorkshop: _t("руны для вещей") };
   const GIVERS = { tavern: ['tavern', _t("Трактирщик в таверне")], mill: ['mill', _t("Мельник на мельнице")], lighthouse: ['lighthouse', _t("Тюлень на маяке")], junker: ['junker', _t("Старьёвщик")] };
 
   const wins = (d) => (d && d.wins) || 0;

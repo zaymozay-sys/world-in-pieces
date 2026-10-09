@@ -183,3 +183,102 @@ console.log('pets 1.3.9 ok');
   assert.ok(Pets.BOARD_HP > 1);
 }
 console.log('pets 1.4.8 ok');
+
+// 1.5.0: учёба в питомнике
+{
+  const pet = { speciesId: Object.keys(Pets.HOME || {})[0] || 'dog', tier: 1, xp: 0 };
+  assert.strictEqual(Pets.studyLeft(pet, 0), -1, 'не учится');
+  assert.ok(Pets.studyStart(pet, 1000), 'начать можно');
+  assert.ok(!Pets.studyStart(pet, 1000), 'второй раз нельзя');
+  assert.strictEqual(Pets.studyLeft(pet, 1000), Pets.STUDY_MS);
+  assert.strictEqual(Pets.studyCollect(pet, 3, 1000 + Pets.STUDY_MS - 1), null, 'рано');
+  const r = Pets.studyCollect(pet, 3, 1000 + Pets.STUDY_MS);
+  assert.ok(r && r.after > r.before, 'ум вырос');
+  assert.strictEqual(pet.study, 0);
+  pet.xp = 2000;                                     // ум выше потолка учёбы
+  assert.ok(!Pets.studyOpen(pet) && !Pets.studyStart(pet, 5), 'выше потолка — только бои');
+  assert.ok(!Pets.battleReady({ xp: 0 }) && Pets.battleReady({ xp: 100 }), 'готовность к бою');
+}
+
+// 1.5.0: занятия (мяч, клад), защита новичка, опыт за поражение
+{
+  const mk = () => ({ speciesId: 'dog', tier: 2, xp: 0 });
+  let p = mk();
+  assert.ok(Pets.studyStart(p, 0, 'ball'));
+  assert.ok(!Pets.studyStart(p, 0, 'hunt'), 'одно занятие за раз');
+  assert.strictEqual(Pets.studyCollect(p, 3, 1000), null, 'рано');
+  let r = Pets.studyCollect(p, 3, Pets.ACTS.ball.ms);
+  assert.strictEqual(r.kind, 'ball'); assert.strictEqual(p.fed, 2, 'бодрость на 2 боя');
+  p = mk();
+  assert.ok(Pets.studyStart(p, 0, 'hunt'));
+  r = Pets.studyCollect(p, 3, Pets.ACTS.hunt.ms);
+  assert.strictEqual(r.kind, 'hunt'); assert.ok(r.coins > 0 && r.coins === Pets.huntCoins(p));
+  assert.ok(!Pets.studyStart(mk(), 0, 'nonsense'), 'неизвестное занятие');
+  // ум выше потолка учёбы: мяч и клад всё равно доступны
+  const wise = { speciesId: 'dog', tier: 2, xp: 5000 };
+  assert.ok(!Pets.studyStart(wise, 0, 'study') && Pets.studyStart(wise, 0, 'ball'));
+  // защита новичка
+  assert.ok(Pets.boardHp({ xp: 0 }) > Pets.boardHp({ xp: 2000 }), 'новичок крепче');
+  assert.strictEqual(Pets.boardHp({ xp: 2000 }), Pets.BOARD_HP);
+  assert.ok(Pets.xpGain(1, false) >= 10, 'за поражение опыта больше, чем раньше');
+  assert.ok(Pets.xpGain(1, true) > Pets.xpGain(1, false));
+}
+console.log('pets 1.5.0 ok');
+
+// 1.5.1: дрессировка, отдых, разведка, серия дней
+{
+  const DAY = 86400000, T0 = 20000 * DAY + 12 * 3600000;
+  let p = Pets.makePet('dog', 2); p.xp = 0;
+  assert.ok(Pets.studyStart(p, T0, 'drill'));
+  let r = Pets.studyCollect(p, 3, T0 + Pets.ACTS.drill.ms);
+  assert.strictEqual(r.kind, 'drill'); assert.strictEqual(p.drill, 2);
+  assert.strictEqual(Pets.useTreats(p).int, Pets.DRILL_INT); assert.strictEqual(p.drill, 1);
+  Pets.useTreats(p); assert.strictEqual(p.drill, 0);
+  assert.strictEqual(Pets.useTreats(p).int, 0, 'дрессировка кончилась');
+  // отдых
+  p = Pets.makePet('dog', 2); p.durability = 1;
+  assert.ok(Pets.studyStart(p, T0, 'rest'));
+  r = Pets.studyCollect(p, 3, T0 + Pets.ACTS.rest.ms);
+  assert.strictEqual(r.gain, 1); assert.strictEqual(p.durability, 2);
+  p.durability = p.maxDurability; Pets.studyStart(p, T0, 'rest');
+  assert.strictEqual(Pets.studyCollect(p, 3, T0 + Pets.ACTS.rest.ms).gain, 0, 'выше максимума не растёт');
+  // разведка
+  p = Pets.makePet('dog', 2);
+  assert.ok(Pets.studyStart(p, T0, 'scout'));
+  r = Pets.studyCollect(p, 3, T0 + Pets.ACTS.scout.ms, () => 0);
+  assert.ok(r.res && r.res.n >= 1 && r.res.tier >= 1 && r.res.tier <= 2);
+  // серия: день 1, 2 подряд, 3-й — бонус; пропуск сбрасывает
+  p = Pets.makePet('dog', 2); p.xp = 0;
+  const go = (t) => { Pets.studyStart(p, t, 'ball'); return Pets.studyCollect(p, 3, t + Pets.ACTS.ball.ms); };
+  assert.strictEqual(go(T0).streakInfo.streak, 1);
+  assert.strictEqual(go(T0 + DAY).streakInfo.streak, 2);
+  const x0 = p.xp; r = go(T0 + 2 * DAY);
+  assert.strictEqual(r.streakInfo.streak, 3); assert.strictEqual(r.streakInfo.bonus, Pets.STREAK_BONUS[3]); assert.ok(p.xp > x0);
+  assert.strictEqual(go(T0 + 2 * DAY + 3600000).streakInfo.bonus, 0, 'в тот же день серия не растёт');
+  assert.strictEqual(go(T0 + 5 * DAY).streakInfo.streak, 1, 'пропуск сбрасывает серию');
+}
+console.log('pets 1.5.1 ok');
+
+// 1.5.1: эликсиры — один заметный эффект за бой, растёт с цветом
+{
+  const Elixirs = require('../js/elixirs.js');
+  for (const k of Elixirs.ORDER) {
+    assert.strictEqual(Elixirs.effect(k, 4), null, 'до 5-го цвета эффекта нет: ' + k);
+    assert.ok(Elixirs.effect(k, 5) && Elixirs.sideText(k, 5), 'есть текст: ' + k);
+    if (k !== 'initiative') assert.ok(Elixirs.effect(k, 10).v >= Elixirs.effect(k, 5).v, 'растёт с цветом: ' + k);
+  }
+  assert.ok(Elixirs.effect('power', 5).v >= 1.5 && Elixirs.effect('power', 10).v >= 2);
+  assert.ok(Elixirs.effect('defense', 10).v <= 90, 'первый удар не обнуляется');
+  assert.strictEqual(Elixirs.effect('health', 5).v, 0, 'на 5-м цвете остаётся 1 ХП');
+  assert.ok(Elixirs.effect('health', 10).v > 0);
+  assert.ok(/ХП/.test(Elixirs.describe('health', 10)) && /×/.test(Elixirs.describe('fury', 7)));
+  // крит с добавкой от эликсира ярости
+  const Combat = require('../js/combat.js');
+  const mk = (extra) => ({ hp: 1000, max: 1000, dmg: 1, stats: { power: 0, fury: 100, defense: 0, block: 0, ricochet: 0 }, buffs: [], critExtra: extra });
+  const t = mk(0); t.stats.fury = 0;
+  const a1 = mk(0), r1 = Combat.hit(a1, { ...t, buffs: [] }, 100, false, () => 0);
+  const a2 = mk(1), r2 = Combat.hit(a2, { ...t, buffs: [] }, 100, false, () => 0);
+  assert.ok(r1.crit && r2.crit && r2.amount > r1.amount, 'эликсир ярости усиливает первый крит');
+  assert.strictEqual(a2.critExtra, 0, 'добавка расходуется');
+  console.log('elixirs 1.5.1 ok');
+}

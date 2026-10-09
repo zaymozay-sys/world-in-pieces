@@ -7,7 +7,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
    Когда четыре осколка собраны, у северного края карты пробуждается последний страж — Древний дракон (цвет 10):
    он держит сердцевину. Победа над ним завершает сюжет.
 
-   Страж — обычное существо своего вида, но вдвое крепче и сильнее (HP_MULT, POWER), с короной на карте.
+   Страж — обычное существо своего вида, но втрое крепче и сильнее (HP_MULT, POWER), с короной на карте.
    Его можно побеждать снова (как других существ — он возвращается через время), но осколок даётся один раз. */
 
 const ST_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
@@ -16,24 +16,36 @@ const Story = (() => {
   // angle — направление от деревни на карте (градусы экрана: 0 — восток, 90 — юг, -90 — север).
   const CHAPTERS = [
     { id: 'b1', species: 'wolf', tier: 2, angle: 90, title: _t("Вожак стаи"), where: _t("на юге, в лесах второго цвета"),
-      lore: _t("Огромный волк проглотил первый осколок — с тех пор стая не знает страха.") },
+      lore: _t("Огромный волк проглотил первый осколок — с тех пор стая не знает страха."),
+      taunt: _t("Вожак стаи скалится: «Осколок греет мою стаю. Хочешь отнять — беги быстрее, чем я прыгаю»."),
+      defeat: _t("Вожак отступает, а стая провожает тебя тихим воем: страх ушёл вместе с осколком.") },
     { id: 'b2', species: 'bandit', tier: 4, angle: -60, title: _t("Атаман разбойников"), where: _t("на северо-востоке, у дорог четвёртого цвета"),
-      lore: _t("Атаман носит осколок в рукояти сабли и говорит, что купил его. Врёт.") },
+      lore: _t("Атаман носит осколок в рукояти сабли и говорит, что купил его. Врёт."),
+      taunt: _t("Атаман крутит саблю: «Осколок мой, я за него заплатил! Ну, почти заплатил»."),
+      defeat: _t("Атаман бросает саблю: «Забирай! Он всё равно режет руки».") },
     { id: 'b3', species: 'orcShaman', tier: 6, angle: 150, title: _t("Шаман Орды"), where: _t("на юго-западе, в землях шестого цвета"),
-      lore: _t("Шаман вплёл осколок в бубен — его заклинания стали злее.") },
+      lore: _t("Шаман вплёл осколок в бубен — его заклинания стали злее."),
+      taunt: _t("Шаман бьёт в бубен: «Слышишь? Это голос Сердца. Он говорит, что ты опоздал»."),
+      defeat: _t("Бубен лопается, осколок катится к твоим ногам. Шаман вздыхает: «Он был слишком громким».") },
     { id: 'b4', species: 'captain', tier: 8, title: _t("Капитан"), where: _t("на восточном берегу, у бригантины"), existing: true,
-      lore: _t("Капитан нашёл осколок в трюме своего корабля — и из-за него сел на мель.") },
+      lore: _t("Капитан нашёл осколок в трюме своего корабля — и из-за него сел на мель."),
+      taunt: _t("Капитан хмурится: «Этот осколок посадил мой корабль на мель. Но отдавать его я не стану!»"),
+      defeat: _t("Капитан снимает шляпу: «Бери. Может, без него море наконец успокоится».") },
     { id: 'b5', species: 'dragon', tier: 10, angle: -90, title: _t("Древний дракон"), where: _t("у северного края карты"), final: true,
-      lore: _t("Сердцевина Сердца — у древнего дракона. Он проснётся, когда четыре осколка будут вместе.") },
+      lore: _t("Сердцевина Сердца — у древнего дракона. Он проснётся, когда четыре осколка будут вместе."),
+      taunt: _t("Дракон приоткрывает один глаз: «Четыре осколка… Ты принёс мне мои сны. Теперь отдай и свои»."),
+      defeat: _t("Дракон выдыхает тёплый дым: «Сердце снова бьётся. Береги его, малыш».") },
   ];
   const BY_ID = Object.fromEntries(CHAPTERS.map((c) => [c.id, c]));
-  const HP_MULT = 2, POWER = 20;
+  const HP_MULT = 3, POWER = 40;
 
-  // Страж: ХП вдвое и +20% Силы к виду. Капитан уже босс по своему виду — его не усиливаем повторно.
-  function scaleBoss(sc, bossId) {
+  // Страж: ХП ×3 и +40 Силы к виду (1.5.1, по симулятору карьеры). Капитан уже босс по своему виду — его не усиливаем повторно.
+  function scaleBoss(sc, bossId, cyc = 0) {
     const ch = BY_ID[bossId];
-    if (!ch || ch.existing) return sc;
-    return { ...sc, hp: Math.round(sc.hp * HP_MULT), stats: { ...sc.stats, power: (sc.stats.power || 0) + POWER } };
+    if (!ch) return sc;
+    const hpK = (ch.existing ? 1 : HP_MULT) * (1 + 0.5 * cyc), pw = (ch.existing ? 0 : POWER) + 10 * cyc;
+    if (hpK === 1 && !pw) return sc;
+    return { ...sc, hp: Math.round(sc.hp * hpK), stats: { ...sc.stats, power: (sc.stats.power || 0) + pw } };
   }
   const bossName = (bossId, baseName) => (BY_ID[bossId] && !BY_ID[bossId].existing ? BY_ID[bossId].title : baseName);
 
@@ -42,13 +54,36 @@ const Story = (() => {
   const finished = (story) => !!(story && story.shards && story.shards.b5);
 
   // Награда за осколок (один раз): монеты по цвету стража и опыт. Финал — втрое больше.
-  function shardReward(bossId) {
-    const ch = BY_ID[bossId];
-    const coins = Math.round(400 * ST_T.PRICE_MULT[ch.tier - 1] * (ch.final ? 3 : 1));
-    return { coins, xp: (ch.final ? 600 : 120) * Math.ceil(ch.tier / 2) };
+  function shardReward(bossId, cyc = 0) {
+    const ch = BY_ID[bossId], k = 1 + 0.5 * cyc;
+    const coins = Math.round(400 * ST_T.PRICE_MULT[ch.tier - 1] * (ch.final ? 3 : 1) * k);
+    return { coins, xp: Math.round((ch.final ? 600 : 120) * Math.ceil(ch.tier / 2) * k) };
   }
 
-  return { CHAPTERS, BY_ID, HP_MULT, POWER, scaleBoss, bossName, shards, finalOpen, finished, shardReward };
+  // 1.5.1: вести из деревни после каждого осколка; концовка; новый поход (цикл) делает стражей крепче.
+  const NEWS = [
+    _t("В деревне говорят: по ночам стало тише — на юге больше не воет стая."),
+    _t("Купцы пошли по северо-восточной дороге без охраны, а трактирщик угощает за счёт заведения."),
+    _t("На юго-западе не слышно бубна. Дети играют у частокола допоздна."),
+    _t("Море успокоилось, а на севере дрожит земля: просыпается что-то огромное…"),
+    _t("Грань цела. Над деревней всю ночь горит свет Сердца."),
+  ];
+  const news = (story) => NEWS[Math.min(NEWS.length - 1, shards(story) + (finished(story) ? 1 : 0)) - 1] || '';
+  const newsAll = (story) => NEWS.slice(0, Math.min(NEWS.length, shards(story) + (finished(story) ? 1 : 0)));
+  const EPILOGUE = _t("Сердцевина встала на место, и Великое Сердце забилось. Осколки вернулись в Грань, а твоё имя вписали в летопись. Но Грань велика: новые стражи уже слышат её зов…");
+  const cycle = (story) => (story && story.cycle) || 0;
+  function newCycle(story) {                     // «новый поход»: осколки заново, стражи крепче
+    if (!finished(story)) return false;
+    story.cycle = cycle(story) + 1; story.shards = {};
+    return true;
+  }
+  const PET_LINES = {
+    hatch: _t("Из яйца выглянул малыш — и сразу ткнулся носом тебе в ладонь."),
+    firstWin: _t("Первая победа! Питомец гордо задрал нос."),
+    hurt: _t("Питомец пошатнулся, но не сдаётся. Ему нужен отдых в питомнике."),
+  };
+
+  return { NEWS, news, newsAll, EPILOGUE, cycle, newCycle, PET_LINES, CHAPTERS, BY_ID, HP_MULT, POWER, scaleBoss, bossName, shards, finalOpen, finished, shardReward };
 })();
 
 if (typeof module !== 'undefined') module.exports = Story;

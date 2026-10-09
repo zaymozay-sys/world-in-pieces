@@ -25,7 +25,7 @@ const Market = (() => {
     if (kind === 'res') { const [k, t] = key.split(':'); return Math.max(1, Math.round(MK_B.resPrice(k, Number(t)) * 1.8)); }
     return Math.max(1, Math.round((unitPrice || 1) * 0.75));     // cons/ammo: от цены в Лавке
   }
-  const fee = (price) => Math.max(1, Math.round(price * FEE));
+  const fee = (price, rate = FEE) => Math.max(1, Math.round(price * rate));
 
   // Среднее время продажи (мин) при цене price и справедливой fair. Infinity — не купят.
   function meanMinutes(price, fair) {

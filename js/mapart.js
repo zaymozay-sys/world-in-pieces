@@ -209,6 +209,14 @@ const MapArt = (() => {
       <path d="M-13 3 H13 M-6 -8 V14 M6 -8 V14" stroke="#d8dde3" stroke-width="2"/><rect x="-3" y="1" width="6" height="7" rx="1.2" fill="#1b1b22" stroke="${O}" stroke-width=".8"/><circle cy="4.2" r="1" fill="${O}"/>
       <circle cx="-8" cy="-3" r="1.6" fill="#1b1b22" stroke="${O}" stroke-width=".5"/><circle cx="8" cy="-3" r="1.6" fill="#1b1b22" stroke="${O}" stroke-width=".5"/>
       <path d="M14 14 q3 -2 6 0 M-18 13 q-3 -2 -6 0" stroke="#d9c78c" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    dungeon: () => `
+      <path d="M-26 14 Q-24 -10 -10 -16 Q0 -22 10 -16 Q24 -10 26 14Z" fill="#7b7468" stroke="${O}" stroke-width="1"/>
+      <path d="M-20 14 Q-19 -2 -9 -8 Q0 -12 9 -8 Q19 -2 20 14Z" fill="#4c473f" stroke="${O}" stroke-width=".8"/>
+      <path d="M-11 14 V-1 Q-11 -9 0 -9 Q11 -9 11 -1 V14Z" fill="#1a1612" stroke="${O}" stroke-width="1"/>
+      <path d="M-11 14 V-1 Q-11 -9 0 -9 V14Z M0 -9 Q11 -9 11 -1 V14 H0Z" fill="#5a4630" stroke="${O}" stroke-width=".8"/>
+      <path d="M-11 -1 H11 M-11 6 H11 M0 -9 V14" stroke="#2c2c30" stroke-width="1.6"/><circle cx="-3" cy="3" r="1.3" fill="#c9b27c" stroke="${O}" stroke-width=".4"/><circle cx="3" cy="3" r="1.3" fill="#c9b27c" stroke="${O}" stroke-width=".4"/>
+      <path d="M-16 -12 q2 -5 5 -2 M12 -15 q3 -4 5 0" stroke="${O}" stroke-width=".8" fill="none"/>
+      <path d="M-14 14 l-3 -5 l5 0z M14 14 l3 -5 l-5 0z" fill="#8d8678" stroke="${O}" stroke-width=".6"/>`,
     arena: () => `
       <ellipse cy="2" rx="21" ry="12" fill="#b3a88f" stroke="${O}"/><ellipse cy="0" rx="15" ry="7.5" fill="#dcc79a" stroke="${O}" stroke-width=".8"/>
       <path d="M-21 2 V8 Q0 22 21 8 V2" fill="#9d927a" stroke="${O}"/>

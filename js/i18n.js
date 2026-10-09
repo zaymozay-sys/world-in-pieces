@@ -12,6 +12,7 @@
     if (typeof process !== 'undefined' && process.env && (process.env.WIP_LANG === 'ru' || process.env.WIP_LANG === 'en')) return process.env.WIP_LANG;
     if (typeof process !== 'undefined' && process.versions && process.versions.node && typeof window === 'undefined') return 'ru'; // тесты в Node — по-русски
     try { const s = localStorage.getItem(KEY); if (s === 'ru' || s === 'en') return s; } catch (e) { /* без хранилища */ }
+    try { const m = /^wip-lang:(ru|en)$/.exec(g.name || ''); if (m) return m[1]; } catch (e) { /* нет окна */ }   // 1.5.4: хранилище закрыто (приватный режим) — язык помнит имя окна
     const nav = (typeof navigator !== 'undefined' && ((navigator.languages && navigator.languages[0]) || navigator.language)) || 'ru';
     return /^(ru|uk|be|kk)/i.test(nav) ? 'ru' : 'en';
   }
@@ -44,7 +45,7 @@
     if (document.title && dict[norm(document.title)] !== undefined) document.title = dict[norm(document.title)];
   }
   function setLang(l) {
-    try { localStorage.setItem(KEY, l); } catch (e) { /* без хранилища */ }
+    try { localStorage.setItem(KEY, l); } catch (e) { try { g.name = 'wip-lang:' + l; } catch (e2) { /* нет окна */ } }
     if (typeof location !== 'undefined') location.reload();
   }
   const I18N = { lang, T, translateDom, setLang, missing, norm };

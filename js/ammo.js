@@ -1,6 +1,6 @@
 if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Боеприпасы (версия 1.3.0): слот «Спец. снаряд» под оружием героя. У каждого народа свой боеприпас.
-   Правила: выстрел хода не тратит, но за один свой ход — только один выстрел. Запас — в рюкзаке (Profile.data.ammo);
+   Правила: выстрел хода не тратит, но за один свой ход — только один выстрел. Запас — в сумке (Profile.data.ammo);
    покупка пачками в Лавке, изготовление в Кузнице из ресурсов. Противники боеприпасов не используют.
    Сила выстрелов подобрана сопоставимой (на 1-м уровне ≈ 8–10 урона или эквивалент): болт — 4 базовых удара
    (Combat.strikeDamage) + снятие усилений; стрела — 3 удара + кража 6 камней; дротик — 2 тика яда; шашка — «Захват» без цены. */
@@ -26,6 +26,27 @@ const Ammo = (() => {
   const ARROW_STEAL = 2;                 // Лунная стрела: камней каждого цвета
   const DART_TURNS = 2;
 
+  // 1.5.1: слабости семейств (вариант А). Урон выстрела ×1.5 по слабому семейству, ×0.7 по стойкому; остальные ×1.
+  // Названия семейств — русские ключи бестиария, сравниваются через _t() в момент выстрела (язык мог смениться).
+  const WEAK_MULT = 1.5, RESIST_MULT = 0.7;
+  const WEAK = {
+    bolt: ['Нежить', 'Тени', 'Духи', 'Болотные твари'],
+    bomb: ['Каменные стражи', 'Великаны', 'Орки', 'Лесные стражи', 'Пчёлы'],
+    moonarrow: ['Чудовища', 'Драконы', 'Твари'],
+    dart: ['Звери', 'Разбойники', 'Гоблины'],
+  };
+  const RESIST = {
+    bolt: ['Каменные стражи'],
+    bomb: ['Духи', 'Тени'],
+    moonarrow: ['Каменные стражи'],
+    dart: ['Нежить', 'Каменные стражи', 'Духи', 'Тени', 'Болотные твари'],
+  };
+  const inList = (list, family) => (list || []).some((n) => _t(n) === family);
+  const mult = (kind, family) => (inList(WEAK[kind], family) ? WEAK_MULT : inList(RESIST[kind], family) ? RESIST_MULT : 1);
+  const hint = (kind, family) => {
+    const m = mult(kind, family), nm = CATALOG[kind] && CATALOG[kind].short;
+    return m > 1 ? _t("{0}: слабое место (урон ×{1})", [nm, m]) : m < 1 ? _t("{0}: почти не берёт (урон ×{1})", [nm, m]) : '';
+  };
   const forFaction = (fac) => ORDER.find((k) => CATALOG[k].faction === fac) || 'bolt';
 
   // Урон «сырой» (без Силы/Брони/Блока), от базового урона героя: base = Combat.strikeDamage(f).
@@ -50,7 +71,7 @@ const Ammo = (() => {
     return `<svg class="item-icon ammo-icon" viewBox="0 0 100 100" aria-hidden="true">${SVG[id] || ''}</svg>`;
   }
 
-  return { CATALOG, ORDER, PACK, CRAFT, ARROW_STEAL, DART_TURNS, forFaction, boltDamage, arrowDamage, steal, icon };
+  return { WEAK, RESIST, WEAK_MULT, RESIST_MULT, mult, hint, CATALOG, ORDER, PACK, CRAFT, ARROW_STEAL, DART_TURNS, forFaction, boltDamage, arrowDamage, steal, icon };
 })();
 
 if (typeof module !== 'undefined') module.exports = Ammo;

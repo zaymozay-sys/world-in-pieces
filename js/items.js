@@ -187,16 +187,26 @@ const Gear = (() => {
   // Старьёвщик платит меньше Лавки — зато скупает всё разом, одной кнопкой (см. Screens.openJunker).
   const junkValue = (price) => Math.round(price * 0.25);
 
+  // 1.5.1: закалка — платные шаги +1…+5, каждый усиливает все характеристики вещи на 4%; очки снаряжения не растут.
+  const TEMPER_MAX = 5, TEMPER_STEP = 0.04, TEMPER_COST = [0.4, 0.7, 1.2, 2.0, 3.4];     // цена шага — доля цены вещи
+  const temperStats = (stats, plus) => Object.fromEntries(Object.entries(stats).map(([k, v]) => {
+    if (!(v > 0)) return [k, v];
+    const add = Math.ceil(v * TEMPER_STEP * plus - 1e-9);                      // вверх: даже мелкие характеристики растут с первого шага
+    return [k, v + add];
+  }));
+
   // Полное описание предмета с учётом уровня.
   function item(entry) {
     if (!entry) return null;
     const e = typeof entry === 'string' ? { id: entry, tier: 1 } : entry;
     const base = BY_ID[e.id];
     if (!base) return null;
-    const tier = T.clamp(e.tier || 1);
+    const tier = T.clamp(e.tier || 1), plus = Math.max(0, Math.min(TEMPER_MAX, e.plus || 0));
+    let st = tier === 1 ? base.stats : scaleStats(base.stats, tier);
+    if (plus > 0) st = temperStats(st, plus);
     return {
-      ...base, uid: e.uid || null, tier, base,
-      stats: tier === 1 ? base.stats : scaleStats(base.stats, tier),
+      ...base, uid: e.uid || null, tier, base, plus, name: plus > 0 ? `${base.name} +${plus}` : base.name,
+      stats: st,
       cost: Math.round(base.cost * T.POINT_MULT[tier - 1]),
       price: priceAt(base.cost, tier),
       runes: Array.isArray(e.runes) ? e.runes : (e.rune ? [e.rune] : undefined),
@@ -327,6 +337,12 @@ const Gear = (() => {
   };
 
   // Повышение уровня предмета на 1: ресурсы ТЕКУЩЕГО цвета + монеты. null — уровень максимальный.
+  // Следующий шаг закалки: { coins, plus } или null (максимум).
+  function temperCost(entry) {
+    const it = item(entry);
+    if (!it || typeof entry === 'string' || it.plus >= TEMPER_MAX) return null;
+    return { plus: it.plus + 1, coins: Math.round(it.price * TEMPER_COST[it.plus]) };
+  }
   function upgradeCost(entry) {
     const it = item(entry);
     if (!it || it.tier >= T.MAX) return null;
@@ -364,7 +380,7 @@ const Gear = (() => {
 
   return {
     itemsFor, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, ITEMS, CONSUMABLES, FORGE_KINDS,
-    MAX_DEFENSE, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
+    TEMPER_MAX, temperCost, temperStats, MAX_DEFENSE, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
     equipped, totalCost, setProgress, stats, statsFor, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, craftCost, bulkPrice,
   };
 })();

@@ -16,9 +16,9 @@ const Tutorial = (() => {
   // phase: 'map' | 'battle' | 'village'. wait: 'next' | 'move' | 'cast' | 'lightning' | 'ability' | 'win' | 'map'.
   // target: CSS-селектор (или функция) для подсветки; enter(): что сделать при входе в шаг.
   const STEPS = [
-    { phase: 'map', text: () => _t("Здравствуй, {0}! Я Бобёр-хранитель, живу в Библиотеке и знаю о нашем мире всё. Давным-давно разбилось Великое Сердце Грани, и его осколки стали волшебными камнями. За ними охотятся все — и звери, и чудища. Я научу тебя сражаться ими.", [name()]) },
-    { phase: 'map', target: '#map-zones', text: _t("Это карта. В центре — наша деревня за частоколом, вокруг — луга, леса, болота, горы и море. Туман рассеивается, когда ты подходишь ближе. Кружки с цифрой — существа: цифра и цвет — их уровень. Чем дальше от деревни, тем они сильнее.") },
-    { phase: 'map', text: _t("Прежде чем идти за частокол, потренируемся. В учебном бою нет наград, но и проиграть нельзя — я буду подсказывать каждый шаг. Готов?"), nextLabel: _t("В учебный бой"), next: () => MapView.startTraining('beaver', 1) },
+    // 1.5.4: быстрый старт — новичок сразу в учебном бою; народ выбирается после первой победы, экскурсию по деревне
+    // заменили подсказки при первом входе в каждое здание (Screens, TIPS).
+    { phase: 'map', text: () => _t("Здравствуй, {0}! Я Бобёр-хранитель. Великое Сердце Грани разбилось, и его осколки стали волшебными камнями — ими здесь и сражаются. Давай сразу попробуем: в учебном бою проиграть нельзя, а я подскажу каждый шаг.", [name()]), nextLabel: _t("В учебный бой"), next: () => MapView.startTraining('beaver', 1) },
 
     { phase: 'battle', target: '#board', text: _t("Это поле боя: 36 волшебных камней. Слева — ты, справа — я. Ходите по очереди: за один ход меняешь местами два соседних камня так, чтобы собралось три или больше одинаковых в ряд.") },
     { phase: 'battle', wait: 'move', cells: true, text: _t("Поменяй местами два подсвеченных камня — соберутся три чёрных обсидиана. Запомни главное: <b>урон наносит только обсидиан</b> (чёрный куб).") },
@@ -29,24 +29,14 @@ const Tutorial = (() => {
     { phase: 'battle', wait: 'cast', kinds: ['fire', 'square'], target: 'button.magic.fire, button.magic.square', enter: () => giveStones(12), text: _t("«Огненный крест» собирает в копилку камни крестом в области 5×5, а «Захват» — квадратом 3×3. Удар: постоянный урон + твой базовый + номиналы обсидианов. Выбери одно из них и нажми на клетку поля.") },
     { phase: 'battle', wait: 'lightning', target: 'button.magic.lightning', enter: () => giveStones(12), text: _t("«Шаровая молния» — самая сильная магия: весь ход каждый собранный камень, любого цвета, бьёт с силой ×1,5. Включи её!") },
     { phase: 'battle', wait: 'move', text: _t("Молния горит! Теперь собери любую линию — ударят все камни. Хитрость: Молния, а за ней Крест или Захват — самое мощное сочетание в игре.") },
-    { phase: 'battle', wait: 'ability', target: 'button.magic.fac', enter: () => { fighters.left.charge = CHARGE; renderFactionButton(); },
-      text: () => _t("Это приём твоего народа — «{0}»: {1}. Он заряжается, когда ты собираешь {2}, и хода не тратит. Я зарядил его — попробуй!", [playerFaction().ability.name, playerFaction().ability.desc, gemName()]) },
-    { phase: 'battle', target: '#bagbar', text: () => { const A = Ammo.CATALOG[Ammo.forFaction(Profile.data.faction)]; return _t("Внизу — рюкзак. Первым лежит боеприпас твоего народа — <b>{0}</b>: {1} Выстрел хода не тратит, но за ход — только один. Дальше зелья, эликсир силы, каменная пыль и свитки — тоже без траты хода. Всё это продаётся в Лавке, а боеприпасы можно сделать в Кузнице.", [A.name, A.desc]); } },
     { phase: 'battle', target: '#hint, #restart', text: _t("В обычном бою на ход даётся 30 секунд, три пропуска подряд — поражение. «Подсказка» покажет хороший обмен, «Отступить» уводит на карту без награды. Три неверных хода подряд — тоже поражение.") },
     { phase: 'battle', wait: 'win', target: 'button.magic.strike', enter: () => { giveStones(8); weakenBeaver(); },
       text: _t("Я почти без сил — добей меня! Собери обсидиан или примени «Удар» — он бьёт твоим базовым уроном. Победа приносит опыт, монеты, ресурсы и иногда вещи.") },
     { phase: 'battle', wait: 'map', target: '.overlay .to-map', text: _t("Победа! Нажми «На карту» — покажу деревню.") },
 
-    { phase: 'village', building: 'home', text: _t("<b>Ваш дом.</b> Здесь твой герой в полный рост и всё, что на нём надето, а справа — рюкзак. Это оружейная: здесь сундук со всеми вещами и кладовая с ресурсами. Нажми на вещь, чтобы надеть её. Менять снаряжение можно только дома, а в дорогу берёшь рюкзак — эликсиры, расходники и боеприпасы (кнопка «Рюкзак»).") },
-    { phase: 'village', building: 'shop', text: _t("<b>Лавка.</b> Покупка и продажа вещей, зелий, свитков и ресурсов. Ассортимент обновляется.") },
-    { phase: 'village', building: 'forge', text: _t("<b>Кузница.</b> Улучшает цвет вещей (от Красного до Обсидианового) и создаёт новые из ресурсов, что выпадают из существ.") },
-    { phase: 'village', building: 'tavern', text: _t("<b>Таверна.</b> Гоблин-трактирщик даёт задания — первое уже ждёт тебя: «Первая кровь». Ещё задания есть у Мельника-мыша на Мельнице.") },
-    { phase: 'village', building: 'hunter', text: _t("<b>Охотники.</b> Бестиарий: всё о встреченных существах — их приёмы, добыча и твой шанс на победу.") },
-    { phase: 'village', building: 'library', text: _t("<b>Библиотека</b> — мой дом. Здесь летопись <b>осколков Великого Сердца</b>: их хранят стражи с коронами на карте — собери четыре, и проснётся последний. Ещё тут поручение дня и учебные бои. Если что-то забудешь — приходи, проведу обучение заново.") },
-    { phase: 'village', building: 'artistWorkshop', text: _t("<b>Мастерская художника.</b> Журавль продаёт руны и вставляет их в вещи: по два гнезда в каждой.") },
-    { phase: 'village', building: 'hall', text: _t("<b>Ратуша</b> — самое большое здание, в центре площади. На площади — <b>Торговые ряды</b>: выставляй вещи и ресурсы на продажу. Здесь твой прогресс, смена фракции и сохранение в файл — чтобы перенести героя на другое устройство.") },
-    { phase: 'village', building: 'kennel', text: _t("<b>Питомник</b> — Смотрительница Ласка лечит, кормит и обучает прирученных зверей. Рядом <b>Алхимик</b>: Тётушка Жабка варит зелья из добычи, в том числе такие, каких нет в Лавке.") },
-    { phase: 'village', target: '#map-zones', text: _t("Теперь в путь! Начни с существ первого уровня у деревни — крыс, ежей, гадюк. Нажми на существо, посмотри шанс победы и выбери «Подойти и напасть». За обучение — 100 монет и 2 зелья здоровья. Удачи!"), nextLabel: _t("Начать игру") },
+    { phase: 'village', wait: 'faction', enter: () => { if (Profile.data.faction) schedule(idx + 1, 300); else Screens.openFactions(true); }, text: '' },
+    { phase: 'village', text: () => { const F = playerFaction(), A = Ammo.CATALOG[Ammo.forFaction(Profile.data.faction)]; return _t("Ты — {0}! У каждого народа свой приём — «{1}»: {2}. Он заряжается, когда ты собираешь {3}, и хода не тратит. А в сумке лежит боеприпас твоего народа — <b>{4}</b>: выстрел хода не тратит, но за ход — только один.", [F.name, F.ability.name, F.ability.desc, gemName(), A.name]); } },
+    { phase: 'village', target: '#map-zones', text: _t("Теперь в путь! Кружки с цифрой — существа: цифра и цвет — их уровень, чем дальше от деревни, тем сильнее. Начни с крыс, ежей и гадюк у частокола. В каждом здании деревни при первом входе я оставил короткую подсказку. За обучение — 100 монет и 2 зелья здоровья. Удачи!"), nextLabel: _t("Начать игру") },
   ];
 
   const cur = () => STEPS[idx];
@@ -144,6 +134,7 @@ const Tutorial = (() => {
     const s = cur();
     // На карте и в деревне окно прячется, пока идёт обычный бой (оно вернётся при возврате на карту).
     if (s && s.phase !== 'battle' && !inMapMode()) { if (box) box.hidden = true; clearHl(); return; }
+    if (s && s.wait === 'faction') { if (box) box.hidden = true; clearHl(); return; }   // 1.5.4: ждём выбора народа
     if (!box) {
       box = document.createElement('div');
       box.className = 'coach';
@@ -152,7 +143,7 @@ const Tutorial = (() => {
       document.body.appendChild(box);
       box.addEventListener('click', onClick);
     }
-    const total = STEPS.filter((x) => !hiddenStep(x)).length, shown = STEPS.slice(0, idx + 1).filter((x) => !hiddenStep(x)).length, text = typeof s.text === 'function' ? s.text() : s.text;
+    const shownStep = (x) => !hiddenStep(x) && x.wait !== 'faction', total = STEPS.filter(shownStep).length, shown = STEPS.slice(0, idx + 1).filter(shownStep).length, text = typeof s.text === 'function' ? s.text() : s.text;
     const waiting = s.wait && s.wait !== 'next';
     box.className = 'coach coach-' + s.phase;
     box.hidden = false;
@@ -229,17 +220,25 @@ const Tutorial = (() => {
     }
     Profile.save();
     if (typeof MapView !== 'undefined') MapView.renderHud();
+    if (!d.faction && typeof Screens !== 'undefined') setTimeout(() => Screens.openFactions(true), 50);   // 1.5.4: пропустили обучение до выбора народа
   }
   // Перезагрузка посреди обучения — начинаем заново с первого шага (поле step сохраняется, но бой не восстановить).
   function resumeIfStarted() {
     const d = Profile.data, t = d.tutorial;
-    if (d.faction && t && !t.done && t.step !== null && t.step !== undefined) setTimeout(() => start(true), 900);
+    if (t && !t.done && t.step !== null && t.step !== undefined) setTimeout(() => start(true), 900);
   }
   // Новый герой (ещё ни одной победы) — обучение начинается само.
   function maybeAutoStart() {
     const d = Profile.data;
-    if (d.faction && !(d.tutorial && d.tutorial.done) && !(d.wins > 0)) setTimeout(() => start(), 600);
+    if (!(d.tutorial && d.tutorial.done) && !(d.wins > 0)) setTimeout(() => start(), 600);
+  }
+  // 1.5.4: запуск игры — продолжить начатое обучение или (новичок) сразу начать его; заставка уходит за 2 с.
+  function boot() {
+    const d = Profile.data, t = d.tutorial;
+    if (t && t.done) return;
+    if (t && t.step !== null && t.step !== undefined) return resumeIfStarted();
+    if (!(d.wins > 0)) setTimeout(() => { if (!active) start(); }, 2300);
   }
 
-  return { _go: go, start, finish, event, resumeIfStarted, plantBoard, guard: guardBeaver, enemySkips: () => inBattle(), maybeAutoStart, inBattle, get active() { return active; }, get planted() { return planted; }, STEPS };
+  return { _go: go, start, finish, event, resumeIfStarted, boot, plantBoard, guard: guardBeaver, enemySkips: () => inBattle(), maybeAutoStart, inBattle, get active() { return active; }, get planted() { return planted; }, STEPS };
 })();

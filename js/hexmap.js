@@ -46,7 +46,7 @@ const HexMap = (() => {
     home: { name: _t("Ваш дом"), desc: _t("Оружейная: сундук с вещами, кладовая, смена снаряжения."), cells: [[2, 2], [1, 2], [2, 1]] },
     mill: { name: _t("Мельница"), desc: _t("Добрый мышь даёт задания и делится мышиной мудростью."), cells: [[-4, 4], [-3, 4], [-4, 5]] },
     kennel: { name: _t("Питомник"), desc: _t("Смотрительница Ласка лечит, кормит и обучает прирученных питомцев."), cells: [[0, 4], [-1, 4], [-1, 5]] },
-    arena: { name: _t("Арена"), soon: true, desc: _t("Бои между живыми игроками равных уровней. Откроется вместе с многопользовательским режимом."), cells: [[-6, 1], [-5, 1], [-6, 2]] },
+    arena: { name: _t("Арена"), desc: _t("Арена теней: бои с тенями героев, ранги и титулы. И Испытание дня — одно поле на всех."), cells: [[-6, 1], [-5, 1], [-6, 2]] },
     alchemist: { name: _t("Алхимик"), desc: _t("Тётушка Жабка варит зелья и эликсиры из добытых ресурсов."), cells: [[5, 1], [4, 1], [4, 2]] },
   };
   for (const b of Object.values(BUILDINGS)) { b.at = b.cells[0]; if (!b.scale) b.scale = 3.0; }
@@ -64,6 +64,9 @@ const HexMap = (() => {
     desc: _t("Сундук с изумрудами прячется в зарослях у маяка. Ключ — «Живой ключ» — варит алхимик.") };
   BUILDINGS.chestObsidian = { name: _t("Серебряный сундук"), label: _t("Серебряный"), at: [20, 0], landmark: true, gate: 0, scale: 1.6,
     desc: _t("Серебряный сундук с обсидианом лежит под водой у бригантины. Нужно уметь дышать под водой.") };
+  // 1.5.4: Врата подземелья — на северных холмах за деревней; пока заперты (soon), внутрь не войти.
+  BUILDINGS.dungeon = { name: _t("Врата подземелья"), label: _t("Подземелье"), at: [0, -12], post: true, soon: true, scale: 2.6,
+    desc: _t("Массивные железные ворота в склоне холма. Вход пока закрыт: подземелье в разработке. Внутри будут монстры, которые становятся сильнее с каждым этажом.") };
   const GATE_DIRS = [0, 3];          // 1.2.7: ворота и главная улица — восток и запад (симметрия города); от каждых ворот 3 дороги
 
   // Где водятся существа: диапазон цветов и любимая местность.
@@ -211,6 +214,7 @@ const HexMap = (() => {
 
     // здания
     for (const [id, b] of Object.entries(BUILDINGS)) {
+      if (b.post) continue;                      // ставится после монстров, ничего не сдвигая (см. ниже)
       const own = (b.cells || [b.at]).map(([q, r]) => index.get(key(q, r)));
       for (const i of own) cells[i].building = id;
       map.buildings.push({ id, idx: own[0], cells: own });
@@ -305,6 +309,16 @@ const HexMap = (() => {
     }
     if (captain) map.spawns.push({ id: map.spawns.length, ...captain });
     for (const b of bosses) map.spawns.push({ id: map.spawns.length, ...b });
+    // 1.5.4: Врата подземелья — ближайшая к заданной точке свободная доступная сота; карта, дороги и монстры остаются прежними.
+    for (const [id, b] of Object.entries(BUILDINGS)) {
+      if (!b.post) continue;
+      const at = cells[index.get(key(b.at[0], b.at[1]))], busy = new Set(map.spawns.map((x) => x.idx));
+      const spot = cells.filter((c) => reach.has(c.idx) && !busy.has(c.idx) && !c.building && !c.road && c.d > VILLAGE_R + 1 && TERRAIN[c.terrain].pass && c.terrain !== 'beach')
+        .sort((x, y) => dist(x, at) - dist(y, at) || x.idx - y.idx)[0];
+      if (!spot) continue;
+      spot.building = id;
+      map.buildings.push({ id, idx: spot.idx, cells: [spot.idx] });
+    }
     return map;
   }
 

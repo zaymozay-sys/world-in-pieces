@@ -1755,6 +1755,7 @@ body.ui-columns .bar .btns { flex: 1; display: flex; flex-wrap: nowrap; justify-
 body.ui-columns .bar .btns button { padding: 6px 8px; font-size: 12px; white-space: nowrap; }
 body.ui-columns .log-wrap { margin: 0; align-self: start; min-width: 0; }
 
+body.ui-columns:not(.phone) .fighter .name { align-content: center; align-items: center; min-height: 41px; }   /* 1.5.2: имя в одну или две строки — высота одна, полоски ХП на одной линии */
 /* ---- широкий экран и телефон в ландшафте: пять столбцов в ряд ---- */
 @media (min-aspect-ratio: 5/4) and (min-width: 700px) {
   body.ui-columns {
@@ -1806,7 +1807,7 @@ body.ui-columns .log-wrap { margin: 0; align-self: start; min-width: 0; }
   body.ui-columns .fighter .counters { grid-area: cn; grid-template-columns: 1fr; align-content: center; justify-items: start; gap: 3px; margin: 0 0 8px; }
   body.ui-columns .fighter.right .counters { justify-items: end; }
   body.ui-columns .fighter .counter { justify-content: center; padding: 2px 6px; width: auto; min-width: 0; }
-  body.ui-columns .fighter .name { grid-area: nm; margin: 0 0 6px; justify-content: center; }
+  body.ui-columns .fighter .name { grid-area: nm; margin: 0 0 6px; justify-content: center; align-content: center; align-items: center; min-height: 41px; }   /* 1.5.2: имя в одну или две строки — высота одна, полоски ХП на одной линии */
   body.ui-columns .fighter .hpbar { grid-area: hp; }
   body.ui-columns .fighter .wallet,
   body.ui-columns .fighter .ability-line { grid-area: ex; display: block; }
@@ -1839,7 +1840,7 @@ body.ui-columns .log-wrap { margin: 0; align-self: start; min-width: 0; }
   body.ui-columns .fighter .avatar { margin-bottom: 4px; }
   body.ui-columns .fighter .counters { gap: 2px; margin-bottom: 4px; }
   body.ui-columns .fighter .counter { padding: 1px 6px; }
-  body.ui-columns .fighter .name { font-size: 12px; margin-bottom: 4px; }
+  body.ui-columns .fighter .name { font-size: 12px; margin-bottom: 4px; min-height: 36px; }
   body.ui-columns .wallet, body.ui-columns .ability-line { margin: 2px 0; min-height: 18px; line-height: 18px; }
   body.ui-columns .fighter .statline { font-size: 10px; margin-bottom: 2px; }
   body.ui-columns .fighter .badge { font-size: 11px; margin: 0; }
@@ -1890,8 +1891,13 @@ body.ui-columns .log-wrap { margin: 0; align-self: start; min-width: 0; }
     align-items: stretch;
   }
   body.ui-columns { --frow: 120px; }
-  body.ui-columns .fighter.left, body.ui-columns .fighter.right { min-width: 0; max-width: none; justify-self: stretch; }
+  /* 1.5.2: обе панели — ровно по полмета ширины (раньше одна занимала «заклинания + пол-поля», другая «пол-поля + противник») */
+  body.ui-columns:not(.phone) .fighter.left, body.ui-columns:not(.phone) .fighter.right { min-width: 0; max-width: none; grid-column: 1 / -1; grid-row: 1; width: calc((100% - var(--g)) / 2); }
+  body.ui-columns:not(.phone) .fighter.left { justify-self: start; }
+  body.ui-columns:not(.phone) .fighter.right { justify-self: end; }
+  body.ui-columns.phone .fighter.left, body.ui-columns.phone .fighter.right { min-width: 0; max-width: none; }
   body.ui-columns .spellbar button.magic, body.ui-columns .enemy-col .ec-tile { border-radius: 6px; }
+  body.ui-columns:not(.phone) .enemy-col .ec-group { grid-template-columns: var(--ecol); grid-auto-rows: var(--ecol); }   /* 1.5.2: плитки противника — в ширину своего столбца (раньше 2×кнопка и обрезались) */
   body.ui-columns .enemy-col .ec-tile b { font-size: 8px; line-height: 10px; min-width: 11px; padding: 0 2px; }
   body.ui-columns .spellbar button.magic.fac .charge { left: 2px; right: 2px; bottom: 1px; height: 2px; }
   body.ui-columns .menu { grid-template-columns: 1fr 1fr auto; }
@@ -2199,7 +2205,8 @@ body.ui-columns .fighter.left, body.ui-columns .fighter.right { min-height: 0; o
 body.ui-columns #board { contain: layout; }
 
 /* ===== 1.3.6: нарисованные детали карточки и оружейной (если картинки есть) ===== */
-.icard .ic-close { background-image: var(--seal); background-size: contain; background-repeat: no-repeat; background-position: center; }
+.icard .ic-close { position: absolute; background-image: none; }
+.icard .ic-close::before { content: ""; position: absolute; inset: 0; background: var(--seal) center / contain no-repeat; transform: rotate(45deg); pointer-events: none; }   /* 1.5.8: печать повёрнута на 45° — крест на ней стал «✕» закрытия */
 .scroll[style*="--seal"] .icard .ic-close { background-color: transparent; box-shadow: none; font-size: 0; width: 46px; height: 46px; }
 .scroll[style*="--frame"] .ic-art { position: relative; }
 .scroll[style*="--frame"] .ic-art::after { content: ""; position: absolute; inset: -10px; background: var(--frame) center / 100% 100% no-repeat; pointer-events: none; }
@@ -2397,6 +2404,13 @@ body.duo-battle main.game { padding-top: 54px; }
 .duo-tab .dt-hp i { display: block; height: 100%; background: linear-gradient(#6fd36f, #2f8f3a); transition: width .3s; }
 .duo-tab small { grid-area: sm; font-size: 10px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 699px), (max-aspect-ratio: 5/4) { .duo-tab small { font-size: 9px; } .duo-take { flex: none; padding: 2px 8px; font-size: 11px; max-width: 92px; line-height: 1.1; } .duo-tab .dt-av { width: 26px; height: 26px; } }
+/* 1.5.2: полоса сверху в бою без питомца — имя и цвет противника (у стража — подпись); геометрия та же, что у полосы «Герой / Питомец» */
+.duo-bar.solo .solo-tab { cursor: default; border-color: #6a5a3a; background: #2a2620; }
+.solo-tab .dt-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.solo-tab .dt-name .tier-chip { vertical-align: 1px; margin-left: 2px; }
+.solo-battle .fighter .pet-panel { display: none !important; }   /* питомец в бою без второго поля показан в полосе сверху — панели героя и врага равны и не растут */
+.solo-tab .dt-hp i { background: linear-gradient(#e0574f, #a02b26); }
+@media (min-width: 700px) and (min-aspect-ratio: 5/4) { .duo-bar.solo { width: min(560px, calc(100vw - 16px)); } }
 .duo-take { padding: 6px 14px; border-radius: 8px; border: 2px solid #e3c98a; background: #3a3220; color: #f1d98a; font-weight: 600; cursor: pointer; }
 .duo-take[hidden] { display: none; }
 .duo-pet #spellbar, .duo-pet #bagbar, .duo-pet .row-actions, .duo-pet #restart, .duo-pet #gear, .duo-pet #hint { display: none; }
@@ -2415,7 +2429,7 @@ body.ui-columns.phone .more-menu button { padding: 10px 14px; font-size: 14px; t
 body.ui-columns.phone .pic-only { display: block; }
 body.ui-columns.phone h1, body.ui-columns.phone .rules, body.ui-columns.phone .spell-title,
 body.ui-columns.phone #bestiary, body.ui-columns.phone #credits, body.ui-columns.phone #ui-skin, body.ui-columns.phone #fullscreen,
-body.ui-columns.phone .enemy-col, body.ui-columns.phone .bar > span:first-child, body.ui-columns.phone .fighter .counters,
+body.ui-columns.phone .enemy-col, body.ui-columns.phone .bar > span:first-child,
 body.ui-columns.phone .fighter .gearrow, body.ui-columns.phone .fighter .statline, body.ui-columns.phone .fighter .wallet,
 body.ui-columns.phone .fighter .ability-line, body.ui-columns.phone .fighter .badge { display: none !important; }
 body.ui-columns.phone .menu, body.ui-columns.phone .bar, body.ui-columns.phone .bar .btns { display: contents; }
@@ -2496,7 +2510,7 @@ body.phone .duo-bar { left: 0; right: 0; transform: none; width: auto; border-ra
   body.phone .duo-take { font-size: 11px; padding: 2px 10px; max-width: none; }
   body.phone.duo-battle main.game { padding-top: 44px; }
   body.ui-columns.phone.duo-battle { --board: calc(100dvh - 12px - 22px - 38px); }
-  body.ui-columns.phone.duo-battle .arena { height: calc(100dvh - 12px - 38px); }
+  body.ui-columns.phone.duo-battle .arena { height: calc(100dvh - 12px - 38px - 3px); }
 }
 @media (orientation: portrait) {
   body.ui-columns.phone.duo-battle .game { padding-top: 56px; }
@@ -2505,5 +2519,264 @@ body.phone .duo-bar { left: 0; right: 0; transform: none; width: auto; border-ra
 body.ui-columns.phone.duo-battle .game { padding-bottom: 6px; }
 @media (orientation: landscape) { body.ui-columns.phone.duo-battle .game { padding-top: 44px; } }
 body.ui-columns.phone .fighter label.lvl { display: none; }
+body.ui-columns.phone .fighter .name { min-height: 20px; align-items: center; }   /* 1.5.2: чип «ур.» героя и чип цвета врага разной высоты — строка имени одна */
 body.ui-columns.phone .fighter .name .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (orientation: landscape) { body.ui-columns.phone .fighter .name { font-size: 11px; gap: 3px; } body.ui-columns.phone .fighter .name .tier, body.ui-columns.phone .fighter .name .badge-tier { display: none; } }
+
+/* 1.5.0: итог боя — карточка поверх всего экрана (раньше внутри поля и не помещалась), добыча картинками */
+.overlay { position: fixed; inset: 0; z-index: 90; padding: 12px; overflow: auto; background: rgba(8, 8, 10, .82); font-size: 30px; }
+.overlay > div {
+  width: min(440px, 100%); max-height: 100%; overflow: auto; padding: 18px 16px; margin: auto;
+  background: #1b150c; border: 1px solid #8a6d32; border-radius: 14px; box-shadow: 0 10px 40px #000c;
+}
+.overlay .loot { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 12px 0 2px; }
+.overlay .loot-chip {
+  position: relative; width: 56px; height: 56px; padding: 4px; border-radius: 10px; cursor: pointer;
+  background: #2a2113; border: 2px solid var(--t, #8a6d32); display: grid; place-items: center;
+}
+.overlay .loot-chip svg, .overlay .loot-chip img { width: 100%; height: 100%; }
+.overlay .loot-chip b { position: absolute; right: 2px; bottom: 1px; font-size: 12px; line-height: 14px; padding: 0 4px; border-radius: 7px; background: #000b; color: #fff; }
+.overlay .loot-cap { min-height: 20px; margin-top: 6px; font-size: 13px; font-weight: 500; letter-spacing: 0; color: #f2d88f; }
+.overlay .to-map { min-width: 160px; min-height: 44px; font-size: 16px; }
+
+/* 1.5.0: камни бойцов видны и на телефоне — одной строкой под полоской ХП */
+body.ui-columns.phone .fighter .counters { display: flex; grid-column: 1 / -1; gap: 2px; margin: 3px 0 0; }
+body.ui-columns.phone .fighter .counters .counter { flex: 1 1 0; min-width: 0; padding: 1px 0; gap: 1px; justify-content: center; }
+body.ui-columns.phone .fighter .counters .counter svg { width: 11px; height: 11px; }
+body.ui-columns.phone .fighter .counters .counter b { font-size: 10px; }
+/* 1.5.0: на телефоне строка хода и таймер не обрезаются */
+body.ui-columns.phone .turn-timer { white-space: nowrap; overflow: visible; font-size: 12px; }
+body.ui-columns.phone .status { font-size: 12px; }
+/* 1.5.1: кнопка приёма питомца */
+.pet-skill { grid-column: 1 / -1; margin-top: 4px; padding: 6px 8px; font-size: 12px; border-radius: 8px; border: 1px solid #8fc7a0; background: #1f3326; color: #d6f0dd; cursor: pointer; }
+.pet-skill:disabled { opacity: .55; cursor: default; }
+.pet-skill[hidden] { display: none; }
+
+/* 1.5.1: вспышки приёмов питомца и появление добычи */
+@keyframes pskill { 0% { box-shadow: 0 0 0 0 var(--fx, #fff0), inset 0 0 0 0 var(--fx, #fff0); filter: none; }
+  25% { box-shadow: 0 0 26px 6px var(--fx, #fff), inset 0 0 22px 2px var(--fx, #fff); filter: brightness(1.35); }
+  100% { box-shadow: 0 0 0 0 var(--fx, #fff0), inset 0 0 0 0 var(--fx, #fff0); filter: none; } }
+.fighter[class*="pskill-"] { animation: pskill 1.05s ease-out; border-radius: 10px; }
+.fighter.pskill-heal { --fx: #6ee38a; } .fighter.pskill-buff { --fx: #ffd46a; } .fighter.pskill-block { --fx: #8ec1ff; }
+.fighter.pskill-steal { --fx: #b98ae0; } .fighter.pskill-weaken { --fx: #9a8fb0; } .fighter.pskill-mire { --fx: #8b6a3a; }
+.fighter.pskill-sap { --fx: #3fc6b0; } .fighter.pskill-stone { --fx: #c9c9c9; } .fighter.pskill-veil { --fx: #f2f2ff; } .fighter.pskill-fire { --fx: #ff8a2a; }
+@keyframes lootpop { 0% { transform: scale(.2) translateY(14px); opacity: 0; } 65% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes lootshine { 0%, 100% { box-shadow: 0 0 4px 0 var(--t, #f2d88f); } 50% { box-shadow: 0 0 16px 3px var(--t, #f2d88f); } }
+.overlay .loot-chip { animation: lootpop .45s cubic-bezier(.2, 1.4, .4, 1) backwards; }
+.overlay .loot-chip:nth-child(2) { animation-delay: .12s; } .overlay .loot-chip:nth-child(3) { animation-delay: .24s; }
+.overlay .loot-chip:nth-child(4) { animation-delay: .36s; } .overlay .loot-chip:nth-child(n+5) { animation-delay: .48s; }
+.overlay .loot-chip.r-rare { animation: lootpop .45s cubic-bezier(.2, 1.4, .4, 1) backwards, lootshine 1.8s ease-in-out .6s infinite; --t: #5aa8ff; }
+.overlay .loot-chip.r-epic { animation: lootpop .45s cubic-bezier(.2, 1.4, .4, 1) backwards, lootshine 1.2s ease-in-out .6s infinite; --t: #d58cff; }
+.boss-taunt { font-style: italic; } .boss-defeat, .story-news { display: block; color: #f2d88f; font-style: italic; margin-top: 4px; }
+.story-news-list { margin: 4px 0 8px 18px; padding: 0; } @media (prefers-reduced-motion: reduce) { .fighter[class*="pskill-"], .overlay .loot-chip { animation: none; } }
+
+/* 1.5.1: значки действующих эликсиров над портретом героя */
+.elx-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.elx-badge { width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 6px; background: #0007; border: 1px solid #8a6d32; transition: opacity .3s, filter .3s; }
+.elx-badge svg { width: 18px; height: 18px; }
+.elx-badge.used { opacity: .35; filter: grayscale(1); }
+body.ui-columns.phone .elx-badges { grid-column: 1 / -1; }
+
+/* ===== 1.5.2: правки по аудиту раскладки (docs/layout-audit.md) ===== */
+/* Заголовок окна: название, кошелёк и «Закрыть» в одной строке; длинное название сжимается, а не уводит «Закрыть» вниз */
+.modal header { flex-wrap: nowrap; }
+.modal header h2 { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: clamp(14px, 4.4vw, 20px); }
+.modal header .wallet-head, .modal header .close, .modal header .back { flex: none; }
+/* Значок «i» на карточке стоит по центру справа, а кнопка действия сдвинута левее — не налезают друг на друга */
+.card:not(.stash-cell) > .card-info { top: 50%; margin-top: -10px; }
+.card:has(> .card-info) > .card-act { margin-right: 28px; }
+.card:has(> .card-info) > .card-body { padding-right: 0; }
+/* Недоступные кнопки заметно бледнее (раньше почти не отличались от доступных) */
+.modal button:disabled, .modal button[disabled] { opacity: .42; cursor: not-allowed; filter: grayscale(.5); }
+@media (pointer: coarse) {
+  /* сенсорные экраны: цели нажатия не меньше ~40 px (оценка на телефоне и планшете) */
+  .card:not(.stash-cell) > .card-info, .modal .card:not(.stash-cell) > .card-info { margin-top: -18px; min-width: 36px; min-height: 36px; width: 36px; height: 36px; line-height: 34px; }
+  .card:has(> .card-info) > .card-act { margin-right: 44px; }
+  .bagitem { min-height: 38px; }
+  #credits.icon-btn, .icon-btn { min-width: 40px; min-height: 38px; }
+  .map-btns button, .map-ctrl button { min-height: 40px; min-width: 40px; }
+  .tier-picker { gap: 4px; }
+  .tp { width: 36px; height: 40px; }
+  .log-wrap summary { min-height: 40px; display: flex; align-items: center; }
+  .valor-link, .modal .valor-link { min-height: 40px; }
+  .modal .tabs button { min-height: 40px; }
+  body.ui-columns .menu button, body.ui-columns .bar .btns button { min-height: 38px; }
+}
+
+/* 1.5.2: номер цвета в углу значка вещи (куклы и добычи) — второй признак кроме цвета рамки */
+.tier-num { position: absolute; right: 3px; bottom: 3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--t, #888); color: var(--ti, #101114); border: 1px solid rgba(0, 0, 0, .55); font-style: normal; font-weight: 800; font-size: 11px; line-height: 14px; text-align: center; box-shadow: 0 1px 2px rgba(0, 0, 0, .5); pointer-events: none; }
+.dslot, .loot-chip.item { position: relative; }
+@media (max-aspect-ratio: 5/4), (max-width: 699px) {
+  body.ui-columns:not(.phone) .fighter .name { font-size: 15px; }
+  body.ui-columns:not(.phone) .fighter .tier-chip .tc-name { display: none; }   /* узкая панель: в чипе остаётся «Ур.N» (название цвета видно по цвету имени) */
+  body.ui-columns:not(.phone) .fighter .name .fname { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.ui-columns:not(.phone) .fighter.right .name label.lvl { flex-basis: 100%; justify-content: center; }   /* «ИИ» всегда второй строкой — высота имени у обоих бойцов одинакова */
+}
+
+/* ===================== 1.5.3: телефон — карта без лишних кнопок (body.phone) =====================
+   Сверху одна строка: герой + рюкзак + бестиарий + ☰ (звук, экран, язык, «Как играть», «О разработчиках» — в меню).
+   Снизу две круглые кнопки (◎ и «Домой»), «+»/«−» нет — масштаб щипком. Плашка — одна строка, нажатие раскрывает. */
+/* ID-селектор сильнее классов — поэтому перед ним .map-btns > */
+.map-btns > #m-more, .map-menu { display: none; }
+body.phone .map-top { z-index: 5; flex-direction: row; align-items: flex-start; gap: 6px; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); }
+body.phone .map-me { flex: 1 1 0; min-width: 0; }
+body.phone .me-txt { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1px 8px; font-size: 12px; }
+body.phone .me-txt > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.phone .me-txt > .xpbar { grid-column: 1 / -1; width: auto; margin: 1px 0; }
+body.phone .me-txt > small { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+body.phone .map-btns { position: relative; display: flex; flex: 0 0 auto; gap: 4px; padding: 4px; }
+body.phone .map-btns > :is(#m-mute, #m-fs, #m-lang, #m-help, #m-credits) { display: none; }
+body.phone .map-btns > button, body.phone .map-btns > #m-more {
+  display: block; width: 40px; height: 40px; min-width: 0; min-height: 40px; padding: 0; font-size: 0; overflow: hidden; border-radius: 10px;
+  background-repeat: no-repeat; background-position: center; background-size: 58%;
+}
+body.phone #m-gear { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 8a5 5 0 0 1 10 0v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V8zM9 14h6M9 9h6'/></svg>"); }
+body.phone #m-best { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5zM4 19a2 2 0 0 1 2-2h13M9 8h6'/></svg>"); }
+body.phone .map-btns > #m-more { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h16M4 12h16M4 17h16'/></svg>"); }
+body.phone .map-menu:not([hidden]) {
+  display: grid; position: absolute; right: 0; top: calc(100% + 6px); z-index: 80; gap: 4px; padding: 6px;
+  background: rgba(24, 26, 30, .97); border: 1px solid #3a3d44; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
+}
+body.phone .map-menu button { min-width: 210px; min-height: 44px; padding: 10px 14px; font-size: 14px; text-align: left; white-space: nowrap; }
+
+body.phone .map-bottom { flex-direction: column-reverse; align-items: stretch; gap: 6px; padding: 0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+body.phone .map-ctrl { align-self: flex-end; display: flex; gap: 8px; padding: 0; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body.phone #m-zin, body.phone #m-zout { display: none; }
+body.phone .map-ctrl button { background-color: rgba(24, 26, 30, .92); width: 46px; height: 46px; min-width: 0; padding: 0; border-radius: 50%; font-size: 22px; line-height: 1; box-shadow: 0 4px 14px rgba(0, 0, 0, .55); }
+body.phone #m-home {
+  font-size: 0; background-repeat: no-repeat; background-position: center; background-size: 56%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10'/></svg>");
+}
+body.phone .map-info { max-width: none; padding: 6px 28px 6px 10px; position: relative; font-size: 12px; cursor: pointer; }
+body.phone .map-info::after { content: '▾'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--muted); }
+body.phone .map-info.open::after { content: '▴'; }
+body.phone .map-info .goal-strip:not(:empty) { display: block; -webkit-line-clamp: unset; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.phone .map-info.open .goal-strip:not(:empty) { white-space: normal; margin-bottom: 4px; }
+body.phone .map-info .zones, body.phone .map-info .map-tip { display: none; }
+body.phone .map-info.open .zones { display: flex; }
+body.phone .map-info.open .map-tip, body.phone .map-info .goal-strip:empty ~ .map-tip { display: block; }
+body.phone .map-info.open .map-tip { white-space: normal; }
+body.phone .map-info .zones.coach-hl { display: flex; }   /* обучение показывает легенду зон */
+body.phone .map-toast { top: 74px; }
+body.phone .map-card-wrap { bottom: 106px; }
+@media (max-height: 520px) {
+  body.phone .map-me { flex: 0 1 340px; }
+  body.phone .map-top { justify-content: space-between; }
+  body.phone .map-bottom { flex-direction: row; align-items: flex-end; }
+  body.phone .map-ctrl { align-self: auto; }
+  body.phone .map-info { max-width: 52vw; }
+  body.phone .map-toast { top: 64px; }
+  body.phone .map-card-wrap { bottom: 66px; }
+}
+@media (pointer: coarse) { .test-x10 .hint a { display: inline-block; padding: 10px 0; } }   /* 1.5.3: ссылка на чек-лист — не мельче 36 px */
+
+/* ===================== 1.5.4: живой мир — элитные, события, логова, Арена ===================== */
+#l-ev .ev { cursor: pointer; }
+#l-ev .ev.lair.cold { opacity: .45; }
+#l-ev .ev:not(.cold) > circle:nth-child(2) { animation: evGlow 2.4s ease-in-out infinite alternate; }
+@keyframes evGlow { from { stroke-opacity: .55; } to { stroke-opacity: 1; } }
+.mon.elite .elite-star { filter: drop-shadow(0 0 3px #f2c94c); }
+.elite-note { color: #f1d98a; }
+.mc-result { margin: 6px 0 2px; font-size: 13px; line-height: 1.45; }
+.mc-result .loot { margin-top: 6px; }
+.arena-rank { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 8px 0; padding: 10px 12px; background: rgba(255, 255, 255, .04); border: 1px solid #4a3d22; border-radius: 10px; }
+.arena-rank b { font-size: 17px; color: #f1d98a; }
+.arena-rank .stars { font-size: 18px; letter-spacing: 2px; color: #f2c94c; }
+.arena-rank small { flex-basis: 100%; color: var(--muted); }
+.arena-foe { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+.arena-foe .arena-fig { flex: none; display: block; width: 64px; height: 64px; overflow: hidden; border: 2px solid #7a6a4a; border-radius: 50%; background: #1b1c20; }
+.arena-foe .arena-fig svg { display: block; width: 100%; height: 100%; }
+.arena-foe small { display: block; color: var(--muted); }
+.arena-list { margin: 4px 0 10px; padding-left: 18px; font-size: 14px; }
+.arena-list li { margin: 3px 0; color: var(--muted); }
+.arena-list li.ok { color: #9be39b; }
+.arena-act { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+/* карточки на карте: кнопок бывает 3–4 (быстрый бой, развилка логова, алтарь) — переносятся, а не сжимаются */
+@media (max-width: 700px) { .mc-act { flex-wrap: wrap; } .mc-act button { flex: 1 1 40%; } }
+@media (pointer: coarse) { .mc-act button { min-height: 40px; } }
+
+/* 1.5.4: платное воскрешение на месте гибели */
+.overlay .revive-btn { display: block; margin: 14px auto 0; min-height: 44px; min-width: 160px; font-size: 15px; }
+.overlay .revive-btn[disabled] { opacity: .55; }
+.overlay .revive-btn + .to-map { margin-top: 10px; }
+
+/* ===================== 1.5.5: интерфейс для компьютера и планшета ===================== */
+/* Карта: сверху «Рюкзак», «Бестиарий» и ☰ (звук, экран, язык, «Как играть», «О разработчиках» — в меню), как на телефоне; кнопки текстом */
+body:not(.phone) .map-btns { position: relative; }
+body:not(.phone) .map-btns > :is(#m-mute, #m-fs, #m-lang, #m-help, #m-credits) { display: none; }
+body:not(.phone) .map-btns > #m-more { display: block; min-width: 40px; }
+body:not(.phone) .map-menu:not([hidden]) {
+  display: grid; position: absolute; right: 0; top: calc(100% + 6px); z-index: 80; gap: 4px; padding: 6px;
+  background: rgba(24, 26, 30, .97); border: 1px solid #3a3d44; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
+}
+body:not(.phone) .map-menu button { min-width: 200px; min-height: 40px; padding: 8px 14px; font-size: 14px; text-align: left; white-space: nowrap; }
+/* Бой, планшет вертикально: четыре кнопки нижней панели — одним рядом (освобождает ~40 px высоты под поле) */
+@media (min-width: 700px) and (max-aspect-ratio: 5/4) {
+  body.ui-columns:not(.phone) .bar .btns { grid-template-columns: repeat(4, 1fr); }
+  body.ui-columns:not(.phone) .bar .btns button { padding: 8px 4px; font-size: 13px; }
+  body.ui-columns:not(.phone) .bar .btns .pic-only { display: none; }
+  body.ui-columns:not(.phone) .menu button { padding: 8px 4px; font-size: 13px; }
+  body.ui-columns:not(.phone) { --board: min(calc((100vw - 20px - 2 * var(--g) + 19 * var(--sg) / 12) * 12 / 17), calc(100dvh - 292px), 720px); }
+}
+/* Бой, планшет горизонтально: подписи кнопок под героем не обрезаются («Бестиарий») */
+@media (min-aspect-ratio: 5/4) and (max-width: 1180px) {
+  body.ui-columns:not(.phone) .menu { grid-template-columns: 1fr 1.25fr auto; }
+  body.ui-columns:not(.phone) .menu button { padding: 6px 2px; font-size: 11px; letter-spacing: -.1px; }
+}
+/* Подсказка клавиши на кнопке заклинания (только мышь и клавиатура) */
+@media (hover: hover) and (pointer: fine) {
+  body.ui-columns:not(.phone) .spellbar button.magic[data-key] { position: relative; }
+  body.ui-columns:not(.phone) .spellbar button.magic[data-key]::before {
+    content: attr(data-key); position: absolute; left: 2px; top: 1px; z-index: 2; font: 700 9px/11px system-ui, sans-serif;
+    color: #f2d88f; background: rgba(0, 0, 0, .6); border-radius: 3px; padding: 0 3px; pointer-events: none;
+  }
+}
+
+/* 1.5.6: кнопки панели дуэли на телефоне (альбом) — не ниже 36 px под палец */
+@media (orientation: landscape) and (pointer: coarse) {
+  body.phone .duo-bar .duo-tab, body.phone .duo-bar .duo-take { min-height: 36px; }
+  body.phone.duo-battle main.game, body.ui-columns.phone.duo-battle .game { padding-top: 49px; }
+  body.ui-columns.phone.duo-battle { --board: calc(100dvh - 12px - 22px - 43px); }
+  body.ui-columns.phone.duo-battle .arena { height: calc(100dvh - 12px - 43px - 3px); }
+}
+
+/* 1.5.6: планшет в альбоме (узкие боковые панели): имя героя («Старый боевой гном») помещается целиком */
+@media (min-width: 700px) and (max-width: 1100px) and (min-aspect-ratio: 5/4) {
+  body.ui-columns:not(.phone) .fighter .name { font-size: 13.5px; }
+}
+
+/* ===================== 1.5.7: сумка (подвкладки с ячейками), крупные вещи в ячейках героя, тонкая рамка цвета ===================== */
+.bag-tabs { margin: 0 0 10px; }
+.bag-pack .bp-pane { display: none; }
+.bag-pack[data-btab="elix"] .bp-pane[data-p="elix"], .bag-pack[data-btab="res"] .bp-pane[data-p="res"] { display: block; }
+.bag-grid { margin: 6px 0 12px; }
+.bag-cell { cursor: pointer; }
+.bag-cell .bc-n { position: absolute; right: 3px; bottom: 3px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: rgba(0, 0, 0, .78); border: 1px solid var(--c, #888); color: #f4ecd8; font-size: 11px; line-height: 14px; text-align: center; font-weight: 700; }
+.bag-row.flash { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+/* цвет вещи — тонкая чёткая линия вместо размытого свечения */
+.home-modal .dslot.filled, .dslot.filled { box-shadow: inset 0 0 0 2px var(--c); }
+.stash-cell.btile, .stash-cell.btile:hover { box-shadow: inset 0 0 0 2px var(--c, #888); }
+.stash-cell.btile:hover { transform: translateY(-1px); }
+.stash-cell.btile .item-icon, .stash-cell.btile svg, .stash-cell.btile img { width: 80%; height: 80%; max-height: 80%; object-fit: contain; }
+/* вещи в ячейках героя крупнее */
+.home-modal .dslot .item-icon, .home-modal .dslot > svg, .home-modal .dslot > img { width: 82%; height: 82%; object-fit: contain; }
+.home-modal .doll-frame.p5 .df-col .dslot, .home-modal .doll-frame.p5 .df-hands .dslot { padding: 0; }
+.home-modal .dslot .slot-ghost, .home-modal .dslot .slot-ghost .item-icon { width: 70%; height: 70%; }
+.home-modal .doll-frame.p5 { width: min(100%, 460px); }
+@media (max-width: 700px) { .home-layout { padding: 8px 6px 12px; } }
+.bag-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.bag-tabs { margin-top: 0; }
+@media (max-width: 520px) {
+  .home-modal > header { gap: 6px; padding-left: 10px; padding-right: 10px; }
+  .home-modal > header { flex-wrap: wrap; }
+  .home-modal > header h2 { flex: 1 1 100%; font-size: 15px; margin: 0; }
+  .home-modal > header .valor-link, .home-modal > header .close { padding: 6px 8px; font-size: 13px; line-height: 1.15; }
+}
+@media (max-width: 520px) { .home-modal > header .valor-link, .home-modal > header .close { min-height: 38px; } }
+
+/* 1.5.9: подсказка по долгому нажатию (сенсорный экран) */
+.lp-tip { position: fixed; z-index: 300; max-width: min(280px, calc(100vw - 16px)); padding: 8px 11px; border-radius: 9px; border: 1px solid #e3c98a; background: rgba(27, 24, 20, .97); color: #f1e6cc; font-size: 14px; line-height: 1.3; box-shadow: 0 4px 16px rgba(0, 0, 0, .6); pointer-events: none; }
+.lp-tip[hidden] { display: none; }
+@media (pointer: coarse) { .spellbar button, #bagbar button { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; } }
+/* 1.5.9: карточка вещи поверх экрана победы/поражения (раньше пряталась под ним) */
+.item-info-back { z-index: 130; }

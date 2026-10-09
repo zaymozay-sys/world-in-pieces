@@ -385,10 +385,16 @@ const MonsterArt = (() => {
     feather: () => `<path d="M12 56 Q10 18 46 8 Q52 34 36 48 Q26 56 12 56Z" fill="#c9b79a" stroke="${O}" stroke-width="2"/><path d="M12 56 L42 14" stroke="#8a7a60" stroke-width="2"/><path d="M22 46 L36 40 M26 36 L40 28" stroke="#8a7a60" stroke-width="1.4"/>`,
     shell: () => `<path d="M10 40 Q8 14 32 8 Q56 14 54 40 Q44 54 32 54 Q20 54 10 40Z" fill="#f2d7cc" stroke="${O}" stroke-width="2"/><path d="M32 8 V54 M20 12 L22 52 M44 12 L42 52" stroke="#c79c8c" stroke-width="1.6"/>`,
   };
+  // 1.5.2: в углу значка ресурса — номер цвета (красный/оранжевый, жёлтый/золотой легко спутать по одному цвету)
+  function tierMark(tier) {
+    const T = Tiers.get(tier);
+    return `<g class="tier-mark" transform="translate(51 13)"><circle r="13" fill="${T.color}" stroke="${T.edge || '#101114'}" stroke-width="2.5"/><text y="7" text-anchor="middle" font-size="19" font-weight="800" font-family="system-ui,sans-serif" fill="${T.ink}">${tier}</text></g>`;
+  }
   function resIcon(kind, tier) {
     const col = Tiers.get(tier).edge;
-    if (typeof Art !== 'undefined' && Art.has('resources/' + kind)) return `<svg class="res-icon" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="3"/><image href="${Art.url('resources/' + kind)}" x="10" y="10" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></svg>`;
-    return `<svg class="res-icon" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="3"/><g transform="translate(4 4) scale(.875)">${(RES[kind] || RES.scrap)()}</g></svg>`;
+    const base = `<circle cx="32" cy="32" r="30" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="3"/>`;
+    if (typeof Art !== 'undefined' && Art.has('resources/' + kind)) return `<svg class="res-icon" viewBox="0 0 64 64" aria-hidden="true">${base}<image href="${Art.url('resources/' + kind)}" x="10" y="10" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></svg>`;
+    return `<svg class="res-icon" viewBox="0 0 64 64" aria-hidden="true">${base}<g transform="translate(4 4) scale(.875)">${(RES[kind] || RES.scrap)()}</g></svg>`;
   }
 
   /* ---------- монеты ---------- */

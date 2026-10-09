@@ -132,8 +132,10 @@ const Pets = (() => {
     return pet;
   }
   // Начало боя: прибавки от угощений (без «сочной косточки» — её тратит useFeed) и расход одного боя.
+  const DRILL_INT = 12;
   function useTreats(pet) {
     const out = { defense: 0, hpMult: 1, power: 1, int: 0 };
+    if (pet && pet.drill > 0) { out.int += DRILL_INT; pet.drill--; }      // 1.5.1: дрессировка — ум выше на 2 боя
     if (!pet || !pet.treats) return out;
     for (const k of Object.keys(pet.treats)) {
       if (!(pet.treats[k] > 0)) continue;
@@ -150,12 +152,16 @@ const Pets = (() => {
      Питомец играет на своём поле сам (ИИ). Опыт копится за каждый бой на его поле; чем больше опыта,
      тем выше «ум» — уровень ИИ 1..100 (глубина просчёта поля, см. AI.settings; на 100 — максимум), и
      тем раньше он перейдёт на следующий цвет (не выше цвета героя). */
-  const BOARD_HP = 1.25;                   // на своём поле питомец крепче: слабому уму нужен запас здоровья
+  const NOVICE_INT = 10, NOVICE_HP = 1.9, BOARD_DMG = 1.3;   // 1.5.0: новичок (ум < 10) на своём поле ещё крепче
+  const isRare = (pet) => !!pet && !!EGG_BY_SPECIES[pet.speciesId];     // питомец из яйца: зверь-донор сильнее, ИИ врага крепче
+  const boardHp = (pet) => (intellect(pet) < NOVICE_INT ? NOVICE_HP : BOARD_HP) * (isRare(pet) ? 1.35 : 1);
+  const boardDmg = (pet) => BOARD_DMG * (isRare(pet) ? 1.2 : 1);
+  const BOARD_HP = 1.6;                   // на своём поле питомец крепче: слабому уму нужен запас здоровья
   const INT_XP = 1500, DOPE_BONE = 8;     // ум в бою = ум по опыту + допинг от угощений (до 100)
   const dopedIntellect = (pet, bonus) => Math.min(100, intellect(pet) + (bonus || 0));
   const intellect = (pet) => Math.min(100, Math.max(1, 1 + Math.round(99 * (1 - Math.exp(-((pet && pet.xp) || 0) / INT_XP)))));
   const tierXp = (tier) => Math.round(120 * Math.pow(tier, 1.7));          // опыт, с которого питомец переходит с цвета tier на следующий
-  const xpGain = (foeTier, won) => Math.round((won ? 14 : 6) * (1 + 0.4 * (Math.max(1, foeTier) - 1)));
+  const xpGain = (foeTier, won) => Math.round((won ? 14 : 10) * (1 + 0.4 * (Math.max(1, foeTier) - 1)));
   // Начисляет опыт; цвет растёт сам, но не выше heroTier. Возвращает, на сколько цветов вырос.
   function addXp(pet, n, heroTier) {
     pet.xp = (pet.xp || 0) + Math.max(0, n);
@@ -164,7 +170,49 @@ const Pets = (() => {
     return up;
   }
 
-  return { BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,
+  // 1.5.0: учёба в питомнике — ум растёт и без боёв, но только до STUDY_CAP (дальше — только в боях).
+  const STUDY_MS = 3 * 60000, STUDY_XP = 45, STUDY_CAP = 25, READY_INT = 5;
+  const ACTS = { study: { ms: STUDY_MS }, ball: { ms: STUDY_MS }, hunt: { ms: 5 * 60000 }, drill: { ms: 5 * 60000 }, rest: { ms: 4 * 60000 }, scout: { ms: 8 * 60000 } };    // учёба, мяч (бодрость на 2 боя), поиск клада (монеты)
+  const studyOpen = (pet) => !!pet && intellect(pet) < STUDY_CAP;
+  const studyLeft = (pet, now = Date.now()) => (pet && pet.study ? Math.max(0, pet.study - now) : -1);   // -1: ничем не занят
+  function studyStart(pet, now = Date.now(), kind = 'study', speed = 1) {      // speed < 1 — улучшение Питомника
+    if (!pet || pet.study || !ACTS[kind] || (kind === 'study' && !studyOpen(pet))) return false;
+    pet.study = now + Math.round(ACTS[kind].ms * Math.max(0.2, speed)); pet.studyKind = kind; return true;
+  }
+  const huntCoins = (pet) => Math.round(40 * mult(pet.tier));
+  // Серия дней: занятие в новый день подряд растит серию; на 3-й и 7-й день — бонус опыта.
+  const dayOf = (now) => Math.floor((now - new Date(now).getTimezoneOffset() * 60000) / 86400000);
+  const STREAK_BONUS = { 3: 60, 7: 150 };
+  function streakTick(pet, heroTier, now) {
+    const d = dayOf(now);
+    if (pet.streakDay === d) return { streak: pet.streak || 1, bonus: 0 };
+    pet.streak = pet.streakDay === d - 1 ? (pet.streak || 0) + 1 : 1;
+    pet.streakDay = d;
+    const bonus = STREAK_BONUS[pet.streak] || 0;
+    if (bonus) addXp(pet, bonus, heroTier);
+    return { streak: pet.streak, bonus };
+  }
+  function studyCollect(pet, heroTier, now = Date.now(), rng = Math.random) {
+    if (!pet || !pet.study || pet.study > now) return null;
+    const kind = pet.studyKind || 'study';
+    pet.study = 0; pet.studyKind = null;
+    const before = intellect(pet);
+    let res;
+    if (kind === 'ball') { pet.fed = Math.max(pet.fed || 0, 2); res = { kind }; }
+    else if (kind === 'hunt') res = { kind, coins: huntCoins(pet) };
+    else if (kind === 'drill') { pet.drill = 2; res = { kind }; }
+    else if (kind === 'rest') { const g = Math.min(1, pet.maxDurability - pet.durability); pet.durability += g; res = { kind, gain: g }; }
+    else if (kind === 'scout') {
+      const kinds = Object.keys(PT_B.RESOURCES), k = kinds[Math.floor(rng() * kinds.length)];
+      res = { kind, res: { kind: k, tier: Math.max(1, Math.min(pet.tier, heroTier)), n: 1 + Math.floor(rng() * 2) } };
+    } else { const up = addXp(pet, STUDY_XP, heroTier); res = { kind, up }; }
+    res.before = before; res.after = intellect(pet);
+    Object.assign(res, { streakInfo: streakTick(pet, heroTier, now) });
+    res.after = intellect(pet);
+    return res;
+  }
+  const battleReady = (pet) => intellect(pet) >= READY_INT;
+  return { DRILL_INT, STREAK_BONUS, BOARD_DMG, boardDmg, isRare, boardHp, NOVICE_INT, STUDY_MS, STUDY_XP, STUDY_CAP, READY_INT, ACTS, huntCoins, studyOpen, studyLeft, studyStart, studyCollect, battleReady, BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,
     repairCost, feedCost, trainCost, feed, train, useFeed };
 })();
 
