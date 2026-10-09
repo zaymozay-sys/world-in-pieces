@@ -27,6 +27,7 @@ global.Engine = require(J('engine.js'));
 global.Bestiary = require(J('bestiary.js'));
 global.Factions = require(J('factions.js'));
 global.Combat = require(J('combat.js'));
+global.Elixirs = require(J('elixirs.js'));
 let Hero = null;
 try { Hero = require(J('hero.js')); global.Hero = Hero; } catch (e) { /* уровни героя ещё не подключены */ }
 const AI = require(J('ai.js'));
@@ -55,20 +56,25 @@ function makeHero(o) {
     : (Factions.get(o.faction) || Factions.get('dwarf'));
   const gear = o.gear || Gear.emptyLoadout();
   const facStats = o.faction === 'none' ? {} : Factions.statsAt(o.faction, Hero ? Hero.tierFloat(o.level || 1) : 1);
-  const stats = Gear.combine(Gear.stats(gear), facStats);
+  let stats = Gear.combine(Gear.stats(gear), facStats);
+  // 1.5.1: эликсиры { вид: цвет } — прибавка к характеристикам и (если o.elxFx !== false) эффект за бой
+  const elx = o.elixirs || {};
+  if (Object.keys(elx).length) stats = Gear.combine(stats, Elixirs.bonusStats(Object.fromEntries(Object.entries(elx).map(([k, t]) => [k, { tier: t, left: 1 }]))));
   const base = o.baseHp != null ? o.baseHp : (Hero ? Hero.baseHp(o.level || 1) : 100);
   const max = base + stats.health;
   const dmg = o.dmg != null ? o.dmg : (Hero ? Hero.dmgMult(o.level || 1) : 1);
   return { side: 'left', heroLevel: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
-    counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, charge: 0, ability: null, bag: o.bag ? { ...o.bag } : {} };
+    counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, charge: 0, ability: null, bag: o.bag ? { ...o.bag } : {},
+    elx: o.elxFx === false ? {} : Object.fromEntries(Object.entries(elx).filter(([, t]) => t >= Elixirs.FX_MIN)), elxUsed: {},
+    critExtra: (o.elxFx !== false && elx.fury >= Elixirs.FX_MIN) ? Elixirs.effect('fury', elx.fury).v - 2 : 0 };
 }
 function makeMonster(id, tier, o = {}) {
   const m = Bestiary.MONSTERS[id], sc = Bestiary.scaled(id, tier, o.swarm || 1);
   const gear = sc.gearBudget ? Gear.randomLoadout(sc.gearBudget, rand, tier) : Gear.emptyLoadout();
   const stats = Gear.combine(Gear.stats(gear), sc.stats);
-  const max = sc.hp + stats.health;
+  const max = Math.round((sc.hp + stats.health) * (o.elite ? 1.25 : 1));
   const level = o.aiLevel || sc.ai;
-  return { side: 'right', name: m.name, id, tier, gear, stats, base: sc.hp, max, hp: max, dmg: sc.dmg || 1, buffs: [], haste: false, magic: false,
+  return { side: 'right', name: m.name, id, tier, gear, stats, base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: m.ability, level, bag: Combat.enemyBag(level),
     turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null };
 }
@@ -97,7 +103,16 @@ function Battle(hero, mon, player) {
   const hit = (side, amount, raw = false) => {
     // Удары героя сначала принимает живой двойник Дикого гриба (см. Combat.enemyTarget); у прочих — сам противник.
     const att = S.f[side], tgt = side === 'left' ? Combat.enemyTarget(S.f.right) : S.f.left;
+    const H = S.f.left, fire = (k) => { if (!H.elx[k] || H.elxUsed[k]) return null; H.elxUsed[k] = true; return Elixirs.effect(k, H.elx[k]); };
+    if (!raw && side === 'left') { const fx = fire('power'); if (fx) amount = Math.round(amount * fx.v); }
+    if (!raw && side === 'right') { const fx = fire('defense'); if (fx) amount = Math.max(1, Math.round(amount * (1 - fx.v / 100))); }
     const r = Combat.hit(att, tgt, amount, raw, rand);
+    if (side === 'right') {                                   // эффекты эликсиров на получаемый героем удар (как в game.js dealDamage)
+      if (r.kind === 'block' || r.kind === 'blockreflect') { const fx = fire('block'); if (fx) Combat.loseHp(att, Math.max(1, Math.round(amount * fx.v / 100))); }
+      if (r.kind === 'reflect' || r.kind === 'blockreflect') { const fx = fire('ricochet'); if (fx) H.hp = Math.min(H.max, H.hp + Math.max(1, Math.round(H.max * fx.v / 100))); }
+      if (H.hp <= 0) { const fx = fire('health'); if (fx) H.hp = Math.max(1, Math.round(H.max * fx.v / 100)); }
+    }
+    if (r.critExtra) H.elxUsed.fury = true;
     if (r.kind === 'hit') S.stats[side === 'left' ? 'heroDmg' : 'monDmg'] += r.amount;
     return r;
   };
@@ -384,7 +399,7 @@ function Battle(hero, mon, player) {
   }
 
   function run(maxRounds = 150) {
-    const first = rand() * 100 < Combat.firstMoveChance(S.f.left, S.f.right) ? 'left' : 'right';
+    const first = (S.f.left.elx && S.f.left.elx.initiative) || rand() * 100 < Combat.firstMoveChance(S.f.left, S.f.right) ? 'left' : 'right';
     let side = first;
     S.first = first;
     while (!S.over && S.stats.rounds < maxRounds) {
@@ -502,18 +517,18 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, bag, swarm } = {}) {
+function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, bag, swarm, elixirs, elxFx, elite } = {}) {
   let wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
-  const key = `${seedBase}|${faction}|${level}|${monster}|${tier}|${typeof player === 'string' ? player : 'p'}`;
+  const key = `${elite ? 'E' : ''}${seedBase}|${faction}|${level}|${monster}|${tier}|${typeof player === 'string' ? player : 'p'}`;
   let h = 2166136261;
   for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
   for (let k = 0; k < n; k++) {
     seed((h ^ Math.imul(k + 1, 2654435761)) >>> 0);
     const g = typeof gear === 'function' ? gear() : gear;
-    const hero = makeHero({ faction, level, gear: g, baseHp, bag });
-    const mon = makeMonster(monster, tier, { aiLevel, swarm });
+    const hero = makeHero({ faction, level, gear: g, baseHp, bag, elixirs, elxFx });
+    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite });
     const pl = typeof player === 'string' ? PLAYERS[player]() : typeof player === 'function' ? player() : player;
     const S = Battle(hero, mon, pl).run();
     if (S.winner === 'left') { wins++; hpLeft += hero.hp / hero.max; actWin.push(S.stats.heroActions); }

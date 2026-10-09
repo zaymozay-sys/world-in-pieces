@@ -26,6 +26,10 @@ html = re.sub(r'<script src="(js/[^"]+)"></script>', inline_js, html)
 
 # 4. Rewrite art-files.js webp paths -> data URIs. We already inlined art-files.js as JS text with
 # `art/xxx/yyy.webp` string literals. Replace those substrings with data URIs directly in the whole doc.
+# Только в предпросмотре (лимит 16 МБ): заставки — одна горизонтальная и одна вертикальная афиша (рыцарь и гном);
+# в игре и в архивах остаются все пять, а без части картинок game.js берёт любую доступную афишу.
+html = re.sub(r'\n?\s*"ui/bg-splash-(?:portrait|poster-f|poster-m2)": "[^"]+",?', '', html)
+
 MIME = {'.webp': 'image/webp', '.png': 'image/png'}
 def art_replacer(match):
     path = match.group(0)

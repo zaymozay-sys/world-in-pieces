@@ -53,7 +53,8 @@ function bestPlacement(P, entry) {
   return best;
 }
 
-function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false } = {}) {
+function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, guards = false } = {}) {
+  const opts = { guards }, guard = {};
   sim.seed(seed * 7777 + 1);
   const P = { faction, level: 1, xp: 0, coins: 500, loadout: Gear.emptyLoadout(), res: {}, bag: { potion: 2, elixir: 1, dust: 1, scroll: 1 } };
   for (const [slot, id] of Object.entries(sim.STARTER)) if (id) P.loadout[slot] = Gear.makeEntry(id, 1);
@@ -63,6 +64,11 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false }
   let b = 0;
   for (; b < battles && P.level < Hero.MAX_LEVEL; b++) {
     const L = P.level, tf = Hero.tierFor(L), hv = heroView(P);
+    if (opts.guards && (L % 10 === 5 || L % 10 === 0) && L >= 15) {          // контрольные точки для стражей
+      const ch = Story.CHAPTERS.find((c) => c.tier === (L % 10 === 5 ? tf + 1 : tf));
+      const key = (L % 10 === 5 ? 'mid' : 'end');
+      if (ch && !guard[ch.id + key]) guard[ch.id + key] = { id: ch.id, at: key, level: L, p: guardCheck(P, ch) };
+    }
     const lv = perLevel[L] || (perLevel[L] = { battles: 0, wins: 0, coins: P.coins, gearTier: 0, chance: 0, buys: 0, forges: 0, spent: 0, budgetUse: 0 });
     // выбор противника
     const cand = [];
@@ -130,18 +136,33 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false }
       if (Number(t) <= Hero.tierFor(P.level) - 2 && P.res[k] > 0) { P.coins += Math.round(Bestiary.resPrice(kind, Number(t)) * 0.5) * P.res[k]; P.res[k] = 0; }
     }
   }
-  return { P, perLevel, battles: b };
+  return { P, perLevel, battles: b, guard };
 }
 
-module.exports = { career };
+// 1.5.1: шанс победить стража осколка на середине и в конце «его» цвета (по 12 боёв)
+const Story = require('../js/story.js');
+function guardCheck(P, chapter, N = 12) {
+  let wins = 0;
+  for (let k = 0; k < N; k++) {
+    const hero = sim.makeHero({ faction: P.faction, level: P.level, gear: P.loadout, bag: { ...P.bag } });
+    const mon = sim.makeMonster(chapter.species, chapter.tier);
+    if (!chapter.existing) { mon.max = mon.hp = Math.round(mon.max * (+process.env.STORY_HP || Story.HP_MULT)); mon.stats = { ...mon.stats, power: (mon.stats.power || 0) + (process.env.STORY_PW ? +process.env.STORY_PW : Story.POWER) }; }
+    if (sim.Battle(hero, mon, sim.humanPlayer({ items: true })).run().winner === 'left') wins++;
+  }
+  return wins / N;
+}
+
+module.exports = { career, guardCheck };
 
 if (require.main === module) {
   const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v] = a.replace(/^--/, '').split('='); return [k, v === undefined ? true : v]; }));
   const runs = Number(args.runs || 2), factions = String(args.faction || 'human,dwarf,elf,lizard').split(',');
   const agg = {};
   let totalBattles = [], finalLevels = [];
+  const guardAgg = {};
   for (const f of factions) for (let r = 0; r < runs; r++) {
-    const { P, perLevel, battles } = career({ faction: f, battles: Number(args.battles || 2500), seed: Number(args.seed || 1) * 100 + r });
+    const { P, perLevel, battles, guard } = career({ faction: f, battles: Number(args.battles || 2500), seed: Number(args.seed || 1) * 100 + r, guards: !!args.guards });
+    for (const g of Object.values(guard)) (guardAgg[g.id + g.at] = guardAgg[g.id + g.at] || { id: g.id, at: g.at, level: g.level, ps: [] }).ps.push(g.p);
     totalBattles.push(battles); finalLevels.push(P.level);
     for (const [L, v] of Object.entries(perLevel)) {
       const t = Hero.tierFor(Number(L)), a = agg[t] || (agg[t] = { levels: 0, battles: 0, wins: 0, coins: 0, gear: 0, chance: 0, buys: 0, forges: 0, spent: 0, budget: 0 });
@@ -153,6 +174,10 @@ if (require.main === module) {
   console.log('|---|---|---|---|---|---|---|---|');
   for (const [t, a] of Object.entries(agg)) {
     console.log(`| ${Tiers.get(Number(t)).name} | ${(a.battles / a.levels).toFixed(1)} | ${Math.round(a.wins / a.battles * 100)}% | ${Math.round(a.chance / a.battles * 100)}% | ${Tiers.moneyText(a.coins / a.levels)} | ${(a.gear / a.battles).toFixed(2)} | ${(a.buys / a.levels).toFixed(1)} / ${(a.forges / a.levels).toFixed(1)} | ${Math.round(a.budget / a.battles * 100)}% |`);
+  }
+  if (args.guards) {
+    console.log('\n| Страж | точка | уровень героя | шанс победы (средний по прогонам) | худший |\n|---|---|---|---|---|');
+    for (const g of Object.values(guardAgg)) console.log(`| ${Story.BY_ID[g.id].title} | ${g.at === 'mid' ? 'середина цвета до стража' : 'конец цвета стража'} | ${g.level} | ${Math.round(g.ps.reduce((a, x) => a + x, 0) / g.ps.length * 100)}% | ${Math.round(Math.min(...g.ps) * 100)}% |`);
   }
   console.log(`\nБоёв до конца: ${totalBattles.join(', ')}; уровень в конце: ${finalLevels.join(', ')}`);
 }
