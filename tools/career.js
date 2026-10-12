@@ -1,4 +1,4 @@
-/* Симулятор «карьеры» героя: от 1-го уровня до 50-го. Проверяет вместе опыт, экономику и баланс.
+/* Симулятор «карьеры» героя: от 1-го уровня до 100-го. Проверяет вместе опыт, экономику и баланс.
    Запуск: node tools/career.js [--faction=dwarf] [--runs=3] [--battles=2500] [--seed=1]
    Герой ведёт себя как разумный игрок: выбирает существ по оценке опасности (обычно «Равных» и «Лёгких»,
    с наибольшим ожидаемым опытом), сражается моделью «среднего» игрока, после боя покупает в лавке
@@ -6,6 +6,7 @@
 
 const sim = require('./sim.js');
 const HexMap = require('../js/hexmap.js');
+const Village = global.Village = require('../js/village.js');
 const { Tiers, Gear, Bestiary, Factions, Combat, Hero, Balance } = global;
 const rnd = () => sim.rand();
 const ri = (n) => Math.floor(rnd() * n);
@@ -33,14 +34,14 @@ const refChance = (P, gear) => {                   // насколько хор�
 function makeShop(P) {
   const top = Hero.tierFor(P.level), pool = [];
   for (const it of Gear.itemsFor(P.faction)) for (let k = 0; k < { common: 6, rare: 3, epic: 1 }[it.rarity]; k++) pool.push(it);
-  return Array.from({ length: 8 }, () => Gear.makeEntry(pool[ri(pool.length)].id, Math.max(1, top - ri(2))));
+  return Array.from({ length: 8 }, () => Gear.makeEntry(pool[ri(pool.length)].id, Math.max(1, top - ri(2) + (process.argv.includes('--refit') && ri(8) === 0 ? 1 : 0))));   // --refit: изредка попадается вещь цвета на один выше
 }
 const slotsFor = (it) => (it.type === 'weapon1' ? ['main', 'off'] : it.type === 'weapon2' ? ['main'] : it.type === 'shield' ? ['off'] : [it.type]);
 
 // Лучшая замена: куда надеть вещь, чтобы стало лучше всего (в пределах лимита очков). null — не лучше.
 function bestPlacement(P, entry) {
   const it = Gear.item(entry);
-  if (!Hero.canWear(it.tier, P.level) || (it.faction && it.faction !== P.faction)) return null;
+  if (!Hero.canWear(it.wt, P.level) || (it.faction && it.faction !== P.faction)) return null;
   const base = refChance(P, P.loadout);
   let best = null;
   for (const slot of slotsFor(it)) {
@@ -80,7 +81,14 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
     if (!pool.length) pool = cand.sort((a, c) => c.p - a.p);
     const pick = pool[ri(Math.min(3, pool.length))];
     // бой
-    const hero = sim.makeHero({ faction, level: L, gear: P.loadout, bag: P.bag });
+    // эликсиры (--elx=N): N видов цвета героя на бой, пока хватает монет сверх запаса; силу считает симулятор боя
+    const elxN = Number((process.argv.find((x) => x.startsWith('--elx=')) || '--elx=0').split('=')[1]), plan = {};
+    const elxPrice = Elixirs.price(tf), elxReserve = Math.round(Hero.consumablePrice(Gear.CONSUMABLES.potion.price, L) * shopPerk) * 4;
+    for (const kind of ['power', 'fury', 'block', 'ricochet', 'health', 'cunning', 'stones', 'defense', 'swap'].slice(0, elxN)) {
+      if (P.coins - elxPrice < elxReserve) break;
+      P.coins -= elxPrice; lv.spent += elxPrice; global.__elxCoins = (global.__elxCoins || 0) + elxPrice; plan[kind] = tf;
+    }
+    const hero = sim.makeHero({ faction, level: L, gear: P.loadout, bag: P.bag, elixirs: plan });
     const mon = sim.makeMonster(pick.id, pick.t);
     const S = sim.Battle(hero, mon, sim.humanPlayer({ items: pick.p < 0.62 })).run();
     P.bag = hero.bag;
@@ -90,7 +98,7 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
       lv.wins++;
       P.xp += Hero.xpReward(Bestiary.MONSTERS[pick.id], pick.t, L);
       const d = Bestiary.rollDrops(pick.id, pick.t, rnd, faction);
-      P.coins += Math.round(d.coins * coinPerk);
+      P.coins += Math.round(d.coins * coinPerk * Number((process.argv.find((x) => x.startsWith('--coinK=')) || '--coinK=1').split('=')[1]));
       for (const r of d.resources) P.res[r.kind + ':' + r.tier] = R(r.kind, r.tier) + r.n;
       if (d.item) { const pl = bestPlacement(P, d.item); if (pl) P.loadout = pl.gear; else P.coins += Gear.sellValue(Gear.item(d.item).price); }
       if (rnd() < Balance.rewards.consumableChance) { const k = Object.keys(Gear.CONSUMABLES)[ri(4)]; P.bag[k] = (P.bag[k] || 0) + 1; }
@@ -104,13 +112,17 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
     for (let k = 0; k < 3; k++) {                   // до трёх покупок за визит
       let best = null;
       for (const e of stock) {
-        const price = Math.round(Gear.item(e).price * shopPerk);
-        if (P.coins - price < reserve) continue;
-        const pl = bestPlacement(P, e);
-        if (pl && (!best || pl.gain / price > best.gain / best.price)) best = { ...pl, price, e };
+        for (const refit of (process.argv.includes('--refit') ? [false, true] : [false])) {
+          const fc = refit && Gear.fitCost(e, P.level);
+          if (refit && !fc) continue;
+          const price = Math.round(Gear.item(e).price * shopPerk) + (fc ? Math.round(fc.coins * forgePerk) : 0);
+          if (P.coins - price < reserve) continue;
+          const pl = bestPlacement(P, refit ? { ...e, fit: true } : e);
+          if (pl && (!best || pl.gain / price > best.gain / best.price)) best = { ...pl, price, e, refit };
+        }
       }
       if (!best) break;
-      P.coins -= best.price; P.loadout = best.gear; stock.splice(stock.indexOf(best.e), 1); lv.buys++; lv.spent += best.price;
+      P.coins -= best.price; P.loadout = best.gear; stock.splice(stock.indexOf(best.e), 1); lv.buys++; lv.spent += best.price; if (best.refit) global.__refits = (global.__refits || 0) + 1;
     }
     // кузница: улучшить надетое, если хватает ресурсов и монет
     for (const slot of Gear.SLOTS) {
@@ -127,6 +139,31 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
       P.coins -= coins; lv.forges++; lv.spent += coins;
       for (const r of c.res) P.res[r.kind + ':' + r.tier] -= r.n;
       P.loadout = g;
+    }
+    // закалка (--temper=N: предел шага, 0..5): самые дешёвые шаги по всей экипировке, пока хватает монет сверх запаса
+    const tcap = process.argv.includes('--village') ? Village.temperCap(P.village || {}) : Number((process.argv.find((x) => x.startsWith('--temper=')) || '--temper=0').split('=')[1]);
+    for (let guard = 0; guard < 40 && tcap > 0; guard++) {
+      let pick = null;
+      for (const slot of Gear.SLOTS) {
+        const e = P.loadout[slot];
+        if (!e || typeof e === 'string') continue;
+        const tc = Gear.temperCost(e);
+        if (!tc || tc.plus > tcap || P.coins - tc.coins < reserve) continue;
+        if (!pick || tc.coins < pick.tc.coins) pick = { slot, e, tc };
+      }
+      if (!pick) break;
+      P.coins -= pick.tc.coins; lv.spent += pick.tc.coins; global.__tempers = (global.__tempers || 0) + 1;
+      P.loadout = { ...P.loadout, [pick.slot]: { ...pick.e, plus: pick.tc.plus } };
+    }
+    // деревня (--village): самое дешёвое доступное улучшение, пока хватает монет сверх запаса
+    if (process.argv.includes('--village')) {
+      P.village = P.village || {};
+      for (let g = 0; g < 5; g++) {
+        let pk = null;
+        for (const id of Village.IDS) { const nx = Village.next(P.village, id, tf); if (nx && nx.ok && P.coins - nx.cost >= reserve && (!pk || nx.cost < pk.nx.cost)) pk = { id, nx }; }
+        if (!pk) break;
+        P.coins -= pk.nx.cost; lv.spent += pk.nx.cost; Village.buy(P.village, pk.id, tf, 1e18); global.__village = (global.__village || 0) + 1; global.__villageCoins = (global.__villageCoins || 0) + pk.nx.cost;
+      }
     }
     // зелья: держим два
     while ((P.bag.potion || 0) < 2 && P.coins >= potionPrice + reserve / 2) { P.coins -= potionPrice; P.bag.potion = (P.bag.potion || 0) + 1; }
@@ -179,5 +216,6 @@ if (require.main === module) {
     console.log('\n| Страж | точка | уровень героя | шанс победы (средний по прогонам) | худший |\n|---|---|---|---|---|');
     for (const g of Object.values(guardAgg)) console.log(`| ${Story.BY_ID[g.id].title} | ${g.at === 'mid' ? 'середина цвета до стража' : 'конец цвета стража'} | ${g.level} | ${Math.round(g.ps.reduce((a, x) => a + x, 0) / g.ps.length * 100)}% | ${Math.round(Math.min(...g.ps) * 100)}% |`);
   }
+  console.log(`\nПерековок: ${global.__refits || 0}, шагов закалки: ${global.__tempers || 0}, улучшений деревни: ${global.__village || 0} (на ${Math.round((global.__villageCoins || 0) / 10000)} зол.), эликсиры: ${Math.round((global.__elxCoins || 0) / 10000)} зол.`);
   console.log(`\nБоёв до конца: ${totalBattles.join(', ')}; уровень в конце: ${finalLevels.join(', ')}`);
 }

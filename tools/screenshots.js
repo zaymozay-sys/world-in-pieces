@@ -1,11 +1,11 @@
-const { chromium } = require('playwright');
+const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 // Снимки для README: карта, ранец, стена доблести, бестиарий, бой, выбор фракции -> docs/*.png
 // Запуск из папки игры:  node tools/screenshots.js
 const path = require('path');
 const D = path.resolve(__dirname, '..', 'docs') + path.sep;
 const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  const b = await launchBrowser();
   const p = await b.newPage({viewport:{width:1280,height:800}}); const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL); await p.waitForTimeout(3200);
   await p.screenshot({path:D+'factions.png'});

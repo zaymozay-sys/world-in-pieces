@@ -56,10 +56,12 @@ assert.deepStrictEqual(Gear.upgradeCost({ id: 'amulet-copper', tier: 1 }).res.ma
 const c3 = Gear.craftCost('leather-head', 3);
 assert.ok(c3.res.every((r) => r.tier === 3) && c3.coins > Gear.craftCost('leather-head', 1).coins);
 // создание: редкие вещи дороже обычных
-assert.ok(Gear.craftCost('berserk-amulet').res[0].n > Gear.craftCost('leather-head').res[0].n);
+const nRes = (c) => c.res.reduce((a, r) => a + r.n, 0);
+assert.ok(nRes(Gear.craftCost('berserk-amulet', 5)) > nRes(Gear.craftCost('leather-head', 5)));
+assert.ok(Gear.craftCost('berserk-amulet', 5).res.length > Gear.craftCost('leather-head', 5).res.length, 'у редкой больше видов ресурсов');
 
 // бестиарий: 29 видов (в 1.2.0 добавлены звери нижних уровней, существа побережья и боссы), характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
-assert.strictEqual(Bestiary.ORDER.length, 47);
+assert.strictEqual(Bestiary.ORDER.length, 59);      // 1.6.7: +12 существ
 for (const id of ['orc', 'orcShaman', 'ghoul', 'crab', 'bolotnik', 'shadow', 'treant', 'mushroom', 'wildbees', 'lynx', 'hedgehog', 'viper', 'spider', 'vulture', 'wisp', 'gull', 'hermit', 'smuggler', 'captain']) assert.ok(Bestiary.ORDER.includes(id), id);
 for (const id of Bestiary.ORDER) {
   const m = Bestiary.MONSTERS[id];
@@ -67,7 +69,7 @@ for (const id of Bestiary.ORDER) {
   assert.ok(Bestiary.ABILITIES[m.ability], id + ': приём ' + m.ability);
   assert.strictEqual(Bestiary.ability(id), Bestiary.ABILITIES[m.ability]);
 }
-assert.deepStrictEqual(Bestiary.ORDER.filter((id) => Bestiary.MONSTERS[id].family === 'Нежить').sort(), ['ghoul', 'skeleton', 'wraith']);
+assert.deepStrictEqual(Bestiary.ORDER.filter((id) => Bestiary.MONSTERS[id].family === 'Нежить').sort(), ['barrowman', 'boneknight', 'ghoul', 'skeleton', 'wraith']);      // 1.6.7: +Курганник, +Костяной рыцарь
 assert.deepStrictEqual(Bestiary.ORDER.filter((id) => Bestiary.MONSTERS[id].family === 'Орки').sort(), ['orc', 'orcShaman']);
 for (const id of Bestiary.ORDER) {
   const s1 = Bestiary.scaled(id, 1), s10 = Bestiary.scaled(id, 10);
@@ -76,7 +78,7 @@ for (const id of Bestiary.ORDER) {
   for (const [kind] of Bestiary.MONSTERS[id].drops) assert.ok(Bestiary.RESOURCES[kind], kind);
 }
 assert.deepStrictEqual(Bestiary.unlockedSpecies(0), ['rat', 'wolf']);
-assert.strictEqual(Bestiary.unlockedSpecies(999).length, 47);
+assert.strictEqual(Bestiary.unlockedSpecies(999).length, 59);
 // снаряжение только у дракона
 assert.ok(Bestiary.scaled('dragon', 3).gearBudget > 0 && Bestiary.scaled('wolf', 3).gearBudget === 0);
 
@@ -139,3 +141,33 @@ assert.strictEqual(Gear.ITEMS.filter((i) => i.set === 'sea').length, 8);
 let seaDrops = 0;
 for (let i = 0; i < 200; i++) { const d = Bestiary.rollDrops('captain', 8, Math.random, 'human'); if (d.item && Gear.item(d.item.id).set === 'sea') seaDrops++; }
 assert.ok(seaDrops > 60, 'Капитан часто оставляет части набора');
+
+// 1.6.0: перековка — вещь следующего цвета носится на цвет раньше (требование уровня снижается на levelsPerTier)
+{
+  const Hero = require('../js/hero.js'); global.Hero = Hero;
+  const base = Gear.ITEMS.find((i) => !i.faction);
+  const e = { uid: 'u1', id: base.id, tier: 3 };
+  const it = Gear.item(e);
+  assert.strictEqual(it.wt, 3);
+  assert.strictEqual(Gear.item({ ...e, fit: true }).wt, 2);
+  assert.strictEqual(Gear.item({ id: base.id, tier: 1, fit: true }).wt, 1);       // у красной вещи снижать нечего
+  const L2 = Hero.itemLevel(2);                                                   // герой на 2-м цвете: вещь 3-го цвета ещё нельзя
+  assert.ok(!Hero.canWear(3, L2));
+  const c = Gear.fitCost(e, L2);
+  assert.ok(c && c.coins === Math.round(it.price * Gear.FIT_K));
+  assert.strictEqual(Gear.fitCost({ ...e, fit: true }, L2), null);                // уже перекована
+  assert.strictEqual(Gear.fitCost(e, Hero.itemLevel(1)), null);                   // слишком рано: два цвета вперёд
+  assert.strictEqual(Gear.fitCost(e, Hero.itemLevel(3)), null);                   // и так можно надеть
+  assert.strictEqual(Gear.item({ ...e, fit: true }).stats.attack, it.stats.attack); // характеристики те же
+}
+
+// 1.6.6: существо слабее цвета героя не даёт ресурсов (монеты остаются)
+{
+  const always = () => 0;
+  const weak = Bestiary.rollDrops('wolf', 2, always, undefined, 5);
+  assert.strictEqual(weak.resources.length, 0); assert.ok(weak.weak && weak.coins > 0, 'монеты остаются');
+  assert.ok(Bestiary.rollDrops('wolf', 5, always, undefined, 5).resources.length > 0, 'того же цвета — дроп есть');
+  assert.ok(Bestiary.rollDrops('wolf', 6, always, undefined, 5).resources.length > 0, 'сильнее — дроп есть');
+  assert.ok(Bestiary.rollDrops('wolf', 2, always).resources.length > 0, 'без цвета героя правило не действует');
+  console.log('economy: правило слабого существа — ок');
+}

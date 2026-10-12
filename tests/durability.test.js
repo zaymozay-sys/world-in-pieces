@@ -1,0 +1,22 @@
+// 1.6.6: прочность, починка, множитель продажи. Запуск: node tests/durability.test.js
+const assert = require('assert');
+const Gear = require('../js/items.js');
+const base = Gear.ITEMS[0].id;
+for (let t = 1; t <= 10; t++) assert.strictEqual(Gear.durMax(t), 25 + 5 * t);
+assert.strictEqual(Gear.durMax(1), 30); assert.strictEqual(Gear.durMax(10), 75);
+const e = { uid: 'x', id: base, tier: 3 };
+assert.deepStrictEqual(Gear.durOf(e), { cur: 40, max: 40 }, 'нет поля dur = целая');
+assert.strictEqual(Gear.repairCost(e), 0, 'целую чинить не надо');
+assert.strictEqual(Gear.wearFactor(e), 1);
+e.dur = 0;
+assert.strictEqual(Gear.item(e).broken, true);
+assert.strictEqual(Gear.wearFactor(e), 0.5);
+const full = Gear.repairCost(e), price = Gear.item({ id: base, tier: 3 }).price;
+assert.strictEqual(full, Math.max(1, Math.round(price / 3)), 'полная починка = треть цены');
+assert.ok(Gear.repairCost(e, 1) >= 1 && Gear.repairCost(e, 1) <= full, 'пункт не дороже целого, не меньше 1');
+assert.ok(Gear.repairCost(e, 999) === full, 'сверх недостающего не считается');
+e.dur = 20; Gear.setTier(e, 4);
+assert.strictEqual(Gear.durOf(e).max, 45); assert.strictEqual(Gear.durOf(e).cur, Math.round(20 / 40 * 45), 'доля сохраняется');
+const f = { uid: 'y', id: base, tier: 2 }; Gear.setTier(f, 3);
+assert.ok(!('dur' in f), 'целая вещь не хранит dur');
+console.log('durability: все тесты пройдены');

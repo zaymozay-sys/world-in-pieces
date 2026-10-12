@@ -2,15 +2,17 @@
 // Ищет: горизонтальную прокрутку, элементы за краем экрана, обрезанный текст, мелкие кнопки, наложение кнопок,
 // сломанные картинки, асимметрию левой/правой панелей боя, сдвиг поля. Снимки — в папку OUT.
 // Запуск: NODE_PATH=$(npm root -g) node tools/layout-audit.js [--quick] [--out=/tmp/audit]
-const { chromium } = require('playwright');
+const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const path = require('path'), fs = require('fs');
+const { hitReport } = require('./hitlib.js');   // 1.6.4 (WIP-11): пятиточечная проверка нажатий, перекрытые кнопки — дефект, а не «пропуск»
 const URL = 'file://' + path.join(__dirname, '..', 'index.html');
 const OUT = (process.argv.find((a) => a.startsWith('--out=')) || '--out=/tmp/audit').slice(6);
 const QUICK = process.argv.includes('--quick');
 const arg = (n) => { const a = process.argv.find((x) => x.startsWith('--' + n + '=')); return a ? a.slice(n.length + 3).split(',') : null; };
 fs.mkdirSync(OUT, { recursive: true });
-const VIEWPORTS = QUICK ? [['phone-p', 390, 844, 1], ['desk', 1280, 800, 0]] : [
-  ['phone-p', 390, 844, 1], ['phone-l', 844, 390, 1], ['tablet', 768, 1024, 1], ['laptop', 1366, 650, 0], ['desk', 1280, 800, 0], ['wide', 1920, 1080, 0]];
+const VIEWPORTS = QUICK ? [['phone-p', 390, 844, 1], ['phone-l', 667, 375, 1], ['desk', 1280, 800, 0]] : [
+  ['phone-p', 390, 844, 1], ['phone-s', 320, 568, 1], ['phone-m', 375, 667, 1], ['phone-l', 844, 390, 1], ['phone-l2', 667, 375, 1], ['phone-l3', 568, 320, 1], ['phone-l4', 932, 430, 1],
+  ['tablet', 768, 1024, 1], ['tablet-l', 1024, 768, 1], ['laptop', 1366, 650, 0], ['desk', 1280, 800, 0], ['wide', 1920, 1080, 0]];
 const SKINS = ['3'];   // с 1.5.2 оформление одно («колонки»); номер оставлен в именах файлов
 const BUILDINGS = ['hall', 'artistWorkshop', 'junker', 'forge', 'shop', 'hunter', 'tavern', 'library', 'home', 'mill', 'kennel', 'arena', 'alchemist'];
 const SCENES = [
@@ -68,7 +70,7 @@ function inPage() {
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+  const b = await launchBrowser();
   const report = [], boardPos = {};
   const VPF = arg('vp'), SCF = arg('scenes');
   for (const [vn, w, h, touch] of VIEWPORTS.filter((v) => !VPF || VPF.includes(v[0]))) for (const skin of SKINS) {
@@ -82,6 +84,8 @@ function inPage() {
         await p.waitForTimeout(500);
         if (sc.startsWith('result')) await p.waitForTimeout(2000);
         const f = await p.evaluate(inPage);
+        // перекрытые / вышедшие за экран / слишком мелкие кнопки (hitlib): кнопки под окном поверх экрана не считаются
+        for (const h of await p.evaluate(hitReport)) if (['blocked', 'offscreen', 'small', 'dupid', 'clip'].includes(h.kind) && !(h.kind === 'offscreen' && /Журнал боя/.test(h.text || ''))) f.push(['hit-' + h.kind, (h.el || '') + (h.text ? ' «' + h.text + '»' : '') + (h.rect ? ' [' + h.rect + ']' : '') + (h.by ? ' закрыто: ' + h.by : '') + (h.size ? ' ' + h.size : '')]);
         for (const e of errs) f.push(['js', e]);
         const key = `${vn}-s${skin}-${sc}`;
         if (/^(fight|boss)/.test(sc)) { const bp = await p.evaluate(() => { const B = document.getElementById('board'); const r = B && B.getBoundingClientRect(); return r && [r.left, r.top, r.width].map(Math.round).join(','); }); (boardPos[`${vn}-s${skin}`] = boardPos[`${vn}-s${skin}`] || {})[sc] = bp; }

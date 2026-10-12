@@ -1,6 +1,6 @@
 // 1.5.4: битые сохранения и закрытое хранилище не должны ломать игру.
 // Запуск: NODE_PATH=$(npm root -g) node tests/save.e2e.js   (Playwright — не параллельно с другими e2e)
-const { chromium } = require('playwright');
+const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const path = require('path');
 const URL = 'file://' + path.join(__dirname, '..', 'index.html');
 const CASES = {
@@ -16,7 +16,7 @@ const CASES = {
 let bad = 0;
 const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+  const b = await launchBrowser();
   for (const [k, v] of Object.entries(CASES)) {
     const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } });
     const raw = typeof v === 'string' ? v : JSON.stringify(v);

@@ -15,7 +15,7 @@ for (const id of Village.IDS) {
 }
 assert.ok(Village.cost('forge', 3) > Village.cost('hall', 3));
 let total = 0; for (const id of Village.IDS) for (let k = 1; k <= 5; k++) total += Village.cost(id, k);
-assert.ok(total > 1000 * G && total < 3000 * G, 'все улучшения — тысячи золотых, а не миллионы: ' + total / G);
+assert.ok(total > 400 * G && total < 1200 * G, 'все улучшения — тысячи золотых, а не миллионы: ' + total / G);
 
 // покупка
 const v = {};
@@ -36,7 +36,7 @@ assert.strictEqual(Village.elixirExtra(w), 3); assert.strictEqual(Village.temper
 assert.strictEqual(Market.fee(1000, 0.01), 10); assert.strictEqual(Market.fee(1000), 50);
 const pet = { speciesId: 'dog', tier: 2, xp: 0 }; Pets.studyStart(pet, 0, 'ball', 0.5);
 assert.strictEqual(pet.study, Pets.ACTS.ball.ms / 2, 'Питомник ускоряет занятие');
-const act = {}; Elixirs.drink(act, 'power', 5, 3); assert.strictEqual(act.power.left, Elixirs.battles(5) + 3, 'Алхимик продлевает эликсир');
+const act = {}; Elixirs.drink(act, 'power', 5, 3); assert.strictEqual(act.power.left, 1); assert.strictEqual(Elixirs.bonusStats(act).power, Math.round(Elixirs.bonus(5, 'power') * 1.15), 'Алхимик усиливает эликсир на 5% за уровень');
 
 // закалка
 {

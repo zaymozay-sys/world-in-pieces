@@ -116,7 +116,7 @@ assert.deepStrictEqual(Combat.turnOrder(false, true), ['monster', 'hero', 'pet']
   const a = fighter({ dmg: 2, stats: { power: 50 } }), t = fighter({ stats: { defense: 20 } });
   const r = Combat.hit(a, t, 10, false, never);
   assert.strictEqual(r.kind, 'hit');
-  assert.strictEqual(r.amount, Math.round(Math.ceil(10 * 2 * 1.5) * 0.8), 'формула урона 1-на-1 не изменилась');
+  assert.strictEqual(r.amount, Combat.mitigate(Math.ceil(10 * 2 * 1.5), Combat.armorOf(t)), 'формула урона: Броня вычитается цифрой (1.6.0)');
   assert.strictEqual(t.hp, 100 - r.amount);
 }
 
@@ -262,15 +262,14 @@ console.log('pets 1.5.1 ok');
 // 1.5.1: эликсиры — один заметный эффект за бой, растёт с цветом
 {
   const Elixirs = require('../js/elixirs.js');
-  for (const k of Elixirs.ORDER) {
+  for (const k of ['power', 'defense', 'block', 'ricochet', 'fury']) {
     assert.strictEqual(Elixirs.effect(k, 4), null, 'до 5-го цвета эффекта нет: ' + k);
     assert.ok(Elixirs.effect(k, 5) && Elixirs.sideText(k, 5), 'есть текст: ' + k);
     if (k !== 'initiative') assert.ok(Elixirs.effect(k, 10).v >= Elixirs.effect(k, 5).v, 'растёт с цветом: ' + k);
   }
   assert.ok(Elixirs.effect('power', 5).v >= 1.5 && Elixirs.effect('power', 10).v >= 2);
   assert.ok(Elixirs.effect('defense', 10).v <= 90, 'первый удар не обнуляется');
-  assert.strictEqual(Elixirs.effect('health', 5).v, 0, 'на 5-м цвете остаётся 1 ХП');
-  assert.ok(Elixirs.effect('health', 10).v > 0);
+  assert.ok(Elixirs.effect('health', 5) === null && Elixirs.effect('initiative', 9) === null, 'Жизнь и Инициатива без побочного эффекта');
   assert.ok(/ХП/.test(Elixirs.describe('health', 10)) && /×/.test(Elixirs.describe('fury', 7)));
   // крит с добавкой от эликсира ярости
   const Combat = require('../js/combat.js');

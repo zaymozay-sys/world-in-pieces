@@ -3,7 +3,7 @@
 // Запуск: NODE_PATH=$(npm root -g) node tests/ui150.e2e.js (в обычный `npm test` не входит).
 const assert = require('assert');
 const path = require('path');
-const { chromium } = require('playwright');
+const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const URL = 'file://' + path.join(__dirname, '..', 'index.html');
 
 async function open(b, vp, mobile) {
@@ -37,7 +37,7 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
 });
 
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+  const b = await launchBrowser();
 
   // 1. телефон: вертикаль и горизонталь
   for (const [name, vp] of [['портрет', { width: 390, height: 800 }], ['ландшафт', { width: 800, height: 380 }]]) {
@@ -165,26 +165,37 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
     await ctx.close();
   }
 
-  // 4в. эликсиры (5+): значки над героем, эффект один раз за бой
+  // 4в. эликсиры 1.6.0: пьются в бою в свой ход бесплатно; значки с числом ходов; побочный эффект (5+) раз с каждого выпитого
   {
     const { p, errs, ctx } = await open(b, { width: 1280, height: 800 });
-    await p.evaluate(() => { Profile.data.elixirs.active = { initiative: { tier: 6, left: 3 }, health: { tier: 5, left: 3 }, power: { tier: 5, left: 3 }, fury: { tier: 10, left: 3 } }; });
+    await p.evaluate(() => { for (const [k, t] of [['fury', 10], ['power', 5], ['health', 5], ['stones', 3], ['defense', 6]]) Profile.addElixir(k, t, 1); });
     await startDuo(p, true);
     const r = await p.evaluate(async () => {
       const w = (ms) => new Promise((x) => setTimeout(x, ms)); const out = {};
       MAIN_BATTLE.setAutopilot(false); await w(800);
+      const f = fighters.left;
+      turnSide = 'left'; busy = false;
+      out.before = { power: f.stats.power, defense: f.stats.defense };
+      out.drank = [useElixir('power', 5), useElixir('fury', 10), useElixir('defense', 6)];
+      out.cd0 = f.elxCd;
+      f.hp = Math.round(f.max * 0.3); const hp0 = f.hp;
+      out.drankHealth = useElixir('health', 5); out.healed = f.hp - hp0;
+      out.drankStones = useElixir('stones', 3);              // общий запас «раз в 3 хода» — нельзя
+      out.cd1 = f.elxCd;
       out.badges = document.querySelectorAll('.elx-badge').length;
-      out.logFirst = [...document.querySelectorAll('#log li')].some((l) => /Эликсир сработал: Эликсир инициативы/.test(l.textContent));
-      const f = fighters.left; f.hp = 5;
-      dealDamage('left', 999, true); await w(100);
-      out.surv = f.hp; out.usedHealth = !!f.elxUsed.health;
-      f.hp = 5; dealDamage('left', 999, true); out.dead = f.hp <= 0;
-      out.crit = f.critExtra;
+      out.crit = f.critExtra; out.after = { power: f.stats.power, defense: f.stats.defense };
+      out.bag = Profile.elixirBag().length;
+      const lf = () => JSON.stringify(Object.fromEntries(Object.entries(f.elx).map(([k, a]) => [k, a.left]).sort()));
+      out.left = lf();
+      setTurn('right'); out.afterTurn = lf();
+      setTurn('left'); out.cd2 = f.elxCd;
       return out;
     });
-    assert.strictEqual(r.badges, 4); assert.ok(r.logFirst, 'инициатива сработала и записана');
-    assert.strictEqual(r.surv, 1, 'эликсир жизни 5-го цвета оставляет 1 ХП'); assert.ok(r.usedHealth); assert.ok(r.dead, 'второй раз за бой не спасает');
-    assert.ok(r.crit > 1, 'ярость 10-го цвета взвела сильный крит');
+    assert.deepStrictEqual(r.drank, [true, true, true]); assert.ok(r.after.power > r.before.power && r.after.defense >= r.before.defense, 'прибавки применены');
+    assert.ok(r.healed > 0, 'Жизнь лечит цифрой'); assert.strictEqual(r.drankStones, false, 'мгновенные — раз в 3 хода, запас общий'); assert.strictEqual(r.cd1, 3);
+    assert.strictEqual(r.badges, 3); assert.ok(r.crit > 1, 'ярость 10-го цвета взвела сильный крит'); assert.strictEqual(r.bag, 1, 'из сумки расходуются');
+    assert.strictEqual(r.left, '{"defense":10,"fury":10,"power":1}'); assert.strictEqual(r.afterTurn, '{"defense":9,"fury":9}', 'Сила кончилась с ходом');
+    assert.strictEqual(r.cd2, 2);
     assert.deepStrictEqual(errs, []);
     await ctx.close();
   }
@@ -224,7 +235,9 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
   {
     const { p, errs, ctx } = await open(b, { width: 1280, height: 800 });
     await attack(p, true); await p.waitForFunction(() => Duo.on(), null, { timeout: 20000 });
-    await p.evaluate(() => MAIN_BATTLE.setAutopilot(true, 100));
+    // 1.6.5: «липкий» автопилот на обоих полях: Duo при запуске и после победы на одном поле сам передаёт управление человеку (setControl); раньше такой бой
+    // доигрывался по таймеру хода (3 пропуска × 30 с), теперь таймер по умолчанию выключен — человек ждёт сколько угодно
+    await p.evaluate(() => { const keep = setInterval(() => { if (document.getElementById('overlay')) return clearInterval(keep); if (!MAIN_BATTLE.over && !MAIN_BATTLE.autopilot) MAIN_BATTLE.setAutopilot(true, 100); const pb = Duo.pet; if (pb && !pb.over && !pb.autopilot) pb.setAutopilot(true, 100); }, 300); MAIN_BATTLE.setAutopilot(true, 100); });
     await p.waitForFunction(() => document.getElementById('overlay'), null, { timeout: 240000 });
     await p.waitForTimeout(500);
     assert.deepStrictEqual(await floating(p), [], 'камни не зависли в конце боя');

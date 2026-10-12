@@ -1,6 +1,6 @@
 // 1.5.3: карта на телефоне — одна строка сверху, меню ☰, две круглые кнопки внизу, раскрывающаяся плашка; на компьютере всё по-старому.
 // Запуск: NODE_PATH=$(npm root -g) node tests/mapphone.e2e.js   (Playwright нельзя запускать параллельно с другими e2e)
-const { chromium } = require('playwright');
+const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const path = require('path');
 const URL = 'file://' + path.join(__dirname, '..', 'index.html') + '#dev-map-meadow';
 let bad = 0;
@@ -9,7 +9,7 @@ const vis = (p, sel) => p.evaluate((s) => { const e = document.querySelector(s);
 const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; }, sel);
 
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+  const b = await launchBrowser();
   const open = async (w, h, touch) => {
     const ctx = await b.newContext({ viewport: { width: w, height: h }, hasTouch: touch, isMobile: touch, deviceScaleFactor: 1 });
     await ctx.addInitScript(() => { try { localStorage.setItem('wip-lang', 'ru'); } catch (e) {} });
@@ -34,7 +34,7 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   await p.tap('#m-more'); await p.waitForTimeout(150);
   ok(await vis(p, '#map-menu'), 'меню открылось');
   const items = await p.evaluate(() => [...document.querySelectorAll('#map-menu button')].map((e) => { const r = e.getBoundingClientRect(); return [e.textContent.trim(), Math.round(r.height), Math.round(r.right), Math.round(r.bottom)]; }));
-  ok(items.length === 5 && items.every((i) => i[1] >= 40 && i[2] <= 390 && i[3] <= 844), 'пять пунктов ≥ 40 px внутри экрана: ' + JSON.stringify(items));
+  ok(items.length === 7 && items.every((i) => i[1] >= 40 && i[2] <= 390 && i[3] <= 844), 'семь пунктов (с «Анимации» и «Таймер хода», 1.6.5) ≥ 40 px внутри экрана: ' + JSON.stringify(items));
   const m0 = await p.evaluate(() => Sound.muted);
   await p.tap('#mm-mute'); await p.waitForTimeout(150);
   ok(await p.evaluate((m) => Sound.muted !== m && !document.getElementById('map-menu').hidden, m0), 'звук переключился, меню осталось');

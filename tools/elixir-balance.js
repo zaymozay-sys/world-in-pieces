@@ -1,8 +1,8 @@
-/* Эликсиры (1.5.1): насколько прибавка и эффект за бой меняют шанс победы.
+/* Эликсиры (1.6.0: пьются в бою, по одному каждого вида; модель — Battle.elxStep в tools/sim.js): насколько один эликсир меняет шанс победы.
    Запуск: node tools/elixir-balance.js [--n=120] [--levels=45,65,95]
    Для каждого уровня героя берём несколько существ его цвета с исходным шансом 30–85% и сравниваем:
-   без эликсира; эликсир этого цвета только с прибавкой к характеристике; с прибавкой и эффектом; все семь сразу.
-   Цель: один эликсир целиком (прибавка + эффект) меняет шанс победы на 3–10 пунктов, а сам эффект — не более ~5. */
+   без эликсира; эликсир этого цвета только с прибавкой к характеристике; с прибавкой и эффектом; все сразу.
+   Цель: один эликсир целиком (прибавка + эффект) меняет шанс победы на 3–8 пунктов одинаково для всех видов, а сам эффект — не более ~3. */
 const sim = require('./sim.js');
 const HexMap = require('../js/hexmap.js');
 const { Hero, Bestiary, Elixirs } = global;
@@ -29,6 +29,6 @@ for (const L of levels) {
   }
   const all = Object.fromEntries(KINDS.map((k) => [k, T]));
   const aStat = avg((p) => run(p.id, all, false)), aFull = avg((p) => run(p.id, all, true));
-  console.log('все семь'.padEnd(12) + `+${pct(aStat - base)}`.padStart(18) + `+${pct(aFull - base)}`.padStart(18) + `${pct(aFull - aStat) >= 0 ? '+' : ''}${pct(aFull - aStat)}`.padStart(15));
+  console.log('все 9'.padEnd(12) + `+${pct(aStat - base)}`.padStart(18) + `+${pct(aFull - base)}`.padStart(18) + `${pct(aFull - aStat) >= 0 ? '+' : ''}${pct(aFull - aStat)}`.padStart(15));
   console.log(`(исходный шанс ${pct(base)}%, n=${n} на существо)`);
 }

@@ -1,6 +1,6 @@
 // 1.5.4: быстрый старт, быстрый бой, элитные и стражи, события, логова, Арена теней, Испытание дня.
 // Запуск: NODE_PATH=$(npm root -g) node tests/world160.e2e.js   (Playwright — не параллельно с другими e2e)
-const { chromium } = require('playwright');
+const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const path = require('path');
 const URL = 'file://' + path.join(__dirname, '..', 'index.html');
 let bad = 0;
@@ -8,7 +8,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+  const b = await launchBrowser();
   const page = async (hash, vp = [1280, 800], touch = false) => {
     const ctx = await b.newContext({ viewport: { width: vp[0], height: vp[1] }, hasTouch: touch, isMobile: touch });
     await ctx.addInitScript(() => { try { localStorage.setItem('wip-lang', 'ru'); } catch (e) {} });
@@ -92,6 +92,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // 1.5.7: карточка героя (не оружейная): нажатие на надетую вещь открывает карточку вещи
   const ic = await p.evaluate(async () => { try { const w = (ms) => new Promise((r) => setTimeout(r, ms)); Inventory.open('left'); await w(300); const b = document.querySelector('.home-modal .dslot.filled'); if (!b) return 'нет надетых вещей'; b.click(); await w(300); const r = !!document.querySelector('.item-info-back'); const c = document.querySelector('.item-info-back [data-act=close]'); if (c) c.click(); Inventory.close && Inventory.close(); return r; } catch (e) { return String(e); } });
   ok(ic === true, 'карточка героя: нажатие на вещь открывает её карточку: ' + ic);
+  // 1.5.9: Стена доблести — нажатие на медаль открывает окно «за что дают»
+  const mp = await p.evaluate(async () => { try { const w = (ms) => new Promise((r) => setTimeout(r, ms)); Screens.openValor(); await w(400); const n = document.querySelectorAll('.medal-round[data-medal]').length; document.querySelector('.medal-round[data-medal]').click(); await w(200); const o = !!document.querySelector('.medal-pop') && document.querySelector('.medal-pop').textContent.length > 40; document.querySelector('.medal-pop [data-act=medal-close]').click(); await w(100); const c = !document.querySelector('.medal-pop'); document.querySelector('[data-act=close]').click(); return { n, o, c }; } catch (e) { return String(e); } });
+  ok(mp && mp.n > 50 && mp.o && mp.c, 'стена доблести: окно медали: ' + JSON.stringify(mp));
   // быстрый бой
   const q = await p.evaluate(() => { Profile.data.xp = Hero.totalFor(40); const sp = MapView.map.spawns.find((s) => !s.boss && s.tier === 1 && MapView.alive(s) && !MapView.eliteOf(s) && MapView.known(s.idx)); Profile.data.bestiary[sp.species] = { wins: 1, tier: 1 }; MapView.showMonster ? 0 : 0; MapView.tap(sp.idx); return { id: sp.id, btn: !!document.querySelector('#map-card [data-act=quick]'), coins: Profile.data.coins }; });
   ok(q.btn, 'на карточке слабого существа есть «Быстрый бой»');

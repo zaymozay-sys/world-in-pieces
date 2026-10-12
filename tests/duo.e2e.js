@@ -2,7 +2,7 @@
 // Нужен Playwright + chromium (в обычный `npm test` не входит — как tools/smoke.js).
 const assert = require('assert');
 const path = require('path');
-const { chromium } = require('playwright');
+const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const URL = 'file://' + path.join(__dirname, '..', 'index.html');
 
 async function open(b, vp) {
@@ -27,7 +27,7 @@ const attack = (p) => p.evaluate(() => {
 });
 
 (async () => {
-  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium' });
+  const b = await launchBrowser();
 
   // 1. старт: два поля, копия противника, питомец на автопилоте, вкладки
   {
@@ -79,7 +79,7 @@ const attack = (p) => p.evaluate(() => {
         const P = Duo.pet;
         const cur = [moves, fighters.left.hp, P.fighters.left.hp, fighters.right.hp, P.fighters.right.hp, JSON.stringify(Duo.state.result)].join('|');
         if (cur !== sig) { sig = cur; last = Date.now(); }
-        if (Date.now() - last > 30000) return { stuck: cur };
+        if (Date.now() - last > 30000) { const Bd = Duo.state.control === 'pet' ? P : MAIN_BATTLE; return { stuck: cur + ' | control=' + Duo.state.control + ' tab=' + Duo.state.tab + ' over=' + Bd.over + ' busy=' + Bd.busy + ' aiming=' + Bd.aiming + ' turn=' + Bd.turnSide + ' auto=' + Bd.autopilot + ' heroOver=' + MAIN_BATTLE.over + ' heroBusy=' + MAIN_BATTLE.busy + ' heroTurn=' + MAIN_BATTLE.turnSide + ' petOver=' + P.over + ' petBusy=' + P.busy + ' petTurn=' + P.turnSide }; }
         const B = Duo.state.control === 'pet' ? P : MAIN_BATTLE;   // «игрок» за героя играет ИИ уровня 60
         if (!B.over && !B.busy && !B.aiming && B.turnSide === 'left' && !B.autopilot) {
           const L = B.fighters.left, R = B.fighters.right, v = Combat.aiView(L, R);
