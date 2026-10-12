@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Хрупкий мир — об игре</title>
+<meta name="description" content="Хрупкий мир — фэнтезийная игра «три в ряд» с ролевой прокачкой, картой, четырьмя народами и питомцами. Играть бесплатно в браузере.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+body{margin:0;background:#14101c}
+.wrap{max-width:1180px;margin:0 auto;padding-left:20px;padding-right:20px;box-sizing:border-box}
+.sec{display:flex;flex-direction:column;gap:32px}
+.head{display:flex;flex-direction:column;gap:14px}
+.grid{display:grid;gap:20px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.gm{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.gb{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.eyebrow{font-family:'Golos Text',system-ui,sans-serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;font-weight:600}
+h2.h{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:clamp(34px,5vw,54px);line-height:1.05;margin:0;color:#f4eee2;text-wrap:balance}
+h3.sub{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:30px;margin:0;color:#f4eee2}
+p.lead{font-family:'Golos Text',system-ui,sans-serif;font-size:18px;line-height:1.6;color:#cfc6dc;margin:0;max-width:62ch}
+.card{border-radius:18px;background:#1d1729;border:1px solid #2f2742;overflow:hidden}
+.card h3{font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;line-height:1.1;margin:0;color:#f4eee2;font-weight:700}
+.card p{font-family:'Golos Text',system-ui,sans-serif;font-size:16px;line-height:1.55;color:#cfc6dc;margin:0}
+.chip{font-family:'Golos Text',system-ui,sans-serif;font-size:14px;font-weight:500;color:#f4eee2;border:1px solid #5b4d7a;border-radius:999px;padding:8px 16px;background:rgba(20,16,28,.55)}
+.mc{border-radius:14px;background:#1d1729;border:1px solid #2f2742;padding:10px 8px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-family:'Golos Text',system-ui,sans-serif;font-size:14px;color:#e6dff0;font-weight:500}
+.mc img{width:100%;max-width:110px;aspect-ratio:1/1;object-fit:contain}
+.boss{border-color:#c9972e;background:#241c2b}
+.boss .tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#e8c26a;font-weight:600}
+.bc{position:relative;min-height:260px;display:flex;align-items:flex-end;border-radius:18px;overflow:hidden;border:1px solid #2f2742;background:#1d1729}
+.bc img.bgi{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover}
+.bc .shade{position:absolute;left:0;top:0;width:100%;height:100%;background:linear-gradient(180deg,rgba(20,16,28,0) 25%,rgba(20,16,28,.94))}
+.bc .txt{position:relative;padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+.bc h3{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;line-height:1.1;margin:0;color:#fbf4e4;font-weight:700}
+.bc p{font-family:'Golos Text',system-ui,sans-serif;font-size:15px;line-height:1.5;color:#e6dff0;margin:0}
+.npc{display:flex;gap:16px;align-items:center;padding:14px;border-radius:16px;background:#1d1729;border:1px solid #2f2742}
+.npc img{width:84px;height:84px;border-radius:12px;object-fit:cover;flex:none}
+.npc b{font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;color:#f4eee2;display:block;margin-bottom:2px}
+.npc span{font-family:'Golos Text',system-ui,sans-serif;font-size:14px;line-height:1.45;color:#cfc6dc}
+.npc img.ic{object-fit:contain;background:#14101c;padding:6px;box-sizing:border-box;width:72px;height:72px}
+.shot{border-radius:16px;border:1px solid #3a3050;overflow:hidden;background:#1d1729;display:flex;flex-direction:column}
+.shot img{width:100%;height:auto}
+.shot figcaption{font-family:'Golos Text',system-ui,sans-serif;font-size:15px;line-height:1.5;color:#cfc6dc;padding:14px 18px}
+.shot figcaption b{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;color:#f4eee2;margin-bottom:2px}
+.steps{counter-reset:s;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.step{display:flex;gap:16px;align-items:flex-start;font-family:'Golos Text',system-ui,sans-serif;font-size:16px;line-height:1.5;color:#cfc6dc}
+.step i{flex:none;width:40px;height:40px;border-radius:50%;background:#e8c26a;color:#14101c;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:20px}
+.sw{width:100%;height:44px;border-radius:10px;position:relative;overflow:hidden}
+.swl{font-family:'Golos Text',system-ui,sans-serif;font-size:13px;color:#cfc6dc;text-align:center}
+@keyframes shine{0%{background-position:-160% 0}100%{background-position:260% 0}}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:1;transform:scale(1)}}
+.sp::before{content:"";position:absolute;left:0;top:0;width:100%;height:100%;background:linear-gradient(105deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.75) 50%,rgba(255,255,255,0) 65%);background-size:60% 100%;background-repeat:no-repeat;animation:shine 2.6s linear infinite}
+.sp::after{content:"";position:absolute;left:68%;top:18%;width:7px;height:7px;background:#fff;border-radius:50%;box-shadow:0 0 8px 3px rgba(255,255,255,.9),-34px 16px 0 -1px #fff,-52px -4px 0 -2px #fff;animation:twinkle 1.8s ease-in-out infinite}
+.sp2::before{animation-delay:.7s}.sp2::after{animation-delay:.5s}
+.sp3::before{animation-delay:1.3s;opacity:.55}.sp3::after{animation-delay:1s;box-shadow:0 0 8px 3px rgba(190,160,255,.95),-34px 16px 0 -1px #cdb8ff,-52px -4px 0 -2px #cdb8ff;background:#cdb8ff}
+@media (prefers-reduced-motion:reduce){.sp::before,.sp::after{animation:none}}
+img{display:block}
+</style>
+
+</head>
+<body>
+
+
+<div style="background:#14101c;color:#f4eee2;font-family:'Golos Text',system-ui,sans-serif;display:flex;flex-direction:column;gap:96px;padding-bottom:72px">
+
+<!-- HERO -->
+<section style="display:flex;flex-direction:column;overflow:hidden">
+<div style="position:relative">
+<img src="promo/bg-splash-landscape.webp" alt="Герои четырёх народов на скале над долиной с парящими кристаллами" style="width:100%;height:clamp(280px,56vw,720px);object-fit:cover;object-position:center 35%">
+<div style="position:absolute;left:0;bottom:0;width:100%;height:30%;background:linear-gradient(180deg,rgba(20,16,28,0),#14101c)"></div>
+</div>
+<div class="wrap" style="display:flex;flex-direction:column;gap:20px;padding-top:8px;padding-bottom:24px">
+<span class="eyebrow" style="color:#e8c26a">Три в ряд · ролевая игра · приключение</span>
+<h1 style="font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:clamp(56px,10vw,120px);line-height:.95;margin:0;color:#fbf4e4;text-wrap:balance">Хрупкий мир</h1>
+<p class="lead" style="font-size:20px;color:#e6dff0">Собирай камни в ряды, колдуй, побеждай существ и собирай осколки Великого Сердца, пока мир не рассыпался окончательно.</p>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+<span class="chip">Играется в браузере</span>
+<span class="chip">Телефон и компьютер</span>
+<span class="chip">Русский и English</span>
+<a href="https://zaymozay-sys.github.io/world-in-pieces/" style="font-family:'Golos Text',system-ui,sans-serif;font-size:15px;font-weight:600;color:#14101c;background:#e8c26a;border-radius:999px;padding:9px 22px;text-decoration:none">Играть</a>
+</div>
+</div>
+</section>
+
+<!-- ЭКРАНЫ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#3fbf7f">Игра изнутри</span>
+<h2 class="h">Карта, снаряжение, бестиарий и медали</h2>
+<p class="lead">Живые кадры из игры: деревня на карте из шестиугольников, снаряжение героя, книга существ и стена доблести.</p>
+</div>
+<div class="grid g2">
+<figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-map.webp" alt="Карта: деревня и окрестности"><figcaption><b>Карта и деревня</b>Мощёная площадь, здания по кругу и частокол с воротами. За стенами — леса, горы и болота с существами.</figcaption></figure>
+<figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-bag.webp" alt="Сумка и оружейная героя"><figcaption><b>Герой и снаряжение</b>Ячейки для вещей вокруг героя, оружие и щит внизу. Рядом — эликсиры, боеприпасы и ресурсы.</figcaption></figure>
+<figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-bestiary.webp" alt="Бестиарий"><figcaption><b>Бестиарий</b>Приёмы, добыча и шанс на победу для каждого существа. Здесь же видно, сколько побед осталось до приручения.</figcaption></figure>
+<figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-valor.webp" alt="Стена доблести"><figcaption><b>Стена доблести</b>Медали за первую победу над каждым видом, за линии из пяти камней и за добивание Ударом. Каждая даёт постоянный бонус.</figcaption></figure>
+</div>
+</section>
+
+<!-- СЮЖЕТ -->
+<section class="wrap sec" style="gap:20px">
+<span class="eyebrow" style="color:#e8c26a">Сюжет</span>
+<h2 class="h">Великое Сердце раскололось</h2>
+<p class="lead">Его осколки хранят стражи с коронами, разбросанные по карте. Собери четыре осколка — и проснётся последний страж. Но до него ещё надо дойти: через туман, болота, горы и побережье.</p>
+</section>
+
+<!-- БОЙ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#7fb0ff">Бой</span>
+<h2 class="h">Камни вместо мечей</h2>
+<p class="lead">Поле шесть на шесть, четыре камня и соперник, которым управляет ИИ. Составляй ряды из трёх и больше, обдумывай каждый ход — и не давай существу сделать это раньше тебя.</p>
+</div>
+<div class="grid g2" style="align-items:stretch">
+<div class="bc" style="min-height:340px">
+<img class="bgi" src="promo/bg-battle.webp" alt="Каменный круг на закате, место боя">
+<div class="shade"></div>
+<div class="txt"><h3>Бой на лесной поляне</h3><p>Каменные руны, закат и туман над долиной — вот где решается исход.</p></div>
+</div>
+<div class="card" style="padding:28px;display:flex;flex-direction:column;gap:22px;justify-content:center">
+<h3>Четыре камня</h3>
+<div style="display:flex;flex-wrap:wrap;gap:18px">
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><img src="promo/sapphire.webp" alt="Сапфир" style="width:72px;height:72px"><span class="swl">Сапфир</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><img src="promo/ruby.webp" alt="Рубин" style="width:72px;height:72px"><span class="swl">Рубин</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><img src="promo/emerald.webp" alt="Изумруд" style="width:72px;height:72px"><span class="swl">Изумруд</span></div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px"><img src="promo/onyx.webp" alt="Обсидиан" style="width:72px;height:72px"><span class="swl">Обсидиан</span></div>
+</div>
+<p>Собирай ряды из камней и используй особое умение своего народа — оно может перевернуть бой за один ход.</p>
+</div>
+</div>
+</section>
+
+<!-- ПОЛЕ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#7fb0ff">Поле боя</span>
+<h2 class="h">Так выглядит бой</h2>
+<p class="lead">В центре поле шесть на шесть с гранёными камнями. Слева твой герой и его магия, справа — противник, его здоровье и приём. Камни с цифрами x3 и x5 бьют сильнее. А рядом — вкладки героя и питомца: за него тоже можно сыграть.</p>
+</div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start">
+<figure class="shot" style="margin:0;grid-column:span 2;min-width:0"><img loading="lazy" src="promo/shot-battle.webp" alt="Экран боя на компьютере"><figcaption><b>На компьютере</b>Магия слева, поле в центре, эликсиры и боеприпасы под ним.</figcaption></figure>
+<figure class="shot" style="margin:0;max-width:390px"><img loading="lazy" src="promo/shot-battle-phone.webp" alt="Экран боя на телефоне"><figcaption><b>На телефоне</b>Тот же бой, собранный для узкого экрана.</figcaption></figure>
+</div>
+</section>
+
+<!-- МАГИЯ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#b79cf0">Магия</span>
+<h2 class="h">Тринадцать заклинаний</h2>
+<p class="lead">Заклинания открываются по мере роста героя. Одни бьют, другие лечат, третьи переписывают поле боя. К ним добавляется умение народа.</p>
+</div>
+<div class="grid g3">
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-strike.webp" alt="Удар"><div><b>Удар</b><span>Наносит фиксированный базовый урон героя.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-lightning.webp" alt="Шаровая молния"><div><b>Шаровая молния</b><span>Сильнейшая магия: на один ход каждый собранный камень любого цвета бьёт с множителем x1,5.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-fire.webp" alt="Огненный крест"><div><b>Огненный крест</b><span>Собирает камни креста (область 5x5) в копилку.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-square.webp" alt="Захват"><div><b>Захват</b><span>Собирает квадрат камней 3x3 в копилку.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-transmute.webp" alt="Превращение"><div><b>Превращение</b><span>Выбранный камень и все камни его цвета вокруг становятся обсидианом.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-heal.webp" alt="Целебный дождь"><div><b>Целебный дождь</b><span>Лечит на сумму номиналов изумрудов на поле.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-chaos.webp" alt="Хаос"><div><b>Хаос</b><span>Камни в выбранной области 3×3 перемешиваются в лучший для вас расклад.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-pierce.webp" alt="Выпад"><div><b>Выпад</b><span>Выбранный камень сгорит, поле осядет по обычным правилам, а ход не тратится.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-mirror.webp" alt="Зеркало"><div><b>Зеркало</b><span>Следующий полученный удар целиком отражается атакующему.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-tide.webp" alt="Прилив"><div><b>Прилив</b><span>Один случайный цвет на поле целиком перекрашивается в другой.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-sacrifice.webp" alt="Жертва"><div><b>Жертва</b><span>Сжигает часть твоего здоровья: следующий собранный камень наносит утроенный урон.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-divination.webp" alt="Прорицание"><div><b>Прорицание</b><span>Показывает лучший ход на поле. Ход не тратится.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/s-fury.webp" alt="Кулак ярости"><div><b>Кулак ярости</b><span>Следующий удар наносит двойной урон, пока твоих камней на поле больше, чем любого другого цвета.</span></div></div>
+</div>
+</section>
+
+<!-- НАРОДЫ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#e0475b">Герой</span>
+<h2 class="h">Четыре народа — четыре манеры играть</h2>
+<p class="lead">У каждого народа своё умение, а у каждого народа — герой и героиня на выбор. Выбирай того, чья тактика тебе по руке.</p>
+</div>
+<div class="grid g4">
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px">
+<img src="promo/emblem-human.webp" alt="Эмблема людей" style="width:84px;height:84px">
+<h3>Люди</h3>
+<span class="eyebrow" style="color:#e8c26a">Знамя</span>
+<p>На три хода урон героя растёт на 50%. Время ломать оборону.</p>
+</div>
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px">
+<img src="promo/emblem-dwarf.webp" alt="Эмблема гномов" style="width:84px;height:84px">
+<h3>Гномы</h3>
+<span class="eyebrow" style="color:#e8c26a">Рунный молот</span>
+<p>Три случайных камня на поле становятся обсидианом x3.</p>
+</div>
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px">
+<img src="promo/emblem-elf.webp" alt="Эмблема эльфов" style="width:84px;height:84px">
+<h3>Эльфы</h3>
+<span class="eyebrow" style="color:#e8c26a">Дикий рост</span>
+<p>Выбранный камень и два соседних прорастают изумрудами x3, готовые линии собираются сразу.</p>
+</div>
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:14px">
+<img src="promo/emblem-lizard.webp" alt="Эмблема ящеров" style="width:84px;height:84px">
+<h3>Ящеры</h3>
+<span class="eyebrow" style="color:#e8c26a">Ядовитый укус</span>
+<p>Яд: противник теряет здоровье в начале каждого из трёх своих ходов.</p>
+</div>
+</div>
+</section>
+
+<!-- КАРТА -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#3fbf7f">Карта</span>
+<h2 class="h">Выйди из деревни — вернись с добычей</h2>
+<p class="lead">Карта из шестиугольников скрыта туманом. Идёшь дальше — открываешь новые земли, встречаешь существ сильнее и получаешь добычу ценнее. Леса, болота, горы и побережье — у каждой местности свои обитатели.</p>
+</div>
+<div class="grid g3">
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-lighthouse.webp" alt="Маяк"><div class="shade"></div><div class="txt"><h3>Берег и маяк</h3><p>Маяк, на котором живёт смотритель — тюлень. Он знает, где искать ключ.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-wreck.webp" alt="Остов брига"><div class="shade"></div><div class="txt"><h3>Остов брига</h3><p>Разбитый бригантин на берегу. Рядом стоит запертый сундук.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-hunter.webp" alt="Охотники"><div class="shade"></div><div class="txt"><h3>Охотники</h3><p>Бестиарий: всё о встреченных существах — приёмы, добыча и шанс на победу.</p></div></div>
+</div>
+</section>
+
+<!-- ДЕРЕВНЯ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#e8c26a">Деревня</span>
+<h2 class="h">Дом, куда хочется вернуться</h2>
+<p class="lead">Здания открываются по мере роста героя. В каждом живёт свой житель и своё занятие. Золото можно вложить в улучшения деревни, и они остаются навсегда.</p>
+</div>
+<div class="grid gb">
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-home.webp" alt="Дом героя"><div class="shade"></div><div class="txt"><h3>Дом героя</h3><p>Здесь хранится снаряжение: менять вещи можно только дома.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-shop.webp" alt="Лавка"><div class="shade"></div><div class="txt"><h3>Лавка</h3><p>Покупка и продажа вещей, зелий, свитков и ресурсов. Вещи собраны по комплектам, есть примерка.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/bg-forge.webp" alt="Кузница"><div class="shade"></div><div class="txt"><h3>Кузница</h3><p>Улучшает цвет вещей и создаёт новые из ресурсов, что выпадают из существ. Вещи изнашиваются — их можно чинить.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/bg-alchemist.webp" alt="Алхимик"><div class="shade"></div><div class="txt"><h3>Алхимик</h3><p>Эликсиры, которые варятся из добычи с твоих охот.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/bg-library.webp" alt="Библиотека"><div class="shade"></div><div class="txt"><h3>Библиотека</h3><p>Летопись осколков Великого Сердца, свитки и поручение дня.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/bg-kennel.webp" alt="Питомник"><div class="shade"></div><div class="txt"><h3>Питомник</h3><p>Питомцы, яйца, занятия и угощения для верных спутников.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-tavern.webp" alt="Таверна"><div class="shade"></div><div class="txt"><h3>Таверна</h3><p>Гоблин-трактирщик даёт задания. Первое — «Первая кровь».</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-mill.webp" alt="Мельница"><div class="shade"></div><div class="txt"><h3>Мельница</h3><p>Мельник-мышь даёт задания и делится мышиной мудростью.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-artistWorkshop.webp" alt="Мастерская художника"><div class="shade"></div><div class="txt"><h3>Мастерская художника</h3><p>Журавль продаёт руны и вставляет их в вещи: по два гнезда в каждой.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-junker.webp" alt="Хижина старьёвщика"><div class="shade"></div><div class="txt"><h3>Хижина старьёвщика</h3><p>Скупает ненужные вещи разом: дешевле Лавки, зато не глядя.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-market.webp" alt="Торговые ряды"><div class="shade"></div><div class="txt"><h3>Торговые ряды</h3><p>Выставляй вещи и ресурсы на продажу — покупатели находятся со временем.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-arena.webp" alt="Арена"><div class="shade"></div><div class="txt"><h3>Арена</h3><p>Тени — копии героев других народов: побеждай, поднимайся в рангах и получай титулы. А Испытание дня — одно поле и один противник на всех.</p></div></div>
+</div>
+</section>
+
+<!-- ЖИТЕЛИ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#7fb0ff">Жители</span>
+<h2 class="h">Те, кто встретит тебя в деревне</h2>
+<p class="lead">У каждого здания свой хозяин: добрые, ворчливые и немного загадочные.</p>
+</div>
+<div class="grid g3">
+<div class="npc"><img loading="lazy" src="promo/n-alchemist.webp" alt="Тётушка Жабка"><div><b>Тётушка Жабка</b><span>Алхимик. Варит эликсиры в выдержанных бочках.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-kennel-keeper.webp" alt="Ласка"><div><b>Ласка</b><span>Смотрительница питомника. Строит площадку для тренировок.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-goblin-tavern.webp" alt="Гоблин-трактирщик"><div><b>Гоблин-трактирщик</b><span>Добрый старый гоблин. Даёт задания в таверне.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-beaver-library.webp" alt="Бобёр-библиотекарь"><div><b>Бобёр-библиотекарь</b><span>Хранит летопись осколков Великого Сердца.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-crane-artist.webp" alt="Журавль-художник"><div><b>Журавль-художник</b><span>Продаёт руны и вставляет их в вещи.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-mouse-mill.webp" alt="Мельник-мышь"><div><b>Мельник-мышь</b><span>Добрый мышь с мельницы. Даёт задания и мышиную мудрость.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-seal-lighthouse.webp" alt="Тюлень-смотритель"><div><b>Тюлень-смотритель</b><span>Хранитель маяка на берегу. У него ключ от сундука.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-junker.webp" alt="Старьёвщик"><div><b>Старьёвщик</b><span>Скупает ненужные вещи разом, не глядя.</span></div></div>
+<div class="npc"><img loading="lazy" src="promo/n-merchant.webp" alt="Торговец"><div><b>Торговец</b><span>Хозяин Лавки: купит, продаст и подскажет цену.</span></div></div>
+</div>
+</section>
+
+<!-- ПИТОМЦЫ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#e0475b">Питомцы</span>
+<h2 class="h">Верный спутник в каждом бою</h2>
+<p class="lead">Питомец воюет рядом с героем: на отдельном поле против копии врага, под управлением своего ИИ, который умнеет с опытом. А в любой момент можно взять управление на себя. Дома питомцы учатся в питомнике и лакомятся угощениями.</p>
+</div>
+<h3 class="sub">Главные питомцы народов</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/p-dog.webp" alt="Боевой пёс">Боевой пёс<span style="font-size:12px;color:#a99fbd">Люди</span></div>
+<div class="mc"><img loading="lazy" src="promo/p-cat.webp" alt="Боевой кот">Боевой кот<span style="font-size:12px;color:#a99fbd">Эльфы</span></div>
+<div class="mc"><img loading="lazy" src="promo/p-hamster.webp" alt="Боевой хомяк">Боевой хомяк<span style="font-size:12px;color:#a99fbd">Гномы</span></div>
+<div class="mc"><img loading="lazy" src="promo/p-turtle.webp" alt="Боевая черепаха">Боевая черепаха<span style="font-size:12px;color:#a99fbd">Ящеры</span></div>
+</div>
+<h3 class="sub">Приручаются после боя</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/p-wolf.webp" alt="Волк">Волк</div>
+<div class="mc"><img loading="lazy" src="promo/p-bear.webp" alt="Медведь">Медведь</div>
+<div class="mc"><img loading="lazy" src="promo/p-boar.webp" alt="Кабан">Кабан</div>
+<div class="mc"><img loading="lazy" src="promo/p-fox.webp" alt="Лиса">Лиса</div>
+<div class="mc"><img loading="lazy" src="promo/p-lynx.webp" alt="Рысь">Рысь</div>
+<div class="mc"><img loading="lazy" src="promo/p-otter.webp" alt="Выдра">Выдра</div>
+<div class="mc"><img loading="lazy" src="promo/p-owl.webp" alt="Филин">Филин</div>
+<div class="mc"><img loading="lazy" src="promo/p-rat.webp" alt="Крыса">Крыса</div>
+<div class="mc"><img loading="lazy" src="promo/p-spider.webp" alt="Паук">Паук</div>
+<div class="mc"><img loading="lazy" src="promo/p-viper.webp" alt="Гадюка">Гадюка</div>
+<div class="mc"><img loading="lazy" src="promo/p-hedgehog.webp" alt="Ёж">Ёж</div>
+<div class="mc"><img loading="lazy" src="promo/p-wisp.webp" alt="Огонёк">Огонёк</div>
+</div>
+<h3 class="sub">Вылупляются из яиц</h3>
+<p class="lead" style="font-size:16px">Яйца падают с редких боссов дальних земель.</p>
+<div class="grid gm">
+<div class="mc boss"><img loading="lazy" src="promo/p-griffin.webp" alt="Грифончик">Грифончик</div>
+<div class="mc boss"><img loading="lazy" src="promo/p-dragon.webp" alt="Дракончик">Дракончик</div>
+<div class="mc boss"><img loading="lazy" src="promo/p-phoenix.webp" alt="Феникс">Феникс</div>
+</div>
+</section>
+
+<!-- БОССЫ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#e8c26a">Боссы</span>
+<h2 class="h">Семь хозяев мира</h2>
+<p class="lead">У каждого уголка карты есть свой хозяин. Они сильнее обычных существ, и победа над ними запоминается.</p>
+</div>
+<div class="grid gm" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+<div class="mc boss"><img loading="lazy" src="promo/m-wisp.webp" alt="Болотный огонёк">Болотный огонёк</div>
+<div class="mc boss"><img loading="lazy" src="promo/m-bear.webp" alt="Медведь-шатун">Медведь-шатун</div>
+<div class="mc boss"><img loading="lazy" src="promo/m-captain.webp" alt="Капитан">Капитан</div>
+<div class="mc boss"><img loading="lazy" src="promo/m-pike.webp" alt="Щука-глубинница">Щука-глубинница</div>
+<div class="mc boss"><img loading="lazy" src="promo/griffin.webp" alt="Грифон">Грифон</div>
+<div class="mc boss"><img loading="lazy" src="promo/wyvern.webp" alt="Виверна">Виверна</div>
+<div class="mc boss"><img loading="lazy" src="promo/basilisk.webp" alt="Василиск">Василиск</div>
+</div>
+</section>
+
+<!-- БЕСТИАРИЙ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#3fbf7f">Бестиарий</span>
+<h2 class="h">59 существ — и у каждого свой характер</h2>
+<p class="lead">От крыс у деревенских стен до драконов на краю карты. Каждое сражается по-своему и оставляет добычу для кузницы и алхимика. Здесь собраны те, у кого уже есть портреты.</p>
+</div>
+<h3 class="sub">Звери</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/m-rat.webp" alt="Крыса-падальщик">Крыса-падальщик</div>
+<div class="mc"><img loading="lazy" src="promo/m-wolf.webp" alt="Волк">Волк</div>
+<div class="mc"><img loading="lazy" src="promo/m-boar.webp" alt="Кабан-секач">Кабан-секач</div>
+<div class="mc"><img loading="lazy" src="promo/m-lynx.webp" alt="Рысь">Рысь</div>
+<div class="mc"><img loading="lazy" src="promo/m-hedgehog.webp" alt="Шипастый ёж">Шипастый ёж</div>
+<div class="mc"><img loading="lazy" src="promo/m-viper.webp" alt="Гадюка">Гадюка</div>
+<div class="mc"><img loading="lazy" src="promo/m-spider.webp" alt="Лесной паук">Лесной паук</div>
+<div class="mc"><img loading="lazy" src="promo/m-vulture.webp" alt="Стервятник">Стервятник</div>
+<div class="mc"><img loading="lazy" src="promo/m-gull.webp" alt="Чайка-воришка">Чайка-воришка</div>
+<div class="mc"><img loading="lazy" src="promo/m-hermit.webp" alt="Краб-отшельник">Краб-отшельник</div>
+<div class="mc"><img loading="lazy" src="promo/m-fox.webp" alt="Лиса-огневка">Лиса-огневка</div>
+<div class="mc"><img loading="lazy" src="promo/m-badger.webp" alt="Барсук">Барсук</div>
+<div class="mc"><img loading="lazy" src="promo/m-owl.webp" alt="Филин">Филин</div>
+<div class="mc"><img loading="lazy" src="promo/m-otter.webp" alt="Выдра-разбойница">Выдра-разбойница</div>
+<div class="mc"><img loading="lazy" src="promo/m-heron.webp" alt="Цапля">Цапля</div>
+<div class="mc"><img loading="lazy" src="promo/m-elk.webp" alt="Лось">Лось</div>
+<div class="mc"><img loading="lazy" src="promo/m-goat.webp" alt="Горный козёл">Горный козёл</div>
+<div class="mc"><img loading="lazy" src="promo/m-eagle.webp" alt="Орёл">Орёл</div>
+<div class="mc"><img loading="lazy" src="promo/m-rhino.webp" alt="Носорог">Носорог</div>
+<div class="mc"><img loading="lazy" src="promo/m-leopard.webp" alt="Снежный барс">Снежный барс</div>
+</div>
+<h3 class="sub">Разбойники, гоблины и орки</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/m-bandit.webp" alt="Разбойник">Разбойник</div>
+<div class="mc"><img loading="lazy" src="promo/m-smuggler.webp" alt="Контрабандист">Контрабандист</div>
+<div class="mc"><img loading="lazy" src="promo/m-goblin.webp" alt="Гоблин">Гоблин</div>
+<div class="mc"><img loading="lazy" src="promo/m-orc.webp" alt="Орк-рубака">Орк-рубака</div>
+<div class="mc"><img loading="lazy" src="promo/m-orcShaman.webp" alt="Орк-шаман">Орк-шаман</div>
+</div>
+<h3 class="sub">Нежить и тени</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/m-skeleton.webp" alt="Скелет-воин">Скелет-воин</div>
+<div class="mc"><img loading="lazy" src="promo/m-ghoul.webp" alt="Упырь">Упырь</div>
+<div class="mc"><img loading="lazy" src="promo/wraith.webp" alt="Призрак">Призрак</div>
+<div class="mc"><img loading="lazy" src="promo/m-shadow.webp" alt="Тень">Тень</div>
+</div>
+<h3 class="sub">Болота и леса</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/m-crab.webp" alt="Болотный рак">Болотный рак</div>
+<div class="mc"><img loading="lazy" src="promo/m-bolotnik.webp" alt="Болотник">Болотник</div>
+<div class="mc"><img loading="lazy" src="promo/m-leech.webp" alt="Гигантская пиявка">Гигантская пиявка</div>
+<div class="mc"><img loading="lazy" src="promo/treant.webp" alt="Древень">Древень</div>
+<div class="mc"><img loading="lazy" src="promo/m-mushroom.webp" alt="Дикий гриб">Дикий гриб</div>
+<div class="mc"><img loading="lazy" src="promo/m-wildbees.webp" alt="Дикие пчёлы">Дикие пчёлы</div>
+</div>
+<h3 class="sub">Великаны, камень и драконы</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/troll.webp" alt="Тролль">Тролль</div>
+<div class="mc"><img loading="lazy" src="promo/golem.webp" alt="Каменный голем">Каменный голем</div>
+<div class="mc"><img loading="lazy" src="promo/m-mimic.webp" alt="Мимик">Мимик</div>
+<div class="mc"><img loading="lazy" src="promo/m-salamander.webp" alt="Саламандра">Саламандра</div>
+<div class="mc"><img loading="lazy" src="promo/dragon.webp" alt="Дракон">Дракон</div>
+</div>
+</section>
+
+<!-- ЦВЕТА -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#b79cf0">Рост</span>
+<h2 class="h">Сто уровней, десять цветов</h2>
+<p class="lead">Сила героя, вещей, существ и ресурсов измеряется цветом: от красного до обсидианового. На каждый цвет — десять уровней. Чем выше цвет, тем опаснее путь и ценнее награда. Серебро, золото и обсидиан искрятся: их не спутать с жёлтым.</p>
+</div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:14px">
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw" style="background:#d9443f"></div><span class="swl">Красный</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw" style="background:#e8893a"></div><span class="swl">Оранжевый</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw" style="background:#e6c443"></div><span class="swl">Жёлтый</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw" style="background:#4aa65a"></div><span class="swl">Зелёный</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw" style="background:#5fb8e6"></div><span class="swl">Голубой</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw" style="background:#3d62d6"></div><span class="swl">Синий</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw" style="background:#8a55c9"></div><span class="swl">Фиолетовый</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw sp" style="background:linear-gradient(135deg,#8f98a6,#e8ecf2 45%,#a9b2bf)"></div><span class="swl">Серебро</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw sp sp2" style="background:linear-gradient(135deg,#a8741c,#f5d56a 45%,#b98626)"></div><span class="swl">Золото</span></div>
+<div style="display:flex;flex-direction:column;gap:8px"><div class="sw sp sp3" style="background:linear-gradient(135deg,#120e1c,#3a2c5a 50%,#0e0a16);border:1px solid #6a5c8a;box-sizing:border-box"></div><span class="swl">Обсидиановый</span></div>
+</div>
+<div class="grid g4">
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h3>Комплекты</h3><p>Корона, Руна, Роща и Чешуя: собери вещи одного комплекта и получи бонусы.</p></div>
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h3>Руны</h3><p>Вставляй руны в снаряжение: в каждой вещи по два гнезда.</p></div>
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h3>Прочность</h3><p>Вещи изнашиваются. Береги их и чини в кузнице.</p></div>
+<div class="card" style="padding:24px;display:flex;flex-direction:column;gap:10px"><h3>Ресурсы</h3><p>Тринадцать видов добычи: кость, руда, шёлк, чешуя, мёд и другие. Из них куются вещи и варятся эликсиры.</p></div>
+</div>
+</section>
+
+<!-- РУНЫ И РЕСУРСЫ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#e0475b">Руны и добыча</span>
+<h2 class="h">Всё, что падает с существ, пригодится</h2>
+<p class="lead">Из добычи куются вещи и варятся эликсиры, а руны вставляются в снаряжение и дают постоянные бонусы.</p>
+</div>
+<h3 class="sub">Восемь рун</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/r-might.webp" alt="Руна мощи">Руна мощи</div>
+<div class="mc"><img loading="lazy" src="promo/r-vitality.webp" alt="Руна жизни">Руна жизни</div>
+<div class="mc"><img loading="lazy" src="promo/r-ward.webp" alt="Руна оберега">Руна оберега</div>
+<div class="mc"><img loading="lazy" src="promo/r-insight.webp" alt="Руна прозрения">Руна прозрения</div>
+<div class="mc"><img loading="lazy" src="promo/r-haste.webp" alt="Руна спешки">Руна спешки</div>
+<div class="mc"><img loading="lazy" src="promo/r-thorn.webp" alt="Руна шипа">Руна шипа</div>
+<div class="mc"><img loading="lazy" src="promo/r-bulwark.webp" alt="Руна стены">Руна стены</div>
+<div class="mc"><img loading="lazy" src="promo/r-fury.webp" alt="Руна ярости">Руна ярости</div>
+</div>
+<h3 class="sub">Тринадцать видов добычи</h3>
+<div class="grid gm">
+<div class="mc"><img loading="lazy" src="promo/x-hide.webp" alt="Шкура">Шкура</div>
+<div class="mc"><img loading="lazy" src="promo/x-fang.webp" alt="Клык">Клык</div>
+<div class="mc"><img loading="lazy" src="promo/x-bone.webp" alt="Кость">Кость</div>
+<div class="mc"><img loading="lazy" src="promo/x-scrap.webp" alt="Железный лом">Железный лом</div>
+<div class="mc"><img loading="lazy" src="promo/x-ore.webp" alt="Руда">Руда</div>
+<div class="mc"><img loading="lazy" src="promo/x-crystal.webp" alt="Кристалл">Кристалл</div>
+<div class="mc"><img loading="lazy" src="promo/x-essence.webp" alt="Эссенция">Эссенция</div>
+<div class="mc"><img loading="lazy" src="promo/x-scale.webp" alt="Чешуя">Чешуя</div>
+<div class="mc"><img loading="lazy" src="promo/x-splinter.webp" alt="Щепка">Щепка</div>
+<div class="mc"><img loading="lazy" src="promo/x-honey.webp" alt="Мёд">Мёд</div>
+<div class="mc"><img loading="lazy" src="promo/x-silk.webp" alt="Паутина">Паутина</div>
+<div class="mc"><img loading="lazy" src="promo/x-feather.webp" alt="Перо">Перо</div>
+<div class="mc"><img loading="lazy" src="promo/x-shell.webp" alt="Ракушка">Ракушка</div>
+</div>
+</section>
+
+<!-- КАК НАЧАТЬ -->
+<section class="wrap sec">
+<div class="head">
+<span class="eyebrow" style="color:#7fb0ff">Как начать</span>
+<h2 class="h">Три шага до первого боя</h2>
+</div>
+<div class="steps">
+<div class="step"><i>1</i><div>Выбери народ и героя: мужского или женского. Придумай имя.</div></div>
+<div class="step"><i>2</i><div>Нажми на любого зверя на карте и прими бой. Собирай камни в ряды.</div></div>
+<div class="step"><i>3</i><div>Возвращайся в деревню: кузнец, алхимик и другие жители ждут твою добычу.</div></div>
+</div>
+</section>
+
+<!-- ФИНАЛ -->
+<section class="wrap sec" style="gap:28px;align-items:flex-start">
+<h2 class="h">Мир хрупок. Тебе его собирать.</h2>
+<div style="display:flex;flex-wrap:wrap;gap:14px;font-family:'Golos Text',system-ui,sans-serif">
+<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">4</div><div class="swl" style="text-align:left">народа</div></div>
+<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">100</div><div class="swl" style="text-align:left">уровней</div></div>
+<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">59</div><div class="swl" style="text-align:left">существ</div></div>
+<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">7</div><div class="swl" style="text-align:left">боссов</div></div>
+<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">12</div><div class="swl" style="text-align:left">зданий</div></div>
+</div>
+<a href="https://zaymozay-sys.github.io/world-in-pieces/" style="display:inline-block;font-family:'Golos Text',system-ui,sans-serif;font-size:18px;font-weight:600;color:#14101c;background:#e8c26a;border-radius:999px;padding:14px 32px;text-decoration:none">Играть</a>
+<p style="margin:18px 0 0;font-family:'Golos Text',system-ui,sans-serif;font-size:14px;color:#b9b2c6"><a href="https://github.com/zaymozay-sys/world-in-pieces" style="color:#e8c26a">Исходный код и новости — на GitHub</a></p>
+</section>
+
+</div>
+
+</body>
+</html>
