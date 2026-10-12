@@ -17,11 +17,11 @@ const Market = (() => {
   const MAX_LOTS = 8;            // одновременно выставлено не больше
   const BASE_MIN = 12;           // при справедливой цене лот уходит в среднем за ~12 минут
   const NEVER = 3;               // дороже справедливой в 3 раза и больше — не купят никогда
-  const PRICE_STEPS = [0.8, 1, 1.3, 1.7, 2.3];   // кнопки цены: доля от справедливой
+  const PRICE_STEPS = [0.6, 0.8, 1, 1.15, 1.3];   // кнопки цены: доля от справедливой (1.6.6: вариант А аудита — цикл «Лавка → ряды» не прибылен)
 
   // Справедливая цена одной штуки — ориентир купцов (дороже продажи в Лавку, дешевле покупки в Лавке).
   function fairUnit(kind, key, entry, unitPrice) {
-    if (kind === 'item') { const it = MK_G.item(entry); return Math.max(1, Math.round(it.price * 0.7)); }
+    if (kind === 'item') { const it = MK_G.item(entry); return Math.max(1, Math.round(it.price * 0.7 * MK_G.wearFactor(entry))); }   // 1.6.6: изношенная вещь дешевле
     if (kind === 'res') { const [k, t] = key.split(':'); return Math.max(1, Math.round(MK_B.resPrice(k, Number(t)) * 1.8)); }
     return Math.max(1, Math.round((unitPrice || 1) * 0.75));     // cons/ammo: от цены в Лавке
   }

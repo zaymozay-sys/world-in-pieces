@@ -1,27 +1,42 @@
 if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
-/* Эликсиры (1.3.6): семь видов × 10 цветов. Эликсир даёт прибавку к одной характеристике на несколько боёв.
-   Прибавка: +3 за каждый цвет (1–10 → +3…+30). Длительность: цвета 1–3 — 3 боя, 4–6 — 5 боёв, 7–10 — 8 боёв.
-   С 5-го цвета у каждого вида есть побочный эффект (описание; в бой подключается отдельным шагом), с 10-го — «Великий»:
-   вторая характеристика на половину силы. Одновременно действует по одному эликсиру каждого вида (сильнейший). */
+/* Эликсиры (1.3.6, переделаны в 1.6.0): восемь видов × 10 цветов. Пьются ТОЛЬКО в бою, в любой свой ход, бесплатно (ход не тратится),
+   расходуются из сумки; на карте не действуют. Сила — до конца хода (перед ударом), Броня/Блок/Рикошет/Ярость/Хитрость — 10 своих ходов,
+   Жизнь (ХП цифрой) и Камни — мгновенно, общий запас «раз в 3 хода». С 5-го цвета у вида есть побочный эффект (раз с каждого
+   выпитого эликсира), с 10-го — «Великий»: вторая характеристика на половину силы. Прибавка за цвет — PER_TIER (см. tools/elixir-balance.js). */
 const Elixirs = (() => {
+  // 1.6.0: эликсиры пьются в бою, в любой момент своего хода, ход не тратят. mode: 'turn' — до конца текущего хода (пить перед ударом),
+  // 'long' — на LONG_TURNS своих ходов, 'instant' — мгновенно, общий запас «раз в INSTANT_CD хода».
   const KINDS = {
-    power:      { name: _t("Эликсир силы"),        stat: 'power',      second: 'fury' },
-    defense:    { name: _t("Эликсир брони"),       stat: 'defense',    second: 'block' },
-    block:      { name: _t("Эликсир блока"),       stat: 'block',      second: 'defense' },
-    ricochet:   { name: _t("Эликсир рикошета"),    stat: 'ricochet',   second: 'power' },
-    fury:       { name: _t("Эликсир ярости"),      stat: 'fury',       second: 'power' },
-    initiative: { name: _t("Эликсир инициативы"),  stat: 'initiative', second: 'cunning' },
-    health:     { name: _t("Эликсир жизни"),       stat: 'health',     second: 'defense' },
+    power:      { name: _t("Эликсир силы"),        stat: 'power',      second: 'fury',    mode: 'turn' },
+    defense:    { name: _t("Эликсир брони"),       stat: 'defense',    second: 'block',   mode: 'long' },
+    block:      { name: _t("Эликсир блока"),       stat: 'block',      second: 'defense', mode: 'long' },
+    ricochet:   { name: _t("Эликсир рикошета"),    stat: 'ricochet',   second: 'power',   mode: 'long' },
+    fury:       { name: _t("Эликсир ярости"),      stat: 'fury',       second: 'power',   mode: 'long' },
+    cunning:    { name: _t("Эликсир хитрости"),    stat: 'cunning',    second: 'block',    mode: 'long' },   // 1.6.0: вместо Проворства (оно решает лишь первый ход, а эликсиры пьются уже в бою)
+    health:     { name: _t("Эликсир жизни"),       stat: null,         second: null,      mode: 'instant' },
+    stones:     { name: _t("Эликсир камней"),      stat: null,         second: null,      mode: 'instant' },
+    swap:       { name: _t("Эликсир превращения"), stat: null,         second: null,      mode: 'instant' },
   };
+  const LONG_TURNS = 10, INSTANT_CD = 3;
+  const HEAL = [30, 40, 50, 70, 90, 120, 160, 210, 270, 350];        // лечение «Жизни» в ХП по цвету (кратно 10; 1-й цвет — 30, 10-й — 350)
+  const heal = (tier) => HEAL[Math.max(1, Math.min(10, tier)) - 1];
+  const STONES = [3, 3, 4, 4, 5, 6, 6, 7, 8, 8];                    // по стольку камней каждого вида даёт «Камни» (по симулятору: 5…18 давало +14…+24 п.п., это +9…+22)
+  const stonesGain = (tier) => STONES[Math.max(1, Math.min(10, tier)) - 1];
+  const swapAmount = (tier) => 5 + Math.floor((Math.max(1, Math.min(10, tier)) - 1) / 3);   // «Превращение»: столько камней самого частого вида → в самый редкий
+  const turns = (kind) => (KINDS[kind].mode === 'turn' ? 1 : KINDS[kind].mode === 'long' ? LONG_TURNS : 0);
   const ORDER = Object.keys(KINDS);
   const MAX_TIER = 10;
   // 1.5.1: защитные виды +2 за цвет (по симулятору +3 давало около +30 пунктов шанса победы на 10-м цвете), остальные +3
-  const PER_TIER = { defense: 2, block: 2, ricochet: 2 };
-  const bonus = (tier, kind) => (PER_TIER[kind] || 3) * tier;
-  const battles = (tier) => (tier <= 3 ? 3 : tier <= 6 ? 5 : 8);
+  // 1.6.0: эликсир действует ОДИН бой; прибавка подобрана симулятором так, чтобы один эликсир на любом цвете давал сопоставимый
+  // прирост шанса победы: боевые виды +5 за цвет, защитные +2 (отдача +1,5), остальные +4.
+  const PER_TIER = { power: 14, fury: 4, cunning: 4, defense: 5, block: 2, ricochet: 1.1 };
+  const bonus = (tier, kind) => (KINDS[kind] && KINDS[kind].stat === null) ? 0 : Math.round((PER_TIER[kind] || 4) * tier);
+  const battles = (tier) => 1;   // устарело (до 1.6.0 — срок в боях); оставлено для совместимости
   const key = (kind, tier) => kind + ':' + tier;
   const split = (k) => { const [kind, tier] = k.split(':'); return { kind, tier: Number(tier) }; };
-  const price = (tier) => 30 * tier * tier;                        // монет за варку
+  // Монет (меди) за варку: ≈ четверть средней награды за победу на этом цвете (см. таблицу в HANDOFF), цена одна для всех видов.
+  const PRICES = [6, 16, 43, 120, 300, 740, 1800, 6400, 14000, 36000];
+  const price = (tier) => Math.max(1, Math.round(PRICES[Math.max(1, Math.min(10, tier)) - 1] * ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinK));   // 1.6.0: вместе с монетами с мобов
   const need = (tier) => 2;                                        // ресурсов ровно этого цвета
   // 1.5.1: с 5-го цвета у эликсира один заметный эффект за бой (срабатывает сам, сила растёт с цветом).
   const FX_MIN = 5;
@@ -32,10 +47,8 @@ const Elixirs = (() => {
       case 'power': return { v: +(1.4 + 0.1 * s).toFixed(1) };            // первый удар ×
       case 'defense': return { v: Math.min(90, 40 + 10 * s) };            // первый полученный удар слабее на %
       case 'block': return { v: 30 + 10 * s };                            // первый блок бьёт в ответ на % удара
-      case 'ricochet': return { v: 4 + 2 * s };                           // первый рикошет лечит на % ХП
+      case 'ricochet': return { v: 2 + s };                               // первый рикошет лечит на урон стольких камней (3…8)
       case 'fury': return { v: +(2 + 0.2 * s).toFixed(1) };               // первая Ярость бьёт ×
-      case 'initiative': return { v: 1 };                                 // первый ход ваш
-      case 'health': return { v: (s - 1) * 3 };                           // выживание: остаётся % ХП (минимум 1 ХП)
     }
     return null;
   }
@@ -45,46 +58,56 @@ const Elixirs = (() => {
       case 'power': return _t("первый ваш удар в бою ×{0}", [fx.v]);
       case 'defense': return _t("первый удар по вам слабее на {0}%", [fx.v]);
       case 'block': return _t("первый ваш блок бьёт в ответ на {0}% удара", [fx.v]);
-      case 'ricochet': return _t("первый ваш рикошет лечит на {0}% ХП", [fx.v]);
+      case 'ricochet': return _t("первый ваш рикошет лечит как удар по {0} камням", [fx.v]);
       case 'fury': return _t("первая Ярость бьёт ×{0} вместо ×2", [fx.v]);
-      case 'initiative': return _t("первый ход боя — ваш");
-      case 'health': return fx.v ? _t("раз за бой выживание с {0}% ХП", [fx.v]) : _t("раз за бой выживание с 1 ХП");
     }
     return '';
   }
   const describe = (kind, tier) => {
     const K = KINDS[kind], st = (typeof Gear !== 'undefined' && Gear.STAT_NAMES) ? Gear.STAT_NAMES : {};
-    let t = _t("+{0} {1} на {2} боёв", [bonus(tier, kind), st[K.stat] || K.stat, battles(tier)]);
-    if (tier >= 10) t += `; +${Math.round(bonus(tier, kind) / 2)} ${st[K.second] || K.second}`;
-    if (tier >= FX_MIN) t += `; ${sideText(kind, tier)}`;
+    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно раз в {1} хода, ход не тратится.", [heal(tier), INSTANT_CD]);
+    if (kind === 'swap') return _t("Превращает {0} камней того вида, которого у вас больше всего, в {0} камней того, которого меньше всего. Пить можно раз в {1} хода, ход не тратится.", [swapAmount(tier), INSTANT_CD]);
+    if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1} хода, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), INSTANT_CD]);
+    const b = bonus(tier, kind), name = st[K.stat] || K.stat, pc = K.stat === 'defense' ? '' : '%';
+    // Броня — цифры: показываем, сколько вычитается из каждого удара у героя середины этого цвета.
+    const flat = (kind === 'defense' && typeof Combat !== 'undefined' && typeof Hero !== 'undefined') ? Combat.armorAt(b, Hero.dmgMult((tier - 1) * 10 + 5)) : null;
+    let t = K.mode === 'turn'
+      ? _t("+{0}% {1} до конца хода. Пить перед ударом.", [b, name])
+      : flat !== null ? _t("{1} +{0} (−{0} к каждому удару) на {2} ходов", [flat, name, LONG_TURNS])
+      : _t("+{0}{2} {1} на {3} ходов.", [b, name, pc, LONG_TURNS]);
+    if (tier >= 10) t += `; +${Math.round(b / 2)} ${st[K.second] || K.second}`;
+    if (tier >= FX_MIN && sideText(kind, tier)) t += `; ${sideText(kind, tier)}`;
     return t;
   };
   // Суммарная прибавка от действующих эликсиров: active = { kind: { tier, left } }
   function bonusStats(active) {
     const out = {};
     for (const [kind, a] of Object.entries(active || {})) {
-      if (!a || a.left <= 0 || !KINDS[kind]) continue;
+      if (!a || a.left <= 0 || !KINDS[kind] || KINDS[kind].stat === null) continue;
       const K = KINDS[kind];
-      out[K.stat] = (out[K.stat] || 0) + bonus(a.tier, kind);
-      if (a.tier >= 10) out[K.second] = (out[K.second] || 0) + Math.round(bonus(a.tier, kind) / 2);
+      const m = 1 + (a.pct || 0) / 100;
+      out[K.stat] = (out[K.stat] || 0) + Math.round(bonus(a.tier, kind) * m);
+      if (a.tier >= 10) out[K.second] = (out[K.second] || 0) + Math.round(bonus(a.tier, kind) * m / 2);
     }
     return out;
   }
   // Выпить: берём сильнейший; тот же цвет обновляет срок
-  function drink(active, kind, tier, extra = 0) {                    // extra — бои сверху (улучшение Алхимика, 1.5.1)
+  // active — действующие в бою эликсиры героя: { вид: { tier, left (ходов), pct } }. Пьёт только бой (game.js: useElixir).
+  function drink(active, kind, tier, extra = 0) {                    // extra — уровень улучшения Алхимика (+5% силы за уровень)
+    if (!KINDS[kind] || KINDS[kind].mode === 'instant') return false;
     const cur = active[kind];
     if (cur && cur.left > 0 && cur.tier > tier) return false;
-    active[kind] = { tier, left: battles(tier) + extra };
+    active[kind] = { tier, left: turns(kind), pct: 5 * extra };
     return true;
   }
-  function tick(active) {
-    for (const a of Object.values(active || {})) if (a && a.left > 0) a.left--;
+  function tick(active) {                                            // конец хода героя
+    for (const [k, a] of Object.entries(active || {})) { if (a && a.left > 0) a.left--; if (!a || a.left <= 0) delete active[k]; }
   }
   // Значок: флакон цвета уровня
   const icon = (kind, tier) => {
     const col = (typeof Tiers !== 'undefined' && Tiers.get(tier)) ? Tiers.get(tier).color : '#c33';
     return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M42 12h16v6l-2 2v12c14 7 24 22 24 38 0 12-8 18-30 18S20 82 20 70c0-16 10-31 24-38V20l-2-2z" fill="#e8f1f4" fill-opacity=".35" stroke="#222" stroke-width="3"/><path d="M24 62c0 14 8 20 26 20s26-6 26-20c-8 4-18-4-26 0s-18 4-26 0z" fill="${col}" stroke="#222" stroke-width="2"/><rect x="40" y="8" width="20" height="9" rx="2" fill="#8a5a2c" stroke="#222" stroke-width="2"/><text x="50" y="76" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" stroke="#000" stroke-width=".6">${tier}</text></svg>`;
   };
-  return { FX_MIN, effect, sideText, icon, KINDS, ORDER, MAX_TIER, bonus, battles, key, split, price, need, describe, bonusStats, drink, tick };
+  return { FX_MIN, effect, sideText, icon, KINDS, ORDER, MAX_TIER, bonus, battles, key, split, price, need, describe, bonusStats, drink, tick, heal, stonesGain, swapAmount, turns, LONG_TURNS, INSTANT_CD };
 })();
 if (typeof module !== 'undefined') module.exports = Elixirs;

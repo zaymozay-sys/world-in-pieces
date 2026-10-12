@@ -6,7 +6,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
      health     — Здоровье: + к максимуму ХП
      defense    — Броня: −% к получаемому урону (максимум 60%)
      magic      — Магия: каждые 4 очка снижают цену заклинаний на 1 камень каждого вида (минимум 2)
-     initiative — Инициатива: +% к шансу первого хода в бою (максимум 50)
+     initiative — Проворство: +% к шансу первого хода в бою (максимум 50)
      ricochet   — Рикошет: шанс (максимум 40%), что удар отлетит в нападающего; отлетает урон за вычетом брони цели
      block      — Блок: шанс (максимум 50%) полностью заблокировать удар
      fury       — Ярость: шанс (максимум 35%) нанести двойной урон одним ударом (считается до Брони цели)
@@ -25,7 +25,7 @@ const Gear = (() => {
     main: _t("Правая рука"), off: _t("Левая рука"), head: _t("Шлем"), chest: _t("Нагрудник"),
     arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"), shoulders: _t("Наплечники"), gloves: _t("Перчатки"), bag: _t("Сумка"), leash: _t("Поводок"), compass: _t("Компас"), ranged: _t("Метательное"),
   };
-  const STAT_NAMES = { power: _t("Сила"), health: _t("Здоровье"), defense: _t("Броня"), magic: _t("Магия"), initiative: _t("Инициатива"), ricochet: _t("Рикошет"), block: _t("Блок"), fury: _t("Ярость"), cunning: _t("Хитрость") };
+  const STAT_NAMES = { power: _t("Сила"), health: _t("Здоровье"), defense: _t("Броня"), magic: _t("Магия"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), fury: _t("Ярость"), cunning: _t("Хитрость") };
   const TYPE_NAMES = {
     weapon1: _t("Одноручное оружие"), weapon2: _t("Двуручное оружие"), shield: _t("Щит"),
     head: _t("Шлем"), chest: _t("Нагрудник"), arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"),
@@ -167,7 +167,20 @@ const Gear = (() => {
   const ITEMS = RAW.map(([id, name, type, set, rarity, stats, faction, perk]) => ({ id, name, type, set, rarity, stats, faction: faction || null, perk: perk || null, cost: costOf(stats) }));
   // Вещи, доступные фракции: общие + её собственные.
   const itemsFor = (faction) => ITEMS.filter((i) => i.set !== 'sea' && (!i.faction || i.faction === faction));   // набор «Морской волк» — только особая добыча
-  const BY_ID = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
+  /* 1.6.3: реликвии — уникальные амулеты за собранные комплекты медалей (js/medals.js, RELIC). Не выпадают, не продаются,
+     не входят в ITEMS (поэтому не попадают в добычу, лавку и ковку), но находятся по id как обычные вещи. */
+  const RELICS_RAW = [
+    ['relic-kill',   _t("Клык вожака"),         { power: 12, health: 12, fury: 6 }],
+    ['relic-streak', _t("Нить сплетённых линий"), { power: 8, initiative: 6, cunning: 6 }],
+    ['relic-strike', _t("Печать Добивания"),     { power: 10, fury: 12, ricochet: 4 }],
+    ['relic-shot',   _t("Глаз стрелка"),         { power: 8, ricochet: 8, cunning: 5 }],
+    ['relic-style',  _t("Знак мастера боя"),      { magic: 2, defense: 6, block: 4, health: 10 }],
+    ['relic-world',  _t("Компас странника"),      { health: 24, defense: 5, initiative: 6 }],
+    ['relic-secret', _t("Чёрная жемчужина"),      { cunning: 12, magic: 2, power: 6 }],
+    ['relic-daily',  _t("Венец испытаний"),       { health: 20, power: 10, block: 5 }],
+  ];
+  const RELICS = RELICS_RAW.map(([id, name, stats]) => ({ id, name, type: 'amulet', set: null, rarity: 'epic', stats, faction: null, perk: null, relic: true, cost: costOf(stats) }));
+  const BY_ID = Object.fromEntries(ITEMS.concat(RELICS).map((i) => [i.id, i]));
 
   const emptyLoadout = () => Object.fromEntries(SLOTS.map((s) => [s, null]));
 
@@ -182,10 +195,39 @@ const Gear = (() => {
   const scaleStats = (stats, tier) => Object.fromEntries(Object.entries(stats)
     .map(([k, v]) => [k, v > 0 ? Math.max(1, Math.round(v * T.statMult(k, tier))) : v]));   // у каждой характеристики свой темп роста
   // Цена в медных монетах: растёт с уровнем гораздо быстрее, чем очки.
-  const priceAt = (cost1, tier) => Math.round(cost1 * 10 * T.PRICE_MULT[tier - 1]);
+  /* 1.6.0: уровни идут медленнее, поэтому вещи дороже к высоким цветам */
+  const ITEM_K = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 2.6, 2.6, 2.9];
+  const priceAt = (cost1, tier) => Math.round(cost1 * 10 * T.PRICE_MULT[tier - 1] * ITEM_K[tier - 1]);
   const sellValue = (price) => Math.round(price * 0.4);
   // Старьёвщик платит меньше Лавки — зато скупает всё разом, одной кнопкой (см. Screens.openJunker).
   const junkValue = (price) => Math.round(price * 0.25);
+
+  /* ---------- 1.6.6: прочность ----------
+     Каждое поражение снимает 1 пункт со всех надетых вещей (кроме сумки). Максимум зависит от цвета: 30, 35 … 75 (цвета 1–10).
+     В вещи хранится только dur (текущая); нет поля — вещь целая (старые сохранения). При 0 вещь «сломана»: снимается и не надевается до ремонта.
+     Ремонт: полный стоит треть цены новой вещи, пункты — пропорционально (не меньше 1 монеты). */
+  const DUR_BASE = 25, DUR_STEP = 5, REPAIR_SHARE = 1 / 3, WEAR_SLOTS_SKIP = ['bag'];
+  const durMax = (tier) => DUR_BASE + DUR_STEP * T.clamp(tier || 1);
+  function durOf(entry) {
+    const e = typeof entry === 'string' ? { tier: 1 } : (entry || {});
+    const max = durMax(e.tier);
+    const cur = Number.isFinite(e.dur) ? Math.max(0, Math.min(max, Math.round(e.dur))) : max;
+    return { cur, max };
+  }
+  // Цена починки pts пунктов (по умолчанию — всех недостающих): треть цены вещи × доля максимума, но не меньше 1 монеты за ремонт.
+  function repairCost(entry, pts) {
+    const it = item(entry); if (!it) return 0;
+    const { cur, max } = durOf(entry), miss = max - cur;
+    const n = pts === undefined ? miss : Math.max(0, Math.min(miss, Math.floor(pts)));
+    return n > 0 ? Math.max(1, Math.round(it.price * REPAIR_SHARE * n / max)) : 0;
+  }
+  // Множитель цены продажи: целая вещь — 1, сломанная — 0,5.
+  const wearFactor = (entry) => { const d = durOf(entry); return 0.5 + 0.5 * d.cur / d.max; };
+  // Прочность при улучшении цвета: доля сохраняется (20 из 30 → 30 из 45), чтобы улучшение не стало бесплатным ремонтом.
+  function durAfterTier(entry, newTier) {
+    const d = durOf(entry), max2 = durMax(newTier);
+    return d.cur >= d.max ? max2 : Math.max(0, Math.min(max2, Math.round(d.cur / d.max * max2)));
+  }
 
   // 1.5.1: закалка — платные шаги +1…+5, каждый усиливает все характеристики вещи на 4%; очки снаряжения не растут.
   const TEMPER_MAX = 5, TEMPER_STEP = 0.04, TEMPER_COST = [0.4, 0.7, 1.2, 2.0, 3.4];     // цена шага — доля цены вещи
@@ -205,11 +247,12 @@ const Gear = (() => {
     let st = tier === 1 ? base.stats : scaleStats(base.stats, tier);
     if (plus > 0) st = temperStats(st, plus);
     return {
-      ...base, uid: e.uid || null, tier, base, plus, name: plus > 0 ? `${base.name} +${plus}` : base.name,
+      ...base, uid: e.uid || null, tier, base, plus, fit: !!e.fit && tier > 1, wt: e.fit && tier > 1 ? tier - 1 : tier, name: plus > 0 ? `${base.name} +${plus}` : base.name,
       stats: st,
       cost: Math.round(base.cost * T.POINT_MULT[tier - 1]),
       price: priceAt(base.cost, tier),
       runes: Array.isArray(e.runes) ? e.runes : (e.rune ? [e.rune] : undefined),
+      dur: durOf(e).cur, maxDur: durOf(e).max, broken: durOf(e).cur <= 0,
     };
   }
 
@@ -234,8 +277,9 @@ const Gear = (() => {
   function canEquip(gear, entry, slot, faction, level) {
     const it = item(entry);
     if (!it) return { ok: false, reason: _t("Неизвестный предмет") };
+    if (it.broken) return { ok: false, reason: _t("Вещь сломана — её чинят в Кузнице") };
     if (it.faction && faction && it.faction !== faction) return { ok: false, reason: _t("Эта вещь только для своей фракции") };
-    if (level && typeof Hero !== 'undefined' && !Hero.canWear(it.tier, level)) return { ok: false, reason: _t("Эту вещь можно надеть с {0}-го уровня", [Hero.itemLevel(it.tier)]) };
+    if (level && typeof Hero !== 'undefined' && !Hero.canWear(it.wt, level)) return { ok: false, reason: _t("Эту вещь можно надеть с {0}-го уровня", [Hero.itemLevel(it.wt)]) };
     if (!fits(slot, it.type)) return { ok: false, reason: _t("Этот предмет сюда не подходит") };
     const main = item(gear.main);
     if (slot === 'off' && main && main.type === 'weapon2') return { ok: false, reason: _t("В правой руке двуручное оружие") };
@@ -343,6 +387,23 @@ const Gear = (() => {
     if (!it || typeof entry === 'string' || it.plus >= TEMPER_MAX) return null;
     return { plus: it.plus + 1, coins: Math.round(it.price * TEMPER_COST[it.plus]) };
   }
+  /* 1.6.0: перековка — вещь следующего цвета можно за монеты подогнать, чтобы носить её на цвет раньше.
+     Характеристики не меняются, снижается только требуемый уровень (на levelsPerTier). Сливает накопленные деньги. */
+  const FIT_K = 0.6;                                                  // доля цены вещи
+  function fitCost(entry, level) {
+    const it = item(entry);
+    if (!it || typeof entry === 'string' || it.fit || it.tier <= 1) return null;
+    if (level && typeof Hero !== 'undefined' && Hero.canWear(it.tier, level)) return null;       // и так можно надеть
+    if (level && typeof Hero !== 'undefined' && !Hero.canWear(it.tier - 1, level)) return null;  // слишком рано: только на один цвет вперёд
+    return { coins: Math.round(it.price * FIT_K) };
+  }
+  // 1.6.6: смена цвета вещи на месте (улучшение): прочность сохраняет долю; целая вещь остаётся целой
+  function setTier(entry, tier) {
+    const nd = durAfterTier(entry, tier), max = durMax(tier);
+    entry.tier = T.clamp(tier);
+    if (nd >= max) delete entry.dur; else entry.dur = nd;
+    return entry;
+  }
   function upgradeCost(entry) {
     const it = item(entry);
     if (!it || it.tier >= T.MAX) return null;
@@ -356,14 +417,17 @@ const Gear = (() => {
   // Создание вещи цвета tier из ресурсов того же цвета (дешевле покупки, но нужны ресурсы).
   function craftCost(baseId, tier = 1) {
     const b = BY_ID[baseId], t = T.clamp(tier);
+    // 1.6.6: рецепты по ролям ресурсов — см. js/forge.js (Forge подключается позже; в Node берётся лениво)
+    const FG = (typeof Forge !== 'undefined') ? Forge : (typeof require === 'function' ? require('./forge.js') : null);
+    if (FG && FG.recipe && FORGE_KINDS[b.type]) return FG.recipe(baseId, t);
     const n = { common: 4, rare: 8, epic: 14 }[b.rarity];
     const kinds = FORGE_KINDS[b.type];
-    return { coins: Math.round(b.cost * 10 * 0.5 * T.PRICE_MULT[t - 1]), res: [{ kind: kinds[0], tier: t, n }, { kind: kinds[1], tier: t, n: Math.ceil(n / 2) }] };
+    return { coins: Math.round(b.cost * 10 * 0.5 * T.PRICE_MULT[t - 1] * ITEM_K[t - 1]), res: [{ kind: kinds[0], tier: t, n }, { kind: kinds[1], tier: t, n: Math.ceil(n / 2) }] };
   }
 
   // Расходуемые вещи ранца. price — цена для героя 1-го уровня; дальше растёт вместе с доходом (Hero.priceScale).
   const CONSUMABLES = {
-    potion: { name: _t("Зелье здоровья"), price: 50, desc: _t("Мгновенно лечит на 18% максимума ХП. Ход не тратится.") },
+    potion: { name: _t("Зелье здоровья"), price: 50, desc: _t("Мгновенно лечит на столько ХП, сколько наносят 8 камней вашего урона (≈ 18% ХП). Ход не тратится.") },
     elixir: { name: _t("Боевой настой"), price: 150, desc: _t("+35% к урону до конца хода. Ход не тратится.") },
     dust:   { name: _t("Каменная пыль"), price: 80, desc: _t("Даёт по 3 сапфира, рубина и изумруда. Ход не тратится.") },
     scroll: { name: _t("Свиток спешки"), price: 120, desc: _t("Ваш следующий ход даст дополнительный ход. Ход не тратится.") },
@@ -379,8 +443,8 @@ const Gear = (() => {
   const bulkPrice = (unitPrice, n) => Math.round(unitPrice) * Math.max(1, Math.round(n));
 
   return {
-    itemsFor, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, ITEMS, CONSUMABLES, FORGE_KINDS,
-    TEMPER_MAX, temperCost, temperStats, MAX_DEFENSE, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
+    itemsFor, RELICS, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, ITEMS, CONSUMABLES, FORGE_KINDS,
+    DUR_BASE, DUR_STEP, REPAIR_SHARE, WEAR_SLOTS_SKIP, durMax, durOf, repairCost, wearFactor, durAfterTier, setTier, TEMPER_MAX, FIT_K, fitCost, temperCost, temperStats, MAX_DEFENSE, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
     equipped, totalCost, setProgress, stats, statsFor, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, craftCost, bulkPrice,
   };
 })();

@@ -260,7 +260,7 @@ const Bestiary = (() => {
       family: _t("Звери"), ability: 'steal', xp: 0.7,
       name: _t("Чайка-воришка"), unlock: 2, hp: 58, ai: 18, coins: 20, gear: 0,
       stats: { initiative: 18, power: 46 },
-      drops: [['feather', 0.8, 1, 2], ['shell', 0.2, 1, 1]],
+      drops: [['feather', 0.8, 1, 2], ['shell', 0.6, 1, 2]],
       desc: _t("Нагло таскает у путников камни прямо из рук. Бьёт слабо, зато ловка."),
     },
     hermit: {
@@ -411,6 +411,91 @@ const Bestiary = (() => {
       drops: [['scale', 0.8, 1, 2], ['crystal', 0.6, 1, 2], ['essence', 0.4, 1, 1]],
       desc: _t("Босс болот: взгляд каменит. Сковывает столбец камнем каждый третий ход."),
     },
+    // --- 1.6.7: новые существа — по одному «родному» ресурсу на каждый цвет (см. js/forge.js) ---
+    ironscarab: {
+      family: _t("Каменные стражи"), ability: 'retribution', xp: 0.85,
+      name: _t("Железный скарабей"), unlock: 1, hp: 68, ai: 20, coins: 22, gear: 0,
+      stats: { defense: 8, power: 34 },
+      drops: [['ore', 0.8, 1, 2], ['scrap', 0.6, 1, 2]],
+      desc: _t("Жук в железном панцире: прогрызает штольни и дерётся челюстями-кирками. Ударишь сильнее — ответит."),
+    },
+    rocklizard: {
+      family: _t("Твари"), ability: 'evasion', xp: 0.85,
+      name: _t("Скальная ящерица"), unlock: 2, hp: 72, ai: 22, coins: 22, gear: 0,
+      stats: { defense: 8, block: 6, power: 32 },
+      drops: [['scale', 0.7, 1, 2], ['hide', 0.5, 1, 1]],
+      desc: _t("Греется на камнях и сама похожа на камень. Быстро уворачивается, чешуя крепче, чем кажется."),
+    },
+    moonmoth: {
+      family: _t("Духи"), ability: 'veil', xp: 0.9,
+      name: _t("Лунный мотылёк"), unlock: 3, hp: 44, ai: 30, coins: 28, gear: 0,
+      stats: { initiative: 14, ricochet: 6, power: 20 },
+      drops: [['essence', 0.9, 1, 1], ['crystal', 0.6, 1, 2]],
+      desc: _t("Летает на свет и роняет лунную пыльцу. Удары скользят мимо — и нередко отлетают обратно."),
+    },
+    bumblebee: {
+      family: _t("Пчёлы"), ability: 'charge', xp: 0.85,
+      name: _t("Шмель"), unlock: 2, hp: 60, ai: 22, coins: 22, gear: 0,
+      stats: { initiative: 10, power: 30 },
+      drops: [['honey', 0.7, 1, 3]],
+      desc: _t("Мохнатый, как пёс, и такой же упрямый. Таранит и оставляет после себя липкий мёд."),
+    },
+    forestling: {
+      family: _t("Лесные стражи"), ability: 'sap', xp: 0.9,
+      name: _t("Лесовичок"), unlock: 2, hp: 64, ai: 24, coins: 24, gear: 0,
+      stats: { defense: 6, block: 4, power: 24 },
+      drops: [['splinter', 0.8, 1, 2], ['bone', 0.4, 1, 1]],
+      desc: _t("Ворчливый пенёк с мхом на плечах. Не любит, когда ходят по его лесу."),
+    },
+    barrowman: {
+      family: _t("Нежить"), ability: 'undying', xp: 0.85,
+      name: _t("Курганник"), unlock: 1, hp: 58, ai: 18, coins: 20, gear: 0,
+      stats: { defense: 6, power: 31 },
+      drops: [['bone', 0.8, 1, 2], ['scrap', 0.2, 1, 1]],
+      desc: _t("Страж древнего кургана в ржавом шлеме. Падает и поднимается снова — один раз."),
+    },
+    crystalid: {
+      family: _t("Каменные стражи"), ability: 'weaken', xp: 1.1,
+      name: _t("Кристальник"), unlock: 4, hp: 72, ai: 26, coins: 34, gear: 0,
+      stats: { defense: 12, magic: 1, power: 30 },
+      drops: [['crystal', 0.8, 1, 2], ['ore', 0.5, 1, 2]],
+      desc: _t("Каменный коротышка в кристаллах. Их свет вытягивает силы из тех, кто слишком близко."),
+    },
+    firetail: {
+      family: _t("Драконы"), ability: 'breath', xp: 1.25,
+      name: _t("Огнехвост"), unlock: 6, hp: 76, ai: 30, coins: 40, gear: 0,
+      stats: { power: 38, defense: 6 },
+      drops: [['scale', 0.7, 1, 2], ['fang', 0.6, 1, 2]],
+      desc: _t("Молодой дракон: крылья ещё малы, а хвост уже горит. Дышит огнём, как взрослый."),
+    },
+    weaver: {
+      family: _t("Твари"), ability: 'sap', xp: 1.3,
+      name: _t("Паук-ткач"), unlock: 7, hp: 72, ai: 32, coins: 36, gear: 0,
+      stats: { initiative: 12, power: 34 },
+      drops: [['silk', 0.8, 1, 2], ['fang', 0.4, 1, 1]],
+      desc: _t("Пещерный паук с крестом на спине. Липкая нить связывает по рукам и ногам."),
+    },
+    carapace: {
+      family: _t("Твари"), ability: 'pinch', xp: 1.3,
+      name: _t("Панцирник"), unlock: 8, hp: 86, ai: 28, coins: 42, gear: 0,
+      stats: { defense: 12, block: 6, power: 34 },
+      drops: [['shell', 0.8, 1, 2], ['scale', 0.4, 1, 2]],
+      desc: _t("Рифовый краб размером с телегу. Панцирь в ракушках выдерживает почти всё, клешня — ещё больше."),
+    },
+    ironguard: {
+      family: _t("Каменные стражи"), ability: 'petrify', xp: 1.5,
+      name: _t("Железный страж"), unlock: 9, hp: 78, ai: 30, coins: 46, gear: 0,
+      stats: { defense: 14, block: 6, power: 38 },
+      drops: [['scrap', 0.9, 1, 2], ['ore', 0.6, 1, 2]],
+      desc: _t("Пустые латы с поля старой битвы. Внутри никого — и это пугает больше всего."),
+    },
+    boneknight: {
+      family: _t("Нежить"), ability: 'undying', xp: 1.5,
+      name: _t("Костяной рыцарь"), unlock: 10, hp: 60, ai: 40, coins: 46, gear: 0,
+      stats: { defense: 10, block: 6, power: 30 },
+      drops: [['bone', 0.9, 1, 2], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скелет в чёрных латах, с холодным синим огнём в глазницах. Бьёт чётко, как на параде."),
+    },
   };
   const ORDER = Object.keys(MONSTERS);
 
@@ -434,7 +519,7 @@ const Bestiary = (() => {
   }
 
   // Характеристики монстра на заданном уровне-цвете: ХП и урон растут по Tiers.GROWTH,
-  // Сила — умеренно, шансы (Броня, Блок, Рикошет, Инициатива) — медленно.
+  // Сила — умеренно, шансы (Броня, Блок, Рикошет, Проворство) — медленно.
   // swarmSize — размер роя (см. rollSwarmSize); у обычных видов всегда 1 и ни на что не влияет.
   function scaled(id, tier, swarmSize = 1) {
     const m = MONSTERS[id], t = B_T.clamp(tier);
@@ -452,13 +537,16 @@ const Bestiary = (() => {
 
   // Что упадёт после победы. rand — генератор случайных чисел (для тестов).
   // faction — фракция игрока: вещи чужих фракций не выпадают.
-  function rollDrops(id, tier, rand = Math.random, faction) {
+  // 1.6.6: heroTier — цвет героя. Существо слабее цветом ничего из ресурсов не даёт (монеты и опыт остаются): слабых мобов бить невыгодно,
+  // ресурсы для малых уровней остаются на рынке. weak = true сообщает экрану награды, почему ресурсов нет.
+  const resourcesWeak = (tier, heroTier) => heroTier > 0 && B_T.clamp(tier) < heroTier;
+  function rollDrops(id, tier, rand = Math.random, faction, heroTier) {
     const m = MONSTERS[id], t = B_T.clamp(tier);
-    const resources = [];
-    for (const [kind, chance, min, max] of m.drops) {
-      if (rand() < chance) resources.push({ kind, tier: t, n: min + Math.floor(rand() * (max - min + 1)) });
+    const resources = [], weak = resourcesWeak(t, heroTier);
+    for (const [kind, chance, min, max] of weak ? [] : m.drops) {
+      if (rand() < chance / (B_B.gameLength || 1)) resources.push({ kind, tier: t, n: min + Math.floor(rand() * (max - min + 1)) });
     }
-    const coins = Math.round(m.coins * B_T.PRICE_MULT[t - 1] * (0.8 + rand() * 0.4));
+    const coins = Math.round(m.coins * B_B.rewards.coinK * B_T.PRICE_MULT[t - 1] * (0.8 + rand() * 0.4));
     // Предмет: шанс Balance.rewards.itemChance; чаще выпадают обычные вещи, реже редкие и эпические.
     let entry = null;
     if (m.setDrop && rand() < 0.5) {                                   // босс: часть редкого набора (Gear.SETS[setDrop])
@@ -471,7 +559,7 @@ const Bestiary = (() => {
       const pick = pool[Math.floor(rand() * pool.length)];
       entry = B_G.makeEntry(pick.id, rand() < 0.3 ? Math.max(1, t - 1) : t);
     }
-    return { coins, resources, item: entry };
+    return { coins, resources, item: entry, weak };
   }
 
   // Какие виды открыты при данном числе побед.
@@ -481,7 +569,7 @@ const Bestiary = (() => {
   // см. game.js/setupTrainerBeaver — это не настоящий вид бестиария, у него нет приёма).
   const ability = (id) => (MONSTERS[id] ? ABILITIES[MONSTERS[id].ability] : undefined);
 
-  return { RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, rollDrops, unlockedSpecies, rollSwarmSize, swarmMult };
+  return { RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, rollDrops, resourcesWeak, unlockedSpecies, rollSwarmSize, swarmMult };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

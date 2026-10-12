@@ -140,7 +140,8 @@ const MapView = (() => {
       const mid = map.index.get(HexMap.key(Math.round(c.q / 2), Math.round(c.r / 2)));
       street += seg(g, mid) + seg(mid, home);
     }
-    roads.push(`<path d="${street}" class="street" opacity="0"/>`,
+    void street;   // 1.6.7: полоса-«улица» не рисуется (мешала мощёной площади)
+    roads.push(
       `<path d="${road}" class="road-edge"/><path d="${road}" class="road"/><path d="${road}" class="road-ruts"/>`,
       `<path d="${bridge}" class="bridge-edge"/><path d="${bridge}" class="bridge"/>`);
 
@@ -452,6 +453,36 @@ const MapView = (() => {
       zoomAt(e.clientX - v.left, e.clientY - v.top, Math.pow(1.0015, -e.deltaY));
     }, { passive: false });
     window.addEventListener('resize', () => { if (document.body.classList.contains('mode-map')) { clampCam(); applyCam(); } });
+    /* 1.6.4 (WIP-09): карта с клавиатуры. Tab выводит на карту; стрелки двигают курсор по сотам, Ввод или Пробел — то же,
+       что касание соты (войти в здание, начать бой, идти), Escape закрывает карточку. Что под курсором — читает скринридер (aria-live). */
+    svg.setAttribute('tabindex', '0');
+    svg.setAttribute('role', 'application');
+    svg.setAttribute('aria-label', _t("Карта. Стрелки — выбрать соту, Ввод — действие, плюс и минус — масштаб."));
+    let live = document.getElementById('map-live');
+    if (!live) { live = document.createElement('div'); live.id = 'map-live'; live.className = 'sr-only'; live.setAttribute('aria-live', 'polite'); document.body.appendChild(live); }
+    let kb = -1;
+    const kbMove = (dx, dy) => {
+      if (kb < 0 || kb >= map.cells.length) kb = st.pos;
+      const a = px(kb), len = Math.hypot(dx, dy);
+      let best = -1, bs = 0.35;
+      for (const n of HexMap.neighbors(map, kb)) {
+        const b = px(n), d = Math.hypot(b.x - a.x, b.y - a.y) || 1, sc = ((b.x - a.x) * dx + (b.y - a.y) * dy) / (d * len);
+        if (sc > bs) { bs = sc; best = n; }
+      }
+      if (best < 0) return;
+      kb = best; hoverIdx = -2; hover(kb);
+      const v = view(), p = px(kb), sx = cam.x + p.x * cam.s, sy = cam.y + p.y * cam.s;
+      if (sx < 40 || sy < 40 || sx > v.width - 40 || sy > v.height - 40) centerOn(kb);
+      live.textContent = (el['map-tip'].textContent || '').trim();
+    };
+    svg.addEventListener('focus', () => { if (kb < 0) kb = st.pos; });
+    svg.addEventListener('blur', () => { hover(-1); });
+    document.addEventListener('keydown', (e) => {
+      if (e.target !== svg || !document.body.classList.contains('mode-map') || Screens.isOpen || Inventory.isOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+      const dir = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
+      if (dir) { e.preventDefault(); kbMove(dir[0], dir[1]); }
+      else if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); if (kb < 0) kb = st.pos; tap(kb); }
+    });
     document.addEventListener('keydown', (e) => {
       if (!document.body.classList.contains('mode-map') || Screens.isOpen || Inventory.isOpen) return;
       if (/INPUT|TEXTAREA/.test(e.target.tagName)) return;
@@ -565,10 +596,16 @@ const MapView = (() => {
     walkTo(near, open);
   }
 
+  // 1.6.2: медали за мир
+  function worldMedal(kind, arg) {
+    const ms = Profile.noteWorld(kind, arg, Hero.tierFor(Profile.level()));
+    ms.forEach((m) => toast(_t("Медаль! {0}", [Medals.nameFor(m.id)]), 3500));
+  }
   function openBuilding(id) {
     const b = HexMap.BUILDINGS[id];
     if (b.soon) return toast(`${b.name}: ${b.desc}`);
     if (!Unlocks.isOpen(Profile.data, id)) return toast(Unlocks.reason(Profile.data, id));
+    worldMedal('visit', id);
     if (id === 'shop') return Screens.openShop();
     if (id === 'forge') return Screens.openForge();
     if (id === 'hunter') return Screens.openBestiary();
@@ -677,10 +714,11 @@ const MapView = (() => {
       + (G ? _t("<p class=\"hint elite-note\">👑 Особый приём стража — «{0}»: {1}.</p>", [G.name, G.desc]) : '');
     const xp = Math.round(Hero.xpReward(m, sp.tier, Profile.level()) * (elite ? World.ELITE.xp : 1));
     const abil = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
-    const drops = m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
+    const weakRes = Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level()));   // 1.6.6: слабее вашего цвета — ресурсов нет
+    const drops = weakRes ? `<span class="hint">${_t("ресурсов нет: существо слабее вашего цвета")}</span>` : m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
     const near = HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1;
     const art = sp.species === 'dragon' ? `<div class="dragon-art sm" style="--t:${col}">${Figures.avatar('dragon', null)}</div>` : MonsterArt.bust(sp.species, sp.tier);
-    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : m.name, tierChip(sp.tier), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
+    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : m.name, tierChip(sp.tier), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
     // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
     // 1.5.4: быстрый бой — слабое (на 2+ цвета ниже) и уже побеждённое существо
     const beaten = Profile.data.bestiary && Profile.data.bestiary[sp.species] && Profile.data.bestiary[sp.species].wins > 0;
@@ -790,7 +828,7 @@ const MapView = (() => {
       st.evShop = st.evShop || {};
       const offers = st.evShop[e.id] = st.evShop[e.id] || merchantOffers(e);
       body = _t("Торговец с тележкой распродаёт остатки — дешевле Лавки.");
-      act = offers.map((o, n) => o.sold ? '' : `<button type="button" class="primary" data-ev="buy" data-n="${n}" data-e="${e.id}" ${d.coins >= o.price ? '' : 'disabled'}>${Gear.CONSUMABLES[o.k].name} ×${o.n} — ${MonsterArt.moneyHtml(o.price)}</button>`).join('');
+      act = offers.map((o, n) => o.sold ? '' : `<button type="button" class="primary" data-ev="buy" data-n="${n}" data-e="${e.id}" ${d.coins >= offerPrice(o) ? '' : 'disabled'}>${Gear.CONSUMABLES[o.k].name} ×${o.n} — ${MonsterArt.moneyHtml(offerPrice(o))}</button>`).join('');
     } else if (e.kind === 'beast') {
       body = _t("В траве прячется раненый зверь. Если перевязать его, он может отблагодарить. Нужно 1 зелье здоровья.");
       act = `<button type="button" class="primary" data-ev="heal" data-e="${e.id}" ${(d.backpack.potion || 0) > 0 ? '' : 'disabled'}>${_t("Перевязать (−1 зелье)")}</button>`;
@@ -801,6 +839,9 @@ const MapView = (() => {
     }
     el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${E.name}</b> ${tierChip(T)}<p class="hint">${body}</p><div class="mc-act">${act}<button type="button" data-act="close">${_t("Уйти")}</button></div></div></div>`;
   }
+  // 1.6.5 (A2-01): цена у торговца считается от цены расходника НА ВАШЕМ УРОВНЕ (как в Лавке), а не от базовой: раньше на 46-м уровне
+  // за 348 меди давали товар, который Лавка продаёт за ~12 000. Цена не хранится в предложении — старые сохранённые предложения тоже исправляются.
+  const offerPrice = (o) => Math.round(Gear.bulkPrice(Profile.consumablePrice(o.k), o.n) * 0.6);
   function merchantOffers(e) {
     const round = Math.floor(Date.now() / World.EVENT_RESPAWN);
     const kinds = Object.keys(Gear.CONSUMABLES).filter((k) => !Gear.CONSUMABLES[k].alchemy)
@@ -809,7 +850,7 @@ const MapView = (() => {
     for (let n = 0; n < Math.min(3, kinds.length); n++) {
       const k = kinds[n];
       const cnt = 1 + Math.floor(World.hash(e.id, n, 'n') * 3);
-      out.push({ k, n: cnt, price: Math.round(Gear.CONSUMABLES[k].price * cnt * 0.6), sold: false });
+      out.push({ k, n: cnt, sold: false });
     }
     return out;
   }
@@ -818,22 +859,24 @@ const MapView = (() => {
     if (!e || !evActive(e)) return closeCard();
     const T = evTier(e.tier), d = Profile.data, k = b.dataset.ev;
     if (k === 'take') {
+      worldMedal('cache');
       const coins = World.cacheCoins(T);
       Profile.addCoins(coins);
-      const drops = Bestiary.rollDrops(speciesFor(T), T, Math.random, d.faction).resources;
+      const drops = Bestiary.rollDrops(speciesFor(T), T, Math.random, d.faction, Hero.tierFor(Profile.level())).resources;
       const lines = [_t("Монеты: {0}", [MonsterArt.moneyHtml(coins)])];
       for (const r of drops) { Profile.addRes(r.kind, r.tier, r.n); lines.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}`); }
       useEvent(e); renderHud(); if (typeof onEconomyChanged === 'function') onEconomyChanged();
       return resultCard(_t("Тайник"), lines.join('<br>'));
     }
     if (k === 'bless') {
+      worldMedal('altar');
       d.blessing = { kind: b.dataset.k, fights: World.BLESSINGS[b.dataset.k].fights };
       useEvent(e);
       return resultCard(_t("Древний алтарь"), _t("Благословение: {0} — {1} на {2} обычных боя.", [World.BLESSINGS[b.dataset.k].name, World.BLESSINGS[b.dataset.k].desc, d.blessing.fights]));
     }
     if (k === 'buy') {
       const offers = (st.evShop || {})[e.id]; const o = offers && offers[Number(b.dataset.n)];
-      if (!o || o.sold || !Profile.spend(o.price)) return;
+      if (!o || o.sold || !Profile.spend(offerPrice(o))) return;
       Profile.addConsumable(o.k, o.n); o.sold = true;
       if (offers.every((x) => x.sold)) { delete st.evShop[e.id]; useEvent(e); closeCard(); toast(_t("Торговец распродал всё и уехал")); }
       else { save(); showEvent(e); }
@@ -846,7 +889,7 @@ const MapView = (() => {
       const lines = [];
       const eggs = Object.keys(Pets.EGGS);
       if (Math.random() < 0.3) { const egg = eggs[Math.floor(Math.random() * eggs.length)]; Profile.addEgg(egg); lines.push(_t("<b class=\"lvlup\">Находка!</b> Зверь привёл вас к гнезду: {0} — высиживается в Питомнике", [Pets.EGGS[egg].name])); }
-      const drops = Bestiary.rollDrops(speciesFor(T), T, Math.random, d.faction).resources.slice(0, 1);
+      const drops = Bestiary.rollDrops(speciesFor(T), T, Math.random, d.faction, Hero.tierFor(Profile.level())).resources.slice(0, 1);
       for (const r of drops) { Profile.addRes(r.kind, r.tier, r.n); lines.push(_t("Зверь оставил подарок: {0}", [`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}`])); }
       if (!lines.length) { const c = World.cacheCoins(T); Profile.addCoins(c); lines.push(_t("Рядом нашлись монеты: {0}", [MonsterArt.moneyHtml(c)])); }
       useEvent(e); renderHud();
@@ -868,7 +911,7 @@ const MapView = (() => {
     if (!run) {
       const other = Profile.data.lair;
       el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Логово")}</b> ${tierChip(T)}
-        <p class="hint">${_t("{0} боя подряд. ХП между боями не восстанавливается — зелья пить можно. После каждого боя развилка: тихий путь (обычное существо) или опасный (элитное, добыча больше). В конце — сундук с вещью. Уйти можно после любого боя: добыча остаётся, сундук — нет.", [len])}</p>
+        <p class="hint">${_t("{0} подряд. ХП между боями не восстанавливается — зелья пить можно. После каждого боя развилка: тихий путь (обычное существо) или опасный (элитное, добыча больше). В конце — сундук с вещью. Уйти можно после любого боя: добыча остаётся, сундук — нет.", [_nn(len, 'бой', 'боя', 'боёв')])}</p>
         ${other ? `<p class="hint">${_t("Сейчас вы в другом логове — вход сюда закончит ту вылазку.")}</p>` : ''}
         <div class="mc-act"><button type="button" class="primary" data-lair="enter" data-l="${l.id}">${_t("Войти")}</button><button type="button" data-act="close">${_t("Уйти")}</button></div></div></div>`;
       return;
@@ -913,6 +956,7 @@ const MapView = (() => {
   function returnFromBattle(result) {
     const sp = battleSpawn;
     battleSpawn = null;
+    if (!Profile.storageOk) setTimeout(warnNoSave, 1500);     // 1.6.5: запись сломалась во время боя
     const sel = { ...(Profile.data.monster || {}) };
     // 1.5.4: благословение алтаря тратится за каждый обычный бой, где оно действовало
     if (Profile.data.blessing && typeof fighters !== 'undefined' && fighters.left.bless) {
@@ -1043,7 +1087,7 @@ const MapView = (() => {
     refreshLocks();
     const me = myView(), F = fac(), lv = Profile.levelInfo();
     const pct = lv.need === Infinity ? 100 : Math.round(lv.into / lv.need * 100);
-    el['map-me'].innerHTML = _t("<span class=\"me-av\" style=\"border-color:{0}\">{1}<i class=\"me-lvl\">{2}</i></span>\n      <span class=\"me-txt\"><b>{3}</b><small class=\"me-fac\">{4}{5} · ур. {6}</small>\n        <span class=\"xpbar\" title=\"Опыт: {7} / {8}\"><i style=\"width:{9}%\"></i></span>\n        <small>ХП {10} · побед {11}</small>{12}</span>", [F.color, Figures.avatar(myKind(), Profile.gear()), lv.level, escText(Profile.data.name && Profile.heroName()) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender), factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem'), F.name, lv.level, lv.into, lv.need === Infinity ? _t("максимум") : lv.need, pct, me.max, Profile.data.wins, MonsterArt.moneyHtml(Profile.data.coins)]);
+    el['map-me'].innerHTML = _t("<span class=\"me-av\" style=\"border-color:{0}\">{1}<i class=\"me-lvl\">{2}</i></span>\n      <span class=\"me-txt\"><b>{3}</b><small class=\"me-fac\">{4}{5} · ур. {6}</small>\n        <span class=\"xpbar\" title=\"Опыт: {7} / {8}\"><i style=\"width:{9}%\"></i></span>\n        <small>ХП {10} · побед {11}</small>{12}</span>", [F.color, Figures.avatar(myKind(), Profile.gear()), lv.level, (escText(Profile.data.name && Profile.heroName()) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)) + Profile.favBadges(), factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem'), F.name, lv.level, lv.into, lv.need === Infinity ? _t("максимум") : lv.need, pct, me.max, Profile.data.wins, MonsterArt.moneyHtml(Profile.data.coins)]);
     applyFrame(el['map-me'].querySelector('.me-av'));            // 1.5.1: рамка портрета из гардероба
   }
 
@@ -1054,6 +1098,12 @@ const MapView = (() => {
     n.style.borderColor = c; n.style.boxShadow = `0 0 10px 2px ${c}`;
   }
 
+  let saveWarned = false;
+  function warnNoSave() {
+    if (saveWarned || Profile.storageOk) return;
+    saveWarned = true;
+    toast(_t("Браузер не даёт сохранять игру — прогресс пропадёт при закрытии вкладки. Скачать сохранение можно в Ратуше."), 8000);
+  }
   function toast(text, ms) {
     const t = el['map-toast'];
     t.textContent = text;
@@ -1076,14 +1126,25 @@ const MapView = (() => {
     // 1.5.3: на телефоне редкие кнопки спрятаны в меню ☰; плашка внизу раскрывается нажатием
     const menu = document.getElementById('map-menu'), mbtn = document.getElementById('m-more');
     document.getElementById('mm-lang').textContent = I18N.lang === 'ru' ? 'English' : 'Русский';
+    document.getElementById('mm-anim').textContent = AnimSpeed.label();
+    const timerLabel = () => { document.getElementById('mm-timer').textContent = TurnTimerSetting.label(); };
+    timerLabel(); window.addEventListener('turn-timer-changed', timerLabel);
+    document.getElementById('map-ver').textContent = _t("Версия: {0} (Обновлено: {1})", [GAME_VERSION, GAME_UPDATED]);   // 1.6.4: мелкая надпись в меню
     mbtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
     document.addEventListener('click', (e) => { if (e.isTrusted && !menu.hidden && !menu.contains(e.target)) menu.hidden = true; });
     menu.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-mdo]'); if (!b) return;
+      if (b.dataset.mdo === 'm-timer') { TurnTimerSetting.toggle(); return; }     // 1.6.5: таймер хода (по умолчанию выкл), меню остаётся открытым
+      if (b.dataset.mdo === 'm-anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); return; }     // 1.6.4: скорость анимаций, меню остаётся открытым
       if (b.dataset.mdo !== 'm-mute') menu.hidden = true;     // звук переключается, не закрывая меню
       document.getElementById(b.dataset.mdo).click();
     });
-    if (!Profile.storageOk) setTimeout(() => toast(_t("Браузер не даёт сохранять игру — прогресс пропадёт при закрытии вкладки. Скачать сохранение можно в Ратуше."), 8000), 2500);
+    if (!Profile.storageOk) { saveWarned = true; setTimeout(() => toast(_t("Браузер не даёт сохранять игру — прогресс пропадёт при закрытии вкладки. Скачать сохранение можно в Ратуше."), 8000), 2500); }
+    // 1.6.6: вкладку закрыли посреди боя — это поражение: прочность надетых вещей −2
+    const intr = Profile.interrupted;
+    if (intr) { Profile.clearInterrupted(); setTimeout(() => toast(_t("Игра закрыта посреди боя — это поражение: прочность надетых вещей −2") + (intr.broken.length ? _t(". Сломались: {0}. Чинятся в Кузнице", [intr.broken.join(', ')]) : ''), 7000), 2800); }
+    // 1.6.5 (A2-09): запись сломалась уже посреди игры — то же предупреждение; во время боя оно покажется по возвращении на карту
+    window.addEventListener('profile-save-failed', () => { if (!document.body.classList.contains('mode-battle')) warnNoSave(); });
     const inf = document.querySelector('.map-info');
     if (inf) inf.addEventListener('click', () => inf.classList.toggle('open'));
     on('m-zin', () => { const v = view(); zoomAt(v.width / 2, v.height / 2, 1.25); });

@@ -8,16 +8,22 @@
      result-win | result-loss   бой, сразу заканчивающийся победой или поражением (окно награды)
      scr-<bag|best|medals|kennel|village|credits>   окна */
 const DevJump = (() => {
-  const cmd = () => { const m = /^#dev-([A-Za-z0-9._~-]+)$/.exec(location.hash || ''); return m ? m[1] : null; };
+  // 1.6.4 (WIP-06): режим разработчика — только для проверок: работает на file:// и локальных адресах и никогда не пишет в настоящее сохранение.
+  const allowed = () => {
+    const h = location.hostname || '';
+    return location.protocol === 'file:' || h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || /\.(localhost|test)$/.test(h);
+  };
+  const cmd = () => {
+    if (!allowed()) return null; const m = /^#dev-([A-Za-z0-9._~-]+)$/.exec(location.hash || ''); return m ? m[1] : null; };
 
   function prep() {
+    Profile.sandbox(true);   // с этого момента Profile.save() ничего не записывает: тестовые ×10 и все заклинания остаются в памяти страницы
     const sp = document.getElementById('splash'); if (sp) sp.remove();
     try { if (typeof Screens !== 'undefined' && Screens.isOpen) Screens.close(); } catch (e) { /* окна нет */ }
     const d = Profile.data;
     if (!d.faction) { d.name = 'Тест'; d.gender = 'male'; chooseFaction('dwarf'); }
     d.tutorial = Object.assign(d.tutorial || {}, { done: true, step: null });
     d.testX10 = true; d.testAllSpells = true;
-    Profile.save();
     const coach = document.querySelector('.coach'); if (coach) coach.remove();
   }
   const toMap = () => { document.body.classList.add('mode-map'); document.body.classList.remove('mode-battle'); };

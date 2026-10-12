@@ -15,6 +15,17 @@ const Combat = (() => {
   const A = C_B.abilities;
   const chance = (p, rand) => p > 0 && rand() * 100 < p;
 
+  /* 1.6.0: Броня — цифры, а не проценты. Очки Брони (stats.defense) переводятся в «плоское» число, которое вычитается из
+     каждого удара: Броня 1, удар 3 — прилетит 2. Масштаб — типичный удар линии из 3 камней самого бойца (его dmg × урон камня × 3),
+     поэтому броня растёт вместе с уровнем и цветом, как и урон. Пол урона: не меньше 20% удара и не меньше 1. */
+  const HIT_STONES = 3, FLOOR = 0.2;
+  const refHit = (f) => (f.dmg || 1) * C_B.damage.stone * HIT_STONES;
+  const armorAt = (points, dmg) => { const p = Math.min(C_G.MAX_DEFENSE, points || 0); return p <= 0 ? 0 : Math.max(1, Math.round(p / 100 * (dmg || 1) * C_B.damage.stone * HIT_STONES)); };
+  const armorOf = (f) => armorAt(f.stats && f.stats.defense, f.dmg);
+  const mitigate = (amount, armor) => Math.max(Math.max(1, Math.ceil(amount * FLOOR)), Math.round(amount) - armor);
+  // Доля удара нападающего (типичного, линия из 3 камней), доходящая до цели, — для оценок ИИ.
+  const armorFactor = (attacker, target) => { const a = Math.max(0.01, (attacker.dmg || 1) * (1 + power(attacker) / 100) * C_B.damage.stone * HIT_STONES); return Math.max(FLOOR, 1 - armorOf(target) / a); };
+
   // Сумма всех усилений урона (эликсир силы, Знамя, Вой).
   const buffPower = (f) => f.buffs.reduce((s, b) => s + (b.amount || 0), 0);
 
@@ -34,6 +45,11 @@ const Combat = (() => {
     if (f.ability === 'undying' && !f.revived && f.hp - amount <= 0) {
       f.revived = true;
       f.hp = Math.ceil(f.max * A.undying.hp);
+      return true;
+    }
+    if (f.secondWind && !f.revived2 && f.hp - amount <= 0) {       // 1.6.3: умение медалей «Второе дыхание»
+      f.revived2 = true;
+      f.hp = Math.ceil(f.max * 0.3);
       return true;
     }
     f.hp = Math.max(0, f.hp - amount);
@@ -105,16 +121,14 @@ const Combat = (() => {
       // 1.3.8: заблокированный удар может ещё и отразиться — Рикошет проверяется независимо от Блока
       // (кубик Рикошета; урон отражается за вычетом Брони цели). Тогда kind = 'blockreflect'.
       if (chance(target.stats.ricochet + buffStat(target, 'retribution'), rand)) {
-        const d = Math.min(C_G.MAX_DEFENSE, target.stats.defense);
         out.kind = 'blockreflect';
-        out.amount = Math.max(1, Math.round(amount * (1 - d / 100)));
+        out.amount = mitigate(amount, armorOf(target));
         out.attackerRevived = loseHp(attacker, out.amount);
       }
       return out;
     }
     out.pierce = attacker.ability === 'backstab' && chance(A.backstab.chance, rand);
-    const def = out.pierce ? 0 : Math.min(C_G.MAX_DEFENSE, target.stats.defense);
-    amount = Math.max(1, Math.round(amount * (1 - def / 100)));
+    amount = mitigate(amount, out.pierce ? 0 : armorOf(target));
     out.amount = amount;
     // Возмездие добавляет временный Рикошет сверх базового (см. buffStat/monsterTurnStart 'retribution').
     if (chance(target.stats.ricochet + buffStat(target, 'retribution'), rand)) {
@@ -180,7 +194,7 @@ const Combat = (() => {
     const K = C_B.consumables;
     if (kind === 'potion') {
       if (f.hp >= f.max) return null;
-      const heal = Math.min(f.max - f.hp, Math.ceil(f.max * K.potion.heal));
+      const heal = Math.min(f.max - f.hp, Math.max(1, Math.round((f.dmg || 1) * C_B.damage.stone * K.potion.stones)));   // цифрой: урон 8 камней
       f.hp += heal;
       return { kind, heal };
     }
@@ -212,7 +226,7 @@ const Combat = (() => {
       const Kj = K.honeyjar;
       if (rand() < Kj.hpChance) {
         const add = Math.round(f.max * Kj.hpPct);
-        f.max += add; f.hp += add;
+        f.max += add; f.hp += add; f.tempMax = (f.tempMax || 0) + add;   // 1.6.0: пересчёт характеристик (эликсиры) не стирает добавку
         return { kind, mode: 'hp', amount: add };
       }
       f.shield = (f.shield || 0) + Kj.shieldHits;
@@ -225,7 +239,7 @@ const Combat = (() => {
       return { kind };
     }
     if (kind === 'stoneskin') {
-      f.stats.defense = (f.stats.defense || 0) + K.stoneskin.armor;
+      f.stats.defense = (f.stats.defense || 0) + K.stoneskin.armor; f.tempDef = (f.tempDef || 0) + K.stoneskin.armor;
       return { kind, armor: K.stoneskin.armor };
     }
     return null;
@@ -383,11 +397,11 @@ const Combat = (() => {
   /* ХП цели в «камнях» нападающего: сколько собранных камней нужно, чтобы её добить (с учётом роста урона,
      Силы нападающего и Брони цели). ИИ считает в камнях, поэтому ему передаются такие значения. */
   const hpUnits = (target, attacker, hp = target.hp) =>
-    hp / Math.max(0.01, (attacker.dmg || 1) * (1 + power(attacker) / 100) * (1 - Math.min(C_G.MAX_DEFENSE, target.stats.defense) / 100));
+    hp / Math.max(0.01, (attacker.dmg || 1) * (1 + power(attacker) / 100) * armorFactor(attacker, target));
   // Всё, что нужно ИИ бойца me против соперника opp.
   const aiView = (me, opp) => ({
     hpMe: hpUnits(me, opp), hpOpp: hpUnits(opp, me), maxMe: hpUnits(me, opp, me.max),
-    healMult: (me.dmg || 1) / Math.max(0.01, (opp.dmg || 1) * (1 + power(opp) / 100) * (1 - Math.min(C_G.MAX_DEFENSE, me.stats.defense) / 100)),
+    healMult: (me.dmg || 1) / Math.max(0.01, (opp.dmg || 1) * (1 + power(opp) / 100) * armorFactor(opp, me)),
   });
   /* Оценка шанса победы «среднего» игрока: hero = { max, dmg, stats }, mon = { max, dmg, stats, ai }, species — вид.
      Модель и её числа — Balance.danger (обучена на симуляторе). */
@@ -478,7 +492,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { armorOf, armorAt, mitigate, refHit, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

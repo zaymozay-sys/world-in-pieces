@@ -345,6 +345,10 @@ const MonsterArt = (() => {
     elk: ['#8a6038', 'rog'], goat: ['#cfc7b8', 'rog'], eagle: ['#6b4f32', 'klyuv'], rhino: ['#8c8d92', 'rog'], leopard: ['#d6d9de', 'ushi'],
     leech: ['#4a3a45', 'cheshuya'], mimic: ['#9b6a35', 'cheshuya'], salamander: ['#d05a2a', 'cheshuya'], bear: ['#6a4630', 'ushi'],
     griffin: ['#c49a45', 'klyuv'], pike: ['#5f8a6a', 'cheshuya'], wyvern: ['#4f7d4a', 'cheshuya'], basilisk: ['#5f7a58', 'cheshuya'],
+    // 1.6.7: заглушки новых существ, пока нет картинок art/monsters/<id>.webp
+    ironscarab: ['#7a5a45', 'rog'], rocklizard: ['#7d776a', 'cheshuya'], moonmoth: ['#aab8e0', 'ushi'], bumblebee: ['#d9a62e', 'ushi'],
+    forestling: ['#6a7a3e', 'rog'], barrowman: ['#8a9486', 'cheshuya'], crystalid: ['#8a6fc0', 'cheshuya'], firetail: ['#d4552a', 'rog'],
+    weaver: ['#6a5a4a', 'ushi'], carapace: ['#3f8a8a', 'cheshuya'], ironguard: ['#7e8590', 'cheshuya'], boneknight: ['#cfcab8', 'cheshuya'],
   };
   const fallbackArt = (id) => {
     const [col, kind] = FALLBACK[id];
@@ -414,7 +418,7 @@ const MonsterArt = (() => {
     return `<span class="money" title="${Tiers.moneyText(n)}">${parts.join('')}</span>`;
   }
 
-  return { bust, resIcon, coinIcon, moneyHtml, has: (id) => !!ART[id] || !!FALLBACK[id] };
+  return { bust, resIcon, coinIcon, moneyHtml, has: (id) => !!ART[id] || !!FALLBACK[id] || (typeof Art !== 'undefined' && Art.hasMonster(id)) };   // 1.6.7: и когда есть только картинка из art/ (Дракон в списке бестиария рисовался старым значком)
 })();
 
 // Для тестов в Node.js (в браузере не используется).

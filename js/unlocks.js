@@ -13,7 +13,7 @@ const Unlocks = (() => {
   const wins = (d) => (d && d.wins) || 0;
   const need = (id) => NEED[id] || 0;
   const isOpen = (d, id) => wins(d) >= need(id);
-  const reason = (d, id) => _t("{0} откроется после {1} побед (сейчас {2})", [NAMES[id] || id, need(id), wins(d)]);
+  const reason = (d, id) => _t("{0} откроется после {1} (сейчас {2})", [NAMES[id] || id, _nn(need(id), 'победы', 'побед', 'побед'), wins(d)]);
   const hint = (id) => (NAMES[id] || id) + (HINTS[id] ? ' — ' + HINTS[id] : '');
   const openIds = (d) => Object.keys(NEED).filter((id) => isOpen(d, id));
 
@@ -29,7 +29,7 @@ const Unlocks = (() => {
     const fresh = list.find((q) => !q.accepted && !q.claimed && giverOk(q));
     if (fresh) return _t("Возьмите задание «{0}»: {1}.", [fresh.title, GIVERS[fresh.giver] ? GIVERS[fresh.giver][1] : _t("в посёлке")]);
     const next = Object.keys(NEED).filter((id) => !isOpen(d, id)).sort((a, b) => NEED[a] - NEED[b])[0];
-    if (next) return _t("Скоро откроется: {0} — осталось {1} побед.", [NAMES[next], need(next) - wins(d)]);
+    if (next) return _t("Скоро откроется: {0} — осталось {1}.", [NAMES[next], _nn(need(next) - wins(d), 'победа', 'победы', 'побед')]);
     return _t("Исследуйте карту, охотьтесь на боссов и собирайте осколки Великого Сердца.");
   }
 

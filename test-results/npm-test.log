@@ -1,0 +1,54 @@
+
+> world-in-pieces@1.6.4 test
+> node tests/syntax.test.js && node tests/unlocks.test.js && node tests/engine.test.js && node tests/gear.test.js && node tests/economy.test.js && node tests/gamelength.test.js && node tests/map.test.js && node tests/factions.test.js && node tests/hero.test.js && node tests/combat.test.js && node tests/balance.test.js && node tests/art.test.js && node tests/quests.test.js && node tests/daily.test.js && node tests/names.test.js && node tests/medals.test.js && node tests/elixirs.test.js && node tests/village.test.js && node tests/world.test.js && node tests/pets.test.js && node tests/runes.test.js && node tests/obsidian-live.test.js && node tests/obsidian-composite.test.js && node tests/obsidian-keep.test.js && node tests/version.test.js && node tests/clone.test.js && node tests/i18n.test.js
+
+syntax: все скрипты разбираются
+unlocks: все тесты пройдены
+unlocks: подсказки ок
+engine: все тесты пройдены
+gear: все тесты пройдены
+economy: все тесты пройдены
+gamelength: все тесты пройдены
+map: все тесты пройдены
+map: SPAWN покрывает все виды бестиария
+map: город из усадеб — все тесты пройдены
+map: стражи осколков — все тесты пройдены
+story 1.5.1 ok
+market: все тесты пройдены
+ammo: все тесты пройдены
+factions: все тесты пройдены
+hero: все тесты пройдены
+combat: все тесты пройдены
+balance: все тесты пройдены
+pierce ok
+art: все тесты пройдены
+quests: все тесты пройдены
+quests: цветные ключи ок
+daily.test.js: OK
+names: все тесты пройдены
+medals: все тесты пройдены
+shot medals ok
+medals 1.6.2: комплекты ok
+medals 1.6.2: ступени ok
+medals 1.6.2: стиль боя ok
+medals 1.6.2: мир ok
+medals 1.6.2: коллекции ok
+medals 1.6.2: скрытые ok
+medals 1.6.2: серия дней ok
+medals 1.6.3: ok
+elixirs: все тесты пройдены
+village 1.5.1: все тесты пройдены
+world 1.5.4: все тесты пройдены
+pets: все тесты пройдены
+pets 1.3.9 ok
+pets 1.4.8 ok
+pets 1.5.0 ok
+pets 1.5.1 ok
+elixirs 1.5.1 ok
+runes: все тесты пройдены
+obsidian-live: все тесты пройдены
+obsidian-composite: все тесты пройдены
+obsidian-keep: все тесты пройдены
+version: все тесты пройдены
+clone: все тесты пройдены
+i18n: строк в коде 1865, в разметке 68 — все переведены

@@ -43,8 +43,11 @@
           <button type="button" id="mm-mute" data-mdo="m-mute">Звук</button>
           <button type="button" data-mdo="m-fs">Полный экран</button>
           <button type="button" id="mm-lang" data-mdo="m-lang">English</button>
+          <button type="button" id="mm-anim" data-mdo="m-anim">Анимации: обычные</button>
+          <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
           <button type="button" data-mdo="m-help">Как играть</button>
           <button type="button" data-mdo="m-credits">О разработчиках</button>
+          <div class="map-ver" id="map-ver" aria-hidden="false"></div>
         </div>
       </div>
     </div>
@@ -91,6 +94,7 @@
           <span class="btns">
             <button id="hint" type="button" title="Показать лучший обмен (H)">Подсказка</button>
             <button id="mute" type="button">Звук: вкл</button>
+            <button id="timer-btn" type="button" class="desk-only" aria-pressed="false">Таймер: выкл</button>
             <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
             <button id="restart" type="button" title="Уйти с поля боя на карту">Отступить</button>
             <button id="more" type="button" class="pic-only" title="Меню: бестиарий, полный экран, журнал">☰</button>
@@ -101,6 +105,8 @@
           <button type="button" data-do="credits">О разработчиках</button>
           <button type="button" data-do="fullscreen">Полный экран</button>
           <button type="button" data-do="log">Журнал боя</button>
+          <button type="button" data-do="anim">Анимации: обычные</button>
+          <button type="button" data-do="timer">Таймер хода: выкл</button>
         </div>
         <details class="log-wrap" id="log-wrap">
           <summary>Журнал боя</summary>
@@ -125,7 +131,7 @@
         <li>Фракции: Люди (родной камень — сапфир), Гномы (обсидиан), Эльфы (изумруд), Ящеры (рубин). Родные камни заряжают приём фракции (15 камней с учётом номиналов и бонусов линии), приём ход не тратит. Знамя: +50% урона на 3 хода. Рунный молот: 3 камня становятся обсидианом x3. Корни: противник не может трогать выбранный столбец свой следующий ход. Ядовитый укус: противник теряет здоровье в начале 3 своих ходов. Фракционные вещи носит только своя фракция. Сменить фракцию можно в Ратуше.</li>
         <li>У каждого вида существ свой приём (воровство, вой, туман, окаменение, огненное дыхание и другие): он указан в карточке существа и в бестиарии.</li>
         <li>Неверный ход: −5% максимума ХП (на 1-м уровне это 5–6 ХП) и ход переходит к противнику. Три неверных хода подряд — поражение.</li>
-        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Инициативу (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной Вашего дома; в дорогу в сумке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
+        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Проворство (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной Вашего дома; в дорогу в сумке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
         <li>Уровень героя растёт от опыта за победы (опыта на уровень нужно всё больше). С уровнем растут ХП, урон камней и лимит очков снаряжения; вещь цвета N можно надеть с уровня (N − 1) × 5 + 1. Сильнее существо и выше его цвет — больше опыта.</li>
         <li>Ранец: зелье здоровья, эликсир силы, каменная пыль и свиток спешки используются в бою, ход не тратят. Победа даёт новый предмет и расходники.</li>
         <li>Цвета-уровни (по возрастанию): Красный, Оранжевый, Жёлтый, Зелёный, Голубой, Синий, Фиолетовый, Серебро, Золото, Обсидиановый. Цвет есть у вещей, монстров и ресурсов: чем выше, тем сильнее. Оценка опасности существа (Лёгкий, Равный, Опасный, Смертельный) показывает примерный шанс победы.</li>
@@ -138,6 +144,7 @@
 
   <script src="js/en.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/version.js"></script>
   <script src="js/gems.js"></script>
   <script src="js/art-files.js"></script>
   <script src="js/art.js"></script>
@@ -157,6 +164,7 @@
   <script src="js/figures.js"></script>
   <script src="js/story.js"></script>
   <script src="js/hexmap.js"></script>
+  <script src="js/forge.js"></script>
   <script src="js/world.js"></script>
   <script src="js/mapart.js"></script>
   <script src="js/monsterart.js"></script>
@@ -167,10 +175,12 @@
   <script src="js/ammo.js"></script>
   <script src="js/market.js"></script>
   <script src="js/village.js"></script>
+  <script src="js/saveguard.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/quests.js"></script>
   <script src="js/unlocks.js"></script>
   <script src="js/daily.js"></script>
+  <script src="js/focus.js"></script>
   <script src="js/screens.js"></script>
   <script src="js/mapview.js"></script>
   <script src="js/tutorial.js"></script>

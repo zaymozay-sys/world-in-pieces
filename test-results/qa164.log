@@ -1,0 +1,64 @@
+  ok   320×568 fight-goblin-3-solo: нажатия и вёрстка
+  ok   320×568 fight-goblin-3-solo: клетка 39px ≥ 36
+  ok   320×568 fight-goblin-3-solo: без ошибок JS
+  ok   320×568 fight-goblin-3: нажатия и вёрстка
+  ok   320×568 fight-goblin-3: клетка 39px ≥ 36
+  ok   320×568 fight-goblin-3: без ошибок JS
+  ok   375×667 fight-goblin-3-solo: нажатия и вёрстка
+  ok   375×667 fight-goblin-3-solo: клетка 50px ≥ 40
+  ok   375×667 fight-goblin-3-solo: без ошибок JS
+  ok   375×667 fight-goblin-3: нажатия и вёрстка
+  ok   375×667 fight-goblin-3: клетка 50px ≥ 40
+  ok   375×667 fight-goblin-3: без ошибок JS
+  ok   390×844 fight-goblin-3-solo: нажатия и вёрстка
+  ok   390×844 fight-goblin-3-solo: клетка 62px ≥ 40
+  ok   390×844 fight-goblin-3-solo: без ошибок JS
+  ok   390×844 fight-goblin-3: нажатия и вёрстка
+  ok   390×844 fight-goblin-3: клетка 62px ≥ 40
+  ok   390×844 fight-goblin-3: без ошибок JS
+  ok   568×320 fight-goblin-3-solo: нажатия и вёрстка
+  ok   568×320 fight-goblin-3-solo: клетка 40px ≥ 38
+  ok   568×320 fight-goblin-3-solo: без ошибок JS
+  ok   568×320 fight-goblin-3: нажатия и вёрстка
+  ok   568×320 fight-goblin-3: клетка 40px ≥ 38
+  ok   568×320 fight-goblin-3: без ошибок JS
+  ok   667×375 fight-goblin-3-solo: нажатия и вёрстка
+  ok   667×375 fight-goblin-3-solo: клетка 54px ≥ 38
+  ok   667×375 fight-goblin-3-solo: без ошибок JS
+  ok   667×375 fight-goblin-3: нажатия и вёрстка
+  ok   667×375 fight-goblin-3: клетка 54px ≥ 38
+  ok   667×375 fight-goblin-3: без ошибок JS
+  ok   844×390 fight-goblin-3-solo: нажатия и вёрстка
+  ok   844×390 fight-goblin-3-solo: клетка 56px ≥ 38
+  ok   844×390 fight-goblin-3-solo: без ошибок JS
+  ok   844×390 fight-goblin-3: нажатия и вёрстка
+  ok   844×390 fight-goblin-3: клетка 56px ≥ 38
+  ok   844×390 fight-goblin-3: без ошибок JS
+  ok   932×430 fight-goblin-3-solo: нажатия и вёрстка
+  ok   932×430 fight-goblin-3-solo: клетка 63px ≥ 38
+  ok   932×430 fight-goblin-3-solo: без ошибок JS
+  ok   932×430 fight-goblin-3: нажатия и вёрстка
+  ok   932×430 fight-goblin-3: клетка 63px ≥ 38
+  ok   932×430 fight-goblin-3: без ошибок JS
+  ok   320×568: кнопка «за питомца» внутри экрана
+  ok   320×568: управление перешло (hero → pet)
+  ok   390×844: кнопка «за питомца» внутри экрана
+  ok   390×844: управление перешло (hero → pet)
+  ok   таймер ru: коротко «30 с», aria «Ход истекает через 30 с»
+  ok   таймер en: коротко «28 s», aria «Turn ends in 28 s»
+  ok   mute: aria-pressed переключается
+  ok   mute: иконка «выкл» отличается от «вкл» и валидна
+  ok   mute: состояние сохраняется после перезагрузки
+  ok   devjump: работает в памяти (sandbox)
+  ok   devjump: в сохранение игрока не попали тестовые ×10 и все заклинания
+  ok   дуо: повторяющихся id нет
+  ok   дуо: заклинания второго поля построены
+  ok   карта: фокусируется (tabindex, role, подпись)
+  ok   карта: стрелки двигают курсор, озвучивание обновляется
+  ok   карта: Ввод действует как касание
+  ok   окно: фон неактивен (inert)
+  ok   окно: после закрытия фон снова активен, фокус вернулся на карту
+  ok   13 заклинаний на экране, у каждого состояние и подпись
+  ok   расходники: 10 кнопок с состоянием и подписью
+
+qa164 e2e: все тесты пройдены

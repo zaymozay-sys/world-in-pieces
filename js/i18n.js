@@ -48,6 +48,13 @@
     try { localStorage.setItem(KEY, l); } catch (e) { try { g.name = 'wip-lang:' + l; } catch (e2) { /* нет окна */ } }
     if (typeof location !== 'undefined') location.reload();
   }
+  // Склонение по числу: _n(n, 'монета', 'монеты', 'монет'); _nn — с числом впереди («3 монеты»). В английском — только ед./мн. число из словаря.
+  function N(n, one, few, many) {
+    if (lang === 'en') return T(Math.abs(n) === 1 ? one : many);
+    const a = Math.abs(n) % 10, b = Math.abs(n) % 100;
+    return a === 1 && b !== 11 ? one : (a >= 2 && a <= 4 && (b < 10 || b >= 20)) ? few : many;
+  }
+  g._n = N; g._nn = (n, one, few, many) => n + ' ' + N(n, one, few, many);
   const I18N = { lang, T, translateDom, setLang, missing, norm };
   g.I18N = I18N; g._t = T;
   if (typeof document !== 'undefined') {

@@ -93,37 +93,37 @@ const Daily = (() => {
     if (!Profile.spend(price)) return { ok: false, reason: 'coins' };
     d.lottery = true;
     const row = pick(rand), L = Profile.level(), tier = D_H.tierFor(L);
-    let text;
+    let text; const prize = {};
     if (row.kind === 'res') {
       const kinds = Object.keys(D_B.RESOURCES), kind = kinds[Math.floor(rand() * kinds.length)];
       const n = Math.max(1, Math.round(price * row.mult / D_B.resPrice(kind, tier)));
-      Profile.addRes(kind, tier, n);
+      Profile.addRes(kind, tier, n); prize.res = { kind, tier, n };
       text = `${D_B.RESOURCES[kind].name} × ${n}`;
     } else if (row.kind === 'coins') {
       const n = Math.round(price * row.mult);
-      Profile.addCoins(n);
-      text = _t("{0} монет", [n]);
+      Profile.addCoins(n); prize.coins = n;
+      text = `${_nn(n, 'монета', 'монеты', 'монет')}`;
     } else if (row.kind === 'cons') {
       const kinds = Object.keys(D_G.CONSUMABLES), kind = kinds[Math.floor(rand() * kinds.length)];
-      Profile.addConsumable(kind, 1);
+      Profile.addConsumable(kind, 1); prize.cons = kind;
       text = D_G.CONSUMABLES[kind].name;
     } else if (row.kind === 'item') {
       const pool = D_G.itemsFor(data.faction);
       const base = pool[Math.floor(rand() * pool.length)];
       const e = D_G.makeEntry(base.id, Math.max(1, tier));
-      Profile.addItem(e);
+      Profile.addItem(e); prize.item = e.uid;
       text = D_G.item(e).name;
     } else {
       const pool = D_G.itemsFor(data.faction);
       const base = pool[Math.floor(rand() * pool.length)];
       const e = D_G.makeEntry(base.id, Math.min(10, tier + 1));
-      Profile.addItem(e);
+      Profile.addItem(e); prize.item = e.uid;
       const bonus = Math.round(price * 2);
-      Profile.addCoins(bonus);
-      text = _t("Джекпот! {0} и ещё {1} монет", [D_G.item(e).name, bonus]);
+      Profile.addCoins(bonus); prize.coins = bonus;
+      text = _t("Джекпот! {0} и ещё {1}", [D_G.item(e).name, _nn(bonus, 'монета', 'монеты', 'монет')]);
     }
     Profile.save();
-    return { ok: true, kind: row.kind, price, text };
+    return { ok: true, kind: row.kind, price, text, prize };
   }
 
   return { today, ensure, libraryQuest, registerWin, canClaimLibrary, claimLibrary, ticketPrice, canBuyTicket, buyTicket, pick, TABLE, LIB_GOAL };

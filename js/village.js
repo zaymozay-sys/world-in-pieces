@@ -16,14 +16,14 @@ const Village = (() => {
     hall:      { name: _t("Ратуша"),   perk: (n) => _t("Торговые ряды: {0} лотов, сбор {1}%", [lots(n), feePct(n)]), unit: _t("Староста расширяет прилавки и договаривается со сборщиками.") },
     mill:      { name: _t("Мельница"), perk: (n) => _t("находка ресурса удваивается с шансом {0}%", [10 * n]), unit: _t("Добрый мышь строит амбар: часть добычи со зверей не пропадает.") },
     kennel:    { name: _t("Питомник"), perk: (n) => _t("занятия питомца быстрее на {0}%", [12 * n]),  unit: _t("Смотрительница Ласка строит площадку для тренировок.") },
-    alchemist: { name: _t("Алхимик"),  perk: (n) => _t("срок действия эликсиров +{0} (боёв)", [n]),  unit: _t("Тётушка Жабка варит эликсиры в выдержанных бочках.") },
+    alchemist: { name: _t("Алхимик"),  perk: (n) => _t("сила эликсиров +{0}%", [5 * n]),  unit: _t("Тётушка Жабка варит эликсиры в выдержанных бочках.") },
   };
   // уровни и числа
   const lvl = (v, id) => Math.max(0, Math.min(MAX, Math.floor((v && v[id]) || 0)));
   const lots = (n) => 8 + n;
   const feePct = (n) => Math.round((5 - 0.8 * n) * 10) / 10;
   const reqTier = (k) => 2 * k;                                         // цвет героя, с которого открыт уровень k
-  const cost = (id, k) => Math.round(1200 * VG_T.PRICE_MULT[2 * k - 1] * (id === 'forge' ? 1.5 : 1));   // в медных монетах
+  const cost = (id, k) => Math.round(1200 * ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinBase * VG_T.PRICE_MULT[2 * k - 1] * (id === 'forge' ? 1.5 : 1));   // в медных монетах
   // Что можно купить сейчас: { level (следующий), cost, reqTier, ok: цвет героя достаточен }
   function next(v, id, heroTier) {
     const n = lvl(v, id);

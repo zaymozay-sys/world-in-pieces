@@ -11,6 +11,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
    Его можно побеждать снова (как других существ — он возвращается через время), но осколок даётся один раз. */
 
 const ST_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
+const CK_S = ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinBase;
 
 const Story = (() => {
   // angle — направление от деревни на карте (градусы экрана: 0 — восток, 90 — юг, -90 — север).
@@ -56,7 +57,7 @@ const Story = (() => {
   // Награда за осколок (один раз): монеты по цвету стража и опыт. Финал — втрое больше.
   function shardReward(bossId, cyc = 0) {
     const ch = BY_ID[bossId], k = 1 + 0.5 * cyc;
-    const coins = Math.round(400 * ST_T.PRICE_MULT[ch.tier - 1] * (ch.final ? 3 : 1) * k);
+    const coins = Math.round(400 * CK_S * ST_T.PRICE_MULT[ch.tier - 1] * (ch.final ? 3 : 1) * k);
     return { coins, xp: Math.round((ch.final ? 600 : 120) * Math.ceil(ch.tier / 2) * k) };
   }
 

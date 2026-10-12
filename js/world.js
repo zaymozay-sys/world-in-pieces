@@ -7,6 +7,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 
 const W_HM = (typeof HexMap !== 'undefined') ? HexMap : require('./hexmap.js');
 const W_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
+const CK_W = ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinBase;   // 1.6.0: доходы и траты вместе с монетами с мобов
 
 const World = (() => {
   const MIN = 60 * 1000;
@@ -133,10 +134,10 @@ const World = (() => {
   /* ---------- логова ---------- */
   const lairLength = (tier) => 3 + (tier >= 6 ? 1 : 0) + (tier >= 9 ? 1 : 0);
   // Сундук логова: монеты по цвету и длине вылазки. Вещь цвета логова выдаёт game.js/mapview.js.
-  const lairChestCoins = (tier, len) => Math.round(90 * W_T.PRICE_MULT[tier - 1] * len);
+  const lairChestCoins = (tier, len) => Math.round(90 * CK_W * W_T.PRICE_MULT[tier - 1] * len);
 
   /* ---------- тайник ---------- */
-  const cacheCoins = (tier, rand = Math.random) => Math.round(60 * W_T.PRICE_MULT[tier - 1] * (0.8 + rand() * 0.4));
+  const cacheCoins = (tier, rand = Math.random) => Math.round(60 * CK_W * W_T.PRICE_MULT[tier - 1] * (0.8 + rand() * 0.4));
 
   /* ---------- Арена теней ---------- */
   const RANKS = [
@@ -169,8 +170,8 @@ const World = (() => {
     const level = Math.max(1, Math.min(100, heroLevel + (rank - 3)));
     return { faction: F[Math.floor(rand() * F.length)], gender: rand() < 0.5 ? 'm' : 'f', level, ai: Math.min(100, 30 + rank * 7), seed: Math.floor(rand() * 1e9) };
   }
-  const arenaCoins = (tier, rank) => Math.round(30 * W_T.PRICE_MULT[tier - 1] * (1 + rank * 0.15));
-  const rankCoins = (tier, rank) => Math.round(150 * W_T.PRICE_MULT[tier - 1] * (rank + 1));
+  const arenaCoins = (tier, rank) => Math.round(30 * CK_W * W_T.PRICE_MULT[tier - 1] * (1 + rank * 0.15));
+  const rankCoins = (tier, rank) => Math.round(150 * CK_W * W_T.PRICE_MULT[tier - 1] * (rank + 1));
 
   /* ---------- Испытание дня ---------- */
   // Противники испытания: против стандартного героя 25-го уровня у «среднего» игрока шанс 55–78% (симулятор, combat.js)

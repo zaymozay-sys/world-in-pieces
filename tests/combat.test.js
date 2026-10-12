@@ -17,7 +17,7 @@ const always = () => 0;              // шансы срабатывают
 let a = fighter({ dmg: 2, stats: { power: 50 } }), t = fighter({ stats: { defense: 20 } });
 let r = Combat.hit(a, t, 10, false, never);
 assert.strictEqual(r.kind, 'hit');
-assert.strictEqual(r.amount, Math.round(Math.ceil(10 * 2 * 1.5) * 0.8));
+assert.strictEqual(r.amount, Combat.mitigate(Math.ceil(10 * 2 * 1.5), Combat.armorOf(t)));
 assert.strictEqual(t.hp, 100 - r.amount);
 // урон без модификаторов (яд, штраф)
 t = fighter(); r = Combat.hit(a, t, 7, true, never);
@@ -30,7 +30,9 @@ a = fighter(); t = fighter({ stats: { ricochet: 100 } }); r = Combat.hit(a, t, 1
 assert.strictEqual(r.kind, 'reflect'); assert.strictEqual(t.hp, 100); assert.strictEqual(a.hp, 90);
 // Броня ограничена потолком
 t = fighter({ stats: { defense: 95 } }); r = Combat.hit(fighter(), t, 100, false, never);
-assert.strictEqual(r.amount, Math.round(100 * (1 - Gear.MAX_DEFENSE / 100)));
+assert.strictEqual(r.amount, 100 - Combat.armorAt(Gear.MAX_DEFENSE, 1));
+// 1.6.0: Броня вычитается цифрой (удар 3, Броня 1 → 2), пол урона — 20% удара, но не меньше 1
+assert.strictEqual(Combat.mitigate(3, 1), 2); assert.strictEqual(Combat.mitigate(10, 100), 2); assert.strictEqual(Combat.mitigate(2, 50), 1); assert.strictEqual(Combat.mitigate(30, 0), 30);
 
 // Ярость: шанс удвоить урон одним ударом, считается ДО Брони (Броня всё равно снижает уже удвоенный урон)
 a = fighter({ stats: { fury: 100 } }); t = fighter();
@@ -41,7 +43,7 @@ r = Combat.hit(a, t, 10, false, always);
 assert.ok(!r.crit); assert.strictEqual(r.amount, 10, 'без Ярости удвоения нет');
 a = fighter({ stats: { fury: 100 } }); t = fighter({ stats: { defense: 50 } });
 r = Combat.hit(a, t, 10, false, always);
-assert.ok(r.crit); assert.strictEqual(r.amount, 10, 'Броня снижает уже удвоенный Яростью урон');
+assert.ok(r.crit); assert.strictEqual(r.amount, Combat.mitigate(20, Combat.armorOf(t)), 'Броня снижает уже удвоенный Яростью урон');
 
 // Особое оружие: арбалет иногда пробивает Блок насквозь
 a = fighter({ weaponPerk: { type: 'pierceBlock' } }); t = fighter({ stats: { block: 100 } });
@@ -162,7 +164,7 @@ assert.strictEqual(Combat.buffStat(m, 'retribution'), B.abilities.retribution.ri
 
 // расходники и свиток спешки
 let f = fighter({ hp: 40 });
-assert.strictEqual(Combat.useConsumable(f, 'potion', []).heal, Math.ceil(100 * B.consumables.potion.heal));
+assert.strictEqual(Combat.useConsumable(f, 'potion', []).heal, Math.round(B.damage.stone * B.consumables.potion.stones));
 assert.strictEqual(Combat.useConsumable(fighter(), 'potion', []), null);         // здоровье полное
 f = fighter(); Combat.useConsumable(f, 'elixir', []);
 assert.strictEqual(Combat.buffPower(f), B.consumables.elixir.power);

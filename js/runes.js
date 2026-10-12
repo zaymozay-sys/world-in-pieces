@@ -15,7 +15,7 @@ const Runes = (() => {
     'rune-vitality': { name: _t("Руна жизни"),      stat: 'health',     value: 8,  color: '#5fc98a', desc: _t("+8 Здоровье") },
     'rune-ward':     { name: _t("Руна оберега"),    stat: 'defense',    value: 2,  color: '#6aa8e8', desc: _t("+2% Броня") },
     'rune-insight':  { name: _t("Руна прозрения"),  stat: 'magic',      value: 1,  color: '#b58cff', desc: _t("+1 Магия") },
-    'rune-haste':    { name: _t("Руна спешки"),     stat: 'initiative', value: 3,  color: '#f4dc3f', desc: _t("+3% Инициатива") },
+    'rune-haste':    { name: _t("Руна спешки"),     stat: 'initiative', value: 3,  color: '#f4dc3f', desc: _t("+3% Проворство") },
     'rune-thorn':    { name: _t("Руна шипа"),       stat: 'ricochet',   value: 2,  color: '#c9573c', desc: _t("+2% Рикошет") },
     'rune-bulwark':  { name: _t("Руна стены"),      stat: 'block',      value: 2,  color: '#a9adb8', desc: _t("+2% Блок") },
     'rune-fury':     { name: _t("Руна ярости"),     stat: 'fury',       value: 4,  color: '#d08a3a', desc: _t("+4% Ярость") },
