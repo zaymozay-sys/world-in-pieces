@@ -26,7 +26,7 @@ const Factions = (() => {
       ability: { id: 'banner', name: _t("Знамя"), desc: _t("+50% к урону на 3 ваших хода") },
     },
     dwarf: {
-      name: _t("Гномы"), people: _t("Подгорные кланы"), hero: _t("Старый боевой гном"), heroF: _t("Старая боевая гномка"), figure: 'dwarf',
+      name: _t("Гномы"), people: _t("Подгорные кланы"), hero: _t("Старый боевой гном"), heroF: _t("Боевая гномка"), figure: 'dwarf',
       color: '#d08a3a', gem: 'onyx',
       desc: _t("Рунные кузнецы и воины гор. Крепкие, как камень, из которого вырублены их залы."),
       stats: { defense: 4, block: 4 },

@@ -146,6 +146,13 @@ const Balance = {
     // (см. Combat.monsterTurnStart / buffStat в combat.js).
     evasion:     { chance: 30, block: 12, turns: 3 },
     retribution: { chance: 30, ricochet: 10, turns: 3 },
+    // 1.7.3: три новых приёма. Оглушение: каждый every-й ход существа герой пропускает свой следующий ход
+    // (шанс устоять = Блок героя); Отрава: яд на turns ходов героя, урон за ход = mult × Combat.venomTick
+    // существа (броню и Блок обходит, как яд ящеров); Щит: поглощает pct от максимума ХП существа и
+    // обновляется до полного (не копится), пока не пробит.
+    stun:     { every: 5 },
+    toxin:    { every: 4, turns: 3, mult: 0.5 },
+    ward:     { every: 4, pct: 0.12 },
   },
 
   // Приёмы особого оружия (см. items.js, perk): pierceBlock — шанс пробить Блок цели насквозь (арбалет);

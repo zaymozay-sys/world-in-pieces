@@ -11,7 +11,7 @@ const HM_B = (typeof Bestiary !== 'undefined') ? Bestiary : require('./bestiary.
 const HM_S = (typeof Story !== 'undefined') ? Story : require('./story.js');
 
 const HexMap = (() => {
-  const RADIUS = 23;                  // большая карта: 1657 сот (море на западе и востоке); в 1.2.6 выросла вместе с деревней
+  const RADIUS = 30;                  // просторная карта: 2791 сота (море на западе и востоке); в 1.2.6 было 23 (1657 сот), в 1.7.2 стало 30
   const VILLAGE_R = 7;                // деревня (1.2.6): Ратуша на 7 сотах, площадь, 12 усадеб по 3 соты, кольцо прохода у частокола
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 
@@ -25,7 +25,17 @@ const HexMap = (() => {
     village:  { name: _t("Деревня"), cost: 0.8, pass: true },
     sea:      { name: _t("Море"),   cost: Infinity, pass: false },
     beach:    { name: _t("Берег"),  cost: 1.4, pass: true },
+    // 1.7.1: новые местности (накладываются после расстановки существ, см. decorate) и река
+    field:    { name: _t("Поле"),     cost: 1,   pass: true },
+    tundra:   { name: _t("Тундра"),   cost: 1.4, pass: true },
+    snow:     { name: _t("Снега"),    cost: 2,   pass: true },
+    sand:     { name: _t("Пески"),    cost: 1.5, pass: true },
+    badlands: { name: _t("Каменистые пески"), cost: 2, pass: true },
+    darkwood: { name: _t("Тёмный лес"), cost: 2.3, pass: true },
+    ash:      { name: _t("Пепельные земли"), cost: 1.6, pass: true },
+    river:    { name: _t("Река"),     cost: Infinity, pass: false },   // переходится по мосту (c.bridge) или броду (c.ford)
   };
+  const FORD_COST = 3;               // брод: дорого по ходам, зато без моста
   const ROAD_COST = 0.6;
 
   // Здания деревни (1.2.7): зеркально-симметричный город. Главная улица идёт с запада на восток через площадь
@@ -52,20 +62,20 @@ const HexMap = (() => {
   for (const b of Object.values(BUILDINGS)) { b.at = b.cells[0]; if (!b.scale) b.scale = 3.0; }
   // Достопримечательности побережья (версия 1.1.10): стоят на пляже у моря, дороги к ним ведут от ворот.
   // На западе — маяк с тюленем-смотрителем, на востоке — выброшенная на берег бригантина и запертый сундук.
-  BUILDINGS.lighthouse = { name: _t("Маяк"), at: [-18, 1], landmark: true, gate: 3, scale: 2.3,
+  BUILDINGS.lighthouse = { name: _t("Маяк"), at: [-25, 1], landmark: true, gate: 3, scale: 2.3,
     desc: _t("Старый тюлень-смотритель следит за огнём маяка, даёт поручения и хранит ключ от сундука с затонувшего корабля.") };
-  BUILDINGS.wreck = { name: _t("Кораблекрушение"), label: _t("Бригантина"), at: [18, -1], landmark: true, gate: 0, scale: 2.4,
+  BUILDINGS.wreck = { name: _t("Кораблекрушение"), label: _t("Бригантина"), at: [25, -1], landmark: true, gate: 0, scale: 2.4,
     desc: _t("Бригантина села на мель у восточного берега. Рядом на песке стоит запертый сундук, а берег охраняет Капитан.") };
-  BUILDINGS.chest = { name: _t("Запертый сундук"), label: _t("Сундук"), at: [19, -2], landmark: true, gate: 0, scale: 1.7,
+  BUILDINGS.chest = { name: _t("Запертый сундук"), label: _t("Сундук"), at: [26, -2], landmark: true, gate: 0, scale: 1.7,
     desc: _t("Окованный железом сундук на песке у бригантины. Ключ хранит тюлень-смотритель маяка.") };
-  BUILDINGS.chestRuby = { name: _t("Рубиновый сундук"), label: _t("Рубиновый"), at: [18, 2], landmark: true, gate: 0, scale: 1.6,
+  BUILDINGS.chestRuby = { name: _t("Рубиновый сундук"), label: _t("Рубиновый"), at: [25, 2], landmark: true, gate: 0, scale: 1.6,
     desc: _t("Сундук с рубинами в крышке стоит на восточных камнях. Ключ мастерит старьёвщик.") };
-  BUILDINGS.chestEmerald = { name: _t("Изумрудный сундук"), label: _t("Изумрудный"), at: [-18, -1], landmark: true, gate: 3, scale: 1.6,
+  BUILDINGS.chestEmerald = { name: _t("Изумрудный сундук"), label: _t("Изумрудный"), at: [-25, -1], landmark: true, gate: 3, scale: 1.6,
     desc: _t("Сундук с изумрудами прячется в зарослях у маяка. Ключ — «Живой ключ» — варит алхимик.") };
-  BUILDINGS.chestObsidian = { name: _t("Серебряный сундук"), label: _t("Серебряный"), at: [20, 0], landmark: true, gate: 0, scale: 1.6,
+  BUILDINGS.chestObsidian = { name: _t("Серебряный сундук"), label: _t("Серебряный"), at: [27, 0], landmark: true, gate: 0, scale: 1.6,
     desc: _t("Серебряный сундук с обсидианом лежит под водой у бригантины. Нужно уметь дышать под водой.") };
   // 1.5.4: Врата подземелья — на северных холмах за деревней; пока заперты (soon), внутрь не войти.
-  BUILDINGS.dungeon = { name: _t("Врата подземелья"), label: _t("Подземелье"), at: [0, -12], post: true, soon: true, scale: 2.6,
+  BUILDINGS.dungeon = { name: _t("Врата подземелья"), label: _t("Подземелье"), at: [0, -16], post: true, soon: true, scale: 2.6,
     desc: _t("Массивные железные ворота в склоне холма. Вход пока закрыт: подземелье в разработке. Внутри будут монстры, которые становятся сильнее с каждым этажом.") };
   const GATE_DIRS = [0, 3];          // 1.2.7: ворота и главная улица — восток и запад (симметрия города); от каждых ворот 3 дороги
 
@@ -134,7 +144,19 @@ const HexMap = (() => {
     griffin: { tiers: [8, 10], terrain: { hills: 4 }, rare: 0.3 },
     wyvern: { tiers: [8, 10], terrain: { hills: 2, swamp: 2 }, rare: 0.3 },
     basilisk: { tiers: [8, 10], terrain: { swamp: 4, forest: 1 }, rare: 0.3 },
+    // 1.7.3: новые виды — Огр (Великаны), Гоблин-берсерк, Тень-убийца
+    ogre:     { tiers: [7, 10], terrain: { hills: 3, forest: 1, meadow: 1 } },
+    berserk:  { tiers: [4, 8],  terrain: { hills: 3, forest: 2, swamp: 1 } },
+    assassin: { tiers: [8, 10], terrain: { forest: 2, hills: 2, swamp: 1 }, rare: 0.5 },
     captain:  { tiers: [8, 8],  terrain: {}, fixed: true },                    // босс востока: ставится вручную у сундука
+  };
+  // 1.7.3: хозяева зон — цвет, вид и направление от деревни (угол в градусах, 0 — на восток, 90 — на юг); тексты и приёмы — в World.ZONE_BOSSES
+  const ZONES = {
+    z1: { tier: 1, species: 'rat', angle: 40 },
+    z3: { tier: 3, species: 'boar', angle: -150 },
+    z5: { tier: 5, species: 'spider', angle: 180 },
+    z7: { tier: 7, species: 'golem', angle: -10 },
+    z9: { tier: 9, species: 'wraith', angle: 100 },
   };
   // Плотность монстров: у деревни гуще (новичкам есть с кем сражаться), дальше реже.
   const spawnDensity = (d) => (d <= VILLAGE_R + 2 ? 0.36 : d <= VILLAGE_R + 5 ? 0.2 : 0.13);
@@ -322,6 +344,20 @@ const HexMap = (() => {
     }
     if (captain) map.spawns.push({ id: map.spawns.length, ...captain });
     for (const b of bosses) map.spawns.push({ id: map.spawns.length, ...b });
+    // 1.7.3: хозяева зон (нечётные цвета; на чётных — стражи осколков) — вместо ближайшего к «своему» направлению
+    // обычного существа этого цвета (не на пляже): номера сот и существ не сдвигаются.
+    for (const [zid, Z] of Object.entries(ZONES)) {
+      let best = null, bs = Infinity;
+      for (const sp of map.spawns) {
+        if (sp.boss) continue;
+        const c = cells[sp.idx];
+        if (c.terrain === 'beach' || tierAt(c.d) !== Z.tier) continue;
+        const p = toPixel(c.q, c.r, 1);
+        let da = Math.abs(Math.atan2(p.y, p.x) * 180 / Math.PI - Z.angle); if (da > 180) da = 360 - da;
+        if (da < bs) { bs = da; best = sp; }
+      }
+      if (best) { best.species = Z.species; best.tier = Z.tier; best.zone = zid; }
+    }
     // 1.5.4: Врата подземелья — ближайшая к заданной точке свободная доступная сота; карта, дороги и монстры остаются прежними.
     for (const [id, b] of Object.entries(BUILDINGS)) {
       if (!b.post) continue;
@@ -331,6 +367,147 @@ const HexMap = (() => {
       if (!spot) continue;
       spot.building = id;
       map.buildings.push({ id, idx: spot.idx, cells: [spot.idx] });
+    }
+    return map;
+  }
+
+  /* ---------- 1.7.1: новые местности и реки ---------- */
+  // Накладываются ПОСЛЕ generate() и World.place(): существа, события, логова и достопримечательности уже стоят, поэтому у
+  // сохранений прежних версий их номера и положение не меняются (новая местность — вид и цена шага; река обходит занятые соты
+  // и не режет достижимость: через неё всегда есть мост на дороге или брод). occupied — номера сот, занятых чем-либо.
+  // Идемпотентно: второй вызов для той же карты ничего не делает.
+  const angDiff = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+  const BIOME_CONVERT = { meadow: 1, forest: 1, hills: 1, swamp: 1 };
+  const FAR_D = 16, SIDE_D = 18;      // с каких расстояний от деревни начинаются полярные и боковые области (1.7.2)
+  const RIVER_COUNT = 5;             // 1.7.2: карта просторнее — рек больше (было 3)
+
+  function decorate(map, occupied) {
+    if (map.decorated) return map;
+    map.decorated = true;
+    const seed = map.seed, cells = map.cells, R = VILLAGE_R, index = map.index;
+    const occ = new Set(occupied || []);
+    for (const sp of map.spawns) occ.add(sp.idx);
+    for (const b of map.buildings) for (const i of b.cells || [b.idx]) occ.add(i);
+    const oldReach = map.reachable ? new Set(map.reachable) : null;
+    map.rivers = [];
+
+    // --- реки: от горных и холмистых мест вниз по рельефу к озеру, морю или другой реке
+    const elev = (c) => { const p = toPixel(c.q, c.r, 1); return fbm(seed, p.x, p.y) - 0.03 * Math.abs(c.q + c.r / 2); };   // стекает к морю на западе и востоке
+    const rr = rng((seed ^ 0x7a11e5) >>> 0 || 5);
+    const canRiver = (c) => c.d > R + 2 && !occ.has(c.idx) && !c.building && c.terrain !== 'village';
+    const sources = cells.filter((c) => (c.terrain === 'mountain' || c.terrain === 'hills') && c.d >= 13 && c.d <= 26 && canRiver(c)
+      && !neighbors(map, c.idx).some((n) => cells[n].terrain === 'sea'));
+    // Русло — самый дешёвый путь к морю (или к уже прорытой реке): вниз по рельефу легче, вверх дороже, озёра почти бесплатны,
+    // у каждой соты своя «упрямость» — берега получаются извилистыми. Так река всегда доходит до воды.
+    const flowTo = (from) => {
+      const dd = new Map([[from, 0]]), came = new Map(), done = new Set();
+      const heap = [[0, from]];                     // двоичная куча: [расстояние, сота]
+      const push = (it) => { let i = heap.push(it) - 1; while (i > 0) { const pa = (i - 1) >> 1; if (heap[pa][0] <= heap[i][0]) break; [heap[pa], heap[i]] = [heap[i], heap[pa]]; i = pa; } };
+      const pop = () => {
+        const top = heap[0], last = heap.pop();
+        if (heap.length) {
+          heap[0] = last; let i = 0;
+          for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; }
+        }
+        return top;
+      };
+      while (heap.length) {
+        const [dcur, cur] = pop();
+        if (done.has(cur)) continue;
+        done.add(cur);
+        const cc = cells[cur];
+        if (cur !== from && (cc.terrain === 'sea' || cc.terrain === 'river')) {
+          const path = [];
+          for (let x = cur; x !== undefined; x = came.get(x)) path.push(x);
+          return path.reverse();
+        }
+        if (dcur > 130) break;
+        for (const n of neighbors(map, cur)) {
+          const nc = cells[n];
+          if (done.has(n)) continue;
+          if (nc.terrain !== 'sea' && nc.terrain !== 'river' && !canRiver(nc)) continue;
+          const step = 1 + 7 * Math.max(0, elev(nc) - elev(cc)) + hash2(seed + 7300, nc.q, nc.r) * 0.9 + (nc.road ? 1.2 : 0) - (nc.terrain === 'water' ? 0.55 : 0);
+          const nd = dcur + step;
+          if (nd < (dd.has(n) ? dd.get(n) : Infinity)) { dd.set(n, nd); came.set(n, cur); push([nd, n]); }
+        }
+      }
+      return null;
+    };
+    const used = [];
+    for (let k = 0; k < RIVER_COUNT * 40 && map.rivers.length < RIVER_COUNT && sources.length; k++) {
+      const src = sources[Math.floor(rr() * sources.length)];
+      if (used.some((u) => dist(cells[u], src) < 11)) continue;
+      const path = flowTo(src.idx);
+      if (!path || path.length < 10 || path.length > 110) continue;
+      used.push(src.idx);
+      const end = cells[path[path.length - 1]].terrain;
+      for (const i of path) {
+        const c = cells[i];
+        if (c.terrain === 'sea' || c.terrain === 'water' || c.terrain === 'river') continue;
+        c.base = c.terrain; c.terrain = 'river';
+        if (c.road) c.bridge = true;                 // дорога через реку — мост
+      }
+      map.rivers.push({ cells: path, end });
+    }
+    // бродов — через каждые 7–11 сот реки (мосты уже есть там, где дорога пересекает реку)
+    for (const rv of map.rivers) {
+      let k = 4 + Math.floor(rr() * 4);
+      while (k < rv.cells.length - 2) {
+        const c = cells[rv.cells[k]];
+        if (c.terrain === 'river' && !c.bridge) c.ford = true;
+        k += 7 + Math.floor(rr() * 5);
+      }
+    }
+    const reachNow = () => {
+      const reach = new Set([index.get(key(0, 0))]);
+      const queue = [...reach];
+      while (queue.length) {
+        const i = queue.shift();
+        for (const n of neighbors(map, i)) if (!reach.has(n) && passable(map, n)) { reach.add(n); queue.push(n); }
+      }
+      return reach;
+    };
+    // всё, что было достижимо до реки, должно остаться достижимым: недостающие переправы — броды
+    let now = reachNow();
+    for (let guard = 0; oldReach && guard < 80; guard++) {
+      const lost = new Set([...oldReach].filter((i) => !now.has(i) && passable(map, i)));
+      if (!lost.size) break;
+      const came = new Map(), queue = [];
+      const wet = (n) => cells[n].terrain === 'river' && !passable(map, n);
+      for (const i of now) for (const n of neighbors(map, i)) if (wet(n) && !came.has(n)) { came.set(n, -1); queue.push(n); }
+      let hit = -1;
+      for (let h = 0; h < queue.length && hit < 0; h++) {
+        for (const n of neighbors(map, queue[h])) {
+          if (lost.has(n)) { hit = queue[h]; break; }
+          if (wet(n) && !came.has(n)) { came.set(n, queue[h]); queue.push(n); }
+        }
+      }
+      if (hit < 0) break;
+      let k = hit;
+      while (came.get(k) !== -1) k = came.get(k);
+      cells[k].ford = true;
+      now = reachNow();
+    }
+    map.reachable = now;
+
+    // --- новые местности. Север — снега и тундра, юг — пески и каменистые пески (секторы около ±50° от оси), между ними
+    // две большие области: на западе тёмный лес, на востоке пепельные земли (1.7.2: карта радиуса 30, поэтому области цельные,
+    // а не россыпь пятен); у деревни — поля. Что осталось посередине — прежние луга, леса, холмы и болота.
+    for (const c of cells) {
+      if (!BIOME_CONVERT[c.terrain] || c.d <= R + 2 || c.building) continue;
+      const p = toPixel(c.q, c.r, 1);
+      const ang = Math.atan2(p.y, p.x) * 180 / Math.PI;         // север ≈ −90°, юг ≈ +90° (ось y вниз)
+      const wig = fbm(seed + 8100, p.x, p.y) - 0.5, mix = fbm(seed + 8200, p.x, p.y);
+      const far = c.d >= FAR_D + wig * 6, t = c.terrain;
+      let to = null;
+      if (far && angDiff(ang, -90) < 52 + wig * 40) to = t === 'forest' ? 'snow' : t === 'meadow' ? (mix > 0.6 ? 'snow' : 'tundra') : t === 'hills' ? (mix > 0.5 ? 'snow' : 'tundra') : 'tundra';
+      else if (far && angDiff(ang, 90) < 52 + wig * 40) to = t === 'hills' ? 'badlands' : t === 'meadow' ? (mix > 0.6 ? 'badlands' : 'sand') : 'sand';
+      else if (c.d >= SIDE_D + wig * 6 && fbm(seed + 9100, p.x, p.y) > 0.3) {
+        const west = c.q + c.r / 2 < 0;
+        to = west ? (t === 'hills' && mix > 0.62 ? 'ash' : 'darkwood') : ((t === 'forest' || t === 'swamp') && mix > 0.64 ? 'darkwood' : 'ash');
+      }
+      else if (c.d <= R + 8 && t === 'meadow' && fbm(seed + 9900, p.x * 1.1, p.y * 1.1) > 0.48) to = 'field';
+      if (to) { if (!c.base) c.base = t; c.terrain = to; }
     }
     return map;
   }
@@ -364,8 +541,8 @@ const HexMap = (() => {
     }
     return out;
   }
-  const passable = (map, i) => map.cells[i].bridge || TERRAIN[map.cells[i].terrain].pass;
-  const moveCost = (map, i) => (map.cells[i].road ? ROAD_COST : TERRAIN[map.cells[i].terrain].cost);
+  const passable = (map, i) => map.cells[i].bridge || map.cells[i].ford || TERRAIN[map.cells[i].terrain].pass;
+  const moveCost = (map, i) => (map.cells[i].road ? ROAD_COST : map.cells[i].ford ? FORD_COST : TERRAIN[map.cells[i].terrain].cost);
 
   // Частокол деревни: шаг между сотой деревни (d <= VILLAGE_R) и сотой снаружи (d > VILLAGE_R) —
   // а такие соседние пары есть только на самой границе, d === VILLAGE_R и d === VILLAGE_R+1 —
@@ -439,13 +616,14 @@ const HexMap = (() => {
     const c = map.cells[i];
     if (c.building) return BUILDINGS[c.building].name;
     if (c.bridge) return _t("Мост");
+    if (c.ford) return _t("Брод");
     if (c.road) return _t("Дорога");
     return TERRAIN[c.terrain].name;
   };
 
   return {
-    RADIUS, VILLAGE_R, DIRS, TERRAIN, BUILDINGS, SPAWN, GATE_DIRS,
-    key, dist, toPixel, fromPixel, tierAt, rng, generate, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
+    RADIUS, VILLAGE_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
+    key, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
   };
 })();
 

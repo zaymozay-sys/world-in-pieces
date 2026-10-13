@@ -136,6 +136,13 @@ const Combat = (() => {
       out.attackerRevived = loseHp(attacker, amount);
       return out;
     }
+    // 1.7.3: Щит существа (приём 'ward') принимает удар на себя, пока не кончится (броня уже учтена).
+    if (target.ward > 0) {
+      const take = Math.min(target.ward, amount);
+      target.ward -= take; amount -= take;
+      out.absorbed = take; out.amount = amount;
+      if (amount <= 0) return out;
+    }
     out.revived = loseHp(target, amount);
     if (attacker.ability === 'vampire' && attacker.hp > 0) {
       out.heal = Math.min(attacker.max - attacker.hp, Math.ceil(amount * A.vampire.share));
@@ -386,8 +393,48 @@ const Combat = (() => {
         f.buffs.push({ kind: 'retribution', amount: A.retribution.ricochet, turns: A.retribution.turns });
         return { kind: 'retribution', amount: A.retribution.ricochet };
       }
+      // Оглушение (1.7.3): героя оглушает — свой следующий ход он пропускает (см. game.js enemyTurn); Блок героя
+      // даёт шанс устоять. hero.stunned снимает вызывающий, когда ход пропущен.
+      case 'stun': {
+        if (n % A.stun.every) return null;
+        if (chance((hero.stats && hero.stats.block) || 0, rand)) return { kind: 'stun', resisted: true };
+        hero.stunned = true;
+        return { kind: 'stun' };
+      }
+      // Отрава (1.7.3): яд на героя — в начале каждого из turns его ходов он теряет dmg ХП (raw, броня и Блок не помогают).
+      case 'toxin': {
+        if (n % A.toxin.every) return null;
+        const dmg = Math.max(1, Math.round(venomTick(power(f), f.dmg) * A.toxin.mult));
+        hero.poison = { turns: A.toxin.turns, dmg: Math.max(dmg, (hero.poison && hero.poison.turns > 0 && hero.poison.dmg) || 0) };
+        return { kind: 'toxin', dmg, turns: A.toxin.turns };
+      }
+      // Щит (1.7.3): обновляет щит до pct максимума ХП; новый заменяет остаток прежнего.
+      case 'ward': {
+        if (n % A.ward.every) return null;
+        const amount = Math.max(1, Math.round(f.max * A.ward.pct));
+        f.ward = amount;
+        return { kind: 'ward', amount };
+      }
       default: return null;
     }
+  }
+
+  /* Что существо сделает дальше (1.7.3, подпись над ним). Возвращает null (приёма нет) или
+     { kind, every, left } — «каждый N-й ход», left ходов существа до срабатывания (1 — в ближайший);
+     { kind, chance } — «с шансом»; { kind, once, spent } — одноразовый; { kind, hot } — Ярость раненого;
+     { kind, passive } — действует постоянно. fighters.right.turnNo — сколько ходов существо уже сделало. */
+  function nextMove(f) {
+    const id = f && f.ability;
+    if (!id || f.hp <= 0) return null;
+    const a = A[id] || {};
+    if (a.every) return { kind: id, every: a.every, left: a.every - ((f.turnNo || 0) % a.every) };
+    if (id === 'undying') return { kind: id, once: true, spent: !!f.revived };
+    if (id === 'charge') return { kind: id, once: true, spent: !!f.charged };
+    if (id === 'rage') return { kind: id, below: Math.round(a.below * 100), hot: f.hp < f.max * a.below };
+    if (id === 'clone') return { kind: id, spores: f.spores || 0, need: a.charge, spent: (f.clonesMade || 0) >= a.max };
+    if (id === 'regen') return { kind: id, heal: Math.round(a.heal * 100) };
+    if (a.chance) return { kind: id, chance: a.chance };
+    return { kind: id, passive: true };
   }
 
   // Урон яда за один ход: растёт с Силой и уровнем отравителя.
@@ -492,7 +539,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { armorOf, armorAt, mitigate, refHit, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { armorOf, armorAt, mitigate, refHit, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

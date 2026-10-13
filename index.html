@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Хрупкий мир — три в ряд</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -24,10 +24,12 @@
     <svg id="map-svg" role="img" aria-label="Карта из шестиугольников">
       <defs id="map-defs"></defs>
       <g id="map-world">
-        <g id="l-terrain"></g><g id="l-roads"></g><g id="l-deco"></g><g id="l-village"></g>
+        <g id="l-terrain"></g><g id="l-roads"></g><g id="l-deco"></g><g id="l-village"></g><g id="l-sky"><rect id="sky-tint" x="-1700" y="-1500" width="3400" height="3000" fill="rgba(0,0,0,0)" pointer-events="none"/></g><g id="l-amb"></g>
         <g id="l-fog"></g><g id="l-hover"></g><g id="l-path"></g><g id="l-ev"></g><g id="l-mon"></g><g id="l-player"></g>
       </g>
     </svg>
+    <div class="map-clouds" id="map-clouds" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="map-wx" id="map-wx" aria-hidden="true"><i class="wx-a"></i><i class="wx-b"></i><i class="wx-fog"></i><i class="wx-flash"></i></div>
     <div class="map-top">
       <div class="map-me" id="map-me"></div>
       <div class="map-btns">
@@ -44,6 +46,10 @@
           <button type="button" data-mdo="m-fs">Полный экран</button>
           <button type="button" id="mm-lang" data-mdo="m-lang">English</button>
           <button type="button" id="mm-anim" data-mdo="m-anim">Анимации: обычные</button>
+          <button type="button" id="mm-lite" data-mdo="m-lite">Графика карты: высокая</button>
+          <button type="button" id="mm-night" data-mdo="m-night">Время суток: вкл</button>
+          <button type="button" id="mm-wx" data-mdo="m-wx">Погода: вкл</button>
+          <button type="button" id="mm-skywin" data-mdo="m-skywin">Окошко погоды: вкл</button>
           <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
           <button type="button" data-mdo="m-help">Как играть</button>
           <button type="button" data-mdo="m-credits">О разработчиках</button>
@@ -51,10 +57,12 @@
         </div>
       </div>
     </div>
+    <div class="map-tools"><button id="m-pin" type="button" title="Поставить метку: нажмите, затем на соту (правая кнопка мыши тоже ставит метку)">Метка</button><button id="m-log" type="button" title="Журнал исследователя (J)">Журнал</button><button id="m-mini" type="button" title="Мини-карта (M)">Мини-карта</button></div>
     <div class="map-toast" id="map-toast" role="status"></div>
     <div class="map-card-wrap" id="map-card"></div>
     <div class="map-bottom">
-      <div class="map-info"><div class="goal-strip" id="goal-strip"></div><div class="zones" id="map-zones"></div><div class="map-tip" id="map-tip">Нажмите на соту, чтобы идти. Нажмите на существо, чтобы узнать о нём и напасть.</div></div>
+      <div class="sky-win" id="sky-win"><div class="sky-chip" id="sky-chip" role="button" tabindex="0" hidden></div><button type="button" class="sky-x" id="sky-x" title="Скрыть окошко погоды" aria-label="Скрыть окошко погоды">✕</button></div>
+      <div class="map-info"><div class="siege-strip" id="siege-strip" role="button" tabindex="0" hidden></div><div class="goal-strip" id="goal-strip"></div><div class="zones" id="map-zones"></div><div class="map-tip" id="map-tip">Нажмите на соту, чтобы идти. Нажмите на существо, чтобы узнать о нём и напасть.</div></div>
       <div class="map-ctrl">
         <button id="m-zin" type="button" title="Приблизить">+</button>
         <button id="m-zout" type="button" title="Отдалить">−</button>
@@ -166,6 +174,8 @@
   <script src="js/hexmap.js"></script>
   <script src="js/forge.js"></script>
   <script src="js/world.js"></script>
+  <script src="js/siege.js"></script>
+  <script src="js/sky.js"></script>
   <script src="js/mapart.js"></script>
   <script src="js/monsterart.js"></script>
   <script src="js/itemicons.js"></script>
@@ -184,6 +194,7 @@
   <script src="js/screens.js"></script>
   <script src="js/mapview.js"></script>
   <script src="js/tutorial.js"></script>
+  <script src="js/splashfx.js"></script>
   <script src="js/game.js"></script>
   <script src="js/devjump.js"></script>
 </body>

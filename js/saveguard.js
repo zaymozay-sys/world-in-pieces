@@ -122,7 +122,7 @@ const SaveGuard = (() => {
     if (!isObj(d.medals)) { fix('медали'); d.medals = { earned: [], fiveStreaks: 0, strikeKills: 0 }; }
     if (isObj(d.medals)) {
       d.medals.earned = (Array.isArray(d.medals.earned) ? d.medals.earned : []).filter((m) => isObj(m) && typeof m.id === 'string' && m.id).map((m) => (tierOk(m.tier) ? m : { ...m, tier: clampTier(m.tier) }));
-      for (const k of ['fiveStreaks', 'strikeKills', 'shotKills']) if (d.medals[k] !== undefined && (!Number.isInteger(d.medals[k]) || d.medals[k] < 0)) { fix('медали.' + k); d.medals[k] = Math.max(0, Math.floor(nonNeg(d.medals[k]))); }
+      for (const k of ['fiveStreaks', 'strikeKills', 'shotKills', 'drunk']) if (d.medals[k] !== undefined && (!Number.isInteger(d.medals[k]) || d.medals[k] < 0)) { fix('медали.' + k); d.medals[k] = Math.max(0, Math.floor(nonNeg(d.medals[k]))); }
     }
 
     // --- бестиарий: известные виды, счётчик побед, цвет ---

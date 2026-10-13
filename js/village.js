@@ -59,6 +59,7 @@ const Village = (() => {
     { id: 'gladiator',   name: _t("Гладиатор"),       price: 0, arena: 3 },
     { id: 'champion',    name: _t("Чемпион арены"),   price: 0, arena: 6 },
     { id: 'arenaLegend', name: _t("Легенда арены"),   price: 0, arena: 9 },
+    { id: 'seasonChamp', name: _t("Чемпион сезона"),  price: 0, season: true },   // 1.7.4: за сезон с Золотым рангом и выше (World.SEASON_TITLE_RANK)
   ];
   const FRAMES = [
     { id: 'bronze',   name: _t("Бронзовая"),   price: 2 * G,    color: '#b9824a' },

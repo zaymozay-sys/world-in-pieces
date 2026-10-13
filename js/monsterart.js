@@ -349,6 +349,8 @@ const MonsterArt = (() => {
     ironscarab: ['#7a5a45', 'rog'], rocklizard: ['#7d776a', 'cheshuya'], moonmoth: ['#aab8e0', 'ushi'], bumblebee: ['#d9a62e', 'ushi'],
     forestling: ['#6a7a3e', 'rog'], barrowman: ['#8a9486', 'cheshuya'], crystalid: ['#8a6fc0', 'cheshuya'], firetail: ['#d4552a', 'rog'],
     weaver: ['#6a5a4a', 'ushi'], carapace: ['#3f8a8a', 'cheshuya'], ironguard: ['#7e8590', 'cheshuya'], boneknight: ['#cfcab8', 'cheshuya'],
+    // 1.7.3: заглушки новых видов, пока нет картинок art/monsters/<id>.webp (промты — docs/art-prompts-1.7.3.md)
+    ogre: ['#9a8a62', 'rog'], berserk: ['#8aa85a', 'ushi'], assassin: ['#3b3552', 'cheshuya'],
   };
   const fallbackArt = (id) => {
     const [col, kind] = FALLBACK[id];

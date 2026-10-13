@@ -302,9 +302,22 @@ const Profile = (() => {
     species: () => Bestiary.ORDER.filter((id) => (data.seen && data.seen[id]) || data.bestiary[id]),
     // Высший цвет вида, который можно посмотреть в бестиарии: встреченный или следующий за побеждённым.
     maxTier: (id) => Math.max(data.bestiary[id] ? data.bestiary[id].tier : 1, (data.seen && data.seen[id]) || 1),
+    // 1.7.7: победы по цветам: { wins[t], species[t] }. Старые сохранения без byTier: считаем по одной победе на каждый цвет ниже достигнутого.
+    tierStats() {
+      const wins = new Array(Tiers.MAX + 1).fill(0), sp = new Array(Tiers.MAX + 1).fill(0);
+      for (const id of Object.keys(data.bestiary)) {
+        const rec = data.bestiary[id], bt = rec.byTier;
+        for (let t = 1; t <= Tiers.MAX; t++) {
+          const n = bt ? (bt[t] || 0) : (t < rec.tier ? 1 : 0);
+          if (n > 0) { wins[t] += n; sp[t]++; }
+        }
+      }
+      return { wins, species: sp };
+    },
     recordWin(id, tier) {
       const rec = data.bestiary[id] || { wins: 0, tier: 1 };
       rec.wins++;
+      rec.byTier = rec.byTier || {}; rec.byTier[tier] = (rec.byTier[tier] || 0) + 1;   // 1.7.7: победы по цветам (для графика в журнале)
       if (tier >= rec.tier) rec.tier = Math.min(Tiers.MAX, tier + 1);
       data.bestiary[id] = rec;
       if (data.incubator && data.incubator.left > 0) data.incubator.left--;   // 1.3.9: яйцо согревается боями
@@ -331,6 +344,18 @@ const Profile = (() => {
       save();
       return m;
     },
+    // 1.7.5: выпит эликсир вида kind (в бою) → медаль «Алхимик». Возвращает медаль или null.
+    noteElixir(kind, tier) {
+      const t = Hero.tierFor(api.level()), out = [];
+      data.medals.drunk = (data.medals.drunk || 0) + 1;
+      const kid = Medals.checkElixirMedal(kind, data.medals.earned);
+      if (kid) out.push(api.grantMedal(kid, t));
+      const did = Medals.checkDrunkMedal(data.medals.drunk, data.medals.earned);
+      if (did) out.push(api.grantMedal(did, t));
+      save();
+      return out.filter(Boolean);
+    },
+    elixirsDrunk: () => data.medals.drunk || 0,
     // После победы: если это первая победа над видом, выдаёт медаль. Возвращает медаль или null.
     checkKillMedal(id, tier) {
       const wonId = Medals.checkKillMedal(id, data.bestiary, data.medals.earned);
@@ -579,9 +604,19 @@ const ResInfo = (() => {
     const kn = src.filter((id) => known.includes(id)), unk = src.length - kn.length;
     const from = src.length ? kn.map((id) => esc(Bestiary.MONSTERS[id].name)).join(', ') + (unk ? (kn.length ? ' ' : '') + _t("и ещё не открытые: {0}", [unk]) : '') : _t("только награды и находки");
     const uses = Object.keys(Gear.FORGE_KINDS).filter((t) => Gear.FORGE_KINDS[t].includes(kind)).map((t) => Gear.TYPE_NAMES[t]);
-    const useTxt = (uses.length ? _t("Кузница: улучшение и создание — {0}.", [uses.join(', ').toLowerCase()]) : _t("В кузнице не используется.")) + ' ' + _t("Можно продать в Лавке.");
+    // 1.6.9: ещё и Алхимик (зелья, эликсиры) и Библиотекарь (свитки) варят из ресурсов — раньше карточка про это молчала
+    const nameOf = (k) => (typeof Elixirs !== 'undefined' && Elixirs.KINDS[k]) ? Elixirs.KINDS[k].name : ((Gear.CONSUMABLES[k] || {}).name || k);
+    const own = Forge.OWN || {}, scrolls = Forge.SCROLLS || [];
+    const alch = Object.keys(own).filter((k) => own[k].includes(kind) && !scrolls.includes(k)).map(nameOf);
+    const lib = Object.keys(own).filter((k) => own[k].includes(kind) && scrolls.includes(k)).map(nameOf);
+    const parts = [];
+    if (uses.length) parts.push(_t("Кузница: улучшение и создание — {0}.", [uses.join(', ').toLowerCase()]));
+    if (alch.length) parts.push(_t("Алхимик варит из него: {0}.", [alch.join(', ')]));
+    if (lib.length) parts.push(_t("Библиотекарь пишет из него: {0}.", [lib.join(', ')]));
+    if (!parts.length) parts.push(_t("Для создания вещей и зелий не нужен."));
+    const useTxt = parts.join(' ') + ' ' + _t("Можно продать в Лавке.");
     if (!pop) { pop = document.createElement('div'); pop.className = 'modal-back item-info-back'; pop.addEventListener('click', (e) => { if (e.target === pop || e.target.closest('[data-rc]')) close(); }); document.body.appendChild(pop); }
-    pop.innerHTML = `<div class="modal icard-modal res-card" role="dialog" aria-label="${esc(R.name)}" style="--t:${Tiers.get(tier).color}"><div class="loot-card"><span class="lc-ico">${MonsterArt.resIcon(kind, tier)}</span><b>${esc(R.name)} (${esc(Tiers.get(tier).name)})</b>
+    pop.innerHTML = `<div class="modal icard-modal res-card" role="dialog" aria-label="${esc(R.name)}" style="--t:${Tiers.get(tier).color};${typeof Art !== 'undefined' && Art.has('ui/parchment') ? `--parch:url('${new URL(Art.url('ui/parchment'), location.href).href}')` : ''}"><div class="loot-card"><span class="lc-ico">${MonsterArt.resIcon(kind, tier)}</span><b>${esc(R.name)} (${esc(Tiers.get(tier).name)})</b>
       <p><span class="hint">${_t("Падает с:")}</span> ${from}</p><p><span class="hint">${_t("Для чего:")}</span> ${useTxt}</p>
       <p><span class="hint">${_t("Цена в Лавке:")}</span> ${MonsterArt.moneyHtml(Bestiary.resPrice(kind, tier))}</p></div>
       <div class="reset"><button type="button" class="primary" data-rc="1">${_t("Закрыть")}</button></div></div>`;
@@ -902,7 +937,8 @@ const Inventory = (() => {
     const pct = budget ? Math.min(100, Math.round(used / budget * 100)) : 0;
     const enemyName = (Bestiary.MONSTERS[monsterId] || {}).name || fighters.right.name || '—';   // у Бобра-учителя записи в бестиарии нет
     let left = '';
-    if (dragon || mine) left = `<div class="figure-box">${Figures.figure(mine ? Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender) : 'dragon', gear)}</div>`;
+    if (dragon && !mine && typeof Art !== 'undefined' && Art.has('monsters/dragon-body')) left = `<div class="figure-box"><img class="dragon-pic" src="${Art.url('monsters/dragon-body')}" alt=""></div>`;   // 1.7.6: портрет дракона целиком
+    else if (dragon || mine) left = `<div class="figure-box">${Figures.figure(mine ? Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender) : 'dragon', gear)}</div>`;
     else left = `<div class="figure-box monster-box">${MonsterArt.bust(monsterId, fighters.right.tier)}</div>`;
 
     root.innerHTML = _t("\n      <div class=\"modal\" role=\"dialog\" aria-label=\"Ранец и экипировка\">\n        <header>\n          <h2>Ранец и экипировка</h2>\n          <span class=\"wallet-head\">{0}</span>\n          {1}\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        <div class=\"tabs\">\n          <button type=\"button\" class=\"{2}\" data-tab=\"left\">{3}</button>\n          <button type=\"button\" class=\"{4}\" data-tab=\"right\">Противник: {5}</button>\n        </div>\n        <div class=\"gear-layout\">\n          <section class=\"gear-left\">\n            {6}\n            {7}\n            {8}\n          </section>\n          <section class=\"gear-right\">\n            {9}\n            {10}\n            {11}\n            <div class=\"gear-toast\">{12}</div>\n            {13}\n            {14}\n            <h3>Ранец</h3>{15}\n            {16}\n            {17}\n          </section>\n        </div>\n      </div>", [MonsterArt.moneyHtml(Profile.data.coins), mine ? _t("<button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>") : '', mine ? 'on' : '', Profile.data.name ? escText(Profile.data.name) : fac.name + ': ' + Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender), mine ? '' : 'on', enemyName, left, mine ? heroLine(lv, stats) : '', statsBlock(stats, mine ? undefined : fighters.right), showGear ? _t("<div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{0}%\" class=\"{1}\"></i></div>\n              <span>Очки снаряжения: <b>{2}</b> / {3}{4}</span></div>", [pct, used > budget ? 'over' : '', used, budget, mine ? _t(" (растут с уровнем)") : '']) : '', mine && !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно до первого хода боя или после его окончания.</p>") : '', showGear ? `<div class="slots">${slots}</div>` : _t("<p class=\"hint\">{0}<br>У этого существа нет снаряжения — только врождённые способности (слева).</p>", [((Bestiary.MONSTERS[monsterId] || {}).desc || '')]), toast, mine ? _t("<h3>{0}: ваши вещи</h3><div class=\"item-list\">{1}</div>", [Gear.SLOT_NAMES[sel], list]) : '', showGear ? _t("<h3>Наборы</h3>{0}", [sets]) : '', bagHtml, mine ? _t("<h3>Ресурсы</h3>{0}", [resHtml]) : '', mine ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
@@ -1066,7 +1102,7 @@ const Inventory = (() => {
     const paneRes = `<div class="bp-pane" data-p="res">${bagGrid(resCells)}${_t("<h3>Список ресурсов</h3>{0}", [res])}${armory && runes ? _t("<h3>Кладовая: руны</h3>{0}", [runes]) : ''}</div>`;
     const sets = Gear.setProgress(gear).map((p) => _t("\n      <div class=\"set\" style=\"--c:{0}\"><b>Набор «{1}» {2}/{3}</b>\n        {4}\n        {5}\n      </div>", [p.color, p.name, p.count, p.total, p.active.map((a) => _t("<div class=\"on\">{0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join(''), p.next.slice(0, 1).map((a) => _t("<div class=\"off\">ещё до {0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join('')])).join('') || _t("<p class=\"hint\">Наборов нет: собирайте предметы одного набора — они усиливают друг друга.</p>");
 
-    root.innerHTML = _t("\n      <div class=\"modal home-modal{0}\" role=\"dialog\" aria-label=\"Ранец и экипировка\" style=\"{1}\">\n        <header>\n          <h2>{2}</h2>\n          <span class=\"wallet-head\">{3}</span>\n          <button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        {4}{5}\n        <div class=\"tabs inv-tabs\">{6}</div>\n        <div class=\"gear-toast toast-phone\">{7}</div>\n        <div class=\"home-layout\" data-itab=\"{8}\" data-arm=\"{9}\">\n          <section class=\"home-hero\">\n            {10}\n            {11}\n            <div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{12}%\" class=\"{13}\"></i></div>\n              <span>Очки снаряжения: <b>{14}</b> / {15} (растут с уровнем)</span></div>\n          </section>\n          <section class=\"home-stats\">\n            {16}\n            {17}\n            <h3>Наборы</h3>{18}\n          </section>\n          <section class=\"home-bag\">\n            <div class=\"gear-toast toast-desk\">{19}</div>\n            <div class=\"bag-gear\">\n            {20}\n {21}\n            </div>\n            <div class=\"bag-pack\" data-btab=\"{22}\">\n            {23}\n            {24}\n            {25}\n            <h3>Деньги</h3><div class=\"bag-row money-row\">{26}</div>\n            {27}\n          </div>\n          </section>\n        </div>\n      </div>", [armory && typeof Art !== 'undefined' && Art.hasScene('home') ? ' has-scene' : '', typeof Art !== 'undefined' ? artVar('scene', 'ui/bg-home') + artVar('hpanel', typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? 'ui/hero-panel-5' : 'ui/hero-panel') + artVar('sframe', 'ui/slot-frame') : '', armory ? _t("Ваш дом · Оружейная") : _t("Сумка"), MonsterArt.moneyHtml(Profile.data.coins), tabsBattle, '', [['hero', _t("Герой")], ...(armory ? [['gear', _t("Вещи")]] : []), ['pack', _t("Сумка")]].map(([k, l]) => `<button type="button" class="${(invTab === k || (!armory && invTab === 'gear' && k === 'pack')) ? 'on' : ''}" data-itab="${k}">${l}</button>`).join('') + `<button type="button" class="pet-tab" data-act="kennel">${_t("Питомец")}</button>`, toast, !armory && invTab === 'gear' ? 'pack' : invTab, armory ? 1 : 0, doll, !armory ? _t("<p class=\"hint\">Снаряжение меняется в оружейной Вашего дома.</p>") : !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно вне боя.</p>") : '', pct, used > budget ? 'over' : '', used, budget, heroLine(lv, stats), statsBlock(stats), sets, toast, detail, armory ? _t("<h3>Ячейки хранения · {0} / {1}</h3>\n            <p class=\"hint\">Нажмите на вещь — откроется её карточка с кнопкой «Надеть» или «Снять». Название вещи видно при наведении, цвет уровня — свечение вокруг.</p>\n            <div class=\"stash-grid\">{2}</div>\n            {3}\n            <div class=\"stash-buy\">{4}</div>", [stash.filter(Boolean).length, stashCap(), tiles, stash.length > stashCap() ? _t("<p class=\"hint warn\">Сундук переполнен: {0} на {1}. Докупите ячейки или продайте лишнее в Лавке.</p>", [_nn(stash.filter(Boolean).length, 'вещь', 'вещи', 'вещей'), _nn(stashCap(), 'ячейка', 'ячейки', 'ячеек')]) : '', (Profile.data.stashRows || 0) < STASH_MAX_ROWS
+    root.innerHTML = _t("\n      <div class=\"modal home-modal{0}\" role=\"dialog\" aria-label=\"Ранец и экипировка\" style=\"{1}\">\n        <header>\n          <h2>{2}</h2>\n          <span class=\"wallet-head\">{3}</span>\n          <button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        {4}{5}\n        <div class=\"tabs inv-tabs\">{6}</div>\n        <div class=\"gear-toast toast-phone\">{7}</div>\n        <div class=\"home-layout\" data-itab=\"{8}\" data-arm=\"{9}\">\n          <section class=\"home-hero\">\n            {10}\n            {11}\n            <div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{12}%\" class=\"{13}\"></i></div>\n              <span>Очки снаряжения: <b>{14}</b> / {15} (растут с уровнем)</span></div>\n          </section>\n          <section class=\"home-stats\">\n            {16}\n            {17}\n            <h3>Наборы</h3>{18}\n          </section>\n          <section class=\"home-bag\">\n            <div class=\"gear-toast toast-desk\">{19}</div>\n            <div class=\"bag-gear\">\n            {20}\n {21}\n            </div>\n            <div class=\"bag-pack\" data-btab=\"{22}\">\n            {23}\n            {24}\n            {25}\n            <h3>Деньги</h3><div class=\"bag-row money-row\">{26}</div>\n            {27}\n          </div>\n          </section>\n        </div>\n      </div>", [armory && typeof Art !== 'undefined' && Art.hasScene('home') ? ' has-scene' : '', typeof Art !== 'undefined' ? artVar('scene', 'ui/bg-home') + artVar('hpanel', typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? 'ui/hero-panel-5' : 'ui/hero-panel') + artVar('sframe', 'ui/slot-frame') + artVar('bagbg', 'ui/bg-bag') : '', armory ? _t("Ваш дом · Оружейная") : _t("Сумка"), MonsterArt.moneyHtml(Profile.data.coins), tabsBattle, '', [['hero', _t("Герой")], ...(armory ? [['gear', _t("Вещи")]] : []), ['pack', _t("Сумка")]].map(([k, l]) => `<button type="button" class="${(invTab === k || (!armory && invTab === 'gear' && k === 'pack')) ? 'on' : ''}" data-itab="${k}">${l}</button>`).join('') + `<button type="button" class="pet-tab" data-act="kennel">${_t("Питомец")}</button>`, toast, !armory && invTab === 'gear' ? 'pack' : invTab, armory ? 1 : 0, doll, !armory ? _t("<p class=\"hint\">Снаряжение меняется в оружейной Вашего дома.</p>") : !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно вне боя.</p>") : '', pct, used > budget ? 'over' : '', used, budget, heroLine(lv, stats), statsBlock(stats), sets, toast, detail, armory ? _t("<h3>Ячейки хранения · {0} / {1}</h3>\n            <p class=\"hint\">Нажмите на вещь — откроется её карточка с кнопкой «Надеть» или «Снять». Название вещи видно при наведении, цвет уровня — свечение вокруг.</p>\n            <div class=\"stash-grid\">{2}</div>\n            {3}\n            <div class=\"stash-buy\">{4}</div>", [stash.filter(Boolean).length, stashCap(), tiles, stash.length > stashCap() ? _t("<p class=\"hint warn\">Сундук переполнен: {0} на {1}. Докупите ячейки или продайте лишнее в Лавке.</p>", [_nn(stash.filter(Boolean).length, 'вещь', 'вещи', 'вещей'), _nn(stashCap(), 'ячейка', 'ячейки', 'ячеек')]) : '', (Profile.data.stashRows || 0) < STASH_MAX_ROWS
               ? _t("<button type=\"button\" data-act=\"buyrow\" {0}>Докупить ряд ячеек (+{1}) — {2}</button>", [Profile.data.coins >= rowPrice() ? '' : 'disabled', STASH_ROW, MonsterArt.moneyHtml(rowPrice())])
               : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это сумка: эликсиры, расходники, боеприпасы и ресурсы. Вещи и руны хранятся в оружейной Вашего дома — там же меняется снаряжение.</p>"), bagTab, bagTabsHtml, paneElix, paneRes, MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
     const fc = Village.frameColor(Profile.data.cosmetics), dfr = root.querySelector('.doll-frame');   // 1.5.1: рамка из гардероба
@@ -1080,7 +1116,7 @@ const Inventory = (() => {
     if (d.chestKey && !d.chestOpened) out.push(row('🔑', _t("Ключ-сапфир"), _t("Отпирает сапфировый сундук у бригантины.")));
     if (xk.ruby && !xc.ruby) out.push(row('🔑', _t("Ржавый ключ"), _t("Отпирает рубиновый сундук на восточных камнях.")));
     if (xk.emerald && !xc.emerald) out.push(row('🌿', _t("Живой ключ"), _t("Отпирает изумрудный сундук у маяка.")));
-    if (d.diary) out.push(row('📖', _t("Морской дневник"), _t("Дневник Капитана: рецепт зелья подводного дыхания и путь к серебряному сундуку.")));
+    if (d.diary) out.push(row(typeof Art !== 'undefined' && Art.has('items/sea-diary') ? `<img src="${Art.url('items/sea-diary')}" alt="">` : '📖', _t("Морской дневник"), _t("Дневник Капитана: рецепт зелья подводного дыхания и путь к серебряному сундуку.")));
     if (d.breath) out.push(row('🫧', _t("Зелье подводного дыхания"), _t("Хватит на один нырок к серебряному сундуку.")));
     return out.length ? _t("<h3>Сумка: особые предметы</h3>{0}", [out.join('')]) : '';
   }

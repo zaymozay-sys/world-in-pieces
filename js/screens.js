@@ -70,13 +70,16 @@ const Screens = (() => {
     if (species) glyph = (typeof MonsterArt !== 'undefined' && MonsterArt.bust(species, 1)) || `<span class="mg-num">${(Medals.nameFor(id).split(': ')[1] || '?').slice(0, 2)}</span>`;
     else if (Medals.styleKey(id)) glyph = `<span class="mg-num mg-style">${{ flawless: '✚', swift: '⚡', nomagic: '✋', onespell: '◎', alchemist: '⚗' }[Medals.styleKey(id)] || '★'}</span>`;
     else if (id.startsWith('daily:')) glyph = _t("<span class=\"mg-num\">{0}<small>дней</small></span>", [id.slice(6)]);
+    else if (id.startsWith('drunk:')) glyph = _t("<span class=\"mg-num\">{0}<small>эликс.</small></span>", [id.slice(6)]);
+    else if (Medals.elixirKey(id)) glyph = `<span class="mg-num mg-style">⚗</span>`;
     else if (Medals.secretKey(id)) glyph = `<span class="mg-num mg-style">${got ? '✧' : '?'}</span>`;
     else if (Medals.worldKey(id)) glyph = `<span class="mg-num mg-style">${{ visit: '⌂', chests: '🗝', caches: '◈', altars: '✦' }[Medals.worldKey(id)] || '★'}</span>`;
     else if (id.startsWith('strike:')) glyph = _t("<span class=\"mg-num\">{0}<small>Удар</small></span>", [id.slice(7)]);
     else if (id.startsWith('shot:')) glyph = _t("<span class=\"mg-num\">{0}<small>Выстрел</small></span>", [id.slice(5)]);
     else glyph = _t("<span class=\"mg-num\">{0}<small>линий</small></span>", [id.slice(id.indexOf(':') + 1)]);
-    return `<div class="medal-round ${got ? 'got' : 'todo'} ${tierOpen ? '' : 'locked'}" data-rank="${rank}" data-tier="${tierOpen ? tier : 0}"
-        style="--t:${tierColor(tier)}" data-medal="${id}" data-prog="${progress}" data-need="${need}" title="${title.replace(/"/g, '&quot;')}" tabindex="0" role="button" aria-label="${title.replace(/"/g, '&quot;')}">${glyph}</div>`;
+    const round = `<div class="medal-round ${got ? 'got' : 'todo'} ${tierOpen ? '' : 'locked'}" data-rank="${rank}" data-tier="${tierOpen ? tier : 0}"
+        style="--t:${tierColor(tier)}" data-medal="${id}" data-prog="${progress}" data-need="${need}" data-tip="${title.replace(/"/g, '&quot;')}" tabindex="0" role="button" aria-label="${title.replace(/"/g, '&quot;')}">${glyph}</div>`;
+    return round;
   }
   // 1.5.9: нажатие на медаль на Стене доблести — окно «за что дают медаль»
   // 1.6.0: приз билета оформлен как награда за бой — окно с «чипами» добычи; по нажатию на вещь открывается её карточка.
@@ -102,7 +105,7 @@ const Screens = (() => {
     const id = el.dataset.medal, prog = Number(el.dataset.prog) || 0, need = Number(el.dataset.need) || 1;
     const level = Profile.level(), earned = Profile.medals().find((m) => m.id === id), got = !!earned;
     const unlockLvl = Medals.tierUnlockLevel(id), species = Medals.killSpecies(id), n = id.slice(id.indexOf(':') + 1);
-    const how = id.startsWith('daily:') ? _t("Выдаётся за {0} дней подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
+    const how = id.startsWith('drunk:') ? _t("Выдаётся за {0} выпитых в боях эликсиров любого вида за всё время игры.", [n]) : Medals.elixirKey(id) ? _t("Выдаётся один раз — за первый выпитый в бою «{0}».", [Elixirs.KINDS[Medals.elixirKey(id)].name]) : id.startsWith('daily:') ? _t("Выдаётся за {0} дней подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
       : id.startsWith('strike:') ? _t("Выдаётся за {0} добиваний противника заклинанием «Удар» за всё время игры.", [n])
       : id.startsWith('shot:') ? _t("Выдаётся за {0} добиваний противника Выстрелом (боеприпасом) за всё время игры.", [n])
       : _t("Выдаётся за {0} собранных линий из 5 камней за всё время игры.", [n]);
@@ -542,6 +545,17 @@ const Screens = (() => {
         const allCost = worn.reduce((sum, it) => sum + repairPrice(Profile.item(it.uid)), 0);
         const all = worn.length > 1 ? `<div class="row"><button type="button" class="primary" data-do-repair-all="1" ${Profile.data.coins >= allCost ? '' : 'disabled'}>${_t("Починить всё ({0}) — {1}", [worn.length, money(allCost)])}</button></div>` : '';
         body = `<div class="two-col"><div class="item-list tall">${list}</div><div>${detail}${all}</div></div>`;
+      } else if (s.tab === 'swap') {
+        // 1.7.5: обмен цветов ресурсов и подсказка «где добыть»
+        const E = Bestiary.EXCHANGE, known = Profile.species();
+        const rows = Profile.resList().map((r) => {
+          const up = Bestiary.exchangePlan(r.kind, r.tier, 'up'), dn = Bestiary.exchangePlan(r.kind, r.tier, 'down');
+          const src = Bestiary.sourcesOf(r.kind).filter((id) => known.includes(id)).map((id) => Bestiary.MONSTERS[id].name).join(', ') || _t("пока неизвестно");
+          const bu = up ? `<button type="button" data-swap="${r.kind}:${r.tier}:up" ${r.n >= up.take ? '' : 'disabled'}>${_t("{0} → 1 цвета «{1}»", [up.take, Tiers.get(up.to).name])}</button>` : '';
+          const bd = dn ? `<button type="button" data-swap="${r.kind}:${r.tier}:down" ${r.n >= dn.take ? '' : 'disabled'}>${_t("1 → {0} цвета «{1}»", [dn.give, Tiers.get(dn.to).name])}</button>` : '';
+          return `<div class="card" style="--t:${tierColor(r.tier)}">${MonsterArt.resIcon(r.kind, r.tier)}<div class="card-body"><span class="item-title">${resLabel(r.kind, r.tier)} × ${r.n}</span><span class="item-foot">${_t("Где добыть: {0}", [src])}</span></div><div class="card-act">${bu}${bd}</div></div>`;
+        }).join('') || _t("<p class=\"hint\">Ресурсов пока нет: они выпадают из существ.</p>");
+        body = `<p class="hint">${_t("Обмен — только между соседними цветами одного ресурса: {0} → 1 вверх и 1 → {1} вниз. Монеты не нужны.", [E.up, E.downOut])}</p><div class="card-list">${rows}</div>`;
       } else if (s.tab === 'ammo') {
         const ak = Profile.shotKind(), AM = Ammo.CATALOG[ak], top = Hero.tierFor(Profile.level());
         const C = Ammo.CRAFT, fee = Math.round(ammoPrice(ak) * 0.3);
@@ -563,7 +577,7 @@ const Screens = (() => {
         body = _t("<div class=\"tabs sub\">{0}</div>\n          <p class=\"hint\">Цвет новой вещи (до цвета вашего уровня):</p>{1}<div class=\"card-list\">{2}</div>", [FILTERS.map(([k, label]) => `<button type="button" class="${k === s.filter ? 'on' : ''}" data-filter="${k}">${label}</button>`).join(''), tierPicker(top, ct, 'crafttier'), list]);
       }
       const res = Profile.resList().map((r) => `<span class="need ok">${MonsterArt.resIcon(r.kind, r.tier)}${resLabel(r.kind, r.tier)} × ${r.n}</span>`).join('') || _t("<span class=\"hint\">Ресурсов нет</span>");
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs([['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['ammo', _t("Боеприпасы")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], ['repair', _t("Починка")]], s.tab), sceneStyle('forge'), s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', res, forgeTip(s.tab) + body]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs([['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['ammo', _t("Боеприпасы")], ['swap', _t("Обмен")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], ['repair', _t("Починка")]], s.tab), sceneStyle('forge'), s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', res, forgeTip(s.tab) + body]);
     },
     click(b) {
       const s = st.forge, d = b.dataset;
@@ -628,6 +642,13 @@ const Screens = (() => {
         onGearChanged();
         return changed();
       }
+      if (d.swap) {
+        const [kind, tier, dir] = d.swap.split(':'), pl = Bestiary.exchangePlan(kind, Number(tier), dir);
+        if (!pl || !Profile.takeRes(kind, pl.from, pl.take)) return;
+        Profile.addRes(kind, pl.to, pl.give);
+        s.msg = _t("Обмен: {0} × {1} → {2} × {3}", [resLabel(kind, pl.from), pl.take, resLabel(kind, pl.to), pl.give]);
+        return render();
+      }
       if (d.craftAmmo) {
         const [kind, tier] = d.craftAmmo.split(':'), ak = Profile.shotKind(), fee = Math.round(ammoPrice(ak) * 0.3);
         if (Profile.data.coins < fee || !Profile.takeRes(kind, Number(tier), Ammo.CRAFT.res)) return;
@@ -675,13 +696,22 @@ const Screens = (() => {
   function bestControls(s, known) {
     const all = bestOrdered(known), fams = [...new Set(known.map((id) => Bestiary.MONSTERS[id].family))];
     const chips = [['all', _t("Все")], ['open', _t("Открытые")], ['locked', _t("Не открыты")]].map(([k, l]) => `<button type="button" class="bchip ${s.f === k ? 'on' : ''}" data-bfilter="${k}">${l}</button>`).join('');
-    const opts = `<option value="">${_t("Все семейства")}</option>` + fams.map((f) => `<option value="${escText(f)}" ${s.fam === f ? 'selected' : ''}>${escText(f)}</option>`).join('');
+    const bg = (typeof Art !== 'undefined' && Art.has('ui/bg-bag')) ? `--bagbg:url('${new URL(Art.url('ui/bg-bag'), location.href).href}');` : '';
+    const scrollImg = typeof Art !== 'undefined' && Art.has('ui/card-scroll') ? `--scrollimg:url('${new URL(Art.url('ui/card-scroll'), location.href).href}');` : '';   // 1.7.6: свиток-картинка для списка семейств
+    // 1.6.9: список семейств — на свитке пергамента (раньше — системный выпадающий список белого цвета)
+    const pop = s.famOpen ? `<div class="fam-pop"><button type="button" class="fam-back" data-bfampick="0" aria-label="${_t("Закрыть")}"></button><div class="fam-scroll${scrollImg ? ' img' : ''}" style="${bg}${scrollImg}" role="listbox" aria-label="${_t("Семейство")}"><div class="fam-in"><b class="fam-title">${_t("Семейство")}</b>
+      <button type="button" class="fam-item ${s.fam ? '' : 'on'}" role="option" data-bfamval="">${_t("Все семейства")}</button>${fams.map((f) => `<button type="button" class="fam-item ${s.fam === f ? 'on' : ''}" role="option" data-bfamval="${escText(f)}">${escText(f)}</button>`).join('')}</div></div></div>` : '';
     return `<div class="beast-ctl"><input type="search" class="beast-q" data-bq placeholder="${_t("Поиск по имени")}" value="${escText(s.q || '')}" aria-label="${_t("Поиск по имени")}">
-      <div class="beast-chips">${chips}</div><select data-bfam aria-label="${_t("Семейство")}">${opts}</select>
+      <div class="beast-chips">${chips}</div><button type="button" class="fam-btn" data-bfampick="1" aria-haspopup="listbox">${s.fam ? escText(s.fam) : _t("Все семейства")} <span aria-hidden="true">▾</span></button>${pop}
       <small class="hint beast-count">${_t("Открыто {0} из {1}", [known.length, all.length])}</small></div>`;
   }
   const bestNav = (s) => _t("<div class=\"beast-nav\"><button type=\"button\" data-bback=\"1\">‹ К списку</button><button type=\"button\" data-bstep=\"-1\" aria-label=\"Предыдущий\">‹</button><button type=\"button\" data-bstep=\"1\" aria-label=\"Следующий\">›</button></div>");
 
+  // 1.7.5: в карточке существа у каждого ресурса — где ещё он выпадает (из уже встреченных видов).
+  const alsoDrops = (kind, self, known) => {
+    const o = Bestiary.sourcesOf(kind).filter((id) => id !== self && known.includes(id)).map((id) => Bestiary.MONSTERS[id].name);
+    return o.length ? `<div class="bag-row"><small class="hint">${_t("Также выпадает у: {0}", [o.join(', ')])}</small></div>` : '';
+  };
   const best = {
     html() {
       const s = st.best, known = Profile.species();
@@ -694,7 +724,7 @@ const Screens = (() => {
       const list = bestTiles(s, known);
       const m = Bestiary.MONSTERS[s.sel], sc = Bestiary.scaled(s.sel, s.tier);
       const art = MonsterArt.has(s.sel) ? MonsterArt.bust(s.sel, s.tier) : `<div class="dragon-art" style="--t:${tierColor(s.tier)}">${Figures.avatar('dragon', null)}</div>`;
-      const drops = m.drops.map(([kind, chance, min, max]) => _t("<div class=\"bag-row\">{0}<span><b>{1}</b> · {2}% · {3} шт.</span></div>", [MonsterArt.resIcon(kind, s.tier), resLabel(kind, s.tier), Math.round(chance * 100), min === max ? min : min + '–' + max])).join('');
+      const drops = m.drops.map(([kind, chance, min, max]) => _t("<div class=\"bag-row\">{0}<span><b>{1}</b> · {2}% · {3} шт.</span></div>", [MonsterArt.resIcon(kind, s.tier), resLabel(kind, s.tier), Math.round(chance * 100), min === max ? min : min + '–' + max]) + alsoDrops(kind, s.sel, known)).join('');
       const coins = Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[s.tier - 1]);
       const innate = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('') || _t("<span class=\"hint\">нет</span>");
       const onMap = !inBattle;
@@ -706,6 +736,8 @@ const Screens = (() => {
     click(b) {
       const s = st.best, d = b.dataset;
       if (d.species) { s.sel = d.species; s.tier = Math.min(s.tier, Profile.maxTier(s.sel)); s.view = 'card'; return render(); }
+      if (d.bfampick !== undefined) { s.famOpen = d.bfampick === '1'; return render(); }
+      if (d.bfamval !== undefined) { s.fam = d.bfamval; s.famOpen = false; s.view = 'list'; return render(); }
       if (d.bfilter) { s.f = d.bfilter; s.view = 'list'; return render(); }
       if (d.bback) { s.view = 'list'; return render(); }
       if (d.bstep) {   // соседнее открытое существо из текущего списка (поиск и фильтры учитываются)
@@ -880,6 +912,32 @@ const Screens = (() => {
     _t("У нас в деревне без дела никто не сидит — даже мышь при работе. Помогу, чем смогу."),
     _t("Зерно берегу с осени, на всех хватит. А тебе, гляжу, амулет бы посерьёзнее не помешал."),
   ];
+
+  // 1.7.1: прогноз погоды на сутки (восемь трёхчасовых блоков) и штормовое предупреждение; флаг на мельнице на карте краснеет в те же часы.
+  const SKY_ICON = {
+    clear: '<circle cx="12" cy="12" r="4.6" fill="#ffd36a"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" stroke="#ffd36a" stroke-width="1.7" stroke-linecap="round"/>',
+    night: '<path d="M16.5 15.2A7.2 7.2 0 0 1 9 5.2a7.4 7.4 0 1 0 10.1 9.3 7.2 7.2 0 0 1-2.6.7z" fill="#cfd8ff"/>',
+    cloudy: '<path d="M7 18.5h10.2a3.9 3.9 0 0 0 .5-7.8 5.6 5.6 0 0 0-10.7 1.3A3.3 3.3 0 0 0 7 18.5z" fill="#b8c3d6"/>',
+    rain: '<path d="M7 14.5h10.2a3.6 3.6 0 0 0 .5-7.2 5.2 5.2 0 0 0-10 1.2A3 3 0 0 0 7 14.5z" fill="#9fb0c8"/><path d="M8.5 17l-1 3M12.5 17l-1 3M16.5 17l-1 3" stroke="#7fb4ff" stroke-width="1.7" stroke-linecap="round"/>',
+    fog: '<path d="M4 9h14M6 13h14M4 17h12" stroke="#c9d3de" stroke-width="2.2" stroke-linecap="round"/>',
+    storm: '<path d="M7 12.5h10.2a3.6 3.6 0 0 0 .5-7.2 5.2 5.2 0 0 0-10 1.2A3 3 0 0 0 7 12.5z" fill="#7d8aa6"/><path d="M12.8 12.5L9.6 18h2.8l-1.2 4 4.4-6.3h-2.8z" fill="#ffd84a"/>',
+    downpour: '<path d="M7 12.5h10.2a3.6 3.6 0 0 0 .5-7.2 5.2 5.2 0 0 0-10 1.2A3 3 0 0 0 7 12.5z" fill="#6f7f9c"/><path d="M7.5 15l-1.4 5M11.5 15l-1.4 5M15.5 15l-1.4 5M19 15l-1.4 5" stroke="#5aa2ff" stroke-width="1.9" stroke-linecap="round"/>',
+    thickfog: '<path d="M3.5 7h15M5.5 11h15M3.5 15h15M6 19h11" stroke="#e1e8ef" stroke-width="2.4" stroke-linecap="round"/>',
+  };
+  const millForecast = () => {
+    if (!Sky.pref('weather')) return `<div class="sky-forecast"><h3>${_t("Погода на сутки")}</h3><p class="hint fc-note">${_t("Погода выключена в настройках (меню ☰ на карте): прогноза нет, непогода на игру не влияет.")}</p></div>`;
+    const t = Sky.now(), fc = Sky.forecast(t, 8), w = Sky.warning(t);
+    const hh = (ms) => { const d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':00'; };
+    const cells = fc.map((b) => {
+      const ic = b.kind === 'clear' && Sky.isNight(b.from + 5400000) ? 'night' : b.kind;
+      return `<div class="fc-cell${b.severe ? ' sev' : ''}${b.current ? ' now' : ''}" title="${Sky.NAMES[b.kind]}"><b>${b.current ? _t("Сейчас") : hh(b.from)}</b>${typeof Art !== 'undefined' && Art.has('ui/wx-' + ic) ? `<img src="${Art.url('ui/wx-' + ic)}" alt="">` : `<svg viewBox="0 0 24 24" aria-hidden="true">${SKY_ICON[ic] || SKY_ICON.cloudy}</svg>`}<span>${Sky.NAMES[b.kind]}</span></div>`;
+    }).join('');
+    const nextSevere = fc.find((b) => b.severe && !b.current);
+    const note = w ? (w.active ? _t("Штормовое предупреждение: {0} — идёт, ещё {1}", [Sky.NAMES[w.kind], Sky.span(w.left)]) : _t("Штормовое предупреждение: {0} через {1}", [Sky.NAMES[w.kind], Sky.span(w.minutes)]))
+      : nextSevere ? _t("Ближайшие три часа спокойны. Дальше возможна непогода: {0}, с {1}", [Sky.NAMES[nextSevere.kind], hh(nextSevere.from)])
+      : _t("Ближайшие сутки спокойны: сильной непогоды не ожидается");
+    return `<div class="sky-forecast${w ? ' warn' : ''}"><h3>${_t("Погода на сутки")}</h3><div class="fc-row">${cells}</div><p class="hint fc-note">${w ? '⚠ ' : ''}${note}</p></div>`;
+  };
   const mill = {
     html() {
       const s = st.mill;
@@ -894,7 +952,7 @@ const Screens = (() => {
       const quests = questCards('mill');
       const scene = (typeof Art !== 'undefined' && Art.hasScene('mill'))
         ? ` style="background-image:linear-gradient(180deg, rgba(20,16,10,.55), rgba(20,16,10,.85)), url('${Art.sceneUrl('mill')}');background-size:cover;background-position:center"` : '';
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Мельница\">{0}\n        <div class=\"screen-body tavern-body mill-body\"{1}>\n          <div class=\"npc-row\"><span class=\"npc-portrait\">{2}</span>\n            <div class=\"npc-say\"><b>Мельник-мыш</b><p class=\"hint\">{3}</p></div></div>\n          <h3>Задания</h3><div class=\"cards\">{4}</div>\n        </div></div>", [head(_t("Мельница")), scene, portrait, s.msg || MOUSE_LINES[0], quests]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Мельница\">{0}\n        <div class=\"screen-body tavern-body mill-body\"{1}>\n          <div class=\"npc-row\"><span class=\"npc-portrait\">{2}</span>\n            <div class=\"npc-say\"><b>Мельник-мыш</b><p class=\"hint\">{3}</p></div></div>\n          {5}\n          <h3>Задания</h3><div class=\"cards\">{4}</div>\n        </div></div>", [head(_t("Мельница")), scene, portrait, s.msg || MOUSE_LINES[0], quests, millForecast()]);
     },
     click(b) { questClick(b, 'mill'); },
   };
@@ -1123,13 +1181,13 @@ const Screens = (() => {
         const story = Profile.data.story || { shards: {} };
         const chapters = Story.CHAPTERS.map((ch) => {
           const got = story.shards && story.shards[ch.id], sleeping = ch.final && !Story.finalOpen(story);
-          return _t("<div class=\"card story-card {0}\" style=\"--t:{1}\"><span class=\"icon-wrap\">{2}</span>\n            <div class=\"card-body\"><span class=\"item-title\">{3}{4} {5}</span><span class=\"item-foot\">{6}</span>\n              <span class=\"item-foot\">Где: {7}.{8}</span></div>\n            <div class=\"card-act\">{9}</div></div>", [got ? 'is-done' : '', tierColor(ch.tier), ch.species === 'dragon' ? Figures.avatar('dragon', null) : MonsterArt.bust(ch.species, ch.tier), got ? '✔ ' : '', ch.title, tierChip(ch.tier), ch.lore, ch.where, sleeping ? _t(" Спит, пока не собраны 4 осколка.") : '', got ? _t("<span class=\"badge done\">Осколок у вас</span>") : _t("<button type=\"button\" data-story-find=\"{0}\" {1}>На карте</button>", [ch.id, sleeping ? 'disabled' : ''])]);
+          return _t("<div class=\"card story-card {0}\" style=\"--t:{1}\"><span class=\"icon-wrap\">{2}</span>\n            <div class=\"card-body\"><span class=\"item-title\">{3}{4} {5}</span><span class=\"item-foot\">{6}</span>\n              <span class=\"item-foot\">Где: {7}.{8}</span></div>\n            <div class=\"card-act\">{9}</div></div>", [got ? 'is-done' : '', tierColor(ch.tier), ch.species === 'dragon' ? Figures.avatar('dragon', null) : MonsterArt.bust(ch.species, ch.tier), got ? (typeof Art !== 'undefined' && Art.has('items/shard') ? `<img class="story-shard" src="${Art.url('items/shard')}" alt="✔"> ` : '✔ ') : '', ch.title, tierChip(ch.tier), ch.lore, ch.where, sleeping ? _t(" Спит, пока не собраны 4 осколка.") : '', got ? _t("<span class=\"badge done\">Осколок у вас</span>") : _t("<button type=\"button\" data-story-find=\"{0}\" {1}>На карте</button>", [ch.id, sleeping ? 'disabled' : ''])]);
         }).join('');
         let storyBlock = _t("<h3>Осколки Великого Сердца: {0}/4{1}</h3>\n          <p class=\"hint\">Самые крупные осколки достались стражам — сильнейшим существам своих земель. Стражи втрое крепче обычных и носят корону на карте.</p>\n          <div class=\"card-list\">{2}</div>", [Story.shards(story), Story.finished(story) ? _t(" · Сердцевина у вас — Грань цела!") : '', chapters]);
         const cyc = Story.cycle(story), newsList = Story.newsAll(story);
         storyBlock += (cyc ? `<p class="hint">${_t("Новый поход: {0}. Стражи крепче, награды больше.", [cyc])}</p>` : '')
           + (newsList.length ? `<h4>${_t("Вести из деревни")}</h4><ul class="story-news-list">${newsList.map((n) => `<li>${n}</li>`).join('')}</ul>` : '')
-          + (Story.finished(story) ? `<p class="hint"><i>${Story.EPILOGUE}</i></p><button type="button" class="primary" data-story-new="1">${_t("Начать новый поход")}</button>` : '');
+          + (Story.finished(story) ? `${typeof Art !== 'undefined' && Art.has('items/heart') ? `<img class="heart-pic" src="${Art.url('items/heart')}" alt="">` : ''}<p class="hint"><i>${Story.EPILOGUE}</i></p><button type="button" class="primary" data-story-new="1">${_t("Начать новый поход")}</button>` : '');
         body = _t("<div class=\"npc-row\"><span class=\"npc-portrait\">{0}</span>\n            <div class=\"npc-say\"><b>Бобёр-хранитель</b><p class=\"hint\">{1}</p></div></div>\n          {2}\n          <h3>Поручение дня</h3><div class=\"cards\"><div class=\"card quest-card {3}\">\n            <div class=\"card-body\"><span class=\"item-title\">Дежурный обход</span>\n              <span class=\"item-foot\">Победите сегодня в одном бою — бобёр щедро делится знаниями (и не только).</span>\n              <span class=\"item-foot quest-reward\">Награда: монеты и порция каменной пыли</span></div>\n            <div class=\"card-act\">{4}</div></div></div>\n          <p class=\"hint\">Поручение обновляется каждый день, в полночь по вашему времени.</p>\n          {5}", [portrait, s.msg || BEAVER_LINES[0], storyBlock, q.claimed ? 'is-done' : '', qAct, trainBlock]);
       }
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Библиотека\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}</div></div>", [head(_t("Библиотека")), tabs([['npc', _t("Бобёр")], ['beasts', _t("Бестиарий")], ['items', _t("Вещи")], ['medals', _t("Медали")], ['scrolls', _t("Свитки")]], s.tab), scene, body]);
@@ -1256,12 +1314,15 @@ const Screens = (() => {
         return `<div class="coll-row ${done ? 'done' : ''}"><b>${c.family}</b> <span>${n} / ${c.species.length}</span> <small>${done ? '✓ ' : ''}${_t("+{0}% урона по семейству", [c.pct])}</small></div>`;
       }).join('');
       const dailyTiles = Medals.DAILY_MILESTONES.map((n) => { const mid = Medals.dailyMedalId(n); return medalTile(mid, earnedFor(mid), level, Math.min(n, Profile.dailyStreak()), n); });
+      const drunkTiles = Medals.DRUNK_MILESTONES.map((n) => { const mid = Medals.drunkMedalId(n); return medalTile(mid, earnedFor(mid), level, Math.min(n, Profile.elixirsDrunk()), n); });
+      const elixirTiles = Medals.ELIXIR_ORDER.map((k) => { const mid = Medals.elixirMedalId(k); return medalTile(mid, earnedFor(mid), level, 0, 1); });
       const secretTiles = Medals.SECRET_ORDER.map((k) => { const mid = Medals.secretMedalId(k); return medalTile(mid, earnedFor(mid), level, 0, 1); });
       const worldTiles = Medals.WORLD_ORDER.map((k) => {
         const mid = Medals.worldMedalId(k), w = Profile.worldStats();
         return medalTile(mid, earnedFor(mid), level, k === 'visit' ? Object.keys(w.visited).length : k === 'caches' ? w.caches : k === 'altars' ? w.altars : 0, k === 'visit' ? 12 : k === 'caches' ? 10 : k === 'altars' ? 5 : 4);
       });
-      const body = _t("<p class=\"hint\">Все ваши медали — постоянные бонусы характеристик за первую победу над видом,\n          за вехи линий из 5 камней и за добивания заклинанием Удар. Нажмите на значок — увидите, за что дают медаль, и прогресс;\n          цветной тир-бейдж открывается, когда герой достигает нужного уровня.</p>\n        <h3>За первую победу ({0} / {1})</h3>{15}\n        <div class=\"medal-grid\">{2}</div>\n        <h3>За линии из 5 камней ({3} / {4})</h3>{16}\n        <p class=\"hint\">Собрано всего: {5}</p>\n        <div class=\"medal-grid\">{6}</div>\n        <h3>За добивания Ударом ({7} / {8})</h3>{17}\n        <p class=\"hint\">Добито Ударом всего: {9}</p>\n        <div class=\"medal-grid\">{10}</div>\n        <h3>Меткий стрелок ({11} / {12})</h3>{18}\n        <p class=\"hint\">Добито болтом или стрелой всего: {13}</p>\n        <div class=\"medal-grid\">{14}</div>\n        <h3>Стиль боя ({19} / {20})</h3>{21}\n        <p class=\"hint\">Выдаются один раз, за победу над обычным существом.</p>\n        <div class=\"medal-grid\">{22}</div>\n        <h3>Мир ({23} / {24})</h3>{25}\n        <div class=\"medal-grid\">{26}</div>\n        <h3>Испытание дня ({32} / {33})</h3>{34}\n        <p class=\"hint\">Победа в «Испытании дня» каждый день подряд. Серия сейчас: {35}</p>\n        <div class=\"medal-grid\">{36}</div>\n        <h3>Тайны ({28} / {29})</h3>{30}\n        <p class=\"hint\">Скрытые медали: условия не показываются.</p>\n        <div class=\"medal-grid\">{31}</div>\n        <h3>Коллекции семейств</h3>\n        <p class=\"hint\">Победите всех существ семейства — получите бонус к урону по нему.</p>\n        <div class=\"coll-list\">{27}</div>", [killTiles.filter((_, i) => earnedFor(Medals.killMedalId(Bestiary.ORDER[i]))).length, Bestiary.ORDER.length, killTiles.join(''), earned.filter((m) => m.id.startsWith('streak:')).length, Medals.STREAK_MILESTONES.length, Profile.data.medals.fiveStreaks, streakTiles.join(''), earned.filter((m) => m.id.startsWith('strike:')).length, Medals.STRIKE_MILESTONES.length, Profile.strikeKills(), strikeTiles.join(''), earned.filter((m) => m.id.startsWith('shot:')).length, Medals.SHOT_MILESTONES.length, Profile.shotKills(), shotTiles.join(''), groupLine('kill'), groupLine('streak'), groupLine('strike'), groupLine('shot'), earned.filter((m) => m.id.startsWith('style:')).length, Medals.STYLE_ORDER.length, groupLine('style'), styleTiles.join(''), earned.filter((m) => m.id.startsWith('world:')).length, Medals.WORLD_ORDER.length, groupLine('world'), worldTiles.join(''), collRows, earned.filter((m) => m.id.startsWith('secret:')).length, Medals.SECRET_ORDER.length, groupLine('secret'), secretTiles.join(''), earned.filter((m) => m.id.startsWith('daily:')).length, Medals.DAILY_MILESTONES.length, groupLine('daily'), Profile.dailyStreak(), dailyTiles.join('')]);
+      const body = _t("<p class=\"hint\">Все ваши медали — постоянные бонусы характеристик за первую победу над видом,\n          за вехи линий из 5 камней и за добивания заклинанием Удар. Нажмите на значок — увидите, за что дают медаль, и прогресс;\n          цветной тир-бейдж открывается, когда герой достигает нужного уровня.</p>\n        <h3>За первую победу ({0} / {1})</h3>{15}\n        <div class=\"medal-grid\">{2}</div>\n        <h3>За линии из 5 камней ({3} / {4})</h3>{16}\n        <p class=\"hint\">Собрано всего: {5}</p>\n        <div class=\"medal-grid\">{6}</div>\n        <h3>За добивания Ударом ({7} / {8})</h3>{17}\n        <p class=\"hint\">Добито Ударом всего: {9}</p>\n        <div class=\"medal-grid\">{10}</div>\n        <h3>Меткий стрелок ({11} / {12})</h3>{18}\n        <p class=\"hint\">Добито болтом или стрелой всего: {13}</p>\n        <div class=\"medal-grid\">{14}</div>\n        <h3>Стиль боя ({19} / {20})</h3>{21}\n        <p class=\"hint\">Выдаются один раз, за победу над обычным существом.</p>\n        <div class=\"medal-grid\">{22}</div>\n        <h3>Мир ({23} / {24})</h3>{25}\n        <div class=\"medal-grid\">{26}</div>\n        <h3>Испытание дня ({32} / {33})</h3>{34}\n        <p class=\"hint\">Победа в «Испытании дня» каждый день подряд. Серия сейчас: {35}</p>\n        <div class=\"medal-grid\">{36}</div>\n        <h3>Тайны ({28} / {29})</h3>{30}\n        <p class=\"hint\">Скрытые медали: условия не показываются.</p>\n        <div class=\"medal-grid\">{31}</div>\n        <h3>Коллекции семейств</h3>\n        <p class=\"hint\">Победите всех существ семейства — получите бонус к урону по нему.</p>\n        <div class=\"coll-list\">{27}</div>", [killTiles.filter((_, i) => earnedFor(Medals.killMedalId(Bestiary.ORDER[i]))).length, Bestiary.ORDER.length, killTiles.join(''), earned.filter((m) => m.id.startsWith('streak:')).length, Medals.STREAK_MILESTONES.length, Profile.data.medals.fiveStreaks, streakTiles.join(''), earned.filter((m) => m.id.startsWith('strike:')).length, Medals.STRIKE_MILESTONES.length, Profile.strikeKills(), strikeTiles.join(''), earned.filter((m) => m.id.startsWith('shot:')).length, Medals.SHOT_MILESTONES.length, Profile.shotKills(), shotTiles.join(''), groupLine('kill'), groupLine('streak'), groupLine('strike'), groupLine('shot'), earned.filter((m) => m.id.startsWith('style:')).length, Medals.STYLE_ORDER.length, groupLine('style'), styleTiles.join(''), earned.filter((m) => m.id.startsWith('world:')).length, Medals.WORLD_ORDER.length, groupLine('world'), worldTiles.join(''), collRows, earned.filter((m) => m.id.startsWith('secret:')).length, Medals.SECRET_ORDER.length, groupLine('secret'), secretTiles.join(''), earned.filter((m) => m.id.startsWith('daily:')).length, Medals.DAILY_MILESTONES.length, groupLine('daily'), Profile.dailyStreak(), dailyTiles.join('')])
+        + `<h3>${_t("Алхимик ({0} / {1})", [earned.filter((m) => m.id.startsWith('elixir:')).length, Medals.ELIXIR_ORDER.length])}</h3>${groupLine('elixir')}<p class="hint">${_t("Выпейте в бою по одному эликсиру каждого вида.")}</p><div class="medal-grid">${elixirTiles.join('')}</div><h3>${_t("Выпито эликсиров ({0} / {1})", [earned.filter((m) => m.id.startsWith('drunk:')).length, Medals.DRUNK_MILESTONES.length])}</h3><p class="hint">${_t("Выпито в боях всего: {0}", [Profile.elixirsDrunk()])}</p><div class="medal-grid">${drunkTiles.join('')}</div>`;
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Стена доблести\">{0}\n        <div class=\"screen-body tavern-body\">{1}</div></div>", [head(_t("Стена доблести")), favLine + body]);
     },
     click() {},
@@ -1544,6 +1605,11 @@ const credits = {
     click() {},
   };
   /* =============== УЛУЧШЕНИЯ ДЕРЕВНИ И ГАРДЕРОБ (1.5.1) =============== */
+  // 1.7.0: оборона деревни в осаде растёт с уровнем Ратуши
+  const siegeLine = () => {
+    const L = Village.lvl(Profile.data.village, 'hall'), D = Siege.defense(L), N = Siege.defense(Math.min(Village.MAX, L + 1));
+    return `<p class="hint">${_t("Оборона от осады (Ратуша {0}): башни снимают {1}% ХП с врага перед боем, осада длится {2} мин., унесут не больше {3}% добычи. Следующий уровень Ратуши: {4}% / {5} мин. / {6}%. Осада приходит раз в сутки.", [L, Math.round(D.volley * 100), D.minutes, Math.round(D.theft * 100), Math.round(N.volley * 100), N.minutes, Math.round(N.theft * 100)])}</p>`;
+  };
   const village = {
     html() {
       const s = st.village, V = Profile.data.village || {}, C = Profile.data.cosmetics, ht = Hero.tierFor(Profile.level());
@@ -1564,7 +1630,7 @@ const credits = {
           }
           return card(`${I.name} <small>${dots}</small>`, foot, act);
         }).join('');
-        body = `<p class="hint">${_t("Золото можно вложить в деревню: улучшения остаются навсегда. Уровень k открывается с цвета героя 2k, цена растёт вместе с добычей.")}</p><div class="card-list">${cards}</div>`;
+        body = `<p class="hint">${_t("Золото можно вложить в деревню: улучшения остаются навсегда. Уровень k открывается с цвета героя 2k, цена растёт вместе с добычей.")}</p>${siegeLine()}<div class="card-list">${cards}</div>`;
       } else {
         const storyDone = !!(Profile.data.story && Profile.data.story.shards && Profile.data.story.shards.b5);
         const row = (kind, it) => {
@@ -1572,9 +1638,10 @@ const credits = {
           const locked = it.story && !storyDone;
           const act = own ? `<button type="button" data-vg-eq="${kind}:${on ? '' : it.id}">${on ? _t("Снять") : _t("Надеть")}</button>`
             : it.arena ? `<button type="button" disabled>${_t("Арена: {0}", [World.RANKS[it.arena]])}</button>`
+            : it.season ? `<button type="button" disabled>${_t("Сезон арены: {0}", [World.RANKS[World.SEASON_TITLE_RANK]])}</button>`
             : `<button type="button" ${Profile.data.coins >= it.price && !locked ? '' : 'disabled'} data-vg-cos="${kind}:${it.id}">${_t("Купить")}: ${money(it.price)}</button>`;
           const swatch = it.color ? `<i class="frame-swatch" style="background:${it.color};box-shadow:0 0 8px ${it.color}"></i> ` : '';
-          return card(`${swatch}${it.name}${on ? ' ✓' : ''}`, locked ? _t("Откроется после победы над Древним драконом") : own ? (it.arena ? _t("Получено на арене") : _t("Куплено")) : it.arena ? _t("Награда за ранг арены") : '', act, it.color || '#c9b48a');
+          return card(`${swatch}${it.name}${on ? ' ✓' : ''}`, locked ? _t("Откроется после победы над Древним драконом") : own ? (it.arena || it.season ? _t("Получено на арене") : _t("Куплено")) : it.arena ? _t("Награда за ранг арены") : it.season ? _t("Награда за сезон арены") : '', act, it.color || '#c9b48a');
         };
         body = `<p class="hint">${_t("Титулы и рамки портрета силу не меняют — это просто красиво.")}</p>
           <h3>${_t("Титулы")}</h3><div class="card-list">${Village.TITLES.map((t) => row('titles', t)).join('')}</div>
@@ -1596,9 +1663,23 @@ const credits = {
   };
 
   /* =============== 1.5.4: АРЕНА — Арена теней и Испытание дня (World) =============== */
+  // 1.7.4: награда за прошедший сезон выдаётся при входе в окно арены (один раз).
+  function payPending(a) {
+    const p = a.pending;
+    if (!p) return;
+    a.pending = null;
+    Profile.addCoins(p.coins);
+    let msg = _t("Итог сезона {0}: лучший ранг — {1}. Награда: {2}", [World.seasonLabel(p.season), World.RANKS[p.best], money(p.coins)]);
+    if (p.title) {
+      const C = Profile.data.cosmetics = Profile.data.cosmetics || Village.fresh();
+      if (!C.titles.includes('seasonChamp')) { C.titles.push('seasonChamp'); msg += ' ' + _t("Титул «{0}» — в Гардеробе Ратуши", [Village.TITLES.find((t) => t.id === 'seasonChamp').name]); }
+    }
+    st.arena.msg = msg; Profile.save();
+  }
   function arenaState() {
     const d = Profile.data, a = d.arena = Object.assign(World.freshArena(), d.arena || {});
-    if (a.day !== Daily.today()) { a.day = Daily.today(); a.fights = 0; }
+    World.arenaSync(a, Daily.today(), Hero.tierFor(Profile.level()));
+    payPending(a);
     if (!a.next) { a.next = World.shadow(a.rank, Profile.level()); a.next.nick = Names.randomStarName(); }
     return a;
   }
@@ -1612,15 +1693,31 @@ const credits = {
       const s = st.arena;
       let body;
       if (s.tab === 'shadows') {
-        const a = arenaState(), nx = a.next, F = Factions.get(nx.faction);
+        const a = arenaState(), nx = a.next, F = Factions.get(nx.faction), rule = World.arenaRule(Daily.today());
+        const rv = a.revenge, revLeft = World.REVENGE_DAILY - (a.revs || 0);
         const titles = Object.entries(World.RANK_TITLES).map(([r, id]) => `<li class="${a.best >= Number(r) ? 'ok' : ''}">${World.RANKS[r]} — «${Village.TITLES.find((t) => t.id === id).name}»</li>`).join('');
         body = `<p class="hint">${_t("Тени — копии героев других народов под управлением ИИ. Победа — звезда, три звезды — новый ранг. Поражение снимает звезду, но ранг не отнимает. Питомцы на арену не ходят.")}</p>
           <div class="arena-rank"><b>${World.RANKS[a.rank]}</b> <span class="stars">${'★'.repeat(a.stars)}${'☆'.repeat(World.STARS - a.stars)}</span>
             <small>${_t("Побед {0} · поражений {1} · боёв с наградой сегодня {2}/{3}", [a.wins, a.losses, a.fights, World.ARENA_DAILY])}</small></div>
           <div class="arena-foe"><span class="arena-fig">${Figures.avatar(Factions.heroKind(nx.faction, nx.gender), null)}</span>
             <div><b>${escText(nx.nick)}</b><small>${_t("Тень: {0} · уровень {1} · ум {2}", [F.name, nx.level, nx.ai])}</small></div></div>
-          <div class="arena-act"><button type="button" class="primary" data-arena="fight">${_t("В бой")}</button><button type="button" data-arena="reroll">${_t("Другой противник")}</button></div>
+          <div class="arena-rule"><b>${rule.name}</b><small>${rule.desc}. ${_t("Победа при условии дня: монет на {0}% больше.", [Math.round(World.RULE_BONUS * 100)])}</small></div>
+          <div class="arena-act"><button type="button" class="primary" data-arena="fight">${_t("В бой")}</button><button type="button" data-arena="reroll">${_t("Другой противник")}</button>
+            ${rv ? `<button type="button" data-arena="revenge" ${revLeft > 0 ? '' : 'disabled'}>${_t("Реванш: {0} ({1})", [escText(rv.nick), revLeft])}</button>` : ''}</div>
           <h3>${_t("Титулы за ранги")}</h3><ul class="arena-list">${titles}</ul>`;
+      } else if (s.tab === 'results') {
+        const a = arenaState(), tot = a.wins + a.losses, pct = tot ? Math.round(a.wins * 100 / tot) : 0;
+        const ruleName = (id) => (World.ARENA_RULES.find((r) => r.id === id) || {}).name || '';
+        const hist = (a.history || []).map((h) => `<li>${World.seasonLabel(h.s)}: <b>${World.RANKS[h.best]}</b> · ${_t("побед {0} · поражений {1}", [h.w, h.l])}</li>`).join('');
+        const log = (a.log || []).map((e) => `<li class="${e.win ? 'ok' : ''}">${e.day} · ${e.win ? '✔' : '✘'} ${escText(e.nick || '')}${e.rule ? ' · ' + ruleName(e.rule) : ''}${e.rev ? ' · ' + _t("реванш") : ''}</li>`).join('');
+        body = `<p class="hint">${_t("Сезон длится неделю (с понедельника). В конце недели ранг опускается на 2 ступени, а за лучший ранг сезона — монеты; с ранга «{0}» ещё и титул.", [World.RANKS[World.SEASON_TITLE_RANK]])}</p>
+          <div class="arena-rank"><b>${_t("Сезон {0}", [World.seasonLabel(a.season)])}</b>
+            <small>${_t("Лучший ранг: {0} · побед {1} · поражений {2}", [World.RANKS[a.sBest || 0], a.sWins || 0, a.sLosses || 0])}</small></div>
+          <ul class="arena-list"><li>${_t("Всего: побед {0}, поражений {1} ({2}%)", [a.wins, a.losses, pct])}</li>
+            <li>${_t("Серия побед: {0} · лучшая серия: {1}", [a.streak || 0, a.bestStreak || 0])}</li>
+            <li>${_t("Лучший ранг за всё время: {0}", [World.RANKS[a.best]])}</li></ul>
+          ${hist ? `<h3>${_t("Прошлые сезоны")}</h3><ul class="arena-list">${hist}</ul>` : ''}
+          ${log ? `<h3>${_t("Последние бои")}</h3><ul class="arena-list">${log}</ul>` : ''}`;
       } else {
         const c = challengeState(), ch = World.challengeFor(c.day), m = Bestiary.MONSTERS[ch.species], left = World.CH_TRIES - c.tries;
         const hist = Object.entries(c.history).sort().reverse().slice(0, 7).map(([k, v]) => `<li>${k}: <b>${v}</b></li>`).join('');
@@ -1631,16 +1728,22 @@ const credits = {
           <div class="arena-act"><button type="button" class="primary" data-arena="challenge" ${left > 0 ? '' : 'disabled'}>${left > 0 ? _t("Начать попытку") : _t("Попытки закончились — до завтра")}</button><button type="button" data-arena="share" ${c.best ? '' : 'disabled'}>${_t("Скопировать результат")}</button></div>
           ${hist ? `<h3>${_t("Ваши результаты")}</h3><ul class="arena-list">${hist}</ul>` : ''}`;
       }
-      return `<div class="modal" role="dialog" aria-label="${_t("Арена")}">${head(_t("Арена"))}${tabs([['shadows', _t("Арена теней")], ['daily', _t("Испытание дня")]], s.tab)}
-        <div class="screen-body tavern-body">${s.msg ? `<div class="gear-toast">${s.msg}</div>` : ''}${body}</div></div>`;
+      return `<div class="modal" role="dialog" aria-label="${_t("Арена")}">${head(_t("Арена"))}${tabs([['shadows', _t("Арена теней")], ['daily', _t("Испытание дня")], ['results', _t("Мои результаты")]], s.tab)}
+        <div class="screen-body tavern-body"${sceneStyle('arena')}>${s.msg ? `<div class="gear-toast">${s.msg}</div>` : ''}${body}</div></div>`;   // 1.7.5: фон-колизей ui/bg-arena (картинка лежала без дела)
     },
     click(b) {
       const s = st.arena, d = b.dataset;
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
       if (d.arena === 'reroll') { const a = arenaState(); a.next = null; arenaState(); Profile.save(); s.msg = ''; return render(); }
       if (d.arena === 'fight') {
-        const a = arenaState(), nx = a.next; a.next = null; s.msg = ''; Profile.save();
+        const a = arenaState(), nx = a.next; a.next = null; s.msg = ''; nx.rule = World.arenaRule(Daily.today()).id; Profile.save();
         return MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(nx.level), arena: nx });
+      }
+      if (d.arena === 'revenge') {
+        const a = arenaState(), rv = a.revenge;
+        if (!rv || (a.revs || 0) >= World.REVENGE_DAILY) return;
+        a.revs = (a.revs || 0) + 1; a.revenge = null; s.msg = ''; Profile.save();
+        return MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(rv.level), arena: { ...rv, rev: true, rule: World.arenaRule(Daily.today()).id } });
       }
       if (d.arena === 'challenge') {
         const c = challengeState();
@@ -1678,4 +1781,29 @@ const credits = {
       }
       open('faction');
     } };
+})();
+
+
+/* 1.7.6: подсказка к медали на свитке (только при наведении мыши): название, суть и прогресс. Родная всплывающая подсказка убрана. */
+(function () {
+  let tip = null, cur = null;
+  const hide = () => { if (tip) tip.hidden = true; cur = null; };
+  const make = () => { if (tip) return tip; tip = document.createElement('div'); tip.className = 'medal-tip'; tip.hidden = true; tip.setAttribute('role', 'tooltip'); try { if (Art.has('ui/card-scroll')) tip.style.setProperty('--scrollimg', `url('${new URL(Art.url('ui/card-scroll'), location.href).href}')`); } catch (e) { /* без картинки — цветной фон */ } document.body.appendChild(tip); return tip; };
+  document.addEventListener('mouseover', (e) => {
+    const m = e.target.closest && e.target.closest('.medal-round[data-tip]');
+    if (!m) { if (cur) hide(); return; }
+    if (m === cur) return;
+    cur = m;
+    const t = make(), full = m.dataset.tip || '', k = full.indexOf(' — ');
+    const name = k > 0 ? full.slice(0, k) : full, rest = k > 0 ? full.slice(k + 3) : '';
+    t.innerHTML = '<div class="mt-in"><b></b><span></span></div>';
+    t.querySelector('b').textContent = name; t.querySelector('span').textContent = rest;
+    t.hidden = false;
+    const r = m.getBoundingClientRect(), w = t.offsetWidth, h = t.offsetHeight;
+    const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+    let y = r.top - h - 6; if (y < 8) y = Math.min(r.bottom + 6, window.innerHeight - h - 8);
+    t.style.left = x + 'px'; t.style.top = y + 'px';
+  });
+  document.addEventListener('scroll', hide, true);
+  document.addEventListener('click', hide, true);
 })();

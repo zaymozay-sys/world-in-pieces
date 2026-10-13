@@ -239,7 +239,7 @@ const Tutorial = (() => {
     const d = Profile.data, t = d.tutorial;
     if (t && t.done) return;
     if (t && t.step !== null && t.step !== undefined) return resumeIfStarted();
-    if (!(d.wins > 0)) setTimeout(() => { if (!active) start(); }, 2300);
+    if (!(d.wins > 0)) setTimeout(() => { if (!active) start(); }, 4600);   // 1.7.5: заставка с осколками идёт дольше (≈ 3,2 с + афиша)
   }
 
   return { _go: go, start, finish, event, resumeIfStarted, boot, plantBoard, guard: guardBeaver, enemySkips: () => inBattle(), maybeAutoStart, inBattle, get active() { return active; }, get planted() { return planted; }, STEPS };

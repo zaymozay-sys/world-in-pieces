@@ -177,6 +177,7 @@ const Gear = (() => {
     ['relic-style',  _t("Знак мастера боя"),      { magic: 2, defense: 6, block: 4, health: 10 }],
     ['relic-world',  _t("Компас странника"),      { health: 24, defense: 5, initiative: 6 }],
     ['relic-secret', _t("Чёрная жемчужина"),      { cunning: 12, magic: 2, power: 6 }],
+    ['relic-elixir', _t("Флакон алхимика"),       { health: 16, magic: 4, cunning: 8, block: 3 }],
     ['relic-daily',  _t("Венец испытаний"),       { health: 20, power: 10, block: 5 }],
   ];
   const RELICS = RELICS_RAW.map(([id, name, stats]) => ({ id, name, type: 'amulet', set: null, rarity: 'epic', stats, faction: null, perk: null, relic: true, cost: costOf(stats) }));

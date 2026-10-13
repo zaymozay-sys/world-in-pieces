@@ -15,24 +15,42 @@ const MapArt = (() => {
     sea:      ['#3f86b8', '#1f5f94', '#123f69'],
     beach:    ['#eadcab', '#d9c78c', '#b5a06a'],
     cobble:   ['#b3a68c', '#9a8c72', '#7a6d56'],   // 1.3.0: мощёные улица и площадь города
+    // 1.7.1: новые местности
+    field:    ['#d0c46e', '#b8a850', '#8f8036'],
+    tundra:   ['#cdd5b6', '#aab694', '#7e8b6e'],
+    snow:     ['#f6f9fc', '#dde7f1', '#b1c2d4'],
+    sand:     ['#f2dc9f', '#dec077', '#b9984f'],
+    badlands: ['#d79c6b', '#b77a4c', '#8a5430'],
+    darkwood: ['#475a50', '#2e403a', '#1a2724'],
+    ash:      ['#8d8883', '#6a6560', '#46423e'],
   };
 
   function defs() {
     const grads = Object.entries(T).map(([k, [l, m, d]]) =>
       `<radialGradient id="t-${k}" cx=".42" cy=".38" r=".75"><stop offset="0" stop-color="${l}"/><stop offset=".6" stop-color="${m}"/><stop offset="1" stop-color="${d}"/></radialGradient>`).join('');
     // Настоящие рисунки из art/map/ вместо встроенных SVG, если файл есть.
-    const ART_SYM = { 's-tree': ['map/oak', 22], 's-pine': ['map/pine', 22], 's-peak': ['map/peak', 34], 's-reed': ['map/reeds', 20], 's-rock': ['map/rocks', 13] };
+    const ART_SYM = {
+      's-tree': ['map/oak', 22], 's-pine': ['map/pine', 22], 's-peak': ['map/peak', 34], 's-reed': ['map/reeds', 20], 's-rock': ['map/rocks', 13],
+      // 1.7.1: спрайты новых местностей (art/map/<имя>.webp); пока файла нет — рисуются встроенные значки. Третье число 1 — плоский рисунок на земле
+      's-snowpine': ['map/snowpine', 22], 's-drift': ['map/drift', 24, 1], 's-tuft': ['map/tuft', 12], 's-dune': ['map/dune', 26, 1], 's-cactus': ['map/cactus', 20],
+      's-mesa': ['map/mesa', 28], 's-darktree': ['map/darktree', 24], 's-shroom': ['map/shroom', 11], 's-stump': ['map/stump', 14], 's-crack': ['map/crack', 22, 1],
+      's-furrow': ['map/furrow', 30, 1], 's-hay': ['map/hay', 18], 's-ford': ['map/ford', 26, 1], 's-hill': ['map/hill', 26], 's-puddle': ['map/puddle', 18, 1],
+      's-grass': ['map/grass', 10], 's-flower': ['map/flowers', 11],
+    };
     const sym = (id, body) => {
       const a = ART_SYM[id];
       if (a && typeof Art !== 'undefined' && Art.has(a[0])) {
         const z = a[1];
-        body = `<ellipse cy="${(z * 0.32).toFixed(1)}" rx="${(z * 0.3).toFixed(1)}" ry="${(z * 0.09).toFixed(1)}" fill="#000" opacity=".25"/><image href="${Art.url(a[0])}" x="${-z / 2}" y="${(-z * 0.62).toFixed(1)}" width="${z}" height="${z}" preserveAspectRatio="xMidYMid meet"/>`;
+        body = a[2]
+          ? `<image href="${Art.url(a[0])}" x="${-z / 2}" y="${-z / 2}" width="${z}" height="${z}" preserveAspectRatio="xMidYMid meet"/>`
+          : `<ellipse cy="${(z * 0.32).toFixed(1)}" rx="${(z * 0.3).toFixed(1)}" ry="${(z * 0.09).toFixed(1)}" fill="#000" opacity=".25"/><image href="${Art.url(a[0])}" x="${-z / 2}" y="${(-z * 0.62).toFixed(1)}" width="${z}" height="${z}" preserveAspectRatio="xMidYMid meet"/>`;
       }
       return `<symbol id="${id}" overflow="visible">${body}</symbol>`;
     };
     // 1.2.8: местность из картинок-текстур (art/map/tex-<местность>), если файл есть; иначе градиент.
     // Текстуры бесшовные — обычная плитка; z — размер плитки в пикселях карты.
-    const TEX = { sea: 260, water: 200, swamp: 200, beach: 180, village: 220, cobble: 160 };
+    const TEX = { sea: 260, water: 200, river: 200, swamp: 200, beach: 180, village: 220, cobble: 160, meadow: 200, forest: 200, hills: 200, mountain: 200, road: 160,
+      field: 200, tundra: 200, snow: 200, sand: 200, badlands: 200, darkwood: 200, ash: 200 };   // 1.7.1: подключены луг, лес, холмы, горы и дорога; новые местности — по мере появления файлов
     let tex = '', drop = [];
     for (const [k, z] of Object.entries(TEX)) {
       if (typeof Art === 'undefined' || !Art.has('map/tex-' + k)) continue;
@@ -43,6 +61,7 @@ const MapArt = (() => {
     for (const k of drop) g = g.replace(new RegExp(`<radialGradient id="t-${k}"[^]*?<\\/radialGradient>`), '');
     return g + tex + `
       <radialGradient id="fog-g" cx=".5" cy=".5" r=".7"><stop offset="0" stop-color="#15171c"/><stop offset="1" stop-color="#0b0c0f"/></radialGradient>
+      <radialGradient id="glow-win" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffd27a" stop-opacity=".62"/><stop offset=".55" stop-color="#ff9a3c" stop-opacity=".22"/><stop offset="1" stop-color="#ff9a3c" stop-opacity="0"/></radialGradient>
       <radialGradient id="glow-door" cx=".5" cy=".6" r=".6"><stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#e0661c"/></radialGradient>
       <clipPath id="clip-token"><circle r="21"/></clipPath>
       ${sym('s-tree', `<ellipse cy="7" rx="6" ry="2" fill="#000" opacity=".28"/><rect x="-1.3" y="0" width="2.6" height="7" fill="#5b3b22"/>
@@ -59,6 +78,23 @@ const MapArt = (() => {
       ${sym('s-flower', `<circle cx="-3" cy="0" r="1.3" fill="#f2e16b"/><circle cx="2" cy="-2" r="1.3" fill="#f6f6f6"/><circle cx="3" cy="2" r="1.3" fill="#e57a9b"/>`)}
       ${sym('s-shell', `<path d="M-3 2 Q-3 -3 0 -4 Q3 -3 3 2Z" fill="#f3d9d0" stroke="#a07a6a" stroke-width=".7"/><path d="M0 -4 V2 M-1.6 -3 L-1.4 2 M1.6 -3 L1.4 2" stroke="#c79c8c" stroke-width=".5"/>`)}
       ${sym('s-rock', `<path d="M-5 3 L-3 -2 L2 -3 L5 1 L3 3Z" fill="#8c8a85" stroke="#3f3d39" stroke-width=".8"/><path d="M-3 -2 L2 -3 L0 0Z" fill="#b5b3ad"/>`)}
+      ${sym('s-snowpine', `<ellipse cy="8" rx="5.5" ry="2" fill="#6b7f95" opacity=".35"/><rect x="-1.2" y="3" width="2.4" height="5" fill="#4a3a2a"/>
+        <path d="M0 -13 L7 -2 L3.5 -2 L8 5 L-8 5 L-3.5 -2 L-7 -2Z" fill="#3d6a55" stroke="${O}" stroke-width=".8"/><path d="M0 -13 L5 -4 L-5 -4Z M-3.5 -1 L3.5 -1 L6 3 L-6 3Z" fill="#f4f8fc" opacity=".92"/>`)}
+      ${sym('s-drift', `<path d="M-11 4 Q-6 -5 0 1 Q5 -4 11 4Z" fill="#fff" stroke="#9db2c8" stroke-width=".9"/><path d="M-6 2 Q-3 -1 0 2" stroke="#c9d8e6" stroke-width=".9" fill="none"/>`)}
+      ${sym('s-tuft', `<path d="M-4 3 L-3 -2 M-1 3 L-1 -4 M2 3 L3 -2 M5 3 L5 -1" stroke="#7d8a5a" stroke-width="1.1"/>`)}
+      ${sym('s-snowpatch', `<ellipse rx="8" ry="3" fill="#f3f7fb" stroke="#aebdcd" stroke-width=".7"/><ellipse cx="-2" cy="-.6" rx="3" ry="1" fill="#fff"/>`)}
+      ${sym('s-dune', `<path d="M-12 4 Q-6 -5 2 0 Q7 3 12 -1" stroke="#b08a43" stroke-width="1.2" fill="none"/><path d="M-12 4 Q-6 -5 2 0 L2 5 L-12 5Z" fill="#cfae65" opacity=".45"/>`)}
+      ${sym('s-cactus', `<ellipse cy="8" rx="4" ry="1.5" fill="#000" opacity=".22"/><rect x="-2" y="-7" width="4" height="15" rx="2" fill="#4f8a49" stroke="${O}" stroke-width=".8"/><path d="M-2 0 H-5 V-5 M2 -2 H5 V-7" stroke="#4f8a49" stroke-width="2.6" fill="none" stroke-linecap="round"/>`)}
+      ${sym('s-mesa', `<path d="M-11 8 L-9 -4 L-4 -7 L6 -7 L10 -3 L12 8Z" fill="#a8603a" stroke="${O}" stroke-width=".9"/><path d="M-9 -4 L-4 -7 L6 -7 L10 -3 L-9 -1Z" fill="#cf8a5c"/><path d="M-6 0 H8 M-7 4 H10" stroke="#7d4528" stroke-width=".8" opacity=".7"/>`)}
+      ${sym('s-darktree', `<ellipse cy="8" rx="5" ry="1.8" fill="#000" opacity=".35"/><path d="M-1.5 8 Q-2 0 -3 -4 M1.5 8 Q2 1 4 -5" stroke="#2a1f2a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <circle cx="-3" cy="-6" r="5.5" fill="#25362f" stroke="${O}" stroke-width=".8"/><circle cx="4" cy="-8" r="5" fill="#2c4036" stroke="${O}" stroke-width=".8"/><circle cx="-4" cy="-8" r="2" fill="#3e5a4a" opacity=".8"/>`)}
+      ${sym('s-shroom', `<rect x="-.9" y="0" width="1.8" height="4" fill="#cfc6dc"/><path d="M-4 1 Q0 -6 4 1Z" fill="#8c6cc4" stroke="${O}" stroke-width=".7"/><circle cx="-1" cy="-1.4" r=".7" fill="#e8dcff"/><circle cx="1.6" cy="-.4" r=".6" fill="#e8dcff"/>`)}
+      ${sym('s-stump', `<ellipse cy="5" rx="4.5" ry="1.6" fill="#000" opacity=".3"/><path d="M-3 5 L-3.5 -2 L-1 -4 L1 -2 L3 -5 L3.5 5Z" fill="#2c2825" stroke="${O}" stroke-width=".8"/><path d="M-1 -4 L1 -2" stroke="#e0632a" stroke-width=".8"/>`)}
+      ${sym('s-crack', `<path d="M-9 2 L-4 0 L-2 3 L3 0 L6 4 M-2 3 L-3 7" stroke="#d9531e" stroke-width="1.1" fill="none" opacity=".85"/><path d="M-9 2 L-4 0 L-2 3 L3 0 L6 4" stroke="#ffb15a" stroke-width=".4" fill="none"/>`)}
+      ${sym('s-furrow', `<path d="M-13 -5 H13 M-13 0 H13 M-13 5 H13" stroke="#8a7a30" stroke-width="1.5" opacity=".75"/><path d="M-13 -2.5 H13 M-13 2.5 H13" stroke="#e4d98a" stroke-width=".8" opacity=".55"/>`)}
+      ${sym('s-hay', `<ellipse cy="5" rx="7" ry="2" fill="#000" opacity=".22"/><path d="M-6 5 Q-7 -4 0 -7 Q7 -4 6 5Z" fill="#e0b84a" stroke="${O}" stroke-width=".8"/><path d="M-3 4 Q-3 -2 0 -5 M2 4 Q3 -2 0 -5" stroke="#b58a26" stroke-width=".7" fill="none"/>`)}
+      ${sym('s-ford', `<ellipse cx="-7" cy="1" rx="3.4" ry="2.2" fill="#a9a59d" stroke="${O}" stroke-width=".8"/><ellipse cx="0" cy="-1" rx="3.6" ry="2.3" fill="#b9b5ad" stroke="${O}" stroke-width=".8"/><ellipse cx="7" cy="1.5" rx="3.4" ry="2.2" fill="#a29e96" stroke="${O}" stroke-width=".8"/>`)}
+      ${sym('s-ripple', `<path d="M-5 0 q1.5 -2 3 0 t3 0 t3 0" stroke="#d5ecf8" stroke-width="1" fill="none" opacity=".7"/>`)}
       ${sym('s-cobble', `<circle cx="-6" cy="-4" r="1.6" fill="#7a6a50"/><circle cx="4" cy="-6" r="1.4" fill="#7a6a50"/><circle cx="6" cy="4" r="1.6" fill="#7a6a50"/><circle cx="-4" cy="6" r="1.3" fill="#7a6a50"/>`)}`;
   }
 
@@ -87,6 +123,20 @@ const MapArt = (() => {
         if (rand() < 0.08) out += at('s-rock', j(20), j(18));
         return out;
       }
+      case 'river': return cell.ford ? at('s-ford', 0, 1) : '';
+      case 'field': {
+        const ang = [0, 60, 120][Math.floor(rand() * 3)];
+        return `<g transform="rotate(${ang})" opacity=".9">${at('s-furrow', 0, 0, 1.05)}</g>` + (rand() < 0.13 ? at('s-hay', j(14), j(12), 0.9) : '');
+      }
+      case 'tundra': return at('s-tuft', j(20), j(16)) + (rand() < 0.5 ? at('s-tuft', j(20), j(16)) : '') + (rand() < 0.3 ? at('s-snowpatch', j(16), j(12)) : '') + (rand() < 0.1 ? at('s-rock', j(18), j(14), 0.8) : '');
+      case 'snow': return at('s-drift', j(10) - 3, j(6) + 4, 1) + (rand() < 0.35 ? at('s-snowpine', j(16), j(8) - 3, 0.9) : '') + (rand() < 0.2 ? at('s-snowpine', j(18), j(8) + 2, 0.7) : '') + (rand() < 0.4 ? at('s-drift', j(8) + 6, -6, 0.6) : '');
+      case 'sand': return at('s-dune', j(8) - 2, j(8) - 2) + (rand() < 0.4 ? at('s-dune', j(8) + 2, j(6) + 6, 0.8) : '') + (rand() < 0.14 ? at('s-cactus', j(16), j(8) - 2, 0.9) : '') + (rand() < 0.06 ? at('s-rock', j(18), j(14), 0.7) : '');
+      case 'badlands': return (rand() < 0.55 ? at('s-mesa', j(10) - 1, j(6), 0.85) : at('s-rock', j(14), j(10), 1.2)) + (rand() < 0.4 ? at('s-rock', j(18), j(14), 0.8) : '') + (rand() < 0.3 ? at('s-dune', j(6), 7, 0.6) : '');
+      case 'darkwood': {
+        const spots = [[-8, -5], [7, -7], [-1, 6], [9, 6], [-10, 7]];
+        return spots.slice(0, 3 + Math.floor(rand() * 2)).sort((a, b) => a[1] - b[1]).map(([x, y]) => at('s-darktree', x + j(4), y + j(3), 0.85 + rand() * 0.3)).join('') + (rand() < 0.3 ? at('s-shroom', j(16), 8 + j(3)) : '');
+      }
+      case 'ash': return (rand() < 0.35 ? at('s-stump', j(16), j(10)) : '') + (rand() < 0.45 ? at('s-crack', j(10), j(10)) : '') + (rand() < 0.3 ? at('s-rock', j(18), j(14), 0.8) : '') + (rand() < 0.4 ? at('s-tuft', j(20), j(16), 0.8) : '');
       case 'village': return cell.building ? '' : at('s-cobble', 0, 0);
       default: return '';
     }
@@ -226,7 +276,8 @@ const MapArt = (() => {
 
   // Здания стоят через пустую соту друг от друга, так что места хватает — крупнее прежнего.
   function building(id, soon) {
-    const key = 'map/' + id;
+    // 1.7.5: картинки сундуков лежат под именами chest-ruby/-emerald/-obsidian, а id зданий — chestRuby…: пробуем обе записи
+    const key = (typeof Art !== 'undefined' && !Art.has('map/' + id) && Art.has('map/' + id.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()))) ? 'map/' + id.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()) : 'map/' + id;
     if (typeof Art !== 'undefined' && Art.has(key)) {
       return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)"><image href="${Art.url(key)}" x="-22" y="-26" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></g>`;
     }

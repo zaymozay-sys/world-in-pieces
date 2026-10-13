@@ -12,6 +12,8 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 const ME_B = (typeof Bestiary !== 'undefined') ? Bestiary : require('./bestiary.js');
 const ME_G = (typeof Gear !== 'undefined') ? Gear : require('./items.js');
 
+const ME_X = () => ((typeof Elixirs !== 'undefined') ? Elixirs : require('./elixirs.js'));
+
 const Medals = (() => {
   // Медаль за первую победу над видом. Характеристика подобрана по духу монстра — понемногу разных
   // приёмов, чтобы коллекция медалей давала не один раздутый стат, а всестороннюю прибавку.
@@ -77,6 +79,27 @@ const Medals = (() => {
     return null;
   }
 
+  /* 1.7.5: «Алхимик» — по медали за первый выпитый эликсир каждого из девяти видов (в бою). Бонус — по духу эликсира, небольшой;
+     комплект из всех девяти даёт умение «Мастер зелий» (эликсиры сильнее на 20%) и реликвию «Флакон алхимика». */
+  const ELIXIR_ORDER = ['power', 'defense', 'block', 'ricochet', 'fury', 'cunning', 'health', 'stones', 'swap'];
+  const ELIXIR_BONUS = { power: { power: 1 }, defense: { defense: 1 }, block: { block: 1 }, ricochet: { ricochet: 1 }, fury: { fury: 1 }, cunning: { cunning: 1 }, health: { health: 4 }, stones: { magic: 1 }, swap: { initiative: 1 } };
+  const elixirMedalId = (k) => 'elixir:' + k;
+  const elixirKey = (id) => (id.startsWith('elixir:') ? id.slice(7) : null);
+  // Медаль за выпитый эликсир вида kind: id, если положена и ещё не получена, иначе null.
+  function checkElixirMedal(kind, earned = []) {
+    if (!ELIXIR_ORDER.includes(kind)) return null;
+    const id = elixirMedalId(kind);
+    return earned.some((m) => m.id === id) ? null : id;
+  }
+
+  // 1.7.5: «Выпито эликсиров» — вехи по числу выпитых в боях эликсиров любого вида (счётчик Profile.data.medals.drunk).
+  const DRUNK_MILESTONES = [10, 30, 75, 150, 300, 600, 1000, 2000];
+  const drunkMedalId = (n) => 'drunk:' + n;
+  function checkDrunkMedal(total, earned = []) {
+    for (const n of DRUNK_MILESTONES) { const id = drunkMedalId(n); if (total >= n && !earned.some((m) => m.id === id)) return id; }
+    return null;
+  }
+
   /* 1.6.2: ступени медали за вид — бронза (1 победа), серебро (25), золото (100). Бонус медали растёт ×1, ×2, ×3.
      Ступень считается по Profile.data.bestiary[вид].wins, отдельно в сейве ничего не хранится. */
   const RANK_WINS = [1, 25, 100];
@@ -102,6 +125,11 @@ const Medals = (() => {
       const amt = 1 + idx;                        // та же логика, что у streak: дальше веха — весомее награда
       return { fury: amt };
     }
+    if (id.startsWith('drunk:')) {                  // здоровье растёт с вехой; каждая третья веха (3-я, 6-я) добавляет Хитрость
+      const idx = Math.max(0, DRUNK_MILESTONES.indexOf(Number(id.slice(6))));
+      return idx % 3 === 2 ? { health: 3 * (1 + idx), cunning: (idx + 1) / 3 } : { health: 3 * (1 + idx) };
+    }
+    if (elixirKey(id)) return { ...(ELIXIR_BONUS[elixirKey(id)] || {}) };
     if (id.startsWith('daily:')) { const idx = Math.max(0, DAILY_MILESTONES.indexOf(Number(id.slice(6)))); return { power: 1 + idx, health: 3 * (1 + idx) }; }
     if (secretKey(id)) return { ...(SECRET[secretKey(id)] ? SECRET[secretKey(id)].bonus : {}) };
     if (worldKey(id)) return { ...(WORLD[worldKey(id)] ? WORLD[worldKey(id)].bonus : {}) };
@@ -121,7 +149,7 @@ const Medals = (() => {
      открытие вещей по цвету (Hero.itemLevel — один цвет на каждые 10 уровней героя). */
   function tierUnlockLevel(id) {
     if (killSpecies(id)) return 1;                              // медали за первую победу видны с самого начала
-    const list = id.startsWith('streak:') ? STREAK_MILESTONES : id.startsWith('strike:') ? STRIKE_MILESTONES : id.startsWith('shot:') ? SHOT_MILESTONES : null;
+    const list = id.startsWith('drunk:') ? DRUNK_MILESTONES : id.startsWith('streak:') ? STREAK_MILESTONES : id.startsWith('strike:') ? STRIKE_MILESTONES : id.startsWith('shot:') ? SHOT_MILESTONES : null;
     if (!list) return 1;
     const idx = Math.max(0, list.indexOf(Number(id.slice(id.indexOf(':') + 1))));
     return 1 + idx * 10;                                         // 1.6.6: шаг — 10 уровней на цвет, как у вещей
@@ -138,6 +166,7 @@ const Medals = (() => {
     secret: { name: _t("Тайны"),             ids: () => SECRET_ORDER.map(secretMedalId),       bonus: { cunning: 4 } },
     daily:  { name: _t("Верный испытанию"),  ids: () => DAILY_MILESTONES.map(dailyMedalId),   bonus: { power: 4, health: 15 } },
     shot:   { name: _t("Меткий стрелок"),  ids: () => SHOT_MILESTONES.map(shotMedalId),        bonus: { health: 20, ricochet: 2 } },
+    elixir: { name: _t("Алхимик"),          ids: () => ELIXIR_ORDER.map(elixirMedalId),         bonus: { health: 15, power: 3, defense: 3 } },
   };
   /* 1.6.3: за каждый собранный комплект — особое умение (действует в обычных боях, не в Испытании дня) и реликвия-амулет
      (id вещи — 'relic-<раздел>', выдаётся один раз, см. Profile.grantMedal). */
@@ -149,12 +178,13 @@ const Medals = (() => {
     style:  { name: _t("Боевая стойка"),     desc: _t("первый удар по вам в каждом бою блокируется") },
     world:  { name: _t("Бывалый путник"),    desc: _t("+15% опыта с побед") },
     secret: { name: _t("Счастливчик"),       desc: _t("+10% к шансу найти расходник после победы") },
+    elixir: { name: _t("Мастер зелий"),    desc: _t("эликсиры действуют на 20% сильнее") },
     daily:  { name: _t("Второе дыхание"),    desc: _t("раз за бой вы встаёте с 30% ХП вместо гибели") },
   };
   const perksOf = (earned = []) => Object.keys(PERKS).filter((k) => groupDone(k, earned));
   const hasPerk = (earned, k) => groupDone(k, earned);
   const relicId = (k) => 'relic-' + k;
-  const GROUP_ORDER = ['kill', 'streak', 'strike', 'shot', 'style', 'world', 'secret', 'daily'];
+  const GROUP_ORDER = ['kill', 'streak', 'strike', 'shot', 'style', 'world', 'secret', 'daily', 'elixir'];
   const groupProgress = (key, earned = []) => { const ids = GROUPS[key].ids(); return { done: ids.filter((id) => earned.some((m) => m.id === id)).length, total: ids.length }; };
   const groupDone = (key, earned = []) => { const p = groupProgress(key, earned); return p.total > 0 && p.done >= p.total; };
 
@@ -253,11 +283,13 @@ const Medals = (() => {
     if (styleKey(id) && STYLE[styleKey(id)]) return STYLE[styleKey(id)].name;
     if (worldKey(id) && WORLD[worldKey(id)]) return WORLD[worldKey(id)].name;
     if (secretKey(id) && SECRET[secretKey(id)]) return SECRET[secretKey(id)].name;
+    if (id.startsWith('drunk:')) return _t("{0} выпитых эликсиров", [id.slice(6)]);
+    if (elixirKey(id)) return _t("Выпит: {0}", [ME_X().KINDS[elixirKey(id)].name]);
     if (id.startsWith('daily:')) return _t("{0} дней подряд в Испытании дня", [id.slice(6)]);
     return id;
   }
 
-  return { PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_NAMES, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
+  return { DRUNK_MILESTONES, drunkMedalId, checkDrunkMedal, ELIXIR_ORDER, ELIXIR_BONUS, elixirMedalId, elixirKey, checkElixirMedal, PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_NAMES, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
     strikeMedalId, checkKillMedal, checkFiveStreakMedal, checkStrikeMedal, bonusFor, bonusStats, nameFor, tierUnlockLevel };
 })();
 
