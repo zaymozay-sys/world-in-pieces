@@ -67,14 +67,22 @@ function makeHero(o) {
     stats0: stats, elx: {}, elxUsed: {}, elxPlan: { ...elx }, elxCd: 0, turnNo: 0, noFx: o.elxFx === false, critExtra: 0 };
 }
 function makeMonster(id, tier, o = {}) {
-  const m = Bestiary.MONSTERS[id], sc = Bestiary.scaled(id, tier, o.swarm || 1);
+  const m = Bestiary.MONSTERS[id];
+  let sc = Bestiary.scaled(id, tier, o.swarm || 1);
+  // 1.7.3: хозяин зоны — крупнее и злее (World.scaleZone) и с добавочными приёмами; o.affixes — любые свойства для опытов
+  let affixes = o.affixes || [];
+  if (o.zone) {
+    const World = require(J('world.js')), ZB = World.ZONE_BOSSES[o.zone];
+    sc = World.scaleZone(sc, o.zone);
+    affixes = ZB.affixes.filter((a) => a !== m.ability);
+  }
   const gear = sc.gearBudget ? Gear.randomLoadout(sc.gearBudget, rand, tier) : Gear.emptyLoadout();
   const stats = Gear.combine(Gear.stats(gear), sc.stats);
   const max = Math.round((sc.hp + stats.health) * (o.elite ? 1.25 : 1));
   const level = o.aiLevel || sc.ai;
   return { side: 'right', name: m.name, id, tier, gear, stats, base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: m.ability, level, bag: Combat.enemyBag(level),
-    turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null };
+    turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null, ward: 0, stunned: false, affixes };
 }
 
 /* ---------- бой ---------- */
@@ -278,7 +286,7 @@ function Battle(hero, mon, player) {
       if (checkEnd()) return;
     }
     if (f.hp <= 0) { cloneTurn(); return; }           // оригинал гриба пал, но его двойник ещё стоит
-    const act = Combat.monsterTurnStart(f, h, MAGIC_NAMES, rand);
+    const applyAct = (act) => {
     if (act) {
       if (act.kind === 'prank') prankSwap();
       else if (act.kind === 'petrify') {
@@ -293,6 +301,17 @@ function Battle(hero, mon, player) {
         for (let r = 0; r < N; r++) { let n = 0; for (let c = 0; c < N; c++) if (S.typ[r * N + c] >= 0) n++; if (n > bestN) { bestN = n; best = r; } }
         if (best >= 0) { burn('right', best * N, 'row', act.mult, true); if (S.over) return; }
       }
+    }
+    };
+    applyAct(Combat.monsterTurnStart(f, h, MAGIC_NAMES, rand));
+    if (S.over) return;
+    for (const ax of f.affixes || []) {          // 1.7.3: свойства — вторым действием в начале хода (как в game.js)
+      const keep = f.ability;
+      let a2 = null;
+      f.ability = ax;
+      try { a2 = Combat.monsterTurnStart(f, h, MAGIC_NAMES, rand); } finally { f.ability = keep; }
+      applyAct(a2);
+      if (S.over) return;
     }
     for (let guard = 0; guard < 20; guard++) {
       for (const k of Combat.enemyItemPlan(f, anyAfford('right'), rand)) useItem('right', k);
@@ -316,6 +335,14 @@ function Battle(hero, mon, player) {
     }
     if (S.locks.forSide === 'right') S.locks = { cols: new Set(), forSide: null };
     cloneTurn();
+    // 1.7.3: Оглушение — герой пропускает ход, существо ходит ещё раз; Отрава — яд жжёт героя в начале его хода
+    if (h.stunned && !S.over) { h.stunned = false; S.stats.stuns = (S.stats.stuns || 0) + 1; monsterTurn(); return; }
+    if (h.poison && h.poison.turns > 0 && !S.over) {
+      h.poison.turns--;
+      Combat.hit(f, h, h.poison.dmg, true, rand);
+      S.stats.monDmg += h.poison.dmg;
+      checkEnd();
+    }
   }
 
   // Двойник Дикого гриба ходит сразу после оригинала (Combat.turnOrder): автоатака героя без поля, как питомец.
@@ -560,18 +587,18 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, bag, swarm, elixirs, elxFx, elite } = {}) {
+function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, bag, swarm, elixirs, elxFx, elite, zone, affixes } = {}) {
   let wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
-  const key = `${elite ? 'E' : ''}${seedBase}|${faction}|${level}|${monster}|${tier}|${typeof player === 'string' ? player : 'p'}`;
+  const key = `${elite ? 'E' : ''}${zone ? 'Z' + zone : ''}${seedBase}|${faction}|${level}|${monster}|${tier}|${typeof player === 'string' ? player : 'p'}`;
   let h = 2166136261;
   for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
   for (let k = 0; k < n; k++) {
     seed((h ^ Math.imul(k + 1, 2654435761)) >>> 0);
     const g = typeof gear === 'function' ? gear() : gear;
     const hero = makeHero({ faction, level, gear: g, baseHp, bag, elixirs, elxFx });
-    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite });
+    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes });
     const pl = typeof player === 'string' ? PLAYERS[player]() : typeof player === 'function' ? player() : player;
     const S = Battle(hero, mon, pl).run();
     if (S.winner === 'left') { wins++; hpLeft += hero.hp / hero.max; actWin.push(S.stats.heroActions); }

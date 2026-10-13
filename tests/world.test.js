@@ -87,3 +87,51 @@ console.log('world 1.5.4: все тесты пройдены');
   for (let t = 1; t < 10.9; t += 0.25) assert.ok(c(t + 0.25) >= c(t), 'цена не падает: ' + t);
   assert.ok(c(5) > c(2) * 5, 'к 5-му цвету заметно дороже');
 }
+
+// 1.6.9: достопримечательности — на каждой карте 12–14, разнесены, на проходимой суше, детерминированы; прежние события не сдвинулись
+{
+  for (const seed of [1, 7, 777, 123456, 987654321]) {
+    const m = HexMap.generate(seed), w = World.place(m), w2 = World.place(HexMap.generate(seed));   // 1.7.1: второй раз — на свежей карте (место оформляет карту рекой и биомами)
+    assert.deepStrictEqual(w.landmarks, w2.landmarks, 'достопримечательности детерминированы');
+    assert.ok(w.landmarks.length >= 10 && w.landmarks.length <= World.LANDMARK_COUNT, 'достопримечательностей: ' + w.landmarks.length);
+    assert.strictEqual(new Set(w.landmarks.map((l) => l.idx)).size, w.landmarks.length, 'клетки разные');
+    const busy = new Set([...w.events.map((e) => e.idx), ...w.lairs.map((l) => l.idx), ...m.spawns.map((s) => s.idx)]);
+    for (const l of w.landmarks) {
+      assert.ok(World.LANDMARKS[l.kind], 'известный вид: ' + l.kind);
+      assert.ok(HexMap.passable(m, l.idx) && !busy.has(l.idx) && !m.cells[l.idx].building, 'клетка свободна и проходима');
+      if (l.kind === 'wreck') assert.strictEqual(m.cells[l.idx].terrain, 'beach', 'остов корабля на берегу');
+    }
+    assert.strictEqual(w.events.length, 46, 'события на месте: 46');
+  }
+}
+console.log('world 1.6.9: достопримечательности — тесты пройдены');
+
+// 1.7.4: условие дня, реванш, сезоны
+{
+  const ids = new Set(Array.from({ length: 12 }, (_, i) => World.arenaRule('2026-11-' + String(i + 1).padStart(2, '0')).id));
+  assert.strictEqual(ids.size, World.ARENA_RULES.length, 'за 6 дней проходят все правила');
+  assert.strictEqual(World.arenaRule('2026-10-13').id, World.arenaRule('2026-10-13').id);
+  for (const r of World.ARENA_RULES) assert.ok(!r.ability || require('../js/balance.js').abilities[r.ability], 'приём правила есть: ' + r.id);
+  // сезон — с понедельника по воскресенье
+  assert.strictEqual(World.seasonOf('2026-10-12'), World.seasonOf('2026-10-18'));
+  assert.notStrictEqual(World.seasonOf('2026-10-11'), World.seasonOf('2026-10-12'));
+  assert.strictEqual(World.seasonLabel(World.seasonOf('2026-10-14')), '12.10 – 18.10');
+  // реванш: мягкое поражение не снимает звезду
+  const r = Object.assign(World.freshArena(), { rank: 2, stars: 2 });
+  World.arenaResult(r, false, true); assert.strictEqual(r.stars, 2); assert.strictEqual(r.streak, 0);
+  World.arenaResult(r, false); assert.strictEqual(r.stars, 1);
+  World.arenaResult(r, true); World.arenaResult(r, true); assert.strictEqual(r.bestStreak, 2);
+  // смена дня и недели
+  const s = World.freshArena();
+  World.arenaSync(s, '2026-10-12'); Object.assign(s, { rank: 5, sBest: 6, sWins: 4, sLosses: 1, fights: 3, revs: 2 });
+  const same = World.arenaSync(s, '2026-10-13');
+  assert.ok(same.newDay && !same.newSeason && s.fights === 0 && s.revs === 0 && s.rank === 5);
+  const nw = World.arenaSync(s, '2026-10-19', 2);
+  assert.ok(nw.newSeason && s.rank === 3 && s.stars === 0 && s.sWins === 0 && s.history.length === 1);
+  assert.ok(s.pending && s.pending.best === 6 && s.pending.coins > 0 && s.pending.title === (6 >= World.SEASON_TITLE_RANK));
+  for (let i = 0; i < 12; i++) { s.sWins = 1; World.arenaSync(s, new Date(Date.UTC(2026, 9, 26 + i * 7)).toISOString().slice(0, 10)); }
+  assert.ok(s.history.length <= 8, 'прошлых сезонов не больше 8');
+  for (let i = 0; i < 15; i++) World.arenaLog(s, { n: i });
+  assert.strictEqual(s.log.length, 10);
+  assert.ok(require('../js/village.js').TITLES.find((t) => t.id === 'seasonChamp' && t.season && t.price === 0));
+}

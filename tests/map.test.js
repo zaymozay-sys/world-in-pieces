@@ -40,7 +40,7 @@ for (const seed of [1, 42, 777, 123456, 99991, 2024]) {
   for (const c of m.cells) if (c.d <= HexMap.VILLAGE_R + 2) assert.ok(HexMap.passable(m, c.idx));
 
   // монстры: вне деревни, не на дороге, на проходимой и достижимой соте, не вплотную друг к другу
-  assert.ok(m.spawns.length >= 50 && m.spawns.length <= 150, 'монстров: ' + m.spawns.length);   // 1.2.6: карта радиуса 23
+  assert.ok(m.spawns.length >= 90 && m.spawns.length <= 260, 'монстров: ' + m.spawns.length);   // 1.7.2: карта радиуса 30 (было 50–150 на радиусе 23)
   const at = new Set(m.spawns.map((s) => s.idx));
   for (const s of m.spawns) {
     const c = m.cells[s.idx];
@@ -120,7 +120,7 @@ console.log('map: все тесты пройдены');
 
 // 1.1.10: большая карта с морем и достопримечательностями побережья
 {
-  assert.strictEqual(HexMap.RADIUS, 23);
+  assert.strictEqual(HexMap.RADIUS, 30);   // 1.7.2: было 23
   for (const seed of [1, 42, 777, 2024]) {
     const m = HexMap.generate(seed);
     assert.ok(m.cells.some((c) => c.terrain === 'sea') && m.cells.some((c) => c.terrain === 'beach'), 'море и пляж есть');

@@ -61,7 +61,7 @@ assert.ok(nRes(Gear.craftCost('berserk-amulet', 5)) > nRes(Gear.craftCost('leath
 assert.ok(Gear.craftCost('berserk-amulet', 5).res.length > Gear.craftCost('leather-head', 5).res.length, 'у редкой больше видов ресурсов');
 
 // бестиарий: 29 видов (в 1.2.0 добавлены звери нижних уровней, существа побережья и боссы), характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
-assert.strictEqual(Bestiary.ORDER.length, 59);      // 1.6.7: +12 существ
+assert.strictEqual(Bestiary.ORDER.length, 62);      // 1.6.7: +12 существ; 1.7.3: +3 (огр, гоблин-берсерк, тень-убийца)
 for (const id of ['orc', 'orcShaman', 'ghoul', 'crab', 'bolotnik', 'shadow', 'treant', 'mushroom', 'wildbees', 'lynx', 'hedgehog', 'viper', 'spider', 'vulture', 'wisp', 'gull', 'hermit', 'smuggler', 'captain']) assert.ok(Bestiary.ORDER.includes(id), id);
 for (const id of Bestiary.ORDER) {
   const m = Bestiary.MONSTERS[id];
@@ -78,7 +78,7 @@ for (const id of Bestiary.ORDER) {
   for (const [kind] of Bestiary.MONSTERS[id].drops) assert.ok(Bestiary.RESOURCES[kind], kind);
 }
 assert.deepStrictEqual(Bestiary.unlockedSpecies(0), ['rat', 'wolf']);
-assert.strictEqual(Bestiary.unlockedSpecies(999).length, 59);
+assert.strictEqual(Bestiary.unlockedSpecies(999).length, 62);
 // снаряжение только у дракона
 assert.ok(Bestiary.scaled('dragon', 3).gearBudget > 0 && Bestiary.scaled('wolf', 3).gearBudget === 0);
 

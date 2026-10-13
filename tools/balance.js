@@ -15,7 +15,7 @@ if (process.argv[2] === '--worker') {
     const H = global.Hero;
     const level = job.level || H.itemLevel(job.tier);
     const gear = job.gear === 'starter' ? () => sim.STARTER : () => sim.typicalGear(level, job.share || 0.8);
-    const r = sim.simulate({ faction: job.faction, level, monster: job.monster, tier: job.tier, n: job.n, player: job.player || 'avg', gear, seedBase: job.seed || 1 });
+    const r = sim.simulate({ faction: job.faction, level, monster: job.monster, tier: job.tier, n: job.n, player: job.player || 'avg', gear, seedBase: job.seed || 1, zone: job.zone });
     process.send({ job, r });
   });
   return;

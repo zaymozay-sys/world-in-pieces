@@ -1,0 +1,31 @@
+// 1.7.5: медали «Алхимик» — по одной за каждый вид эликсира, комплект даёт умение и реликвию.
+const assert = require('assert');
+global.Tiers = require('../js/tiers.js');
+const Elixirs = require('../js/elixirs.js');
+const Gear = require('../js/items.js');
+const Medals = require('../js/medals.js');
+assert.deepStrictEqual(Medals.ELIXIR_ORDER.slice().sort(), Elixirs.ORDER.slice().sort(), 'медаль на каждый вид эликсира');
+const earned = [];
+assert.strictEqual(Medals.checkElixirMedal('нет', earned), null);
+const id = Medals.checkElixirMedal('power', earned);
+assert.strictEqual(id, 'elixir:power');
+earned.push({ id, tier: 1 });
+assert.strictEqual(Medals.checkElixirMedal('power', earned), null, 'повторно не выдаётся');
+assert.ok(Object.keys(Medals.bonusFor('elixir:health')).length === 1 && Medals.bonusFor('elixir:health').health === 4);
+assert.ok(/Эликсир/.test(Medals.nameFor('elixir:power')));
+assert.ok(!Medals.groupDone('elixir', earned));
+for (const k of Medals.ELIXIR_ORDER) if (!earned.some((m) => m.id === 'elixir:' + k)) earned.push({ id: 'elixir:' + k, tier: 1 });
+assert.ok(Medals.groupDone('elixir', earned) && Medals.hasPerk(earned, 'elixir'));
+assert.ok(Gear.item({ id: Medals.relicId('elixir'), tier: 1 }).relic, 'реликвия комплекта есть');
+const b = Medals.bonusStats(earned);
+assert.ok(b.health >= 15 + 4 && b.power >= 3 + 1, 'бонус комплекта учтён');
+// число выпитых
+assert.deepStrictEqual(Medals.DRUNK_MILESTONES, [10, 30, 75, 150, 300, 600, 1000, 2000]);
+assert.strictEqual(Medals.checkDrunkMedal(9, []), null);
+assert.strictEqual(Medals.checkDrunkMedal(10, []), 'drunk:10');
+assert.strictEqual(Medals.checkDrunkMedal(40, [{ id: 'drunk:10' }]), 'drunk:30', 'вехи выдаются по порядку');
+assert.strictEqual(Medals.checkDrunkMedal(5000, Medals.DRUNK_MILESTONES.map(Medals.drunkMedalId).map((id) => ({ id }))), null);
+assert.deepStrictEqual(Medals.bonusFor('drunk:10'), { health: 3 });
+assert.deepStrictEqual(Medals.bonusFor('drunk:75'), { health: 9, cunning: 1 });
+assert.ok(/выпитых/.test(Medals.nameFor('drunk:10')));
+console.log('elixirmedals175: все тесты пройдены');
