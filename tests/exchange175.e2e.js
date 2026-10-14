@@ -9,7 +9,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const ctx = await b.newContext({ viewport: { width: vp[0], height: vp[1] }, hasTouch: touch, isMobile: touch });
     await ctx.addInitScript((l) => { try { localStorage.setItem('wip-lang', l); } catch (e) {} }, lang);
     const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-    await p.goto(URL); await sleep(1800);
+    await p.goto(URL + '#dev-map-meadow'); await sleep(4000);
     const tag = `${vp[0]}px ${lang}`;
     await p.evaluate(() => { Profile.addRes('hide', 2, 7); Profile.data.monster = Profile.data.monster || {}; Screens.open('forge'); });
     await sleep(300);

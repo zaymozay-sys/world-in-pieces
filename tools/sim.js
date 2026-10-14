@@ -366,7 +366,7 @@ function Battle(hero, mon, player) {
       else if (kind === 'swap') {
         let hi = MAGIC_NAMES[0], lo = MAGIC_NAMES[0];
         for (const m of MAGIC_NAMES) { if (h.counts[m] > h.counts[hi]) hi = m; if (h.counts[m] < h.counts[lo]) lo = m; }
-        const n = Math.min(h.counts[hi], Elixirs.swapAmount(t)); h.counts[hi] -= n; h.counts[lo] += n;
+        const n = Elixirs.swapMove(t, h.counts[hi], h.counts[lo]); h.counts[hi] -= n; h.counts[lo] += n;
       } else for (const m of MAGIC_NAMES) h.counts[m] += Elixirs.stonesGain(t);
       return;
     }

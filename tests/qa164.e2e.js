@@ -38,7 +38,7 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
   // WIP-01: переключение «Играть за питомца» реально меняет сторону управления на 320×568 и 390×844
   for (const [w, h] of [[320, 568], [390, 844]]) {
     const { p, ctx } = await open(w, h, '#dev-fight-goblin-3');
-    const take = await p.$('.duo-take');
+    const take = (await p.$('.pq-take:not([hidden])')) || await p.$('.duo-take');   // 1.8.4: на телефоне кнопка живёт в строке плашек (pq-take), полоса duo-bar скрыта
     const r = await take.boundingBox();
     ok(`${w}×${h}: кнопка «за питомца» внутри экрана`, r.x >= 0 && r.x + r.width <= w, JSON.stringify(r));
     const mine = () => p.evaluate(() => document.querySelector('.duo-tab.mine').dataset.tab);

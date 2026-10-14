@@ -2,6 +2,9 @@
 const assert = require('assert');
 global._t = global._t || ((x, a) => (a ? x.replace(/\{(\d+)\}/g, (_, i) => a[+i]) : x));
 const Sky = require('../js/sky.js');
+// 1.7.9: время суток и погода по умолчанию выключены; дальше проверяем их самих, поэтому включаем
+assert.strictEqual(Sky.pref('weather'), false, 'погода по умолчанию выключена'); assert.strictEqual(Sky.pref('night'), false, 'время суток по умолчанию выключено');
+Sky.setPref('weather', true); Sky.setPref('night', true);
 
 const at = (h, m = 0, d = 13) => new Date(2026, 9, d, h, m, 0).getTime();
 

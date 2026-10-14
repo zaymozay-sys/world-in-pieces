@@ -27,14 +27,15 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       turnSide = 'left';
 
       // 2. бесплатно: ход остаётся у героя, расходуется из сумки
-      const mv = moves; const p0 = f.stats.power;
+      const mv = moves; const p0 = f.stats.power, m0 = (Profile.medalsBonus().power || 0);
       o.drankPower = useElixir('power', 3);
       o.stillMine = turnSide === 'left' && moves === mv; o.bagPower = count('power', 3);
-      o.powerUp = f.stats.power - p0;                           // 3-й цвет: +14×3 = 42
+      o.medalPow = (Profile.medalsBonus().power || 0) - m0;     // 1.7.5: за первый выпитый эликсир вида даётся медаль «Алхимик» (комплект с +3 силы) — вычитаем её вклад
+      o.powerUp = f.stats.power - p0;                           // 3-й цвет: round(12,5×3 + 60×3/5) = 74 (+ медаль)
       o.twice = useElixir('power', 3);                          // тот же вид уже действует
       // 3. Сила переживает бонусный ход (ход героя не меняется), кончается вместе с ходом
       setTurn('left'); o.keptOnExtra = f.elx.power && f.elx.power.left === 1 && f.stats.power === p0 + o.powerUp;
-      setTurn('right'); o.goneAfterTurn = !f.elx.power && f.stats.power === p0;
+      setTurn('right'); o.goneAfterTurn = !f.elx.power && f.stats.power === p0 + o.medalPow;
       setTurn('left');
       // длинный эликсир: брони хватает на 10 ходов
       const d0 = f.stats.defense;
@@ -49,7 +50,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       o.cd = f.elxCd;
       for (let i = 0; i < 3; i++) { setTurn('right'); setTurn('left'); }
       o.cdLater = f.elxCd;
-      // 5. Камни — по 5 каждого магического вида на 1-м цвете
+      // 5. Камни — по 4 каждого магического вида на 1-м цвете
       o.drankStones = useElixir('stones', 1);
       o.stones = ['sapphire', 'ruby', 'emerald'].map((t) => f.counts[t]); o.stonesExpected = Elixirs.stonesGain(1);
       // 6. Превращение: 5 камней самого частого вида → в самый редкий
@@ -59,7 +60,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       for (let i = 0; i < 3; i++) { setTurn('right'); setTurn('left'); }
       f.counts = { sapphire: 4, ruby: 4, emerald: 4, onyx: 0 };
       const before = count('swap', 1); o.swapEven = useElixir('swap', 1); o.swapEvenKept = count('swap', 1) === before; o.swapWhy = elxWhy('swap', 1);
-      f.counts = { sapphire: 3, ruby: 0, emerald: 1, onyx: 0 };       // камней меньше пяти — переливается сколько есть
+      f.counts = { sapphire: 3, ruby: 0, emerald: 1, onyx: 0 };       // разница 3 — переносим один (половина разницы)
       o.swapSmall = useElixir('swap', 1); o.swapSmallRes = ['sapphire', 'ruby', 'emerald'].map((t) => f.counts[t]);
 
       // 7. Броня вычитает цифры
@@ -74,17 +75,17 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
     });
     ok(r.enemyTurn === false && r.bagAfterRefusal === 2, 'в ход противника эликсир не пьётся и не тратится');
     ok(r.drankPower && r.stillMine && r.bagPower === 1, 'Сила пьётся бесплатно, из сумки убывает: ' + JSON.stringify([r.drankPower, r.stillMine, r.bagPower]));
-    ok(r.powerUp === 42, 'Сила 3-го цвета +42%: ' + r.powerUp);
+    ok(r.powerUp - r.medalPow === 74, 'Сила 3-го цвета +74%: ' + r.powerUp + ' (медаль ' + r.medalPow + ')');
     ok(r.twice === false, 'действующий вид повторно не пьётся');
     ok(r.keptOnExtra && r.goneAfterTurn, 'Сила живёт до конца хода (в т. ч. бонусного) и снимается при передаче хода');
     ok(r.drankDef && r.defLeft === 10 && r.defLeft3 === 7, 'Броня держится 10 своих ходов: ' + r.defLeft3);
     ok(r.drankHealth && r.healed === r.healExpected && r.healed > 0, `Жизнь лечит цифрой ${r.healed} из ${r.healExpected}`);
     ok(r.stonesBlocked === false && r.cd === 3 && /раз в/.test(r.why), 'Камни не пьются сразу после Жизни (общий запас 3 хода): ' + r.why);
     ok(r.cdLater === 0, 'через 3 хода запас восстановился: ' + r.cdLater);
-    ok(r.drankStones && r.stones.every((n) => n === r.stonesExpected && n === 3), 'Камни: по 3 каждого вида на 1-м цвете: ' + r.stones);
-    ok(r.drankSwap && JSON.stringify(r.swapped) === '[4,7,5]', 'Превращение: 5 камней из самого частого в самый редкий: ' + r.swapped);
+    ok(r.drankStones && r.stones.every((n) => n === r.stonesExpected && n === 4), 'Камни: по 4 каждого вида на 1-м цвете: ' + r.stones);
+    ok(r.drankSwap && JSON.stringify(r.swapped) === '[6,5,5]', 'Превращение: не больше половины разницы (9 и 2 → переносим 3, а не 5): ' + r.swapped);
     ok(r.swapEven === false && r.swapEvenKept && /поровну/.test(r.swapWhy), 'при равных камнях менять нечего, эликсир не тратится');
-    ok(r.swapSmall && JSON.stringify(r.swapSmallRes) === '[0,3,1]', 'камней меньше пяти — переливается сколько есть: ' + r.swapSmallRes);
+    ok(r.swapSmall && JSON.stringify(r.swapSmallRes) === '[2,1,1]', 'малая разница — переносим один камень, самый частый не опустошается: ' + r.swapSmallRes);
     ok(r.armor > 1 && r.loss0 - r.loss30 === r.armor, `Броня вычитает число, а не проценты: ${r.loss0} − ${r.armor} = ${r.loss30}`);
     ok(r.small60 >= 1 && r.small60 >= Math.ceil(r.small0 * 0.2) && r.small60 <= r.small0, `пол урона: ${r.small0} → ${r.small60}`);
     ok(JSON.stringify(r.mit) === '[2,2,1]', 'Броня 1, удар 3 → 2; пол 20% удара, не меньше 1: ' + r.mit);

@@ -39,7 +39,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
     for (const sp of und.species) if (!Profile.hasMedal(Medals.killMedalId(sp))) Profile.grantMedal(Medals.killMedalId(sp), 1);
     o.famAfter = Medals.familyBonus(Profile.medals(), 'Нежить');
     // скрытые медали
-    o.secretHiddenBefore = (Screens.openValor(), await w(200), [...document.querySelectorAll('.medal-round[data-medal^="secret:"]')].every((el) => /Скрытая/.test(el.title)));
+    o.secretHiddenBefore = (Screens.openValor(), await w(200), [...document.querySelectorAll('.medal-round[data-medal^="secret:"]')].every((el) => /Скрытая/.test(el.dataset.tip || el.title)));
     Screens.close && Screens.close();
     for (let i = 0; i < 9; i++) Profile.noteSecret({ win: false });
     o.noEarly = !Profile.hasMedal('secret:stubborn');
@@ -85,7 +85,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
   ok(r.popRank, 'в окне медали описаны ступени');
   ok(r.world.length === 4, 'выданы 4 медали мира: ' + r.world);
   ok(r.worldTiles === 4, 'на Стене 4 медали мира: ' + r.worldTiles);
-  ok(r.groupLines === 8, 'строки комплектов (8 разделов): ' + r.groupLines);
+  ok(r.groupLines === 9, 'строки комплектов (9 разделов, с «Алхимиком»): ' + r.groupLines);
   ok(r.famBefore === 0 && r.famAfter === 5, `коллекция Нежить: до ${r.famBefore}, после ${r.famAfter}`);
   ok(r.collRows >= 5 && r.collDone >= 1, `на Стене строки коллекций: ${r.collRows}, собрано ${r.collDone}`);
   ok(r.secretHiddenBefore, 'до получения скрытые медали без названия');

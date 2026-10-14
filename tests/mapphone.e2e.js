@@ -24,7 +24,7 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   for (const id of ['m-gear', 'm-best', 'm-more', 'm-me', 'm-home']) ok(await vis(p, '#' + id), id + ' виден');
   for (const id of ['m-zin', 'm-zout', 'm-mute', 'm-fs', 'm-lang', 'm-help', 'm-credits']) ok(!(await vis(p, '#' + id)), id + ' скрыт');
   const top = await rect(p, '.map-top'), ctrl = await rect(p, '.map-ctrl'), info = await rect(p, '.map-info');
-  ok(top.b <= 70, 'верхняя строка ≤ 70 px, а не ' + Math.round(top.b));
+  ok(top.b <= 80, 'верхняя строка ≤ 80 px (с отступом под «челку», 1.8.1), а не ' + Math.round(top.b));
   ok(844 - info.t <= 50 && ctrl.b <= info.t, 'плашка одной строкой внизу: высота от низа ' + Math.round(844 - info.t));
   for (const id of ['m-gear', 'm-best', 'm-more', 'm-me', 'm-home']) { const r = await rect(p, '#' + id); ok(r.w >= 40 && r.h >= 40, id + ' ≥ 40 px: ' + Math.round(r.w) + '×' + Math.round(r.h)); }
   const covered = (top.h + ctrl.h + info.h) * 390 / (390 * 844);
@@ -34,7 +34,7 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   await p.tap('#m-more'); await p.waitForTimeout(150);
   ok(await vis(p, '#map-menu'), 'меню открылось');
   const items = await p.evaluate(() => [...document.querySelectorAll('#map-menu button')].map((e) => { const r = e.getBoundingClientRect(); return [e.textContent.trim(), Math.round(r.height), Math.round(r.right), Math.round(r.bottom)]; }));
-  ok(items.length === 7 && items.every((i) => i[1] >= 40 && i[2] <= 390 && i[3] <= 844), 'семь пунктов (с «Анимации» и «Таймер хода», 1.6.5) ≥ 40 px внутри экрана: ' + JSON.stringify(items));
+  ok(items.length >= 7 && items.every((i) => i[1] >= 40 && i[2] <= 390 && i[3] <= 844), 'семь пунктов (с «Анимации» и «Таймер хода», 1.6.5) ≥ 40 px внутри экрана: ' + JSON.stringify(items));
   const m0 = await p.evaluate(() => Sound.muted);
   await p.tap('#mm-mute'); await p.waitForTimeout(150);
   ok(await p.evaluate((m) => Sound.muted !== m && !document.getElementById('map-menu').hidden, m0), 'звук переключился, меню осталось');

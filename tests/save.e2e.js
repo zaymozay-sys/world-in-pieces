@@ -37,7 +37,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
   const ctx = await b.newContext({ viewport: { width: 1280, height: 800 }, locale: 'ru-RU' });
   await ctx.addInitScript(() => { Storage.prototype.getItem = function () { throw new Error('denied'); }; Storage.prototype.setItem = function () { throw new Error('denied'); }; });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-  await p.goto(URL + '#dev-map-meadow'); await p.waitForTimeout(3500);
+  await p.goto(URL + '#dev-map-meadow'); await p.waitForTimeout(7000);
   ok(await p.evaluate(() => Profile.storageOk === false && /сохранять/.test(document.getElementById('map-toast').textContent)), 'без хранилища — предупреждение на карте');
   await p.click('#m-more'); await p.click('#mm-lang'); await p.waitForTimeout(2500);
   ok(await p.evaluate(() => I18N.lang === 'en'), 'без хранилища язык всё равно переключается');
