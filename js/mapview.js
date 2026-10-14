@@ -6,7 +6,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 const MapView = (() => {
   const SIZE = 34;                        // радиус соты в пикселях карты
   const RESPAWN_MS = 4 * 60 * 1000;       // побеждённый монстр возвращается через 4 минуты
-  const STEP_MS = 160;                    // время шага по лугу
+  const STEP_MS = 260;                    // время шага по лугу
   const MAX_S = 2.4;
 
   let map = null, st = null, revealed = null, spawnAt = null;
@@ -164,6 +164,7 @@ const MapView = (() => {
     refreshPlayerArt();
     renderHud();
     toast(_t("Вы — {0}: {1}", [fac().name, Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)]));
+    if (!Profile.storageOk) setTimeout(() => { saveWarned = false; warnNoSave(); }, 3400);   // 1.8.3: «Вы — …» затирало предупреждение о том, что игра не сохраняется
   }
 
   function setMode(mode) {
@@ -350,7 +351,7 @@ const MapView = (() => {
         continue;
       }
       const elite = eliteOf(sp), fig = bossFigure(sp);
-      bucketPush(mb, p, `<g class="mon${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
+      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
           ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>
@@ -742,7 +743,7 @@ const MapView = (() => {
       }
       drawPath(stopAt);
       const next = path[0];
-      const ms = Math.round(Math.max(90, Math.min(520, STEP_MS * HexMap.moveCost(map, next) * Sky.stepMul(Sky.kindAt(), map.cells[next].terrain))));
+      const ms = Math.round(Math.max(150, Math.min(800, STEP_MS * HexMap.moveCost(map, next) * Sky.stepMul(Sky.kindAt(), map.cells[next].terrain))));
       const from = px(st.pos);
       st.pos = next;
       const reveal = revealAround(next);
@@ -1293,6 +1294,7 @@ const MapView = (() => {
       total[t]++; if (known(c.idx)) seen[t]++;
     }
     const all = total.reduce((a, b) => a + b, 0), got = seen.reduce((a, b) => a + b, 0);
+    if (all && got >= all && !Profile.data.explored100) { Profile.data.explored100 = true; Profile.save(); }   // 1.8.4: титул «Исследователь»
     const bars = Tiers.LIST.map((T, n) => {
       const t = n + 1, pct = total[t] ? Math.round(seen[t] / total[t] * 100) : 0;
       return `<div class="jr-row"><i class="jr-chip" style="--t:${T.color};--ti:${T.ink}">${T.id}</i><span class="jr-bar"><b style="width:${pct}%;background:${T.edge}"></b></span><small>${pct}%</small></div>`;
@@ -1301,7 +1303,7 @@ const MapView = (() => {
     const ts = Profile.tierStats(), wmax = Math.max(1, ...ts.wins);
     const winChart = Tiers.LIST.map((T, n) => {
       const t = n + 1, w = ts.wins[t], pct = Math.round(w / wmax * 100);
-      return `<div class="jr-row jr-win" tabindex="0" data-tip="${_t("изучено {0} обитателей", [ts.species[t]])}"><i class="jr-chip" style="--t:${T.color};--ti:${T.ink}">${T.id}</i><span class="jr-bar"><b style="width:${w ? Math.max(pct, 3) : 0}%;background:${T.edge}"></b></span><small>${w}</small></div>`;
+      return `<div class="jr-row jr-win" tabindex="0" data-tip="${_t("изучено {0} обитателей", [ts.species[t]])}"><i class="jr-chip" style="--t:${T.color};--ti:${T.ink}">${T.id}</i><span class="jr-bar"><b style="width:${w ? Math.max(pct, 3) : 0}%;background:${T.edge}"></b></span><small>${w}</small><small class="jr-sp" title="${_t("изучено {0} обитателей", [ts.species[t]])}">${ts.species[t]}</small></div>`;
     }).join('');
     const lms = world.landmarks || [];
     const doneN = lms.filter((m) => st.found[m.id]).length;
@@ -1313,7 +1315,7 @@ const MapView = (() => {
     }).join('') : `<li class="jr-unk">${_t("Меток нет. Кнопка «Метка» ставит их на карту.")}</li>`;
     el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Журнал исследователя")}</b>
       <p class="hint">${_t("Исследовано: {0}% суши", [all ? Math.round(got / all * 100) : 0])}</p><div class="jr-bars">${bars}</div>
-      <b class="jr-h">${_t("Победы над существами по цветам")}</b><div class="jr-bars jr-wins">${winChart}</div>
+      <b class="jr-h">${_t("Победы над существами по цветам")}</b><p class="hint">${_t("Справа: побед и изучено обитателей")}</p><div class="jr-bars jr-wins">${winChart}</div>
       <b class="jr-h">${_t("Достопримечательности: {0} из {1}", [doneN, lms.length])}</b><ul class="jr-list">${lmRows}</ul>
       <b class="jr-h">${_t("Метки: {0} из {1}", [st.pins.length, PIN_MAX])}</b><ul class="jr-list">${pinRows}</ul>
       <div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
@@ -1534,6 +1536,27 @@ const MapView = (() => {
     for (const id of Object.keys(Unlocks.NEED)) { const g = el['l-village'] && el['l-village'].querySelector(`.bldg[data-b="${id}"]`); if (g) g.classList.toggle('locked', !Unlocks.isOpen(d, id)); }
     const gs = document.getElementById('goal-strip');
     if (gs) gs.textContent = Unlocks.goal(d, Quests.list(d));
+    markNext(d);
+  }
+  // 1.8.3: «один явный следующий шаг» — мягкое свечение на том, что строка цели просит сделать: ближайший зверь (до первой победы) или здание с готовой / новой наградой-заданием
+  let nextMonIdx = -1;
+  function markNext(d) {
+    if (!map || !el['l-village']) return;
+    for (const g of document.querySelectorAll('.next-step')) g.classList.remove('next-step');
+    let target = null; nextMonIdx = -1;
+    if ((d.wins || 0) < 1) {
+      const me = st.pos, cand = map.spawns.filter((sp) => alive(sp) && !sp.boss && !sp.zone && !sp.guest).sort((x, y) => HexMap.dist(map.cells[x.idx], map.cells[me]) - HexMap.dist(map.cells[y.idx], map.cells[me]));
+      // 1.8.4: подсвечиваем ближайшего из тех, кого новичок видит целиком (не у самого края и не под кнопками); если таких нет — просто ближайшего
+      const seen = (sp) => { const e = document.querySelector(`.mon[data-i="${sp.idx}"]`); if (!e) return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.left >= 4 && r.right <= innerWidth - 4 && r.top >= 70 && r.bottom <= innerHeight - 70; };
+      const vis = cand.slice(0, 40).find(seen), near = vis || cand[0];
+      if (!vis && !markNext.retry) { markNext.retry = setTimeout(() => { markNext.retry = 0; if (map && (Profile.data.wins || 0) < 1) markNext(Profile.data); }, 900); }
+      if (near) { nextMonIdx = near.idx; target = document.querySelector(`.mon[data-i="${near.idx}"]`); }
+    } else {
+      const list = Quests.list(d), isOpen = (q) => !(Unlocks.GIVERS && Unlocks.GIVERS[q.giver]) || Unlocks.isOpen(d, Unlocks.GIVERS[q.giver][0]);
+      const q = list.find((x) => x.accepted && x.done && !x.claimed) || list.find((x) => !x.accepted && !x.claimed && isOpen(x));
+      if (q) target = el['l-village'].querySelector(`.bldg[data-b="${(Unlocks.GIVERS && Unlocks.GIVERS[q.giver]) ? Unlocks.GIVERS[q.giver][0] : q.giver}"]`);
+    }
+    if (target) target.classList.add('next-step');
   }
 
   function renderHud() {

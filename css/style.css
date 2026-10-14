@@ -3503,3 +3503,177 @@ body.ui-columns:not(.phone) .pq-nm { font-size: 13px; }
   body.ui-columns.phone.mode-battle .pq-row .pq-av { display: none; }
   body.ui-columns.phone.mode-battle .pq-row .pq { grid-template-columns: minmax(0, 1fr); grid-template-areas: "nm" "hp" "st"; }
 }
+
+/* ===================== 1.8.1: телефон — «челка», уровень кружком, «Ваш ход» по центру ===================== */
+/* Сверху на телефонах вырез/камера: не прижимаем бой и карту к самому краю (Android часто отдаёт safe-area 0, поэтому есть нижний предел) */
+@media (orientation: portrait) {
+  body.ui-columns.phone.mode-battle {
+    --top: max(env(safe-area-inset-top, 0px), 24px);
+    --board: min(calc(100vw - 16px), calc(100dvh - var(--top) - var(--pqh, 0px) - var(--bar, 0px) - var(--F) - 2 * var(--spc) - 2 * var(--bagh) - var(--pic) - 58px - env(safe-area-inset-bottom, 0px)));
+  }
+  body.ui-columns.phone.mode-battle .game, body.ui-columns.phone.mode-battle.duo-battle .game { padding-top: calc(var(--top) + var(--bar, 0px) + 6px); }
+  body.ui-columns.phone.mode-battle .duo-bar { top: var(--top); }
+}
+body.phone .map-top { padding-top: max(env(safe-area-inset-top, 0px), 24px); }
+/* Уровень героя и цвет врага на телефоне — только цифра в кружке своего цвета */
+.lv-dot { display: none; }
+body.ui-columns.phone.mode-battle .fighter .name .lv-dot { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 700; line-height: 1; color: var(--ti, #101114); background: var(--t, #888); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3), 0 0 0 1px rgba(0, 0, 0, .35); }
+body.ui-columns.phone.mode-battle .fighter .name .hero-lvl, body.ui-columns.phone.mode-battle .fighter .name .tier-chip { display: none; }
+/* Таймера нет (бой с существом) — строка хода во всю ширину и по центру */
+body.ui-columns.phone .status:has(+ .turn-timer[hidden]) { grid-column: 1 / -1; }
+
+/* 1.8.1: телефон лёжа (низкий экран) — окна зданий: подсказка прячется, вкладки и фильтры идут одной строкой с прокруткой вбок, чтобы вещи были видны сразу */
+@media (orientation: landscape) and (max-height: 430px) {
+  .modal .tip-box { display: none; }
+  .modal .tabs { flex: none; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding-top: 6px; padding-bottom: 4px; }
+  .modal .tabs::-webkit-scrollbar { display: none; }
+  .modal .tabs button { flex: none; min-height: 36px; padding: 4px 10px; }
+  .modal .tabs.sub { padding-bottom: 4px; }
+  .modal .tabs.sub button { min-height: 36px; padding: 3px 8px; }
+}
+
+/* 1.8.1: окна зданий на компьютере одной минимальной высоты — рамка не «прыгает» при переходе между зданиями */
+@media (min-width: 721px) and (min-height: 640px) {
+  .modal-back > .modal { height: min(740px, 100%); }
+}
+/* «Сварить» недоступна: подпись причины видна и читается */
+.modal .card-act button.need { opacity: 1; filter: none; white-space: normal; max-width: 96px; font-size: 12px; line-height: 1.2; color: #f0b27a; background: rgba(110, 50, 24, .4); border-color: #9a5a30; }
+/* Подсказка при первом входе на телефоне стоя — одна строка */
+@media (max-width: 520px) and (orientation: portrait) {
+  .tip-box { align-items: center; padding: 4px 8px; margin-bottom: 6px; }
+  .tip-box p { -webkit-line-clamp: 1; font-size: 12px; }
+  .tip-box button { min-height: 28px; }
+}
+
+/* 1.8.2: обрезанная подсказка раскрывается по тапу */
+.tip-box p { cursor: pointer; }
+.tip-box.open p { display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; }
+/* 1.8.2: бейдж цвета не налезает на кнопку «i» */
+@media (max-width: 700px) { .card:has(> .card-info):not(:has(> .card-act)) > .card-body { padding-right: 44px; } }
+/* 1.8.2: телефон лёжа — все вкладки помещаются в строку (раньше «Починка» уходила за край) */
+@media (max-height: 500px) and (orientation: landscape) { .modal .tabs { gap: 5px; } .modal .tabs button { padding-left: 9px; padding-right: 9px; font-size: 14px; } }
+/* 1.8.2: пустой список в сетке занимает всю строку; поле поиска — в тёмной теме */
+.bag-grid > .hint { grid-column: 1 / -1; }
+.beast-q, .modal input[type="search"] { background: #1c1712; color: #ece4d2; border: 1px solid #5a4a30; border-radius: 8px; padding: 0 12px; font: inherit; font-size: 14px; }
+.beast-q::placeholder { color: #8f836c; }
+.modal a { color: #e6c36a; text-underline-offset: 2px; }
+.modal a:visited { color: #c9a85a; }
+/* 1.8.2: второй тестовый переключатель — тот же вид, что у первого */
+.test-x10 [data-testspells] { position: relative; flex: none; width: 46px; height: 26px; min-width: 0; padding: 0; border-radius: 13px; background: #3a3d46; border: 1px solid #5a5e69; }
+.test-x10 [data-testspells] i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #d9d3c6; transition: left .15s; }
+.test-x10 [data-testspells].on { background: #c9573c; border-color: #e3685e; }
+.test-x10 [data-testspells].on i { left: 23px; background: #fff; }
+/* 1.8.3: меню карты на телефоне лёжа не вылезает за экран — прокручивается */
+@media (max-height: 500px) { #map-menu { max-height: calc(100dvh - 86px); overflow-y: auto; overscroll-behavior: contain; } }
+
+/* ===================== 1.8.3: короткие телефоны стоя (до 620 px по высоте, напр. 320×568) — клетки не меньше 36 px ===================== */
+@media (orientation: portrait) and (max-height: 620px) {
+  body.ui-columns.phone.mode-battle {
+    --spc: 32px; --bagh: 36px; --pic: 36px; --pqh: 38px;
+    --board: min(calc(100vw - 16px), calc(100dvh - var(--top, 24px) - var(--pqh, 0px) - var(--F) - 2 * var(--spc) - 2 * var(--bagh) - var(--pic) - 16px - env(safe-area-inset-bottom, 0px)));
+  }
+  body.ui-columns.phone.mode-battle .arena { row-gap: 2px; }
+  body.ui-columns.phone.mode-battle .game, body.ui-columns.phone.mode-battle.duo-battle .game { padding-top: calc(var(--top, 24px) + var(--bar, 0px) + 1px); }
+  body.ui-columns.phone.mode-battle .pq-row .pq { padding-top: 1px; padding-bottom: 1px; row-gap: 0; }
+  body.ui-columns.phone.mode-battle:not(.duo-battle) { --pqh: 24px; }
+  body.ui-columns.phone.mode-battle:not(.duo-battle) .pq-row { overflow: hidden; }
+  body.ui-columns.phone.mode-battle:not(.duo-battle) .pq-row * { font-size: 10px; line-height: 12px; }
+}
+/* 1.8.3: счётчики камней по краям строки хода — только на коротких телефонах стоя */
+.mini-cnt { display: none; }
+@media (orientation: portrait) and (max-height: 620px) {
+  body.ui-columns.phone.mode-battle .mini-cnt { display: flex; grid-area: st; justify-self: stretch; align-self: stretch; width: 100%; box-sizing: border-box; justify-content: space-between; align-items: center; pointer-events: none; z-index: 2; padding: 0 4px; }
+  body.ui-columns.phone.mode-battle .mini-cnt .mc { display: flex; gap: 5px; }
+  body.ui-columns.phone.mode-battle .mini-cnt .mc-i { display: inline-flex; align-items: center; gap: 1px; font-style: normal; font-size: 10px; font-weight: 700; color: #e8e0cc; text-shadow: 0 1px 2px #000; }
+  body.ui-columns.phone.mode-battle .mini-cnt svg { width: 12px; height: 12px; }
+  body.ui-columns.phone.mode-battle .status { padding-left: 84px; padding-right: 84px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (orientation: portrait) and (max-height: 620px) {
+  body.ui-columns.phone.mode-battle .mini-cnt { position: relative; }
+  body.ui-columns.phone.mode-battle .mini-cnt .mc { position: absolute; top: 50%; transform: translateY(-50%); }
+  body.ui-columns.phone.mode-battle .mini-cnt .mc-left { left: 6px; }
+  body.ui-columns.phone.mode-battle .mini-cnt .mc-right { right: 6px; }
+  body.ui-columns.phone.mode-battle .status:has(+ .turn-timer[hidden]) ~ .mini-cnt { grid-column: 1 / -1; }
+}
+
+/* ===================== 1.8.3: «живой» моб — псевдообъём из картинки (качание, тень на земле, блик, наклон при ударе) ===================== */
+.fighter.right .avatar { position: relative; transform-origin: 50% 92%; animation: mob-bob 3.6s ease-in-out infinite; will-change: transform; }
+.fighter.right .avatar::before { content: ""; position: absolute; inset: -40% -60%; z-index: 2; pointer-events: none; background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .26) 50%, transparent 58%); transform: translateX(-100%); animation: mob-glint 7.5s ease-in-out 1.2s infinite; }
+.fighter.right .avatar.hurt { animation: mob-hurt .5s ease-out; }
+.fighter.right.dead .avatar { animation: none; }
+@keyframes mob-bob {
+  0%, 100% { transform: translateY(0) rotate(-.7deg) scale(1); box-shadow: 0 7px 9px -5px rgba(0, 0, 0, .75); }
+  50% { transform: translateY(-3px) rotate(.7deg) scale(1.012); box-shadow: 0 11px 12px -7px rgba(0, 0, 0, .5); }
+}
+@keyframes mob-glint { 0%, 55% { transform: translateX(-100%); } 85%, 100% { transform: translateX(100%); } }
+@keyframes mob-hurt {
+  0% { transform: translateX(0) rotate(0) scale(1); filter: brightness(1); }
+  18% { transform: translateX(-5px) rotate(-7deg) scale(.95); filter: brightness(1.7) saturate(1.3); }
+  45% { transform: translateX(4px) rotate(5deg) scale(.98); filter: brightness(1.2); }
+  75% { transform: translateX(-1px) rotate(-2deg); filter: brightness(1); }
+  100% { transform: translateX(0) rotate(0) scale(1); filter: brightness(1); }
+}
+@media (prefers-reduced-motion: reduce) { .fighter.right .avatar, .fighter.right .avatar::before, .fighter.right .avatar.hurt { animation: none; } }
+/* 1.8.3: свечение «сделайте это» на карте (ближайший зверь до первой победы, здание с заданием) */
+.next-step { animation: next-pulse 1.8s ease-in-out infinite; }
+@keyframes next-pulse { 0%, 100% { filter: drop-shadow(0 0 2px #ffe08a) drop-shadow(0 0 4px #f2c94c); } 50% { filter: drop-shadow(0 0 3px #fff3c4) drop-shadow(0 0 11px #f2c94c) brightness(1.12); } }
+@media (prefers-reduced-motion: reduce) { .next-step { animation: none; filter: drop-shadow(0 0 4px #f2c94c) drop-shadow(0 0 8px #f2c94c); } }
+
+/* 1.8.4: колонка «обитателей» справа от полосы побед */
+.jr-wins .jr-row { grid-template-columns: 22px 1fr 34px 34px; }
+.jr-wins .jr-sp { color: var(--gold, #f2c14e); font-weight: 700; }
+.jr-wins .jr-sp::before { content: "◆ "; font-size: .8em; opacity: .7; }
+
+/* 1.8.4: на узком (стоячем) экране афиша показывается целиком по ширине — название не обрезается; пустые края заполняет её размытая копия */
+@media (max-aspect-ratio: 3/4) {
+  .splash.has-poster { background: #0d0c0a; }
+  .splash.has-poster::before { content: ""; position: absolute; inset: -24px; background: var(--poster) center / cover no-repeat; filter: blur(16px) brightness(.6); pointer-events: none; }
+  .splash.has-poster::after { content: ""; position: absolute; inset: 0; background: var(--poster) center 40% / contain no-repeat; pointer-events: none; }
+}
+
+/* 1.8.4: подсказка в окнах на стоячем телефоне показывается целиком; шапка окна ниже «челки» */
+@media (max-width: 520px) and (orientation: portrait) {
+  .tip-box p { -webkit-line-clamp: unset; display: block; overflow: visible; }
+  body.phone .modal header { padding-top: max(env(safe-area-inset-top, 0px), 28px); }
+}
+
+/* 1.8.4: «Начать игру!» при регистрации всегда виден внизу экрана (раньше уезжал за край, и новичок не понимал, как начать) */
+.modal .reset:has(> button[data-act="start"]) { position: sticky; bottom: 0; z-index: 4; padding: 14px 0 max(10px, env(safe-area-inset-bottom)); margin: 0; background: linear-gradient(180deg, rgba(28, 24, 19, 0), rgba(28, 24, 19, .96) 38%); text-align: center; }
+.modal .reset > button[data-act="start"] { min-width: 70%; min-height: 46px; }
+@media (max-width: 520px) and (orientation: portrait) {
+  .fac-card.pick-mode .fac-fig { height: 150px; }
+  .fac-card.pick-mode .fac-fig svg, .fac-card.pick-mode .fac-fig img { height: 100%; width: auto; max-width: 100%; margin: 0 auto; display: block; }
+  .modal .screen-body:has(.reset > button[data-act="start"]) { padding-bottom: 8px; }
+}
+
+.start-why { display: block; margin: 0 0 6px; color: #d9c48a; font-size: 12px; text-align: center; }
+
+/* 1.8.4: цель на телефоне — до двух строк (раньше обрезалась на полуслове: «нажмите на л…», «Трактирщик в т…») */
+body.phone .map-info:not(.open) .goal-strip:not(:empty) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; text-overflow: clip; line-height: 1.25; }
+
+.hint-ghost { position: absolute; left: 0; top: 0; width: calc(100% / 6); height: calc(100% / 6); box-sizing: border-box; pointer-events: none; border: 3px dashed #ffe08a; border-radius: 12px; animation: coachPulse .7s ease-in-out infinite alternate; z-index: 2; }
+
+/* 1.8.4: изменение характеристик героя после смены вещей — зелёный плюс, красный минус, до закрытия карточки */
+.stat-list .stat-up { color: #6fe08a; }
+.stat-list .stat-down { color: #ff6b5e; }
+.stat-list b i { font-size: .72em; font-style: normal; font-weight: 600; opacity: .95; }
+
+/* 1.8.4: подтверждение покупки/действия не прокручивается за край: липнет сверху окна, зелёная плашка с галочкой, короткая вспышка */
+.screen-body .gear-toast:not(:empty) { position: sticky; top: 4px; z-index: 6; margin: 6px 0 10px; padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.3; color: #e9fbe9; background: rgba(28, 74, 40, .96); border: 1px solid #5fbf78; box-shadow: 0 4px 14px rgba(0, 0, 0, .5); animation: toast-flash .9s ease-out; }
+.screen-body .gear-toast:not(:empty)::before { content: "✓ "; font-weight: 700; color: #8ff0a4; }
+@keyframes toast-flash { 0% { box-shadow: 0 0 0 0 rgba(143, 240, 164, .9); transform: scale(.98); } 60% { box-shadow: 0 0 0 10px rgba(143, 240, 164, 0); transform: none; } 100% { box-shadow: 0 4px 14px rgba(0, 0, 0, .5); } }
+@media (prefers-reduced-motion: reduce) { .screen-body .gear-toast:not(:empty) { animation: none; } }
+.screen-body .gear-toast.warn:not(:empty) { color: #fff1cf; background: rgba(86, 62, 18, .96); border-color: #d9a640; animation: none; }
+.screen-body .gear-toast.warn:not(:empty)::before { content: "! "; color: #ffd36a; }
+
+.just-bought { box-shadow: inset 0 0 0 2px #5fbf78, 0 0 14px rgba(95, 191, 120, .55) !important; transition: box-shadow .4s; }
+button.bought-flash { background: #2d6a3f !important; border-color: #5fbf78 !important; color: #eaffea !important; }
+
+.tgrp { margin: 14px 0 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #c9b48a; }
+
+.tgroup { margin: 8px 0; }
+.tgroup > summary.tgrp { cursor: pointer; margin: 0 0 6px; padding: 8px 10px; list-style: none; border-radius: 8px; background: rgba(60, 48, 20, .55); border: 1px solid #5a4f3c; color: #e3c98a; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; }
+.tgroup > summary.tgrp::-webkit-details-marker { display: none; }
+.tgroup > summary.tgrp::before { content: "▸ "; }
+.tgroup[open] > summary.tgrp::before { content: "▾ "; }
+.tgroup > summary small { float: right; opacity: .8; text-transform: none; letter-spacing: 0; }

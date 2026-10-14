@@ -40,8 +40,9 @@ const Sky = (() => {
 
   /* ---------- настройки устройства (как «Анимации»): время суток и погоду можно выключить ---------- */
   const KEY = 'wip-sky';
-  const prefs = { night: true, weather: true };
-  try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) { prefs.night = v.night !== false; prefs.weather = v.weather !== false; } } catch (e) { /* без хранилища — всё включено */ }
+  // 1.7.9: время суток и погода по умолчанию выключены; выбор игрока, сохранённый на устройстве, сильнее умолчания
+  const prefs = { night: false, weather: false };
+  try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) { prefs.night = v.night === true; prefs.weather = v.weather === true; } } catch (e) { /* без хранилища — умолчания */ }
   const pref = (name) => prefs[name] !== false;
   const setPref = (name, on) => {
     if (!(name in prefs)) return false;

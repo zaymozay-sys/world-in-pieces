@@ -174,7 +174,20 @@ const Profile = (() => {
   if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('storage', (ev) => { if (ev.key === KEY || ev.key === null) markStale(); });
   }
+  // 1.8.4: титулы за достижения выдаются сами, как только условие выполнено (медали, цвет героя, боссы, исследование карты)
+  let syncing = false;
+  function syncTitles() {
+    if (syncing || !data || typeof Village === 'undefined' || !Village.syncTitles) return;
+    syncing = true;
+    try {
+      data.cosmetics = data.cosmetics || { titles: [], frames: [], title: null, frame: null };
+      const fresh = Village.syncTitles(data.cosmetics, { earned: data.medals ? data.medals.earned : [], tier: Hero.tierFor(Hero.levelOf(data.xp).level), bestiary: data.bestiary, explored: data.explored100 });
+      if (fresh.length && typeof MapView !== 'undefined' && MapView.toast) MapView.toast(_t("Новый титул: {0} — наденьте в Гардеробе Ратуши", [fresh.length > 3 ? fresh.slice(0, 3).join(', ') + _t(" и ещё {0}", [fresh.length - 3]) : fresh.join(', ')]));
+    } catch (e) { /* титулы не критичны */ }
+    syncing = false;
+  }
   const save = () => {
+    syncTitles();
     if (sandboxed || stale) return;
     try { localStorage.setItem(KEY, JSON.stringify(data)); }
     catch (e) {
@@ -845,11 +858,13 @@ const Inventory = (() => {
   }
 
   function close() {
+    statBase = null;                                  // 1.8.4: подсветка изменений живёт, пока открыта карточка героя
     if (root) { ModalFocus.close(root); root.remove(); root = null; }
     document.removeEventListener('keydown', onKey);
   }
   const onKey = (e) => { if (e.key === 'Escape') close(); };
 
+  let statBase = null;       // характеристики героя на момент открытия карточки (для зелёного/красного)
   // 1.6.0: рядом с каждой характеристикой — во что она превращается на деле (числа для героя этого уровня; who — боец-противник)
   function statsBlock(stats, who) {
     // У каждого заклинания своя цена (Balance.magic.costs) — показываем диапазон мин..макс по всем пяти.
@@ -860,18 +875,21 @@ const Inventory = (() => {
     const stone = dmg * Balance.damage.stone, N = Gear.STAT_NAMES;
     const nth = (p) => Math.max(1, Math.round(100 / p));
     const fmt1 = (x) => (x >= 10 ? String(Math.round(x)) : String(Math.round(x * 10) / 10).replace('.', I18N.lang === 'en' ? '.' : ','));
-    const row = (name, big, small) => `<div><span>${name}</span><b>${big}</b><small>${small}</small></div>`;
+    // 1.8.4: что изменилось с момента открытия карточки — плюс зелёным, минус красным (пока карточка не закрыта)
+    if (!who && !statBase) statBase = { ...stats };
+    const delta = (k) => (who || !statBase) ? 0 : (stats[k] || 0) - (statBase[k] || 0);
+    const row = (name, big, small, k) => { const d = k ? delta(k) : 0; const cls = d > 0 ? ' class="stat-up"' : d < 0 ? ' class="stat-down"' : ''; return `<div><span>${name}</span><b${cls}>${big}${d ? ` <i>(${d > 0 ? '+' : '−'}${Math.abs(d)})</i>` : ''}</b><small>${small}</small></div>`; };
     const arm = Combat.armorAt(stats.defense, dmg), cap = stats.defense >= Gear.CAPS.defense ? _t(" (максимум)") : '';
     return `<div class="stat-list">${[
-      row(N.power, `+${stats.power}%`, _t("урон камня: {0} → {1}", [fmt1(stone), fmt1(stone * (1 + stats.power / 100))])),
-      row(N.health, `+${stats.health}`, _t("ХП всего: {0} (без вещей {1})", [base + stats.health, base])),
-      row(N.defense, `−${arm}`, _t("вычитается из каждого удара ({0} очк.{1}); не меньше 20% удара", [stats.defense, cap])),
-      row(N.magic, `${stats.magic}`, _t("цена заклинаний: {0} камней каждого вида", [costLabel])),
-      row(N.initiative, `+${stats.initiative}%`, _t("шанс первого хода")),
-      row(N.ricochet, `${stats.ricochet}%`, stats.ricochet > 0 ? _t("≈ каждый {0}-й удар по вам отлетает в нападающего", [nth(stats.ricochet)]) : _t("удар по вам отлетает в нападающего: пока нет")),
-      row(N.block, `${stats.block}%`, stats.block > 0 ? _t("≈ каждый {0}-й удар по вам блокируется полностью", [nth(stats.block)]) : _t("полный блок удара: пока нет")),
-      row(N.fury, `${stats.fury}%`, stats.fury > 0 ? _t("≈ каждый {0}-й ваш удар двойной", [nth(stats.fury)]) : _t("двойной урон: пока нет")),
-      row(N.cunning, `${stats.cunning || 0}%`, stats.cunning > 0 ? _t("≈ раз в {0} отнимает половину магических камней противника", [_nn(nth(stats.cunning), 'ход', 'хода', 'ходов')]) : _t("кража магических камней противника: пока нет")),
+      row(N.power, `+${stats.power}%`, _t("урон камня: {0} → {1}", [fmt1(stone), fmt1(stone * (1 + stats.power / 100))]), 'power'),
+      row(N.health, `+${stats.health}`, _t("ХП всего: {0} (без вещей {1})", [base + stats.health, base]), 'health'),
+      row(N.defense, `−${arm}`, _t("вычитается из каждого удара ({0} очк.{1}); не меньше 20% удара", [stats.defense, cap]), 'defense'),
+      row(N.magic, `${stats.magic}`, _t("цена заклинаний: {0} камней каждого вида", [costLabel]), 'magic'),
+      row(N.initiative, `+${stats.initiative}%`, _t("шанс первого хода"), 'initiative'),
+      row(N.ricochet, `${stats.ricochet}%`, stats.ricochet > 0 ? _t("≈ каждый {0}-й удар по вам отлетает в нападающего", [nth(stats.ricochet)]) : _t("удар по вам отлетает в нападающего: пока нет"), 'ricochet'),
+      row(N.block, `${stats.block}%`, stats.block > 0 ? _t("≈ каждый {0}-й удар по вам блокируется полностью", [nth(stats.block)]) : _t("полный блок удара: пока нет"), 'block'),
+      row(N.fury, `${stats.fury}%`, stats.fury > 0 ? _t("≈ каждый {0}-й ваш удар двойной", [nth(stats.fury)]) : _t("двойной урон: пока нет"), 'fury'),
+      row(N.cunning, `${stats.cunning || 0}%`, stats.cunning > 0 ? _t("≈ раз в {0} отнимает половину магических камней противника", [_nn(nth(stats.cunning), 'ход', 'хода', 'ходов')]) : _t("кража магических камней противника: пока нет"), 'cunning'),
     ].join('')}</div>`;
   }
 

@@ -188,6 +188,11 @@ function buildFighter(side) {
     : _t("<div class=\"name\"><span class=\"fname\" title=\"{0}\">{1}</span> <span class=\"hero-lvl\" title=\"Уровень героя\">ур. {2}</span></div>", [f.name, f.name, f.level || 1]);
   el.innerHTML = _t("\n    <div class=\"avatar\" title=\"Открыть ранец и экипировку\"></div>\n    {0}\n    <div class=\"hpbar\"><i></i><span class=\"hptext\"></span></div>\n    <div class=\"counters\">{1}</div>\n    <div class=\"gearrow\" title=\"Открыть ранец и экипировку\"></div>\n    <div class=\"statline\"></div>\n    {2}\n    <div class=\"badge\"></div>\n    {3}\n    {4}", [nameRow, counters, side === 'right' ? _t("<div class=\"ability-line\" title=\"{0}\">Приём: <b>{1}</b></div>", [(Bestiary.ability(f.monsterId) || {}).desc || '', (Bestiary.ability(f.monsterId) || {}).name || '—']) : '', side === 'left' ? '<div class="pet-panel" id="pet-panel" hidden><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div>' : '', side === 'right' ? '<div class="pet-panel clone-panel" id="clone-panel" hidden><div class="clone-av"></div><div class="clone-body"><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div></div>' : '']);
 
+  { // 1.8.1: на телефоне вместо «ур. N» / «Ур.N Цвет» — цифра в кружке цвета уровня (CSS .lv-dot)
+    const dotTier = side === 'right' ? f.tier : Hero.tierFor(f.level || 1), tc = Tiers.get(dotTier), nm = el.querySelector('.name');
+    if (nm && tc) nm.insertAdjacentHTML('afterbegin', `<span class="lv-dot" style="--t:${tc.color};--ti:${tc.ink}" aria-hidden="true">${side === 'right' ? f.tier : (f.level || 1)}</span>`);
+  }
+  miniCounters(side);
   if (!host.main) for (const e of el.querySelectorAll('[id]')) { e.setAttribute('data-bid', e.id); e.id = 'pet-' + e.id; }   // 1.6.4 (WIP-07): id во втором поле уникальны
   const lvl = el.querySelector('input.level');
   if (lvl) {
@@ -358,7 +363,7 @@ function chooseFaction(id) {
 // Фракция игрока: имя героя и врождённые бонусы (растут с уровнем героя).
 function applyFaction() {
   const fac = playerFaction();
-  fighters.left.name = fac.hero;
+  fighters.left.name = Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender) || fac.hero;   // 1.7.7: у героини — женское звание («Боевая гномка»), а не мужское
   fighters.left.innate = Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(Profile.level()));
   fighters.left.ability = null;
   applyLevel();
@@ -508,7 +513,17 @@ function renderCounters(side, bumped = []) {
       d.classList.add('bump');
     }
   }
+  miniCounters(side);
   renderMagic();
+}
+// 1.8.3: на коротких телефонах стоя счётчики камней уходят из карточек бойцов — дублируем их мелко по краям строки хода (видны только там, см. .mini-cnt в CSS)
+function miniCounters(side) {
+  if (!host.main) return;
+  const center = document.querySelector('.arena .center'), src = fEl(side).querySelector('.counters');
+  if (!center || !src) return;
+  let box = center.querySelector('.mini-cnt');
+  if (!box) { box = document.createElement('div'); box.className = 'mini-cnt'; box.setAttribute('aria-hidden', 'true'); box.innerHTML = '<span class="mc mc-left"></span><span class="mc mc-right"></span>'; center.appendChild(box); }
+  box.querySelector(side === 'left' ? '.mc-left' : '.mc-right').innerHTML = [...src.querySelectorAll('.counter')].map((d) => `<i class="mc-i" data-type="${d.dataset.type}">${d.querySelector('svg') ? d.querySelector('svg').outerHTML : ''}<b>${d.querySelector('b').textContent}</b></i>`).join('');
 }
 
 /* ---------- Магия ---------- */
@@ -1204,6 +1219,8 @@ function showDamage(side, amount) {
   s.textContent = '-' + amount;
   fEl(side).appendChild(s);
   setTimeout(() => s.remove(), 900);
+  const av = fEl(side).querySelector('.avatar');           // 1.8.3: «живой» моб — при ударе портрет вздрагивает и наклоняется (CSS .hurt)
+  if (av) { av.classList.remove('hurt'); void av.offsetWidth; av.classList.add('hurt'); }
 }
 
 
@@ -1264,7 +1281,7 @@ const elxExtra = () => Village.elixirExtra(Profile.data.village) + (Profile.perk
 function elxSwapPlan(f) {
   let hi = null, lo = null;
   for (const t of MAGIC_TYPES) { const n = f.counts[t] || 0; if (!hi || n > hi.n) hi = { t, n }; if (!lo || n < lo.n) lo = { t, n }; }
-  return hi && lo && hi.n > lo.n ? { from: hi.t, to: lo.t, have: hi.n } : null;
+  return hi && lo && hi.n - lo.n >= 2 ? { from: hi.t, to: lo.t, have: hi.n, low: lo.n } : null;     // 1.8.0: разница меньше 2 — переносить нечего
 }
 function elxWhy(kind, tier) {                              // причина, по которой выпить нельзя ('' — можно)
   const f = fighters.left, K = Elixirs.KINDS[kind];
@@ -1299,7 +1316,7 @@ function useElixir(kind, tier) {
       showCenterPop('+' + h, 'heal', K.name);
       logEvent('left', _t("{0}: {1}, +{2} ХП", [f.name, K.name, h]));
     } else if (kind === 'swap') {
-      const pl = elxSwapPlan(f), n = Math.min(pl.have, Math.round(Elixirs.swapAmount(tier) * mult));
+      const pl = elxSwapPlan(f), n = Elixirs.swapMove(tier, pl.have, pl.low, mult);
       f.counts[pl.from] -= n; f.counts[pl.to] += n;
       renderCounters('left', [pl.from, pl.to]); SND.transmute();
       logEvent('left', _t("{0}: {1} — {2} из одного вида в другой", [f.name, K.name, _nn(n, 'камень', 'камня', 'камней')]));
@@ -3512,6 +3529,12 @@ function showHint() {
     if (tile) {
       tile.el.classList.add('hint');
       setTimeout(() => tile.el.classList.remove('hint'), 2500);
+    } else if (boardEl) {                       // 1.8.4: ход в пустую клетку — подсвечиваем и её (раньше светился только один камень)
+      const g = document.createElement('div');
+      g.className = 'hint-ghost';
+      g.style.transform = `translate(${(i % N) * 100}%, ${Math.floor(i / N) * 100}%)`;
+      boardEl.appendChild(g);
+      setTimeout(() => g.remove(), 2500);
     }
   }
   note(_t("Подсказка: этот обмен собирает камни"));
@@ -4331,7 +4354,8 @@ MapView.marketNews();           // Торговые ряды: что купил�
     el.classList.remove('has-poster'); el.style.backgroundImage = '';
     el.classList.add('fx');
     let ended = false;
-    const urls = [1, 2, 3, 4, 5, 6].map((n) => 'ui/shard-' + n).filter((k) => typeof Art !== 'undefined' && Art.has(k)).map((k) => Art.url(k));
+    const keys = Math.random() < 0.5 ? [1, 2, 3, 4, 5, 6].map((n) => 'ui/shard-' + n) : ['gems/sapphire', 'gems/emerald', 'gems/ruby', 'gems/onyx'];   // 1.8.2: вторая заставка — те же осколки-точки, но из наших 4 камней; выбор случайный
+    const urls = keys.filter((k) => typeof Art !== 'undefined' && Art.has(k)).map((k) => Art.url(k));
     const fx = SplashFx.play(el, {
       title: _t('Хрупкий мир'), sub: _t('Хрупкий мир') === 'Хрупкий мир' ? 'W O R L D   I N   P I E C E S' : '', shardUrls: urls,
       onEnd: () => {

@@ -35,7 +35,7 @@ const SplashFx = (() => {
       DPR = Math.min(2, window.devicePixelRatio || 1); W = host.clientWidth || innerWidth; H = host.clientHeight || innerHeight;
       cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       const off = document.createElement('canvas'); off.width = W; off.height = H; const o = off.getContext('2d');
-      const fs = Math.min(W / (opt.title.length * 0.62), H / 3.4);
+      const fs = Math.min(W * (W < H ? 0.8 : 0.9) / (opt.title.length * 0.62), H / 3.4);   // 1.8.2: на телефоне стоя поля по краям
       o.font = font(fs); o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff';
       const y = H * 0.46; o.fillText(opt.title, W / 2, y);
       const step = Math.max(6, Math.round(fs / 12)), d = o.getImageData(0, 0, W, H).data, pts = [];

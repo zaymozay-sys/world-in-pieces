@@ -76,10 +76,24 @@ const Art = (() => {
   /* ---------- существа ---------- */
   const hasMonster = (id) => has('monsters/' + id);
   // Бюст существа: цветная аура уровня и рисунок. Кольцо уровня рисует игра, на картинке его нет.
+  // 1.8.4: градиент ауры лежит один раз на странице (id по цвету) — раньше у каждой копии картинки был свой id,
+  // а одна и та же разметка стоит и в карточке врага, и в полосе боя: «дубли id» в проверке вёрстки.
+  function auraGrad(col) {
+    const gid = 'agr' + String(col).replace(/[^0-9a-z]/gi, '');
+    if (typeof document === 'undefined' || !document.body) return null;
+    if (!document.getElementById(gid)) {
+      let h = document.getElementById('aura-defs');
+      if (!h) { h = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); h.id = 'aura-defs'; h.setAttribute('width', '0'); h.setAttribute('height', '0'); h.setAttribute('aria-hidden', 'true'); h.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden'; document.body.appendChild(h); }
+      h.insertAdjacentHTML('beforeend', `<defs><radialGradient id="${gid}" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="${col}" stop-opacity="0"/><stop offset=".85" stop-color="${col}" stop-opacity=".55"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient></defs>`);
+    }
+    return gid;
+  }
   function monster(id, col, size) {
-    const g = 'ag' + id + Math.random().toString(36).slice(2, 6);
+    const shared = auraGrad(col);
+    const g = shared || ('ag' + id + Math.random().toString(36).slice(2, 6));
+    const defs = shared ? '' : `<defs><radialGradient id="${g}" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="${col}" stop-opacity="0"/><stop offset=".85" stop-color="${col}" stop-opacity=".55"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient></defs>`;
     return `<svg viewBox="0 0 100 100" ${size ? `width="${size}" height="${size}"` : ''} aria-hidden="true">
-      <defs><radialGradient id="${g}" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="${col}" stop-opacity="0"/><stop offset=".85" stop-color="${col}" stop-opacity=".55"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient></defs>
+      ${defs}
       <circle cx="50" cy="50" r="50" fill="url(#${g})"/>
       <image href="${url('monsters/' + id)}" x="5" y="5" width="90" height="90" preserveAspectRatio="xMidYMid meet"/></svg>`;
   }

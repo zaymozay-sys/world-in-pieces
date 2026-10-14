@@ -223,13 +223,14 @@ const World = (() => {
   const cacheCoins = (tier, rand = Math.random) => Math.round(60 * CK_W * W_T.PRICE_MULT[tier - 1] * (0.8 + rand() * 0.4));
 
   /* ---------- Арена теней ---------- */
+  // 1.8.4: десять рангов — по цветам уровней (Tiers): от красного до обсидианового
   const RANKS = [
-    _t("Деревянный ранг"), _t("Медный ранг"), _t("Бронзовый ранг"), _t("Железный ранг"), _t("Серебряный ранг"),
-    _t("Золотой ранг"), _t("Обсидиановый ранг"), _t("Мастер арены"), _t("Чемпион"), _t("Легенда арены"),
+    _t("Красный ранг"), _t("Оранжевый ранг"), _t("Жёлтый ранг"), _t("Зелёный ранг"), _t("Голубой ранг"),
+    _t("Синий ранг"), _t("Фиолетовый ранг"), _t("Серебряный ранг"), _t("Золотой ранг"), _t("Обсидиановый ранг"),
   ];
   const STARS = 3, ARENA_DAILY = 10;
   // Титулы за ранги (в Гардеробе Ратуши, не продаются).
-  const RANK_TITLES = { 3: 'gladiator', 6: 'champion', 9: 'arenaLegend' };
+  const RANK_TITLES = { 1: 'apprentice', 2: 'fighter', 3: 'gladiator', 4: 'shadowhunter', 5: 'shadowbreaker', 6: 'champion', 7: 'arenaMaster', 8: 'arenaHero', 9: 'arenaLegend' };
   const freshArena = () => ({ rank: 0, stars: 0, wins: 0, losses: 0, best: 0, day: '', fights: 0,
     season: 0, sBest: 0, sWins: 0, sLosses: 0, streak: 0, bestStreak: 0, revs: 0, revenge: null, pending: null, history: [], log: [] });   // 1.7.4: сезоны, серии, реванш, журнал боёв
   // Победа: +1 звезда; три звезды — новый ранг. Поражение: −1 звезда (ранг не теряется); soft — реванш: звезда не снимается.

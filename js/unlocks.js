@@ -33,7 +33,7 @@ const Unlocks = (() => {
     return _t("Исследуйте карту, охотьтесь на боссов и собирайте осколки Великого Сердца.");
   }
 
-  return { NEED, NAMES, isOpen, reason, openIds, goal, hint };
+  return { NEED, NAMES, GIVERS, isOpen, reason, openIds, goal, hint };
 })();
 
 if (typeof module !== 'undefined') module.exports = Unlocks;

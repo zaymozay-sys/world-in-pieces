@@ -56,10 +56,51 @@ const Village = (() => {
     { id: 'heartbind', name: _t("Хранитель Сердца"),  price: 600 * G, story: true },    // только после финала
     { id: 'legend',    name: _t("Легенда Грани"),     price: 1500 * G },
     // 1.5.4: титулы Арены теней — не продаются, выдаются за ранг (World.RANK_TITLES)
-    { id: 'gladiator',   name: _t("Гладиатор"),       price: 0, arena: 3 },
-    { id: 'champion',    name: _t("Чемпион арены"),   price: 0, arena: 6 },
-    { id: 'arenaLegend', name: _t("Легенда арены"),   price: 0, arena: 9 },
+    { id: 'apprentice',   name: _t("Ученик арены"),     price: 0, arena: 1 },
+    { id: 'fighter',      name: _t("Боец арены"),       price: 0, arena: 2 },
+    { id: 'gladiator',    name: _t("Гладиатор"),        price: 0, arena: 3 },
+    { id: 'shadowhunter', name: _t("Охотник на теней"), price: 0, arena: 4 },
+    { id: 'shadowbreaker',name: _t("Победитель теней"), price: 0, arena: 5 },
+    { id: 'champion',     name: _t("Чемпион арены"),    price: 0, arena: 6 },
+    { id: 'arenaMaster',  name: _t("Мастер арены"),     price: 0, arena: 7 },
+    { id: 'arenaHero',    name: _t("Герой арены"),      price: 0, arena: 8 },
+    { id: 'arenaLegend',  name: _t("Легенда арены"),    price: 0, arena: 9 },
     { id: 'seasonChamp', name: _t("Чемпион сезона"),  price: 0, season: true },   // 1.7.4: за сезон с Золотым рангом и выше (World.SEASON_TITLE_RANK)
+    // 1.8.4: титулы за достижения — выдаются сами (Village.syncTitles), не продаются
+    // — за комплекты медалей (все медали раздела)
+    { id: 'tGrKill',   name: _t("Великий охотник"),   price: 0, earn: { group: 'kill' },   how: _t("собрать все медали раздела «Охотник»") },
+    { id: 'tGrStreak', name: _t("Повелитель линий"),  price: 0, earn: { group: 'streak' }, how: _t("собрать все медали раздела «Мастер линий»") },
+    { id: 'tGrStrike', name: _t("Мастер Удара"),           price: 0, earn: { group: 'strike' }, how: _t("собрать все медали раздела «Мастер Удара»") },
+    { id: 'tGrShot',   name: _t("Меткий стрелок"),    price: 0, earn: { group: 'shot' },   how: _t("собрать все медали раздела «Меткий стрелок»") },
+    { id: 'tGrStyle',  name: _t("Мастер боя"),        price: 0, earn: { group: 'style' },  how: _t("собрать все медали раздела «Мастер боя»") },
+    { id: 'tGrWorld',  name: _t("Бывалый путник"),    price: 0, earn: { group: 'world' },  how: _t("собрать все медали раздела «Путешественник»") },
+    { id: 'tGrSecret', name: _t("Хранитель тайн"),    price: 0, earn: { group: 'secret' }, how: _t("собрать все медали раздела «Тайны»") },
+    { id: 'tGrDaily',  name: _t("Верный испытанию"),  price: 0, earn: { group: 'daily' },  how: _t("собрать все медали раздела «Верный испытанию»") },
+    { id: 'tGrElixir', name: _t("Алхимик"),           price: 0, earn: { group: 'elixir' }, how: _t("собрать все медали раздела «Алхимик»") },
+    // — за мир
+    { id: 'tWVisit',   name: _t("Свой человек"),      price: 0, earn: { medal: 'world:visit' },  how: _t("побывать в 12 разных зданиях") },
+    { id: 'tWChests',  name: _t("Хранитель ключей"),  price: 0, earn: { medal: 'world:chests' }, how: _t("открыть все четыре сундука побережья") },
+    { id: 'tWCaches',  name: _t("Кладоискатель"),     price: 0, earn: { medal: 'world:caches' }, how: _t("найти 10 тайников") },
+    { id: 'tWAltars',  name: _t("Паломник алтарей"),  price: 0, earn: { medal: 'world:altars' }, how: _t("получить благословение у 5 древних алтарей") },
+    { id: 'tExplorer', name: _t("Исследователь"),     price: 0, earn: { explore: true },         how: _t("исследовать всю сушу карты (100% в журнале)") },
+    // — по цвету героя (по одному на каждый из 10 цветов)
+    { id: 'tT1',  name: _t("Носитель рубина"),     price: 0, earn: { tier: 1 },  how: _t("герой цвета «Красный»") },
+    { id: 'tT2',  name: _t("Носитель янтаря"),     price: 0, earn: { tier: 2 },  how: _t("герой цвета «Оранжевый»") },
+    { id: 'tT3',  name: _t("Носитель гелиодора"),    price: 0, earn: { tier: 3 },  how: _t("герой цвета «Жёлтый»") },
+    { id: 'tT4',  name: _t("Носитель изумруда"),   price: 0, earn: { tier: 4 },  how: _t("герой цвета «Зелёный»") },
+    { id: 'tT5',  name: _t("Носитель аквамарина"), price: 0, earn: { tier: 5 },  how: _t("герой цвета «Голубой»") },
+    { id: 'tT6',  name: _t("Носитель сапфира"),    price: 0, earn: { tier: 6 },  how: _t("герой цвета «Синий»") },
+    { id: 'tT7',  name: _t("Носитель аметиста"),   price: 0, earn: { tier: 7 },  how: _t("герой цвета «Фиолетовый»") },
+    { id: 'tT8',  name: _t("Носитель серебра"),    price: 0, earn: { tier: 8 },  how: _t("герой цвета «Серебро»") },
+    { id: 'tT9',  name: _t("Носитель золота"),     price: 0, earn: { tier: 9 },  how: _t("герой цвета «Золото»") },
+    { id: 'tT10', name: _t("Носитель обсидиана"),  price: 0, earn: { tier: 10 }, how: _t("герой цвета «Обсидиановый»") },
+    // — редкие: за первую победу над боссами дальних земель
+    { id: 'tBBear',     name: _t("Гроза медведей"),   price: 0, earn: { boss: 'bear' },     how: _t("победить Медведя-шатуна") },
+    { id: 'tBGriffin',  name: _t("Гроза грифонов"),  price: 0, earn: { boss: 'griffin' },  how: _t("победить Грифона") },
+    { id: 'tBWyvern',   name: _t("Гроза виверн"),    price: 0, earn: { boss: 'wyvern' },   how: _t("победить Виверну") },
+    { id: 'tBBasilisk', name: _t("Гроза василисков"), price: 0, earn: { boss: 'basilisk' }, how: _t("победить Василиска") },
+    { id: 'tBCaptain',  name: _t("Гроза морей"),     price: 0, earn: { boss: 'captain' },  how: _t("победить Капитана") },
+    { id: 'tBAll',      name: _t("Покоритель дальних земель"), price: 0, earn: { allBosses: ['bear', 'griffin', 'wyvern', 'basilisk', 'captain'] }, how: _t("победить всех пятерых: Шатуна, Грифона, Виверну, Василиска и Капитана") },
   ];
   const FRAMES = [
     { id: 'bronze',   name: _t("Бронзовая"),   price: 2 * G,    color: '#b9824a' },
@@ -75,7 +116,7 @@ const Village = (() => {
   // Покупка косметики: kind 'titles' | 'frames'. storyDone — пройден ли финал (для особого титула).
   function buyCosmetic(c, kind, id, coins, storyDone) {
     const it = find(kind === 'titles' ? TITLES : FRAMES, id);
-    if (!it || it.arena || owns(c, kind, id) || coins < it.price || (it.story && !storyDone)) return 0;
+    if (!it || it.arena || it.season || it.earn || owns(c, kind, id) || coins < it.price || (it.story && !storyDone)) return 0;
     c[kind].push(id);
     return it.price;
   }
@@ -84,12 +125,35 @@ const Village = (() => {
     if (id !== null && !owns(c, kind, id)) return false;
     c[key] = id; return true;
   }
+  // 1.8.4: какие титулы-за-достижения уже заслужены. ctx: { earned (медали), tier (цвет героя), bestiary, explored }
+  function earnedTitleIds(ctx) {
+    const M = (typeof Medals !== 'undefined') ? Medals : null, out = [];
+    const won = (sp) => !!(ctx.bestiary && ctx.bestiary[sp] && ctx.bestiary[sp].wins >= 1);
+    for (const t of TITLES) {
+      const e = t.earn; if (!e) continue;
+      let ok = false;
+      if (e.group) ok = !!(M && M.groupDone(e.group, ctx.earned || []));
+      else if (e.medal) ok = (ctx.earned || []).some((m) => m.id === e.medal);
+      else if (e.tier) ok = (ctx.tier || 1) >= e.tier;
+      else if (e.boss) ok = won(e.boss);
+      else if (e.allBosses) ok = e.allBosses.every(won);
+      else if (e.explore) ok = !!ctx.explored;
+      if (ok) out.push(t.id);
+    }
+    return out;
+  }
+  // Выдаёт недостающие; возвращает названия новых.
+  function syncTitles(c, ctx) {
+    const fresh = [];
+    for (const id of earnedTitleIds(ctx)) if (!owns(c, 'titles', id)) { c.titles.push(id); fresh.push(find(TITLES, id).name); }
+    return fresh;
+  }
   const titleName = (c) => { const t = c && find(TITLES, c.title); return t ? t.name : ''; };
   const frameColor = (c) => { const f = c && find(FRAMES, c.frame); return f ? f.color : null; };
   const fullName = (name, c) => { const t = titleName(c); return t ? `${t} ${name}` : name; };
 
   return { MAX, IDS, INFO, lvl, lots, feePct, reqTier, cost, next, buy, temperCap, maxLots, feeRate, granaryChance, studyFactor, elixirExtra,
-    TITLES, FRAMES, fresh, owns, buyCosmetic, equip, titleName, frameColor, fullName };
+    TITLES, FRAMES, earnedTitleIds, syncTitles, fresh, owns, buyCosmetic, equip, titleName, frameColor, fullName };
 })();
 
 if (typeof module !== 'undefined') module.exports = Village;
