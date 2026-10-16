@@ -47,7 +47,7 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
     const s = await p.evaluate(() => {
       const vis = (sel) => { const e = document.querySelector('main.game:not(.duo-pet) ' + sel); if (!e) return null; const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return cs.display !== 'none' && r.width > 0 ? r : null; };
       const inside = (r) => !!r && r.left >= -1 && r.right <= innerWidth + 1 && r.top >= -1 && r.bottom <= innerHeight + 1;
-      const pics = ['#hint', '#mute', '#gear', '#restart', '#more'].map((s) => inside(vis(s)));
+      const pics = ['#mute', '#restart', '#more'].map((s) => inside(vis(s)));
       const sb = vis('#spellbar'), bg = vis('#bagbar'), bd = vis('#board');
       return {
         phone: document.body.classList.contains('phone'), noHScroll: document.documentElement.scrollWidth <= innerWidth + 1,
@@ -59,7 +59,7 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
     });
     assert.ok(s.phone, name + ': режим телефона включён');
     assert.ok(s.noHScroll, name + ': нет горизонтальной прокрутки');
-    assert.ok(s.pics.every(Boolean), name + ': все пять пиктограмм на экране ' + JSON.stringify(s.pics));
+    assert.ok(s.pics.every(Boolean), name + ': все три пиктограммы на экране ' + JSON.stringify(s.pics));
     assert.ok(s.spells >= 13 && s.spellsIn && s.bagIn && s.boardIn, name + ': магия, эликсиры и поле на экране ' + JSON.stringify(s));
     assert.ok(s.square, name + ': поле квадратное');
     assert.ok(s.hidden.every(Boolean), name + ': лишние кнопки убраны с экрана боя');
@@ -211,7 +211,7 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
     assert.strictEqual(r1.f, 1); assert.strictEqual(c0 - r1.c, r1.cost, 'золото списано');
     assert.ok(await p.evaluate(() => !!document.querySelector('.gear-toast')), 'сообщение об улучшении');
     // гардероб
-    await p.click('[data-tab="wardrobe"]'); await p.click('[data-vg-cos="titles:wanderer"]'); await p.waitForTimeout(200);
+    await p.click('[data-tab="wardrobe"]'); await p.evaluate(() => document.querySelectorAll('details.tgroup').forEach((d) => { d.open = true; })); await p.click('[data-vg-cos="titles:wanderer"]'); await p.waitForTimeout(200);
     const r2 = await p.evaluate(() => ({ t: Profile.data.cosmetics.title, n: Profile.heroName() }));
     assert.strictEqual(r2.t, 'wanderer'); assert.ok(/Странник/.test(r2.n), r2.n);
     await p.click('[data-vg-cos="frames:gold"]'); await p.waitForTimeout(200);

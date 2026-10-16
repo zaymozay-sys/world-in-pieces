@@ -74,7 +74,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.evaluate(() => { spellbarEl.children[0].disabled = false; document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1', key: '1', bubbles: true })); });   // в одном вызове: игра не успеет снова выключить кнопку
   await sleep(300);
   const kk = await p.evaluate(() => window.__k);
-  ok(kk.h === 1 && kk.s === 1, 'горячие клавиши боя: H и 1 → ' + JSON.stringify(kk));
+  ok(kk.h === 0 && kk.s === 1, 'горячие клавиши боя: 1 работает, H (подсказки после обучения нет) нет → ' + JSON.stringify(kk));
   // 1.5.9: долгое нажатие на кнопку заклинания (сенсор) показывает описание и не нажимает кнопку
   const lp = await p.evaluate(async () => { const w = (ms) => new Promise((r) => setTimeout(r, ms)); const b = spellbarEl.children[1]; let clicks = 0; b.addEventListener('click', () => clicks++); const ev = (t) => b.dispatchEvent(new PointerEvent(t, { pointerType: 'touch', bubbles: true, clientX: 50, clientY: 50 })); ev('pointerdown'); await w(700); const tip = document.querySelector('.lp-tip'); const shown = !!tip && !tip.hidden && tip.textContent === b.title && b.title.length > 3; ev('pointerup'); b.click(); await w(100); return { shown, clicks, title: b.title }; });
   ok(lp.shown && lp.clicks === 0, 'долгое нажатие: описание показано, нажатия нет: ' + JSON.stringify(lp));

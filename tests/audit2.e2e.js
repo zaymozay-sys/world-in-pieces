@@ -118,7 +118,7 @@ const INIT = () => {
   }
   {
     const { p, ctx } = await open(844, 390, '#dev-fight-goblin-3-solo');
-    await p.click('#gear'); await p.waitForTimeout(500);
+    await p.evaluate(() => Inventory.open('left')); await p.waitForTimeout(500);
     await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(900);
     const m = await p.evaluate(() => { const o = document.querySelector('.overlay, .modal-back'); if (!o) return null; const r = (o.querySelector('.modal') || o).getBoundingClientRect(); const close = [...o.querySelectorAll('button')].find((x) => /Закрыть|Назад|✕|×/.test(x.textContent)); const cr = close && close.getBoundingClientRect(); return { r: [r.left, r.top, r.right, r.bottom].map(Math.round), close: cr ? [cr.left, cr.top, cr.right, cr.bottom].map(Math.round) : null }; });
     ok('сумка открыта и поворот: окно и кнопка закрытия внутри экрана', m && m.r[0] >= 0 && m.r[2] <= 390 && m.close && m.close[0] >= 0 && m.close[2] <= 390 && m.close[3] <= 844, JSON.stringify(m));
