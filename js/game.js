@@ -894,7 +894,13 @@ function spellDisabled(kind, on, ready) {
   return false;
 }
 
+// 1.8.5: кнопка «Подсказка» нужна только на обучении; после него её убираем (прорицание остаётся заклинанием)
+function syncHintBtn() {
+  const t = Profile.data.tutorial;
+  document.body.classList.toggle('no-hint', !!(t && t.done) && !(typeof Tutorial !== 'undefined' && Tutorial.active));
+}
 function renderMagic() {
+  syncHintBtn();
   const f = fighters.left;
   updatePetSkill();
   for (const kind of Object.keys(MAGICS)) {
@@ -2128,6 +2134,11 @@ function rewardFor(f, first = true, opts = {}) {
   for (const sm of styleMedals) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(sm.id)]));
   for (const m of [killMedal, shotMedal, strikeMedal, ...secretMedals, ...styleMedals]) {      // 1.6.3: собран комплект — умение и реликвия
     if (m && m.relic) { const gk = m.relic.slice(6); lines.push(_t("<b class=\"lvlup\">Комплект собран!</b> Умение «{0}»: {1}. Реликвия: {2}", [Medals.PERKS[gk].name, Medals.PERKS[gk].desc, Gear.item({ id: m.relic, tier: 1 }).name])); }
+  }
+  for (const m of [killMedal, shotMedal, strikeMedal, ...secretMedals, ...styleMedals]) {        // 1.8.5: медаль — картинкой в добыче, по нажатию/наведению — суть
+    if (!m) continue;
+    const e = Profile.medals().find((x) => x.id === m.id), cap = Screens.medalCaption(m.id);
+    chips.push(`<button type="button" class="loot-chip medal-chip" data-cap="${cap.replace(/"/g, '&quot;')}" title="${cap.replace(/"/g, '&quot;')}">${Screens.medalTile(m.id, e || { id: m.id, tier: 1 }, Profile.level(), 1, 1).replace(/ data-medal="[^"]*"| data-tip="[^"]*"| tabindex="0"| role="button"/g, '')}</button>`);
   }
   if (drops.weak) lines.push(`<span class="hint">${_t("Существо слабее вашего цвета: ресурсов нет")}</span>`);   // 1.6.6
   for (const r of drops.resources) {
@@ -3622,7 +3633,7 @@ if (host.main) document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if (!document.body.classList.contains('mode-battle') || document.querySelector('.modal, .overlay')) return;
   const c = e.code, press = (id) => { const b = $(id); if (b && !b.disabled) { e.preventDefault(); b.click(); } };
-  if (c === 'KeyH') return press('hint');
+  if (c === 'KeyH') return document.body.classList.contains('no-hint') ? undefined : press('hint');
   if (c === 'KeyI') return press('gear');
   if (c === 'KeyB') return press('bestiary');
   const m = /^Digit(\d)$/.exec(c);

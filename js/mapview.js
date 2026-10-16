@@ -315,12 +315,17 @@ const MapView = (() => {
     ckIndex('l-fog');
   }
 
-  function lift(i) {
+  // 1.8.5: новые земли открываются волной от героя (чем дальше сота — тем позже), туман тает ~1 с, существа проявляются следом.
+  const freshIdx = new Set();
+  function lift(i, from) {
     const f = fogEls.get(i);
     if (!f) return;
     fogEls.delete(i);
+    const d = from != null && map.cells[from] ? Math.max(0, Math.round(HexMap.dist ? HexMap.dist(map.cells[from], map.cells[i]) : 0)) : 0;
+    f.style.transitionDelay = (d * 110) + 'ms';
     f.classList.add('lift');
-    setTimeout(() => f.remove(), 500);
+    freshIdx.add(i);
+    setTimeout(() => f.remove(), 1000 + d * 110);
   }
 
   // Фигурки боссов (1.7.7): art/map/boss-<b1..b5|z1..z9>. Нет картинки — старый круглый жетон с бюстом.
@@ -351,7 +356,7 @@ const MapView = (() => {
         continue;
       }
       const elite = eliteOf(sp), fig = bossFigure(sp);
-      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
+      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
           ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>
@@ -361,6 +366,7 @@ const MapView = (() => {
     }
     renderSiegeTokens(out);
     el['l-mon'].innerHTML = bucketHtml(mb) + out.join('');
+    setTimeout(() => freshIdx.clear(), 1600);
     ckIndex('l-mon');
     renderEvents();
   }
@@ -472,7 +478,7 @@ const MapView = (() => {
       if (revealed.has(n)) continue;
       revealed.add(n);
       changed = true;
-      if (fogEls.size) lift(n);
+      if (fogEls.size) lift(n, i);
     }
     // встреченные существа попадают в бестиарий
     for (const n of revealed) {
@@ -1115,7 +1121,7 @@ const MapView = (() => {
   }
   function revealArea(center, r) {
     let added = 0;
-    for (const n of HexMap.area(map, center, r)) if (!revealed.has(n)) { revealed.add(n); added++; lift(n); }
+    for (const n of HexMap.area(map, center, r)) if (!revealed.has(n)) { revealed.add(n); added++; lift(n, center); }
     if (added) { renderMonsters(); mini.dirty = true; }
     return added;
   }

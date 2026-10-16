@@ -1225,7 +1225,7 @@ body.mode-battle .map-view { display: none; }
 @keyframes sails { to { transform: rotate(360deg); } }
 #map-svg.far .map-label-g, #map-svg.far .tier-badge { display: none; }
 
-#l-fog polygon { fill: url(#fog-g); stroke: #0b0c0f; stroke-width: 2; transition: opacity .45s ease; }
+#l-fog polygon { fill: url(#fog-g); stroke: #0b0c0f; stroke-width: 2; transition: opacity .9s ease-in-out; }
 #l-fog polygon.lift { opacity: 0; }
 
 .hover-hex { fill: rgba(255, 255, 255, .1); stroke: #fff; stroke-width: 2; stroke-opacity: .7; pointer-events: none; }
@@ -2437,7 +2437,7 @@ body.ui-columns.phone .fighter .gearrow, body.ui-columns.phone .fighter .statlin
 body.ui-columns.phone .fighter .ability-line, body.ui-columns.phone .fighter .badge { display: none !important; }
 body.ui-columns.phone .menu, body.ui-columns.phone .bar, body.ui-columns.phone .bar .btns { display: contents; }
 body.ui-columns.phone :is(#hint,[data-bid="hint"]) { grid-area: p1; } body.ui-columns.phone :is(#mute,[data-bid="mute"]) { grid-area: p2; }
-body.ui-columns.phone :is(#gear,[data-bid="gear"]) { grid-area: p3; } body.ui-columns.phone :is(#restart,[data-bid="restart"]) { grid-area: p4; } body.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p5; }
+body.ui-columns.phone :is(#restart,[data-bid="restart"]) { grid-area: p3; } body.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p4; }   /* 1.8.5: в бою кнопки «Сумка» нет */
 body.ui-columns.phone :is(:is(#hint,[data-bid="hint"]), :is(#mute,[data-bid="mute"]), :is(#gear,[data-bid="gear"]), :is(#restart,[data-bid="restart"]), :is(#more,[data-bid="more"])) {
   font-size: 0; padding: 0; min-height: 40px; height: 100%; width: 100%; border-radius: 10px;
   background-repeat: no-repeat; background-position: center; background-size: 58%; overflow: hidden;
@@ -2470,9 +2470,19 @@ body.ui-columns.phone .spellbar { align-content: start; }
       "b  b  b  b  b  b  b  b  b  b"
       "sp sp sp sp sp sp sp sp sp sp"
       "bg bg bg bg bg bg bg bg bg bg"
-      "p1 p1 p2 p2 p3 p3 p4 p4 p5 p5"
+      ".  p1 p1 p2 p2 p3 p3 p4 p4 ."
       "lg lg lg lg lg lg lg lg lg lg";
     gap: 5px; justify-content: stretch; width: 100%;
+  }
+body.no-hint.ui-columns.phone .arena {
+    grid-template-areas:
+      "l  l  l  l  l  r  r  r  r  r"
+      "st st st st st st st st tm tm"
+      "b  b  b  b  b  b  b  b  b  b"
+      "sp sp sp sp sp sp sp sp sp sp"
+      "bg bg bg bg bg bg bg bg bg bg"
+      ".  .  p1 p1 p2 p2 p3 p3 .  ."
+      "lg lg lg lg lg lg lg lg lg lg";
   }
   body.ui-columns.phone .spellbar { --sb: calc((100% - 6 * var(--sg)) / 7); grid-template-columns: repeat(7, 1fr); grid-auto-rows: auto; width: 100%; }
   body.ui-columns.phone .spellbar button.magic { width: 100%; height: auto; aspect-ratio: 1; min-height: 38px; }
@@ -2494,8 +2504,16 @@ body.ui-columns.phone .spellbar { align-content: start; }
       "l  l  l  b  r  r  r"
       "sp sp sp b  bg bg bg"
       "sp sp sp b  p1 p2 p3"
-      "sp sp sp b  p4 p5 .";
+      "sp sp sp b  p4 p4 p4";
     gap: var(--sg); justify-content: center; height: calc(100dvh - 12px); align-items: stretch;
+  }
+body.no-hint.ui-columns.phone .arena {
+    grid-template-areas:
+      "st st st b  tm tm tm"
+      "l  l  l  b  r  r  r"
+      "sp sp sp b  bg bg bg"
+      "sp sp sp b  p1 p2 p3"
+      "sp sp sp b  .  .  .";
   }
   body.ui-columns.phone :is(#board,[data-bid="board"]) { grid-row: 1 / -1; align-self: start; width: var(--board); }
   body.ui-columns.phone .spellbar { grid-template-columns: repeat(3, var(--sb)); grid-auto-rows: var(--sb); align-content: start; }
@@ -2930,7 +2948,7 @@ body.ui-columns.phone .log-wrap:not([open]) { display: none; }
     --g: 3px; --sg: 3px;
     --bar: 44px;
     --A: calc(100dvh - var(--bar) - 10px);
-    --sb: clamp(36px, calc((100vw - 42px - var(--A)) / 8), 44px);
+    --sb: clamp(28px, min(calc((100vw - 42px - var(--A)) / 8), calc((var(--A) - 20px - 98px - 6 * var(--g)) / 5)), 44px);   /* 1.8.5: ячейки не выше, чем оставляет карточке героя (≥98px) */
     --board: min(var(--A), calc(100vw - 42px - 8 * var(--sb)));
   }
   body.ui-columns.phone.mode-battle .duo-bar { height: var(--bar); padding: 2px 6px; }
@@ -2946,8 +2964,18 @@ body.ui-columns.phone .log-wrap:not([open]) { display: none; }
       "sp sp sp sp b bg bg bg bg"
       "sp sp sp sp b bg bg bg bg"
       "sp sp sp sp b p1 p2 p3 p4"
-      ".  .  .  .  b p5 .  .  .";
+      ".  .  .  .  b .  .  .  .";
     gap: var(--g); justify-content: center; align-items: stretch; width: 100%; height: var(--A);
+  }
+body.no-hint.ui-columns.phone.mode-battle .arena, body.no-hint.ui-columns.phone.mode-battle.duo-battle .arena {
+    grid-template-areas:
+      "st st st st b tm tm tm tm"
+      "l  l  l  l  b r  r  r  r"
+      "sp sp sp sp b bg bg bg bg"
+      "sp sp sp sp b bg bg bg bg"
+      "sp sp sp sp b bg bg bg bg"
+      "sp sp sp sp b p1 p2 p3 ."
+      ".  .  .  .  b .  .  .  .";
   }
   body.ui-columns.phone.mode-battle :is(#board,[data-bid="board"]) { grid-area: b; grid-row: 1 / -1; align-self: start; width: var(--board); }
   body.ui-columns.phone.mode-battle .spellbar { grid-template-columns: repeat(4, var(--sb)); grid-auto-rows: var(--sb); gap: var(--g); align-content: start; }
@@ -3003,8 +3031,17 @@ body.ui-columns.phone .log-wrap:not([open]) { display: none; }
       "b  b  b  b  b  b  b  b  b  b"
       "sp sp sp sp sp sp sp sp sp sp"
       "bg bg bg bg bg bg bg bg bg bg"
-      "p1 p1 p2 p2 p3 p3 p4 p4 p5 p5";
+      ".  p1 p1 p2 p2 p3 p3 p4 p4 .";
     gap: 4px;
+  }
+  body.no-hint.ui-columns.phone.mode-battle .arena {
+    grid-template-areas:
+      "l  l  l  l  l  r  r  r  r  r"
+      "st st st st st st st st tm tm"
+      "b  b  b  b  b  b  b  b  b  b"
+      "sp sp sp sp sp sp sp sp sp sp"
+      "bg bg bg bg bg bg bg bg bg bg"
+      ".  .  p1 p1 p2 p2 p3 p3 .  .";
   }
   body.ui-columns.phone.mode-battle .spellbar button.magic { height: var(--spc); min-height: 0; aspect-ratio: auto; }
   body.ui-columns.phone.mode-battle .spellbar .magic-icon { width: auto; height: 72%; aspect-ratio: 1; }
@@ -3486,7 +3523,17 @@ body.ui-columns:not(.phone) .pq-nm { font-size: 13px; }
       "b  b  b  b  b  b  b  b  b  b"
       "sp sp sp sp sp sp sp sp sp sp"
       "bg bg bg bg bg bg bg bg bg bg"
-      "p1 p1 p2 p2 p3 p3 p4 p4 p5 p5";
+      ".  p1 p1 p2 p2 p3 p3 p4 p4 .";
+  }
+  body.no-hint.ui-columns.phone.mode-battle .arena {
+    grid-template-areas:
+      "l  l  l  l  l  r  r  r  r  r"
+      "pq pq pq pq pq pq pq pq pq pq"
+      "st st st st st st st st tm tm"
+      "b  b  b  b  b  b  b  b  b  b"
+      "sp sp sp sp sp sp sp sp sp sp"
+      "bg bg bg bg bg bg bg bg bg bg"
+      ".  .  p1 p1 p2 p2 p3 p3 .  .";
   }
   body.ui-columns.phone.mode-battle .pq-row { grid-area: pq; display: flex; gap: 4px; height: var(--pqh); min-width: 0; }
   body.ui-columns.phone.mode-battle .pq-row .pq { flex: 1 1 0; grid-template-columns: 28px minmax(0, 1fr); grid-template-areas: "av nm" "av hp" "av st"; padding: 3px 5px; column-gap: 5px; row-gap: 1px; }
@@ -3677,3 +3724,23 @@ button.bought-flash { background: #2d6a3f !important; border-color: #5fbf78 !imp
 .tgroup > summary.tgrp::before { content: "▸ "; }
 .tgroup[open] > summary.tgrp::before { content: "▾ "; }
 .tgroup > summary small { float: right; opacity: .8; text-transform: none; letter-spacing: 0; }
+
+/* 1.8.5: медаль в окне победы — круглый значок среди добычи */
+.overlay .loot-chip.medal-chip { padding: 0; background: none; border: 0; border-radius: 50%; }
+.overlay .loot-chip.medal-chip .medal-round { width: 100%; height: 100%; pointer-events: none; }
+
+/* 1.8.5: во время хода камней (busy) кнопки сумки лишь на миг становятся недоступными — не мерцаем тусклым/ярким */
+button.bagitem[data-state="wait"], button.bagitem[data-state="wait"]:disabled { opacity: 1; border-color: #c9b48a; box-shadow: 0 0 6px rgba(255, 235, 170, .3); cursor: default; }
+
+/* 1.8.5: существа в только что открытых сотах проявляются вслед за туманом */
+@keyframes monFresh { from { opacity: 0; } to { opacity: 1; } }
+#l-mon .mon.fresh { animation: monFresh 1s ease-out .35s backwards; }
+
+/* 1.8.5: в бою кнопка «Сумка» не нужна — эликсиры, боеприпасы и расходники видны на столе боя */
+body.mode-battle :is(#gear,[data-bid="gear"]) { display: none !important; }
+
+/* 1.8.5: после обучения кнопка «Подсказка» убрана (body.no-hint ставит игра): остальные кнопки перераскладываются */
+body.no-hint :is(#hint,[data-bid="hint"]) { display: none !important; }
+body.no-hint.ui-columns.phone :is(#mute,[data-bid="mute"]) { grid-area: p1; }
+body.no-hint.ui-columns.phone :is(#restart,[data-bid="restart"]) { grid-area: p2; }
+body.no-hint.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p3; }

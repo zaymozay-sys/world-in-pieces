@@ -1,6 +1,6 @@
 {
   "name": "world-in-pieces",
-  "version": "1.8.4",
+  "version": "1.8.5",
   "description": "World in Pieces (Хрупкий мир) — три в ряд на поле 6x6 с противником и магией",
   "scripts": {
     "audit": "node tools/layout-audit.js",

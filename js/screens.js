@@ -101,14 +101,24 @@ const Screens = (() => {
     });
     document.body.appendChild(o);
   }
+  function medalHow(id, got) {
+    const species = Medals.killSpecies(id), n = id.slice(id.indexOf(':') + 1);
+    return id.startsWith('drunk:') ? _t("Выдаётся за {0} выпитых в боях эликсиров любого вида за всё время игры.", [n]) : Medals.elixirKey(id) ? _t("Выдаётся один раз — за первый выпитый в бою «{0}».", [Elixirs.KINDS[Medals.elixirKey(id)].name]) : id.startsWith('daily:') ? _t("Выдаётся за {0} дней подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
+      : id.startsWith('strike:') ? _t("Выдаётся за {0} добиваний противника заклинанием «Удар» за всё время игры.", [n])
+      : id.startsWith('shot:') ? _t("Выдаётся за {0} добиваний противника Выстрелом (боеприпасом) за всё время игры.", [n])
+      : _t("Выдаётся за {0} собранных линий из 5 камней за всё время игры.", [n]);
+  }
+  // 1.8.5: подпись медали для окна победы: название, условие, бонус
+  function medalCaption(id) {
+    const got = !!Profile.medals().find((m) => m.id === id);
+    const bonus = Object.entries(Medals.bonusFor(id, Profile.data.bestiary) || {}).map(([k, v]) => `${STAT_NAMES_RU[k] || k} +${v}`).join(', ');
+    return Medals.nameFor(id) + ' — ' + medalHow(id, got) + (bonus ? ' ' + _t("Награда: постоянный бонус {0}.", [bonus]) : '');
+  }
   function medalPop(el) {
     const id = el.dataset.medal, prog = Number(el.dataset.prog) || 0, need = Number(el.dataset.need) || 1;
     const level = Profile.level(), earned = Profile.medals().find((m) => m.id === id), got = !!earned;
     const unlockLvl = Medals.tierUnlockLevel(id), species = Medals.killSpecies(id), n = id.slice(id.indexOf(':') + 1);
-    const how = id.startsWith('drunk:') ? _t("Выдаётся за {0} выпитых в боях эликсиров любого вида за всё время игры.", [n]) : Medals.elixirKey(id) ? _t("Выдаётся один раз — за первый выпитый в бою «{0}».", [Elixirs.KINDS[Medals.elixirKey(id)].name]) : id.startsWith('daily:') ? _t("Выдаётся за {0} дней подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
-      : id.startsWith('strike:') ? _t("Выдаётся за {0} добиваний противника заклинанием «Удар» за всё время игры.", [n])
-      : id.startsWith('shot:') ? _t("Выдаётся за {0} добиваний противника Выстрелом (боеприпасом) за всё время игры.", [n])
-      : _t("Выдаётся за {0} собранных линий из 5 камней за всё время игры.", [n]);
+    const how = medalHow(id, got);
     const bonus = Object.entries(Medals.bonusFor(id, Profile.data.bestiary) || {}).map(([k, v]) => `${STAT_NAMES_RU[k] || k} +${v}`).join(', ');
     const status = got ? _t("Получена") : _t("Прогресс: {0} / {1}", [prog, need]);
     const rankLine = species ? `<p class="hint">${_t("Ступени: бронза — 1 победа, серебро — {0} (бонус ×2), золото — {1} (бонус ×3). Сейчас побед: {2}.", [Medals.RANK_WINS[1], Medals.RANK_WINS[2], (Profile.data.bestiary[species] && Profile.data.bestiary[species].wins) || 0])}</p>` : '';
@@ -1815,7 +1825,7 @@ const credits = {
   };
 
   const SCREENS = { help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, valor, credits, kennel, alchemist, market, village, arena };
-  return { open, close, refresh: render, get isOpen() { return !!root; }, openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: () => open('best'),
+  return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: () => open('best'),
     openTavern: () => { st.tavern.msg = ''; open('tavern'); },
     openJunker: () => { st.junker.msg = ''; open('junker'); },
     openMill: () => { st.mill.msg = ''; open('mill'); },

@@ -207,6 +207,7 @@ const Tutorial = (() => {
   function start(force = false) {
     if (!force && Profile.data.tutorial && Profile.data.tutorial.done) return;
     active = true;
+    document.body.classList.remove('no-hint');
     Profile.data.tutorial = Object.assign(Profile.data.tutorial || {}, { done: false });
     if (typeof Screens !== 'undefined' && Screens.isOpen) Screens.close();
     go(0);
@@ -225,6 +226,7 @@ const Tutorial = (() => {
       if (typeof MapView !== 'undefined' && MapView.toast) MapView.toast(_t("Бобёр вручил 100 монет и 2 зелья здоровья. В путь!"));
     }
     Profile.save();
+    document.body.classList.add('no-hint');                // 1.8.5: после обучения «Подсказки» в бою нет
     if (typeof MapView !== 'undefined') MapView.renderHud();
     if (!d.faction && typeof Screens !== 'undefined') setTimeout(() => Screens.openFactions(true), 50);   // 1.5.4: пропустили обучение до выбора народа
   }
