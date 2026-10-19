@@ -12,6 +12,7 @@ const MapArt = (() => {
     water:    ['#5790bf', '#316390', '#1d4268'],
     mountain: ['#948e87', '#716c66', '#4c4843'],
     village:  ['#b09b70', '#927e5b', '#6b5a40'],
+    castle:   ['#9a9aa2', '#7a7a84', '#56565f'],   // 1.8.6: двор замка (мини-карта)
     sea:      ['#3f86b8', '#1f5f94', '#123f69'],
     beach:    ['#eadcab', '#d9c78c', '#b5a06a'],
     cobble:   ['#b3a68c', '#9a8c72', '#7a6d56'],   // 1.3.0: мощёные улица и площадь города
@@ -216,6 +217,12 @@ const MapArt = (() => {
       <rect x="-13" y="9" width="7" height="4.5" rx="1" fill="#6b4a2b" stroke="${O}" stroke-width=".6"/>
       <rect x="-6" y="10.2" width="7" height="3.3" rx="1" fill="#7a5a34" stroke="${O}" stroke-width=".6"/>
       <path d="M-14 9 Q-9.5 6 -5 9" stroke="#3a332b" stroke-width=".9" fill="none"/>`,
+    jeweler: () => `${shadow}
+      ${house('#6b6a86', '#34304a', 28, 17)}${door(-8)}
+      <path d="M6 -4 L10 -9 L14 -4 L10 2Z" fill="#6aa8e8" stroke="${O}" stroke-width=".7"/>
+      <path d="M6 -4 H14 M10 -9 V2" stroke="#fff" stroke-width=".5" opacity=".7"/>
+      <rect x="-14" y="-3" width="7" height="6" rx="1" fill="#e8cf3a" stroke="${O}" stroke-width=".6"/>
+      <path d="M-14 -3 L-10.5 -7 L-7 -3Z" fill="#e0605a" stroke="${O}" stroke-width=".6"/>`,
     artistWorkshop: () => `${shadow}
       ${house('#b08a5a', '#5a4630', 28, 17)}${door(-8)}
       <rect x="6" y="-26" width="6" height="24" fill="#5a4630" stroke="${O}" stroke-width=".7"/>
@@ -267,6 +274,64 @@ const MapArt = (() => {
       <path d="M-11 -1 H11 M-11 6 H11 M0 -9 V14" stroke="#2c2c30" stroke-width="1.6"/><circle cx="-3" cy="3" r="1.3" fill="#c9b27c" stroke="${O}" stroke-width=".4"/><circle cx="3" cy="3" r="1.3" fill="#c9b27c" stroke="${O}" stroke-width=".4"/>
       <path d="M-16 -12 q2 -5 5 -2 M12 -15 q3 -4 5 0" stroke="${O}" stroke-width=".8" fill="none"/>
       <path d="M-14 14 l-3 -5 l5 0z M14 14 l3 -5 l-5 0z" fill="#8d8678" stroke="${O}" stroke-width=".6"/>`,
+    altar: () => `${shadow}
+      <ellipse cy="14" rx="19" ry="6" fill="#9a9488" stroke="${O}"/><ellipse cy="12" rx="14" ry="4.5" fill="#bdb6a6" stroke="${O}" stroke-width=".8"/>
+      <rect x="-9" y="-2" width="18" height="12" fill="#c9c2b2" stroke="${O}"/><path d="M-11 -2 H11 L8 -6 H-8Z" fill="#e0d9c8" stroke="${O}"/>
+      <path d="M-14 12 V-10 M14 12 V-10" stroke="#a8a090" stroke-width="3.5" stroke-linecap="round"/><path d="M-16 -10 H16" stroke="#8f8878" stroke-width="3" stroke-linecap="round"/>
+      <circle cy="-14" r="4.5" fill="#fff3b0" opacity=".85"/><circle cy="-14" r="2.2" fill="#ffd95a"/>
+      <path d="M0 -4 v-7 M-3 -8 h6" stroke="#7bd8e8" stroke-width="1.4" stroke-linecap="round"/>`,
+    guardhouse: () => `${shadow}
+      <rect x="-17" y="-4" width="34" height="20" fill="#9a9a98" stroke="${O}"/><path d="M-17 -4 H17 M-17 2 H17 M-17 8 H17" stroke="#6f6f6d" stroke-width=".8"/>
+      <path d="M-19 -4 V-12 H-14 V-9 H-9 V-12 H-4 V-9 H1 V-12 H6 V-9 H11 V-12 H19 V-4Z" fill="#8a8a88" stroke="${O}"/>
+      <path d="M-16 -12 L0 -22 L16 -12Z" fill="#a83a2e" stroke="${O}"/>
+      ${door(0)}${win(-11, 4)}${win(11, 4)}
+      <path d="M-21 16 V-2 M-21 -2 L-27 -4 L-21 -6 M-19 16 L-19 4 M-23 16 L-23 4" stroke="#6b4a2b" stroke-width="1.3" fill="#3a6ad0"/>
+      <path d="M22 16 V2 M20 5 L22 -3 L24 5Z" stroke="${O}" stroke-width=".8" fill="#d8d8e0"/>`,
+    bank: () => `${shadow}<path d="M-18 16 H18" stroke="#6b4a2b" stroke-width="2"/>
+      <rect x="-14" y="2" width="20" height="14" fill="#cdb58a" stroke="${O}"/><path d="M-14 2 L-4 -6 L6 2" fill="#b3946a" stroke="${O}"/>
+      <path d="M8 16 V-10 M14 16 V-10 M8 -4 H14 M8 4 H14 M8 10 H14 M8 -10 L14 -4 M14 -10 L8 -4" stroke="#8a5a32" stroke-width="1.5" fill="none"/>
+      <path d="M-16 16 l3 -5 l3 5Z M-11 16 l3 -3 l3 3Z" fill="#a89878" stroke="${O}" stroke-width=".6"/>
+      <path d="M12 -10 L12 -17 M12 -17 L19 -14" stroke="${O}" stroke-width="1" fill="#d96a2b"/>`,
+    mail: () => `${shadow}<path d="M-18 16 H18" stroke="#6b4a2b" stroke-width="2"/>
+      <rect x="-14" y="2" width="20" height="14" fill="#cdb58a" stroke="${O}"/><path d="M-14 2 L-4 -6 L6 2" fill="#b3946a" stroke="${O}"/>
+      <path d="M8 16 V-10 M14 16 V-10 M8 -4 H14 M8 4 H14 M8 10 H14 M8 -10 L14 -4 M14 -10 L8 -4" stroke="#8a5a32" stroke-width="1.5" fill="none"/>
+      <path d="M-16 16 l3 -5 l3 5Z M-11 16 l3 -3 l3 3Z" fill="#a89878" stroke="${O}" stroke-width=".6"/>
+      <path d="M12 -10 L12 -17 M12 -17 L19 -14" stroke="${O}" stroke-width="1" fill="#d96a2b"/>`,
+    site1: () => `${shadow}<path d="M-18 16 H18" stroke="#6b4a2b" stroke-width="2"/>
+      <rect x="-14" y="2" width="20" height="14" fill="#cdb58a" stroke="${O}"/><path d="M-14 2 L-4 -6 L6 2" fill="#b3946a" stroke="${O}"/>
+      <path d="M8 16 V-10 M14 16 V-10 M8 -4 H14 M8 4 H14 M8 10 H14 M8 -10 L14 -4 M14 -10 L8 -4" stroke="#8a5a32" stroke-width="1.5" fill="none"/>
+      <path d="M-16 16 l3 -5 l3 5Z M-11 16 l3 -3 l3 3Z" fill="#a89878" stroke="${O}" stroke-width=".6"/>
+      <path d="M12 -10 L12 -17 M12 -17 L19 -14" stroke="${O}" stroke-width="1" fill="#d96a2b"/>`,
+    site2: () => `${shadow}<path d="M-18 16 H18" stroke="#6b4a2b" stroke-width="2"/>
+      <rect x="-14" y="2" width="20" height="14" fill="#cdb58a" stroke="${O}"/><path d="M-14 2 L-4 -6 L6 2" fill="#b3946a" stroke="${O}"/>
+      <path d="M8 16 V-10 M14 16 V-10 M8 -4 H14 M8 4 H14 M8 10 H14 M8 -10 L14 -4 M14 -10 L8 -4" stroke="#8a5a32" stroke-width="1.5" fill="none"/>
+      <path d="M-16 16 l3 -5 l3 5Z M-11 16 l3 -3 l3 3Z" fill="#a89878" stroke="${O}" stroke-width=".6"/>
+      <path d="M12 -10 L12 -17 M12 -17 L19 -14" stroke="${O}" stroke-width="1" fill="#d96a2b"/>`,
+    ruinHouse: () => `${shadow}
+      <rect x="-14" y="-2" width="28" height="18" fill="#6f6a60" stroke="${O}"/><path d="M-14 4 H14 M-14 10 H14" stroke="#4d493f" stroke-width=".8"/>
+      <path d="M-18 -2 L-6 -14 L-1 -8 L4 -12 L8 -4 L18 -2Z" fill="#4a463e" stroke="${O}"/><path d="M-6 -14 L-3 -2 M4 -12 L2 -2" stroke="${O}" stroke-width=".8"/>
+      <rect x="-8" y="6" width="6" height="10" rx="3" fill="#20262e" stroke="${O}" stroke-width=".8"/><rect x="6" y="2" width="5" height="5" fill="#7fc4ff" opacity=".75" stroke="${O}" stroke-width=".6"/>
+      <path d="M-14 16 q3 -6 5 -2 M12 16 q2 -5 5 -1" stroke="#3d5a35" stroke-width="1.6" fill="none"/>`,
+    ruinTower: () => `${shadow}
+      <path d="M-9 16 V-14 L-7 -17 L-4 -14 L-1 -17 L2 -14 L5 -17 L9 -14 V16Z" fill="#767268" stroke="${O}"/>
+      <path d="M-9 -2 H9 M-9 6 H9" stroke="#4d493f" stroke-width=".8"/><rect x="-2.5" y="-9" width="5" height="8" rx="2.5" fill="#20262e" stroke="${O}" stroke-width=".7"/>
+      <circle cx="0" cy="-4" r="1.6" fill="#7fc4ff" opacity=".8"/><path d="M9 -12 L17 -14 L10 -9Z" fill="#3a2a40" stroke="${O}" stroke-width=".6"/>
+      <path d="M-9 16 q-3 -6 -6 -3 M9 16 q3 -5 6 -2" stroke="#3d5a35" stroke-width="1.6" fill="none"/>`,
+    ruinHall: () => `${shadow}
+      <rect x="-20" y="-6" width="40" height="22" fill="#6a665c" stroke="${O}"/><path d="M-20 2 H20 M-20 9 H20" stroke="#4d493f" stroke-width=".8"/>
+      <path d="M-23 -6 L-12 -18 L-6 -12 L0 -20 L6 -11 L12 -17 L23 -6Z" fill="#44403a" stroke="${O}"/>
+      <rect x="-5" y="4" width="10" height="12" rx="4" fill="#12161c" stroke="${O}"/><path d="M0 4 V16" stroke="#7fc4ff" stroke-width=".6" opacity=".6"/>
+      <rect x="-16" y="-1" width="5" height="6" fill="#7fc4ff" opacity=".7" stroke="${O}" stroke-width=".6"/><rect x="11" y="-1" width="5" height="6" fill="#7fc4ff" opacity=".7" stroke="${O}" stroke-width=".6"/>
+      <path d="M0 -20 V-28 M0 -28 L8 -25 L0 -22Z" stroke="${O}" stroke-width=".8" fill="#3a2a40"/>`,
+    castle: () => `${shadow}
+      <rect x="-24" y="-2" width="48" height="18" fill="#7a766c" stroke="${O}"/><path d="M-24 4 H24 M-24 10 H24" stroke="#4d493f" stroke-width=".8"/>
+      <path d="M-24 -2 V-8 H-19 V-5 H-14 V-8 H14 V-5 H19 V-8 H24 V-2Z" fill="#6a665c" stroke="${O}"/>
+      <path d="M-16 16 V-14 L-14 -17 L-10 -14 L-7 -17 V16Z M7 16 V-17 L10 -14 L14 -17 L16 -14 V16Z" fill="#8a867a" stroke="${O}"/>
+      <path d="M-7 16 V3 Q0 -4 7 3 V16Z" fill="#12161c" stroke="${O}"/><path d="M-4 3 V16 M0 0 V16 M4 3 V16" stroke="#4a4e56" stroke-width="1"/>
+      <path d="M-12 -17 V-25 L-5 -22 L-12 -19 M12 -17 V-25 L19 -22 L12 -19" stroke="${O}" stroke-width=".8" fill="#3a2a40"/>`,
+    castleExit: () => `${shadow}
+      <rect x="-14" y="-2" width="28" height="18" fill="#7a766c" stroke="${O}"/><path d="M-14 -2 V-8 H-9 V-5 H-4 V-8 H4 V-5 H9 V-8 H14 V-2Z" fill="#6a665c" stroke="${O}"/>
+      <path d="M-6 16 V4 Q0 -2 6 4 V16Z" fill="#c7d8e8" opacity=".55" stroke="${O}"/><path d="M-3 16 V6 M0 16 V4 M3 16 V6" stroke="#4a4e56" stroke-width="1"/>`,
     arena: () => `
       <ellipse cy="2" rx="21" ry="12" fill="#b3a88f" stroke="${O}"/><ellipse cy="0" rx="15" ry="7.5" fill="#dcc79a" stroke="${O}" stroke-width=".8"/>
       <path d="M-21 2 V8 Q0 22 21 8 V2" fill="#9d927a" stroke="${O}"/>
@@ -281,7 +346,7 @@ const MapArt = (() => {
     if (typeof Art !== 'undefined' && Art.has(key)) {
       return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)"><image href="${Art.url(key)}" x="-22" y="-26" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></g>`;
     }
-    return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)">${(B[id] || B.home)()}</g>`;
+    return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)">${(B[id] || B[{ islandPier: 'wreck', islandChest: 'chest', towerDoor: 'castleExit', towerStairs: 'ruinTower' }[id]] || B.home)()}</g>`;
   }
 
   // Подпись здания на тёмной подложке (рисуется отдельным слоем поверх зданий).

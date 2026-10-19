@@ -181,7 +181,7 @@ const Profile = (() => {
     syncing = true;
     try {
       data.cosmetics = data.cosmetics || { titles: [], frames: [], title: null, frame: null };
-      const fresh = Village.syncTitles(data.cosmetics, { earned: data.medals ? data.medals.earned : [], tier: Hero.tierFor(Hero.levelOf(data.xp).level), bestiary: data.bestiary, explored: data.explored100 });
+      const fresh = Village.syncTitles(data.cosmetics, { earned: data.medals ? data.medals.earned : [], tier: Hero.tierFor(Hero.levelOf(data.xp).level), bestiary: data.bestiary, explored: data.explored100, decor: (typeof Decor !== 'undefined' && data.decor) ? Decor.filled(Decor.clean(data.decor)) : 0, decorOwn: (typeof Decor !== 'undefined' && data.decor) ? Decor.ownCount(Decor.clean(data.decor)) : 0, stones: (typeof Stones !== 'undefined' && data.stones) ? Stones.seenCount(Stones.clean(data.stones)) : 0 });
       if (fresh.length && typeof MapView !== 'undefined' && MapView.toast) MapView.toast(_t("Новый титул: {0} — наденьте в Гардеробе Ратуши", [fresh.length > 3 ? fresh.slice(0, 3).join(', ') + _t(" и ещё {0}", [fresh.length - 3]) : fresh.join(', ')]));
     } catch (e) { /* титулы не критичны */ }
     syncing = false;
@@ -189,7 +189,12 @@ const Profile = (() => {
   const save = () => {
     syncTitles();
     if (sandboxed || stale) return;
-    try { localStorage.setItem(KEY, JSON.stringify(data)); }
+    try { if (typeof Net !== 'undefined') { if (!Net.validPid(data.pid)) data.pid = Net.newPid(); } } catch (e) { /* 1.9.0: внутренний номер игрока — не критично */ }
+    try {
+      const json = JSON.stringify(data);
+      localStorage.setItem(KEY, json);
+      try { if (typeof Net !== 'undefined' && Net.current) Net.current.mirror(json); } catch (e3) { /* 1.9.0: копия на площадку (если адаптер умеет) игре не мешает */ }
+    }
     catch (e) {
       // 1.6.5 (A2-09): запись перестала получаться посреди игры (нет места, запрет сайта) — раньше это молчало; теперь один раз сообщаем игре
       if (storageOk) { storageOk = false; try { if (typeof window !== 'undefined' && window.dispatchEvent) window.dispatchEvent(new Event('profile-save-failed')); } catch (e2) { /* не страшно */ } }
@@ -327,6 +332,27 @@ const Profile = (() => {
       }
       return { wins, species: sp };
     },
+    // 1.8.6: «Пояс охотника» — 5 побед подряд с ним на поясе заряжают пояс: следующий бой +25% урона и добычи.
+    stones() { return (data.stones = Stones.clean(data.stones)); },   // 1.8.9: самоцветы стражей
+    beltTier() { const u = data.loadout && data.loadout.belt, e = u && data.items.find((i) => i.uid === u); return e ? Math.max(1, (e.tier | 0) + (typeof Stones !== 'undefined' ? Stones.beltCap(e.cut) : 0)) : 0; },   // 1.8.9: цвет надетого пояса (0 — пояса нет); нужен стрелкам компаса
+    huntBelt() { const u = data.loadout && data.loadout.belt, e = u && data.items.find((i) => i.uid === u); return !!(e && e.id === 'belt-hunter'); },
+    huntWin() {
+      const h = data.hunt = (data.hunt && typeof data.hunt === 'object') ? data.hunt : { streak: 0, ready: false };
+      if (!api.huntBelt()) { h.streak = 0; return false; }
+      if (++h.streak >= 5) { h.streak = 0; h.ready = true; return true; }
+      return false;
+    },
+    // 1.8.8: дневник питомца — записи за время вашего отсутствия (см. js/petdiary.js)
+    petDiaryTick() {
+      if (typeof PetDiary === 'undefined') return [];
+      const pet = api.pet(), r = PetDiary.tick(data.petDiary, pet && pet.speciesId, pet ? I_PT.petDisplayName(pet.speciesId) : '', data.petDiaryAt, Date.now());
+      data.petDiary = r.diary; data.petDiaryAt = r.last; if (r.added || !Number.isFinite(data.petDiaryAt)) save();
+      return r.diary;
+    },
+    noteBattle() { const s = data.stats = (data.stats && typeof data.stats === 'object') ? data.stats : {}; s.battles = (Number.isFinite(s.battles) ? s.battles : 0) + 1; },   // 1.8.8: все бои (победы и поражения)
+    chron(k, a) { if (typeof Chron === 'undefined') return null; const e = Chron.add(data, k, a); if (e) save(); return e; },   // 1.8.8: журнал судьбы героя
+    huntLoss() { if (data.hunt) data.hunt.streak = 0; },
+    huntTake() { const h = data.hunt; if (!h || !h.ready || !api.huntBelt()) return false; h.ready = false; return true; },
     recordWin(id, tier) {
       const rec = data.bestiary[id] || { wins: 0, tier: 1 };
       rec.wins++;
@@ -491,12 +517,13 @@ const Profile = (() => {
     // Вылупившийся питомец заменяет прирученного.
     collectHatch(tier) {
       const inc = data.incubator; if (!inc || inc.left > 0) return null;
-      data.pet = I_PT.makePet(I_PT.EGGS[inc.egg].species, tier); data.incubator = null; data.petChoice = 'tamed'; save(); return data.pet;
+      data.pet = I_PT.makePet(I_PT.EGGS[inc.egg].species, tier); data.incubator = null; data.petChoice = 'tamed'; api.chron('pet', I_PT.petDisplayName(data.pet.speciesId)); save(); return data.pet;
     },
     // Приручает вид (заменяет текущего питомца, если был). Возвращает false, если условия ещё не выполнены.
     tame(id, tier) {
       if (!api.canTame(id)) return false;
       data.pet = I_PT.makePet(id, tier);
+      api.chron('pet', I_PT.petDisplayName(id));
       data.petChoice = 'tamed';
       save();
       return true;
@@ -524,10 +551,10 @@ const Profile = (() => {
     battleStart() { data.battle = { moved: false }; save(); },
     battleMoved() { if (data.battle && !data.battle.moved) { data.battle.moved = true; save(); } },
     // result: 'win' — отметка снимается; 'loss' и 'flee' (сдача; до первого хода — просто уход) — износ 1.
-    battleEnd(result) {
+    battleEnd(result, o = {}) {
       const b = data.battle; if (!b) return null;
       data.battle = null;
-      const lost = result === 'loss' || (result === 'flee' && b.moved);
+      const lost = !o.noWear && (result === 'loss' || (result === 'flee' && b.moved));   // o.noWear: бой турнира — свои вещи не участвуют
       const r = lost ? api.wearLoss(1) : (save(), null);
       return r;
     },
@@ -573,7 +600,6 @@ const escText = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<'
 
 // Цвет уровня для обводок и свечения (у обсидиана — светлый отблеск, чтобы было видно на тёмном).
 const tierColor = (t) => Tiers.get(t).edge;
-const setColorOf = (it) => (it.set && Gear.SETS[it.set] ? Gear.SETS[it.set].color : Gear.NEUTRAL_COLOR);
 
 const fmtStat = (k, v) => ({
   power: _t("+{0}% Сила", [v]), health: _t("+{0} Здоровье", [v]), defense: _t("+{0} Броня", [v]), magic: _t("+{0} Магия", [v]),
@@ -1050,8 +1076,8 @@ const Inventory = (() => {
     const pct = budget ? Math.min(100, Math.round(used / budget * 100)) : 0;
     const ak = Profile.shotKind(), AM = Ammo.CATALOG[ak], an = Profile.ammo(ak);
 
-    const heroName = (typeof Profile.data.name === 'string' && Profile.data.name && Profile.heroName()) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender);
-    const doll = _t("<div class=\"doll\">\n      <div class=\"df-cap\"><b>{0}</b><span>Уровень {1} · очки снаряжения {2} / {3}</span></div>\n      <div class=\"doll-frame{4}\">\n        <div class=\"df-col l\">{5}</div>\n        <div class=\"doll-fig\">{6}</div>\n        <div class=\"df-col r\">{7}</div>\n        <div class=\"df-hands\">{8}\n          {9}\n          {10}</div>\n      </div>\n    </div>", [heroName + Profile.favBadges(), lv.level, used, budget, typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? ' p5' : '', ['head', 'shoulders', 'chest', 'arms', 'leash'].map((s) => dollSlot(gear, s, editable)).join(''), Figures.figure(Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender), gear), ['amulet', 'gloves', 'legs', 'bag', 'compass'].map((s) => dollSlot(gear, s, editable)).join(''), dollSlot(gear, 'main', editable), dollSlot(gear, 'ranged', editable).replace('</button>', `<b class="ammo-n" title="${AM.name} × ${an}">${an}</b></button>`), dollSlot(gear, 'off', editable)]);
+    const heroName = (typeof Profile.data.name === 'string' && Profile.data.name && escText(Profile.heroName())) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender);
+    const doll = _t("<div class=\"doll\">\n      <div class=\"df-cap\"><b>{0}</b><span>Уровень {1} · очки снаряжения {2} / {3}</span></div>\n      <div class=\"doll-frame{4}\">\n        <div class=\"df-col l\">{5}</div>\n        <div class=\"doll-fig\">{6}</div>\n        <div class=\"df-col r\">{7}</div>\n        <div class=\"df-hands\">{8}\n          {9}\n          {10}</div>\n      </div>\n    </div>", [heroName + Profile.favBadges(), lv.level, used, budget, typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? ' p5' : '', ['head', 'shoulders', 'chest', 'arms', 'leash'].map((s) => dollSlot(gear, s, editable)).join(''), Figures.figure(Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender), gear), ['amulet', 'gloves', 'legs', 'bag', 'compass'].map((s) => dollSlot(gear, s, editable)).join(''), dollSlot(gear, 'main', editable), dollSlot(gear, 'ranged', editable).replace('</button>', `<b class="ammo-n" title="${AM.name} × ${an}">${an}</b></button>`), dollSlot(gear, 'off', editable) + dollSlot(gear, 'belt', editable).replace('class="dslot ', 'class="dslot beltslot ')]);
 
     // Подробности: выбранная вещь из сумки (надеть) или надетая в выбранной ячейке (снять).
     let detail = '';
@@ -1091,7 +1117,6 @@ const Inventory = (() => {
     // 1.6.0: эликсир пьётся только в бою (до первого хода); на карте — лишь те, у кого прямо указано KINDS[вид].mapOk
     const canDrink = (kind, tier) => (typeof inBattle !== 'undefined' && inBattle && typeof elxWhy === 'function' && !elxWhy(kind, tier));
     const exBag = Profile.elixirBag().map((e) => _t("<div class=\"bag-row\">{0}<span><b>{1}</b> · цвет «{2}» × {3}<br><small>{4}</small></span>\n      <button type=\"button\" data-drink=\"{5}:{6}\" {7}>Выпить</button></div>", [Elixirs.icon(e.kind, e.tier), Elixirs.KINDS[e.kind].name, Tiers.get(e.tier).name, e.n, Elixirs.describe(e.kind, e.tier), e.kind, e.tier, canDrink(e.kind, e.tier) ? '' : 'disabled'])).join('');
-    const exHtml = (exActive || exBag) ? `${exActive ? _t("<h3>Действуют эликсиры</h3>") + exActive : ''}${exBag ? _t("<h3>Сумка: эликсиры (варит Тётушка Жабка)</h3>") + exBag : ''}` : '';
     const runeBag = Profile.data.runeBag || {};
     const runes = (typeof Runes !== 'undefined' ? Runes.ORDER : []).filter((id) => runeBag[id] > 0)
       .map((id) => `<div class="bag-row">${Runes.icon(id, 'rune-dot')}<span><b>${Runes.CATALOG[id].name}</b> × ${runeBag[id]}<br><small>${Runes.CATALOG[id].desc}</small></span></div>`).join('');

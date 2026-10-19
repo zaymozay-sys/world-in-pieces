@@ -2948,7 +2948,7 @@ body.ui-columns.phone .log-wrap:not([open]) { display: none; }
     --g: 3px; --sg: 3px;
     --bar: 44px;
     --A: calc(100dvh - var(--bar) - 10px);
-    --sb: clamp(28px, min(calc((100vw - 42px - var(--A)) / 8), calc((var(--A) - 20px - 98px - 6 * var(--g)) / 5)), 44px);   /* 1.8.5: ячейки не выше, чем оставляет карточке героя (≥98px) */
+    --sb: clamp(36px, min(calc((100vw - 42px - var(--A)) / 8), calc((var(--A) - 20px - 98px - 5 * var(--g) - 20px) / 4)), 64px);   /* 1.8.5: ячейки не выше, чем оставляет карточке героя (≥98px); на просторных экранах крупнее */
     --board: min(var(--A), calc(100vw - 42px - 8 * var(--sb)));
   }
   body.ui-columns.phone.mode-battle .duo-bar { height: var(--bar); padding: 2px 6px; }
@@ -2956,15 +2956,14 @@ body.ui-columns.phone .log-wrap:not([open]) { display: none; }
   body.ui-columns.phone.mode-battle .game, body.ui-columns.phone.mode-battle.duo-battle .game { padding: calc(var(--bar) + 4px) 6px 6px; }
   body.ui-columns.phone.mode-battle .arena, body.ui-columns.phone.mode-battle.duo-battle .arena {
     grid-template-columns: repeat(4, var(--sb)) var(--board) repeat(4, var(--sb));
-    grid-template-rows: 20px minmax(0, 1fr) repeat(5, var(--sb));
+    grid-template-rows: 20px minmax(0, 1fr) repeat(4, calc(var(--sb) + 5px));
     grid-template-areas:
       "st st st st b tm tm tm tm"
       "l  l  l  l  b r  r  r  r"
       "sp sp sp sp b bg bg bg bg"
       "sp sp sp sp b bg bg bg bg"
       "sp sp sp sp b bg bg bg bg"
-      "sp sp sp sp b p1 p2 p3 p4"
-      ".  .  .  .  b .  .  .  .";
+      "sp sp sp sp b p1 p2 p3 p4";
     gap: var(--g); justify-content: center; align-items: stretch; width: 100%; height: var(--A);
   }
 body.no-hint.ui-columns.phone.mode-battle .arena, body.no-hint.ui-columns.phone.mode-battle.duo-battle .arena {
@@ -2974,8 +2973,7 @@ body.no-hint.ui-columns.phone.mode-battle .arena, body.no-hint.ui-columns.phone.
       "sp sp sp sp b bg bg bg bg"
       "sp sp sp sp b bg bg bg bg"
       "sp sp sp sp b bg bg bg bg"
-      "sp sp sp sp b p1 p2 p3 ."
-      ".  .  .  .  b .  .  .  .";
+      "sp sp sp sp b p1 p2 p3 .";
   }
   body.ui-columns.phone.mode-battle :is(#board,[data-bid="board"]) { grid-area: b; grid-row: 1 / -1; align-self: start; width: var(--board); }
   body.ui-columns.phone.mode-battle .spellbar { grid-template-columns: repeat(4, var(--sb)); grid-auto-rows: var(--sb); gap: var(--g); align-content: start; }
@@ -3154,15 +3152,15 @@ body.phone .desk-only { display: none !important; }
 .map-tools { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 76px; z-index: 3; display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
 .map-tools button { padding: 6px 10px; font-size: 12px; background: rgba(24, 26, 30, .86); border: 1px solid #3a3d44; border-radius: 10px; color: inherit; }
 .map-tools button.on { border-color: #e8c76a; color: #f1d98a; }
-.map-mini { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 168px; z-index: 3; width: 150px; height: 150px; border: 2px solid #3a3d44; border-radius: 12px; background: rgba(14, 15, 18, .6); box-shadow: 0 6px 20px rgba(0, 0, 0, .45); cursor: crosshair; touch-action: none; }
+.map-mini { position: absolute; right: max(10px, env(safe-area-inset-right)); top: 184px; z-index: 3; width: 150px; height: 150px; border: 2px solid #3a3d44; border-radius: 12px; background: rgba(14, 15, 18, .6); box-shadow: 0 6px 20px rgba(0, 0, 0, .45); cursor: crosshair; touch-action: none; }
 .map-mini[hidden] { display: none; }
 .map-svg.pin-mode, #map-svg.pin-mode { cursor: crosshair; }
 @media (max-width: 700px) {
   .map-tools { top: 112px; flex-direction: column; gap: 4px; }
   .map-tools button { padding: 5px 8px; font-size: 11px; }
-  .map-mini { top: 204px; width: 112px; height: 112px; }
+  .map-mini { top: 214px; width: 112px; height: 112px; }
 }
-@media (max-height: 520px) { .map-tools { top: 64px; } .map-mini { top: 150px; width: 96px; height: 96px; } }
+@media (max-height: 520px) { .map-tools { top: 64px; } .map-mini { top: 174px; width: 96px; height: 96px; } }
 #l-ev .ev.lm > circle:nth-child(2) { animation: evGlow 2.4s ease-in-out infinite alternate; }
 #l-ev .ev.lm.done { opacity: .7; }
 #l-ev .ev.lm.done > circle:nth-child(2) { animation: none; }
@@ -3317,6 +3315,8 @@ body.duo-battle main.game { padding-top: calc(var(--duo-h, 54px) + env(safe-area
 @keyframes wxFlag { from { transform: skewY(-7deg) scaleX(1); } to { transform: skewY(7deg) scaleX(.82); } }
 /* ночные гости */
 .mon.guest { filter: drop-shadow(0 0 5px rgba(160, 130, 255, .9)); }
+.mon.rare { filter: drop-shadow(0 0 7px rgba(255, 210, 74, .95)); }
+.mon.rare .bob { animation-duration: 1.6s; }
 /* чип погоды в нижней плашке */
 .sky-chip { margin-bottom: 4px; padding: 2px 8px; border-left: 3px solid #6c8fd1; background: rgba(40, 56, 90, .34); color: #d6e4fb; font-size: 12.5px; line-height: 1.35; cursor: pointer; border-radius: 0 6px 6px 0; }
 .sky-chip:not([hidden]) { display: block; }
@@ -3352,7 +3352,7 @@ body.duo-battle main.game { padding-top: calc(var(--duo-h, 54px) + env(safe-area
 /* 1.7.2: упрощённая графика карты (меню ☰ → «Графика карты») — для слабых телефонов: без дыма, огней, облаков, осадков и анимаций */
 .map-lite #l-amb, .map-lite .map-clouds, .map-lite .map-wx i { display: none; }
 .map-lite .mon .bob, .map-lite .mon.siege .siege-ring, .map-lite .mon.looter .siege-ring { animation: none; }
-.map-lite .mon.siege, .map-lite .mon.looter, .map-lite .mon.guest { filter: none; }
+.map-lite .mon.siege, .map-lite .mon.looter, .map-lite .mon.guest, .map-lite .mon.rare { filter: none; }
 .map-lite #l-fog polygon { transition: none; }
 /* 1.7.3: подпись «что дальше» у приёма существа (Окаменение · через 2 хода); «soon» — сработает в ближайший ход */
 .ability-line .next { color: #b9bcc6; font-weight: 600; }
@@ -3744,3 +3744,81 @@ body.no-hint :is(#hint,[data-bid="hint"]) { display: none !important; }
 body.no-hint.ui-columns.phone :is(#mute,[data-bid="mute"]) { grid-area: p1; }
 body.no-hint.ui-columns.phone :is(#restart,[data-bid="restart"]) { grid-area: p2; }
 body.no-hint.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p3; }
+
+/* 1.8.5: лежачий телефон, бой с одним врагом — верхняя полоса только дублировала имя и камни врага (всё это есть в карточке справа),
+   поэтому её нет: поле и колонки получают всю высоту, ячейки заклинаний и сумки крупнее. С питомцем (duo) полоса остаётся — там вкладки. */
+@media (orientation: landscape) {
+  body.ui-columns.phone.mode-battle.solo-battle { --bar: 0px; }
+  body.ui-columns.phone.mode-battle.solo-battle .duo-bar.solo { display: none; }
+}
+
+/* 1.8.5: лежачий телефон — карточки бойцов выше прежних, поэтому крупнее портрет, имя и полоса здоровья */
+@media (orientation: landscape) and (min-height: 390px) {
+  body.ui-columns.phone.mode-battle.solo-battle .fighter { grid-template-columns: 56px minmax(0, 1fr); column-gap: 8px; }
+  body.ui-columns.phone.mode-battle.solo-battle .fighter .avatar { width: 56px; height: 56px; }
+  body.ui-columns.phone.mode-battle.solo-battle .fighter .name { font-size: 14px; }
+  body.ui-columns.phone.mode-battle.solo-battle .fighter .hpbar { height: 20px; font-size: 13px; }
+}
+
+/* 1.8.5+: лежачий бой — рамки панелей (рейки сверху и снизу) не должны закрывать крайние ряды: ряды выше ячейки на 5px, внутри панели отступ;
+   три кнопки (без «Подсказки») сдвинуты на полколонки, чтобы стоять по центру четырёх ячеек */
+@media (orientation: landscape) {
+  body.ui-columns.phone.mode-battle .spellbar, body.ui-columns.phone.mode-battle .bagbar { padding: 8px 6px; box-sizing: border-box; align-content: center; justify-content: center; }
+  body.no-hint.ui-columns.phone.mode-battle :is(#mute,#restart,#more,[data-bid="mute"],[data-bid="restart"],[data-bid="more"]) { transform: translateX(calc((var(--sb) + var(--g)) / 2)); }
+}
+
+/* 1.8.6: слот «Пояс» — справа от ряда рук на карточке героя */
+.home-modal .df-hands .dslot.beltslot, .home-modal .doll-frame.p5 .df-hands .dslot.beltslot { position: absolute; left: calc(100% + 3%); top: 0; width: auto; height: 100%; aspect-ratio: 1; flex: none; }
+
+/* 1.8.8: мини-игры маяка («Обвал», «Пирамида») */
+.lh-board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; max-width: 340px; margin: 8px auto; }
+.lh-cell { aspect-ratio: 1; padding: 0; border: 2px solid transparent; border-radius: 8px; background: rgba(255,255,255,.06); display: flex; align-items: center; justify-content: center; }
+.lh-cell.sel { border-color: #f0c14b; background: rgba(240,193,75,.18); }
+.lh-cell:disabled { opacity: 1; }
+.lh-stone { position: relative; display: flex; align-items: center; justify-content: center; width: 88%; aspect-ratio: 1; font-style: normal; }
+.lh-stone svg { width: 100%; height: 100%; display: block; }
+.lh-stone .lh-sp { position: absolute; right: -2px; top: -4px; font-size: 14px; line-height: 1; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+.lh-stone.hit { filter: drop-shadow(0 0 4px #fff); }
+.lh-hole { width: 60%; aspect-ratio: 1; border-radius: 26%; background: rgba(0,0,0,.25); }
+.lh-pyr { display: flex; flex-direction: column; gap: 4px; max-width: 360px; margin: 8px auto; }
+.lh-row { display: flex; align-items: center; gap: 4px; }
+.lh-row > button { flex: 0 0 38px; min-height: 38px; padding: 0; }
+.lh-cells { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.lh-cells > i { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; }
+
+/* ---- 1.8.9: условия забега, головоломка дня ---- */
+.arena-mods { display: grid; gap: 6px; margin: 6px 0; }
+.arena-mod { display: grid; grid-template-columns: 1fr auto; text-align: left; gap: 2px 8px; padding: 8px 10px; border-radius: 8px; border: 2px solid #4a4d55; background: #23262b; color: inherit; cursor: pointer; }
+.arena-mod small { grid-column: 1 / -1; color: #b9b2a0; font-size: 12px; }
+.arena-mod em { font-style: normal; color: #e3c98a; font-weight: 700; }
+.arena-mod.on { border-color: #e3c98a; background: #2c2f36; }
+.home-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; margin: 6px 0 10px; }
+.home-slot { display: grid; justify-items: center; gap: 2px; padding: 8px 6px; border-radius: 8px; border: 2px dashed #4a4d55; background: #1f2126; text-align: center; }
+.home-slot.on { border-style: solid; border-color: #e3c98a; background: #2c2f36; }
+.home-slot .hs-ic { font-size: 28px; line-height: 1.1; }
+.home-slot small { color: #b9b2a0; font-size: 11px; }
+.home-slot button { min-height: 0; padding: 2px 8px; font-size: 11px; }
+.card.letter.new { border-color: #e3c98a; }
+.card.letter .item-foot i { color: #e3c98a; font-style: normal; }
+.dmg.cascade { color: #ffd76a; font-weight: 800; text-shadow: 0 0 6px #b8860b, 0 1px 2px #000; }
+@keyframes flash5 { 0% { box-shadow: 0 0 0 0 rgba(255, 215, 106, .0); } 30% { box-shadow: 0 0 28px 6px rgba(255, 215, 106, .75); } 100% { box-shadow: 0 0 0 0 rgba(255, 215, 106, 0); } }
+.board.flash5 { animation: flash5 .45s ease-out; }
+
+.event-week { margin: 6px 0; padding: 6px 10px; border-radius: 8px; border: 1px solid #6a5a3a; background: #2a2620; color: #e8dcc0; font-size: 13px; }
+.event-week b { color: #e3c98a; }
+
+/* 1.8.9: самоцветы стражей */
+.gem-dot { display: inline-block; width: .8em; height: .8em; border-radius: 30% 70% 50% 50%; transform: rotate(45deg); border: 1px solid rgba(255,255,255,.5); vertical-align: -.05em; margin-right: .2em; }
+.stone-bag { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.stone-chip.on button { outline: 2px solid var(--accent, #e8c36a); }
+.stone-chip button { padding: 4px 8px; }
+.rate-wrap{overflow-x:auto;max-width:100%}
+.rate-tab{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.rate-tab th,.rate-tab td{padding:4px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,.12)}
+.rate-tab tr.me td{font-weight:700;background:rgba(255,215,100,.14)}
+.sq-form { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.sq-text { flex: 1 1 200px; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line, #5a4a3a); background: rgba(0,0,0,.25); color: inherit; font: inherit; }
+.sq-list { list-style: none; padding-left: 0; }
+.sq-list li { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); color: inherit; overflow-wrap: anywhere; }
+.sq-list small { color: var(--muted); margin-left: 6px; }
+.sq-del { margin-left: 6px; padding: 0 6px; font-size: 12px; background: none; border: 0; color: var(--muted); cursor: pointer; }

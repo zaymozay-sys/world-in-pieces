@@ -20,16 +20,16 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 const T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');   // уровни-цвета
 
 const Gear = (() => {
-  const SLOTS = ['main', 'off', 'head', 'shoulders', 'chest', 'arms', 'gloves', 'legs', 'amulet', 'bag', 'leash', 'compass', 'ranged'];   // 1.3.2: + наплечники и перчатки; 1.3.6: + сумка
+  const SLOTS = ['main', 'off', 'head', 'shoulders', 'chest', 'arms', 'gloves', 'legs', 'amulet', 'bag', 'leash', 'compass', 'ranged', 'belt'];   // 1.3.2: + наплечники и перчатки; 1.3.6: + сумка
   const SLOT_NAMES = {
     main: _t("Правая рука"), off: _t("Левая рука"), head: _t("Шлем"), chest: _t("Нагрудник"),
-    arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"), shoulders: _t("Наплечники"), gloves: _t("Перчатки"), bag: _t("Сумка"), leash: _t("Поводок"), compass: _t("Компас"), ranged: _t("Метательное"),
+    arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"), shoulders: _t("Наплечники"), gloves: _t("Перчатки"), bag: _t("Сумка"), leash: _t("Поводок"), compass: _t("Компас"), ranged: _t("Метательное"), belt: _t("Пояс"),
   };
   const STAT_NAMES = { power: _t("Сила"), health: _t("Здоровье"), defense: _t("Броня"), magic: _t("Магия"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), fury: _t("Ярость"), cunning: _t("Хитрость") };
   const TYPE_NAMES = {
     weapon1: _t("Одноручное оружие"), weapon2: _t("Двуручное оружие"), shield: _t("Щит"),
     head: _t("Шлем"), chest: _t("Нагрудник"), arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"),
-    shoulders: _t("Наплечники"), gloves: _t("Перчатки"), bag: _t("Сумка"), leash: _t("Поводок"), compass: _t("Компас"), ranged: _t("Метательное"),
+    shoulders: _t("Наплечники"), gloves: _t("Перчатки"), bag: _t("Сумка"), leash: _t("Поводок"), compass: _t("Компас"), ranged: _t("Метательное"), belt: _t("Пояс"), belt: _t("Пояс"),
   };
   const RARITY_NAMES = { common: _t("Обычный"), rare: _t("Редкий"), epic: _t("Эпический") };
   const MAX_DEFENSE = 60;
@@ -148,6 +148,18 @@ const Gear = (() => {
     ['compass-sea',  _t("Морской компас"),     'compass', null, 'rare',   { cunning: 5, initiative: 2 }],
     ['compass-star', _t("Звёздный компас"),    'compass', null, 'epic',   { cunning: 8, magic: 2, initiative: 3 }],
     // 1.3.6: метательное — стоит в центральной ячейке между руками и заменяет спец. снаряд народа
+    // 1.8.6: пояс — новый слот справа от рук. «Пояс охотника» копит серии побед (см. Hunter в game.js)
+    ['belt-hunter',  _t("Пояс охотника"),      'belt',    null, 'rare',   { power: 3, initiative: 2, cunning: 2 }],
+    // Пояса наборов: у каждого набора свой пояс (1.8.6)
+    ['crown-belt',   _t("Перевязь знаменосца"),'belt',    'crown',    'rare',   { initiative: 3, health: 5, block: 1 }, 'human'],
+    ['rune-belt',    _t("Кузнечный пояс"),     'belt',    'rune',     'common', { defense: 3, health: 6 }, 'dwarf'],
+    ['grove-belt',   _t("Пояс из лиан"),       'belt',    'grove',    'common', { initiative: 4, ricochet: 1 }, 'elf'],
+    ['scale-belt',   _t("Пояс из чешуи"),      'belt',    'scale',    'common', { health: 8, power: 2 }, 'lizard'],
+    ['guard-belt',   _t("Пояс стража"),        'belt',    'guard',    'common', { health: 6, defense: 3, block: 1 }],
+    ['berserk-belt', _t("Пояс берсерка"),      'belt',    'berserk',  'rare',   { power: 5, health: 4, initiative: 2 }],
+    ['mage-belt',    _t("Пояс чародея"),       'belt',    'mage',     'rare',   { magic: 1, health: 6, ricochet: 2 }],
+    ['wand-belt',    _t("Пояс странника"),     'belt',    'wanderer', 'common', { health: 7, initiative: 3, defense: 1 }],
+    ['sea-belt',     _t("Канатный пояс"),      'belt',    'sea',      'rare',   { health: 8, block: 3, initiative: 2 }],
     ['crossbow-hunt',  _t("Охотничий арбалет"),   'ranged', null, 'common', { power: 3, initiative: 1 }],
     ['crossbow-siege', _t("Осадный арбалет"),     'ranged', null, 'rare',   { power: 7, block: 1 }],
     ['crossbow-repeater',_t("Скорострельный арбалет"),'ranged', null, 'epic', { power: 8, initiative: 3, fury: 3 }],
@@ -252,6 +264,7 @@ const Gear = (() => {
       stats: st,
       cost: Math.round(base.cost * T.POINT_MULT[tier - 1]),
       price: priceAt(base.cost, tier),
+      cut: e.cut > 0 ? e.cut | 0 : undefined,
       runes: Array.isArray(e.runes) ? e.runes : (e.rune ? [e.rune] : undefined),
       dur: durOf(e).cur, maxDur: durOf(e).max, broken: durOf(e).cur <= 0,
     };
@@ -378,7 +391,7 @@ const Gear = (() => {
     weapon1: ['ore', 'fang'], weapon2: ['ore', 'fang'],
     shield: ['scrap', 'hide'], head: ['scrap', 'hide'], chest: ['scrap', 'hide'], arms: ['scrap', 'hide'], legs: ['scrap', 'hide'],
     shoulders: ['scrap', 'hide'], gloves: ['scrap', 'hide'],
-    amulet: ['crystal', 'essence'], bag: ['hide', 'scrap'], leash: ['hide', 'scrap'], compass: ['ore', 'crystal'], ranged: ['ore', 'scrap'],
+    amulet: ['crystal', 'essence'], bag: ['hide', 'scrap'], leash: ['hide', 'scrap'], compass: ['ore', 'crystal'], ranged: ['ore', 'scrap'], belt: ['hide', 'ore'],
   };
 
   // Повышение уровня предмета на 1: ресурсы ТЕКУЩЕГО цвета + монеты. null — уровень максимальный.

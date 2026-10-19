@@ -71,7 +71,11 @@ const Runes = (() => {
   // gear — «ячейка → экземпляр», как возвращает Profile.gear() (с сохранённым полем runes).
   function bonusForGear(gear) {
     let s = G.blankStats();
-    for (const slot of G.SLOTS) s = G.combine(s, statsOf(gear[slot]));
+    for (const slot of G.SLOTS) {
+      s = G.combine(s, statsOf(gear[slot]));
+      const it = gear[slot];
+      if (it && it.cut > 0 && slot !== 'belt' && typeof Stones !== 'undefined') { const b = Stones.cutBonus(it.cut); if (b) s = G.combine(s, { ...G.blankStats(), ...b }); }   // 1.8.9: огранка
+    }
     return s;
   }
 

@@ -350,6 +350,7 @@ const MonsterArt = (() => {
     forestling: ['#6a7a3e', 'rog'], barrowman: ['#8a9486', 'cheshuya'], crystalid: ['#8a6fc0', 'cheshuya'], firetail: ['#d4552a', 'rog'],
     weaver: ['#6a5a4a', 'ushi'], carapace: ['#3f8a8a', 'cheshuya'], ironguard: ['#7e8590', 'cheshuya'], boneknight: ['#cfcab8', 'cheshuya'],
     // 1.7.3: заглушки новых видов, пока нет картинок art/monsters/<id>.webp (промты — промты 1.7.3 (удалены: графика в игре))
+    glowmaw: ['#2f6f86', 'cheshuya'], coralhulk: ['#d9778a', 'rog'], stormray: ['#5a6fa8', 'ushi'], tidecaller: ['#3f9b8a', 'cheshuya'], thornback: ['#8a6a4a', 'rog'],
     ogre: ['#9a8a62', 'rog'], berserk: ['#8aa85a', 'ushi'], assassin: ['#3b3552', 'cheshuya'],
   };
   const fallbackArt = (id) => {
@@ -392,10 +393,6 @@ const MonsterArt = (() => {
     shell: () => `<path d="M10 40 Q8 14 32 8 Q56 14 54 40 Q44 54 32 54 Q20 54 10 40Z" fill="#f2d7cc" stroke="${O}" stroke-width="2"/><path d="M32 8 V54 M20 12 L22 52 M44 12 L42 52" stroke="#c79c8c" stroke-width="1.6"/>`,
   };
   // 1.5.2: в углу значка ресурса — номер цвета (красный/оранжевый, жёлтый/золотой легко спутать по одному цвету)
-  function tierMark(tier) {
-    const T = Tiers.get(tier);
-    return `<g class="tier-mark" transform="translate(51 13)"><circle r="13" fill="${T.color}" stroke="${T.edge || '#101114'}" stroke-width="2.5"/><text y="7" text-anchor="middle" font-size="19" font-weight="800" font-family="system-ui,sans-serif" fill="${T.ink}">${tier}</text></g>`;
-  }
   function resIcon(kind, tier) {
     const col = Tiers.get(tier).edge;
     const base = `<circle cx="32" cy="32" r="30" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="3"/>`;

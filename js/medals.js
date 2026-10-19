@@ -268,7 +268,7 @@ const Medals = (() => {
   // Суммарный бонус всех полученных медалей — combine-совместимый объект характеристик (см. Gear.combine).
   function bonusStats(earned = [], bestiary) {
     let s = ME_G.blankStats();
-    for (const m of earned) s = ME_G.combine(s, bonusFor(m.id, bestiary));
+    for (const m of earned.filter((e, i, a) => a.findIndex((x) => x.id === e.id) === i)) s = ME_G.combine(s, bonusFor(m.id, bestiary));
     for (const k of GROUP_ORDER) if (groupDone(k, earned)) s = ME_G.combine(s, GROUPS[k].bonus);
     return s;
   }

@@ -373,6 +373,42 @@ const Bestiary = (() => {
       drops: [['hide', 0.5, 1, 1], ['essence', 0.3, 1, 1]],
       desc: _t("Размером с телёнка. Лечится на половину нанесённого вам урона."),
     },
+    // --- 1.8.7: выдуманные существа Затерянного острова (встречаются только там) ---
+    glowmaw: {
+      family: _t("Твари"), ability: 'veil', xp: 1.5,
+      name: _t("Фонарник"), unlock: 8, hp: 90, ai: 34, coins: 46, gear: 0,
+      stats: { power: 44, defense: 6 },
+      drops: [['crystal', 0.5, 1, 1], ['shell', 0.6, 1, 2]],
+      desc: _t("Зубастая тварь с живым фонарём на лбу. Заманивает светом, а потом прячет от вас камни в тумане."),
+    },
+    coralhulk: {
+      family: _t("Твари"), ability: 'pinch', xp: 1.6,
+      name: _t("Коралловый исполин"), unlock: 8, hp: 110, ai: 30, coins: 50, gear: 0,
+      stats: { power: 42, defense: 14, block: 6 },
+      drops: [['shell', 0.9, 1, 2], ['ore', 0.5, 1, 2]],
+      desc: _t("Ходячий риф: на панцире растут розовые кораллы, которые отрастают вновь после каждого удара."),
+    },
+    stormray: {
+      family: _t("Твари"), ability: 'weaken', xp: 1.6,
+      name: _t("Штормовой скат"), unlock: 9, hp: 88, ai: 36, coins: 48, gear: 0,
+      stats: { initiative: 22, power: 46, fury: 6 },
+      drops: [['scale', 0.6, 1, 2], ['essence', 0.4, 1, 1]],
+      desc: _t("Скат, что летает в грозовом воздухе над островом. Его разряды сбивают прицел: следующий ход ваш урон слабее."),
+    },
+    tidecaller: {
+      family: _t("Твари"), ability: 'mire', xp: 1.7,
+      name: _t("Приливник"), unlock: 9, hp: 96, ai: 38, coins: 52, gear: 0,
+      stats: { power: 44, defense: 9 },
+      drops: [['shell', 0.7, 1, 2], ['essence', 0.5, 1, 1]],
+      desc: _t("Ракушечный старец с водорослями вместо бороды. Зовёт прилив, и камни вязнут в мокром песке."),
+    },
+    thornback: {
+      family: _t("Твари"), ability: 'charge', xp: 1.7,
+      name: _t("Игольчатый секач"), unlock: 10, hp: 100, ai: 40, coins: 54, gear: 0,
+      stats: { power: 50, defense: 10, fury: 8 },
+      drops: [['hide', 0.8, 1, 2], ['fang', 0.6, 1, 2]],
+      desc: _t("Островной кабан-великан с гривой из костяных игл. Первый удар в бою бьёт вдвое сильнее."),
+    },
     mimic: {
       family: _t("Твари"), ability: 'prank', xp: 1.3,
       name: _t("Мимик"), unlock: 4, hp: 90, ai: 28, coins: 40, gear: 0,

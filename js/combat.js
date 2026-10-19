@@ -6,12 +6,14 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
            charged, revived, turnNo, poison: {turns, dmg} }.
    dmg — множитель урона камней (у героя растёт с уровнем, у существа — с цветом).
    ability — приём существа (id из bestiary.js) или null у героя.
-   rand — генератор случайных чисел 0..1 (по умолчанию Math.random). */
+   rand — генератор случайных чисел 0..1 (по умолчанию BattleRand). */
 
 const C_B = (typeof Balance !== 'undefined') ? Balance : require('./balance.js');
 const C_G = (typeof Gear !== 'undefined') ? Gear : require('./items.js');
 
 const Combat = (() => {
+  // случайные числа боя: общий поток BattleRand (в бою по сети он по зерну), а в тестах без него — Math.random
+  const battleRand = () => (typeof BattleRand !== 'undefined' ? BattleRand.next() : Math.random());
   const A = C_B.abilities;
   const chance = (p, rand) => p > 0 && rand() * 100 < p;
 
@@ -19,7 +21,6 @@ const Combat = (() => {
      каждого удара: Броня 1, удар 3 — прилетит 2. Масштаб — типичный удар линии из 3 камней самого бойца (его dmg × урон камня × 3),
      поэтому броня растёт вместе с уровнем и цветом, как и урон. Пол урона: не меньше 20% удара и не меньше 1. */
   const HIT_STONES = 3, FLOOR = 0.2;
-  const refHit = (f) => (f.dmg || 1) * C_B.damage.stone * HIT_STONES;
   const armorAt = (points, dmg) => { const p = Math.min(C_G.MAX_DEFENSE, points || 0); return p <= 0 ? 0 : Math.max(1, Math.round(p / 100 * (dmg || 1) * C_B.damage.stone * HIT_STONES)); };
   const armorOf = (f) => armorAt(f.stats && f.stats.defense, f.dmg);
   const mitigate = (amount, armor) => Math.max(Math.max(1, Math.ceil(amount * FLOOR)), Math.round(amount) - armor);
@@ -64,7 +65,7 @@ const Combat = (() => {
      как обычно на уже удвоенный урон).
      raw = true — урон без модификаторов (штраф за неверный ход, яд).
      Возвращает { kind: 'hit' | 'block' | 'reflect', amount, charged, crit, pierce, heal, revived, attackerRevived }. */
-  function hit(attacker, target, amount, raw = false, rand = Math.random) {
+  function hit(attacker, target, amount, raw = false, rand = battleRand) {
     const out = { kind: 'hit', amount: 0, charged: false, crit: false, pierce: false, pierceBlock: false, shred: 0, heal: 0, revived: false, attackerRevived: false };
     if (amount <= 0) return out;
     if (raw) {
@@ -197,7 +198,7 @@ const Combat = (() => {
 
   /* Расходник. Возвращает описание эффекта или null, если использовать нельзя.
      { kind, heal } | { kind, power, turns } | { kind, stones } | { kind } */
-  function useConsumable(f, kind, types, rand = Math.random) {
+  function useConsumable(f, kind, types, rand = battleRand) {
     const K = C_B.consumables;
     if (kind === 'potion') {
       if (f.hp >= f.max) return null;
@@ -260,7 +261,7 @@ const Combat = (() => {
   }
 
   // Когда противник пользуется расходниками (в начале каждого своего действия). Возвращает список видов.
-  function enemyItemPlan(f, canMagic, rand = Math.random) {
+  function enemyItemPlan(f, canMagic, rand = battleRand) {
     const bag = f.bag || {}, plan = [];
     if (bag.potion > 0 && f.hp <= f.max * 0.4) plan.push('potion');
     if (bag.elixir > 0 && !f.buffs.length && rand() < 0.6) plan.push('elixir');
@@ -290,7 +291,7 @@ const Combat = (() => {
      который противник только что получил. gained — { type: amount } за этот проход (обсидиан игнорируется).
      Меняет counts обоих бойцов. Возвращает null или { stolen: { type: n }, total }. */
   const CUNNING_TYPES = ['sapphire', 'ruby', 'emerald'];
-  function cunningSteal(thief, victim, gained, rand = Math.random) {
+  function cunningSteal(thief, victim, gained, rand = battleRand) {
     const p = Math.min((C_G.CAPS && C_G.CAPS.cunning) || 30, (thief.stats && thief.stats.cunning) || 0);
     const got = CUNNING_TYPES.filter((t) => (gained[t] || 0) > 0);
     if (!got.length || !chance(p, rand)) return null;
@@ -311,7 +312,7 @@ const Combat = (() => {
        { kind: 'regen', heal } { kind: 'steal', type, stones } { kind: 'prank' } { kind: 'howl' }
        { kind: 'petrify' } { kind: 'veil', stones } { kind: 'drum' } { kind: 'breath', mult }
      Регенерация, воровство, вой и бубен применяются здесь же. */
-  function monsterTurnStart(f, hero, types, rand = Math.random) {
+  function monsterTurnStart(f, hero, types, rand = battleRand) {
     const n = f.turnNo;
     switch (f.ability) {
       case 'regen': {
@@ -539,7 +540,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { armorOf, armorAt, mitigate, refHit, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { armorOf, armorAt, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

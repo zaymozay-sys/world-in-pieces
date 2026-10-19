@@ -359,6 +359,16 @@ const Parts = (() => {
       <rect x="${cx + 50}" y="${cy - 16}" width="16" height="12" rx="3" fill="${metal(c, 'gold')}" stroke="${OUT}" stroke-width="1.8"/>`;
     return g;
   }
+  function belt(c, A, it) {
+    const id = it.id || '', cx = 100, cy = 150;
+    const sc = (typeof Gear !== 'undefined' && Gear.SETS && it.set && Gear.SETS[it.set]) ? Gear.SETS[it.set].color : null;
+    const band = id === 'belt-hunter' ? '#6b4a2b' : '#8a5a32', trim = sc || metal(c, 'silver');
+    return `<path d="M${cx - 62} ${cy - 14} H${cx + 62} V${cy + 14} H${cx - 62} Z" fill="${band}" stroke="${OUT}" stroke-width="3"/>
+      <path d="M${cx - 62} ${cy - 8} H${cx + 62} M${cx - 62} ${cy + 8} H${cx + 62}" stroke="${OUT}" stroke-width="1.2" opacity=".55" stroke-dasharray="6 5"/>
+      <rect x="${cx - 16}" y="${cy - 20}" width="32" height="40" rx="5" fill="${trim}" stroke="${OUT}" stroke-width="2.5"/>
+      <rect x="${cx - 9}" y="${cy - 12}" width="18" height="24" rx="3" fill="none" stroke="${OUT}" stroke-width="2"/>
+      ${id === 'belt-hunter' ? `<path d="M${cx + 30} ${cy + 14} q4 22 0 32 q-7 -8 -3 -32Z M${cx - 36} ${cy + 14} l-4 22 l8 0Z" fill="#d8caa0" stroke="${OUT}" stroke-width="1.6"/>` : ''}`;
+  }
   function compass(c, A, it) {
     const id = it.id || '', cx = 100, cy = 150;
     const body = id === 'compass-star' ? metal(c, 'gold') : id === 'compass-sea' ? '#3c6a8c' : metal(c, 'gold');
@@ -601,5 +611,5 @@ const Parts = (() => {
       <path d="M40 48 q-2 8 -6 10 M40 48 q4 6 8 8" stroke="#b3261e" stroke-width="2.2" fill="none"/>`;
   }
 
-  return { newCtx, shade, metal, dye, cyl, def, pal, look, LOOK, helm, chest, armGuards, legGuards, pauldrons, gloves, amulet, bag, leash, compass, ranged, weapon, shield, consumable, OUT, mailFill, furFill, shadeOn, rivet, stitch };
+  return { newCtx, shade, metal, dye, cyl, def, pal, look, LOOK, helm, chest, armGuards, legGuards, pauldrons, gloves, amulet, bag, leash, compass, belt, ranged, weapon, shield, consumable, OUT, mailFill, furFill, shadeOn, rivet, stitch };
 })();

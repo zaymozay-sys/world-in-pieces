@@ -16,17 +16,21 @@ const Screens = (() => {
     fac:   { first: false, step: 'crest', msg: '', name: '', gender: null, picked: null },
     tavern: { msg: '' },
     mill: { msg: '' },
-    lighthouse: { msg: '' },
+    lighthouse: { msg: '', tab: 'quests', game: null },
     wreck: { msg: '' },
     chest: { msg: '' },
     junker: { msg: '' },
     library: { tab: 'npc', filter: 'weapon', itemTier: 1, msg: '', spellPick: false },
     artistWorkshop: { msg: '' },
+    jeweler: { tab: 'cut', msg: '', cutColor: 0 },
     kennel: { msg: '', tab: 'pet' },
     alchemist: { msg: '' },
     market: { tab: 'lots', kind: 'item', sel: null, mult: 1, qty: 1, msg: '' },
     village: { tab: 'build', msg: '' },
     arena: { tab: 'shadows', msg: '' },
+    duel: { list: null, busy: false, msg: '' },
+    bank: { msg: '' },
+    herocard: { msg: '' },
   };
   const money = (n) => MonsterArt.moneyHtml(n);
   const RES_BUY_MARKUP = 3;            // ресурсы в лавке дороже, чем при продаже
@@ -199,6 +203,7 @@ const Screens = (() => {
     tavern: _t("<b>Таверна.</b> Гоблин-трактирщик даёт задания — первое уже ждёт тебя: «Первая кровь». Ещё задания есть у Мельника-мыша на Мельнице."),
     best: _t("<b>Охотники.</b> Бестиарий: всё о встреченных существах — их приёмы, добыча и твой шанс на победу."),
     library: _t("<b>Библиотека</b> — мой дом. Здесь летопись <b>осколков Великого Сердца</b>: их хранят стражи с коронами на карте — собери четыре, и проснётся последний. Ещё тут поручение дня и учебные бои. Если что-то забудешь — приходи, проведу обучение заново."),
+    jeweler: _t("<b>Ювелирная лавка.</b> Сорока-ювелир гранит самоцветы стражей подземелья, сплавляет печати и скупает камни."),
     artistWorkshop: _t("<b>Мастерская художника.</b> Журавль продаёт руны и вставляет их в вещи: по два гнезда в каждой."),
     mill: _t("<b>Мельница.</b> Мельник-мышь даёт задания и делится мышиной мудростью."),
     junker: _t("<b>Хижина старьёвщика.</b> Скупает ненужные вещи разом — дешевле Лавки, зато не глядя."),
@@ -280,9 +285,9 @@ const Screens = (() => {
     ['weapon', _t("Оружие"), (t) => t === 'weapon1' || t === 'weapon2' || t === 'ranged'],
     ['shield', _t("Щиты"), (t) => t === 'shield'],
     ['armor', _t("Броня"), (t) => ['head', 'chest', 'arms', 'legs', 'shoulders', 'gloves'].includes(t)],
-    ['other', _t("Украшения и прочее"), (t) => ['amulet', 'bag', 'leash', 'compass'].includes(t)],
+    ['other', _t("Украшения и прочее"), (t) => ['amulet', 'bag', 'leash', 'compass', 'belt'].includes(t)],
   ];
-  const CAT_TYPE_ORDER = ['weapon1', 'weapon2', 'ranged', 'shield', 'head', 'chest', 'arms', 'legs', 'shoulders', 'gloves', 'amulet', 'bag', 'leash', 'compass'];
+  const CAT_TYPE_ORDER = ['weapon1', 'weapon2', 'ranged', 'shield', 'head', 'chest', 'arms', 'legs', 'shoulders', 'gloves', 'amulet', 'bag', 'leash', 'compass', 'belt'];
   // Вкладки комплектов (с числом надетых вещей), виды, цвет (все до вашего) и список карточек. s — состояние окна Лавки (меняется: set/kind/tier).
   function catalogView(s, top) {
     const faction = Profile.data.faction, all = Gear.itemsFor(faction).filter((i) => i.rarity !== 'epic');      // 1.6.6: эпические вещи в Лавке не продаются (Кузница, добыча, события)
@@ -512,7 +517,7 @@ const Screens = (() => {
     ['weapon', _t("Оружие"), (t) => t === 'weapon1' || t === 'weapon2'], ['shield', _t("Щиты"), (t) => t === 'shield'],
     ['head', _t("Шлемы"), (t) => t === 'head'], ['chest', _t("Нагрудники"), (t) => t === 'chest'], ['arms', _t("Наручи"), (t) => t === 'arms'],
     ['shoulders', _t("Наплечники"), (t) => t === 'shoulders'], ['gloves', _t("Перчатки"), (t) => t === 'gloves'],
-    ['legs', _t("Поножи"), (t) => t === 'legs'], ['amulet', _t("Амулеты"), (t) => t === 'amulet'], ['bag', _t("Сумки"), (t) => t === 'bag'], ['leash', _t("Поводки"), (t) => t === 'leash'], ['compass', _t("Компасы"), (t) => t === 'compass'], ['ranged', _t("Метательное"), (t) => t === 'ranged'],
+    ['legs', _t("Поножи"), (t) => t === 'legs'], ['amulet', _t("Амулеты"), (t) => t === 'amulet'], ['bag', _t("Сумки"), (t) => t === 'bag'], ['leash', _t("Поводки"), (t) => t === 'leash'], ['compass', _t("Компасы"), (t) => t === 'compass'], ['belt', _t("Пояса"), (t) => t === 'belt'], ['ranged', _t("Метательное"), (t) => t === 'ranged'],
   ];
   const costHtml = (c) => _t("<div class=\"costs\"><span class=\"need {0}\">Монеты: {1}</span>{2}</div>", [Profile.data.coins >= c.coins ? 'ok' : 'no', money(c.coins), c.res.map((r) => haveNeed(r.kind, r.tier, r.n)).join('')]);
   const canPay = (c) => Profile.data.coins >= c.coins && c.res.every((r) => Profile.res(r.kind, r.tier) >= r.n);
@@ -520,6 +525,99 @@ const Screens = (() => {
 
   // 1.6.0: подсказки при первом открытии новых вкладок кузницы
   const forgeTip = (tab) => (tab === 'refit' ? tipBox('forge:refit', _t("Вещь цвета на один выше вашего можно перековать за монеты: тогда её можно надеть на 10 уровней раньше. Характеристики не меняются.")) : tab === 'temper' ? tipBox('forge:temper', _t("Закалка усиливает вещь до +5 за монеты. Предел шага растёт с улучшением Кузницы в деревне (Ратуша → «Улучшения деревни»).")) : '');
+  /* =============== 1.8.9: стрелки компаса (Кузница) и путевой дневник (Библиотека); логика — js/compass.js =============== */
+  const compassState = () => (Profile.data.compass = Compass.clean(Profile.data.compass));
+  const cpFactor = () => (evNow().id === 'travel' ? 0.8 : 1);                 // «Неделя странников»: стрелки и дневник на 20% дешевле
+  const resNeedHtml = (res) => Object.entries(res).map(([k, n]) => `<span class="need ${resAny(k) >= n ? 'ok' : 'no'}">${Bestiary.RESOURCES[k].name} ${resAny(k)}/${n}</span>`).join(' ');
+  const resEnough = (res) => Object.entries(res).every(([k, n]) => resAny(k) >= n);
+  function compassForgeBody() {
+    const c = compassState(), bt = Profile.beltTier(), P = unitP();
+    const intro = bt ? `<p class="hint">${_t("Стрелка переносит героя на материке: «домой» — к Ратуше, «к метке» — на любую вашу метку. Стрелки хранятся только в Поясе (запас каждого вида — {0}) и работают только с надетым Поясом.", [Compass.cap(bt)])}</p>`
+      : `<p class="warn hint">${_t("Стрелки хранятся и работают только с Поясом, а пояса на вас нет. Пояс охотника выдаёт Охотничий дом за поручение «Первая добыча».")}</p>`;
+    const cards = Compass.KINDS.map((k) => {
+      const r = Compass.RECIPES[k], coins = Compass.cost(r, P, cpFactor()), room = Compass.room(c, k, bt);
+      const can = bt > 0 && room > 0 && Profile.data.coins >= coins && resEnough(r.res);
+      return `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${Compass.NAME[k]()} · ${_t("в поясе {0} из {1}", [Compass.count(c, k), Compass.cap(bt)])}</span><span class="item-foot">${_t("Монеты: {0}", [money(coins)])} · ${resNeedHtml(r.res)}${bt && room <= 0 ? '<br><span class="hint warn">' + _t("Пояс полон") + '</span>' : ''}</span></div><div class="card-act"><button type="button" ${can ? '' : 'disabled'} data-cp-make="${k}">${_t("Сделать")}</button></div></div>`;
+    }).join('');
+    return `${evBanner()}${intro}<div class="card-list">${cards}</div>`;
+  }
+  function compassMake(kind) {
+    const c = compassState(), bt = Profile.beltTier(), r = Compass.RECIPES[kind];
+    if (!r || !Compass.canAdd(c, kind, bt)) return false;
+    const coins = Compass.cost(r, unitP(), cpFactor());
+    if (Profile.data.coins < coins || !resEnough(r.res)) return false;
+    Profile.spend(coins); for (const [k, n] of Object.entries(r.res)) takeResAny(k, n);
+    Compass.add(c, kind, bt); Profile.save(); return true;
+  }
+  function diaryBody() {
+    const c = compassState(), P = unitP(), coins = Compass.cost(Compass.DIARY, P, cpFactor());
+    if (c.diary) return `<p class="hint">${_t("Путевой дневник у вас уже есть. Откройте журнал на карте (кнопка «Журнал»): у каждой метки появится значок карандаша — название можно вписать.")}</p>`;
+    const can = Profile.data.coins >= coins && resEnough(Compass.DIARY.res);
+    return `<p class="hint">${_t("В путевом дневнике метки на карте получают названия вместо номеров. Дневник делается один раз.")}</p>
+      <div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${_t("Путевой дневник")}</span><span class="item-foot">${_t("Монеты: {0}", [money(coins)])} · ${resNeedHtml(Compass.DIARY.res)}</span></div><div class="card-act"><button type="button" ${can ? '' : 'disabled'} data-diary-make="1">${_t("Сделать")}</button></div></div>`;
+  }
+  function diaryMake() {
+    const c = compassState(), coins = Compass.cost(Compass.DIARY, unitP(), cpFactor());
+    if (c.diary || Profile.data.coins < coins || !resEnough(Compass.DIARY.res)) return false;
+    Profile.spend(coins); for (const [k, n] of Object.entries(Compass.DIARY.res)) takeResAny(k, n);
+    c.diary = true; Profile.save(); return true;
+  }
+
+  /* =============== 1.8.9: самоцветы стражей (Кузница «Огранка»), js/stones.js =============== */
+  const gemDot = (c) => `<i class="gem-dot" style="background:${Stones.HEX[c - 1]}"></i>`;
+  function jewelerBody(tab) {
+    const S = Profile.stones(), J = st.jeweler, gear = Profile.gear(), P = unitP();
+    const all = Array.from({ length: Stones.COLORS }, (_, i) => i + 1);
+    if (tab === 'seals') {
+      return `<p class="hint">${_t("Печать стража сплавляется из трёх самоцветов одного цвета. У двери подземелья она переносит сразу на этаж стража — если вы там уже бывали.")}</p><div class="card-list">${all.map((k) => `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${gemDot(k)} ${_t("Печать «{0}»", [Stones.name(k)])} · ${_t("есть {0}", [S.seals[k]])}</span><span class="item-foot">${_t("{0} самоцвета → этаж {1} подземелья", [Stones.SEAL_COST, Stones.sealFloor(k)])} · ${Stones.name(k)} × ${S.bag[k]}</span></div><div class="card-act"><button type="button" ${S.bag[k] >= Stones.SEAL_COST ? '' : 'disabled'} data-seal-make="${k}">${_t("Сплавить")}</button></div></div>`).join('')}</div>`;
+    }
+    if (tab === 'sell') {
+      const rows = all.filter((c) => S.bag[c] > 0).map((c) => `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${gemDot(c)} ${Stones.name(c)} × ${S.bag[c]}</span><span class="item-foot">${_t("Цена за штуку: {0}", [money(Stones.sellPrice(c, P))])}</span></div><div class="card-act"><button type="button" data-gem-sell="${c}">${_t("Продать 1")}</button></div></div>`).join('');
+      return rows ? `<div class="card-list">${rows}</div>` : `<p class="hint">${_t("Самоцветов нет. Их роняют каменные стражи подземелья.")}</p>`;
+    }
+    const bag = all.map((c) => `<span class="stone-chip ${J.cutColor === c ? 'on' : ''}"><button type="button" data-cut-color="${c}" ${S.bag[c] > 0 ? '' : 'disabled'}>${gemDot(c)} ${Stones.name(c)} × ${S.bag[c]}</button></span>`).join('');
+    const c = J.cutColor | 0;
+    const rows = Object.entries(gear).filter(([, it]) => it && it.uid).map(([slot, it]) => {
+      const cur = it.cut ? `${gemDot(it.cut)} ${Stones.name(it.cut)}` : _t("без огранки");
+      const hint = slot === 'belt' ? _t("запас стрелок +{0}", [Stones.beltCap(c || it.cut)]) : (c || it.cut ? Object.entries(Stones.cutBonus(c || it.cut)).map(([k, v]) => `${Gear.STAT_NAMES[k]} +${v}`).join(', ') : '');
+      return `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${(Gear.item(it) || {}).name || it.id}</span><span class="item-foot">${cur}${hint ? ' · ' + hint : ''}</span></div><div class="card-act"><button type="button" ${Stones.valid(c) && S.bag[c] > 0 && it.cut !== c ? '' : 'disabled'} data-cut-do="${it.uid}">${_t("Огранить")}</button></div></div>`;
+    }).join('');
+    return `<p class="hint">${_t("Выберите самоцвет, затем надетую вещь. Одна грань на вещь; новая заменяет старую, камень не возвращается. Пояс получает больший запас стрелок.")}</p><div class="stone-bag">${bag}</div><div class="card-list">${rows}</div>`;
+  }
+  function stoneCut(uid) {
+    const S = Profile.stones(), c = st.jeweler.cutColor | 0, e = Profile.data.items.find((i) => i.uid === uid);
+    if (!e || !Stones.valid(c) || e.cut === c || !Stones.take(S, c, Stones.cutCost(c))) return false;
+    e.cut = c; Profile.save(); return true;
+  }
+  const MAGPIE_LINES = [_t("Блестит? Всё, что блестит, приносите мне. Огранить, сплавить, оценить — я сорока, а не слепая курица."), _t("Хороший камень! Видите, как играет?"), _t("Грань легла как по линейке. Теперь вещь сияет.")];
+  const jeweler = {
+    html() {
+      const s = st.jeweler;
+      const portrait = (typeof Art !== 'undefined' && Art.hasNpc('magpie-jeweler'))
+        ? Art.npcPortrait('magpie-jeweler')
+        : `<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#1e1a24"/>
+            <ellipse cx="50" cy="82" rx="28" ry="9" fill="#34303c"/>
+            <path d="M30 80 Q28 50 44 38 Q46 24 56 22 Q66 24 64 38 Q74 52 70 80Z" fill="#1c1c24"/>
+            <path d="M44 56 Q52 50 62 58 L60 76 Q50 80 42 74Z" fill="#f4f1e8"/>
+            <circle cx="56" cy="30" r="9" fill="#1c1c24"/><circle cx="58" cy="28" r="2.2" fill="#fff"/><circle cx="58.6" cy="28" r="1" fill="#111"/>
+            <path d="M63 31 L76 34 L63 37Z" fill="#c9a869"/>
+            <path d="M26 40 L30 34 L34 40 L30 46Z" fill="#6aa8e8" stroke="#fff" stroke-width=".8"/>
+            <path d="M70 60 L74 54 L78 60 L74 66Z" fill="#e0605a" stroke="#fff" stroke-width=".8"/></svg>`;
+      const scene = (typeof Art !== 'undefined' && Art.hasScene('jeweler'))
+        ? ` style="background-image:linear-gradient(180deg, rgba(20,16,10,.55), rgba(20,16,10,.85)), url('${Art.sceneUrl('jeweler')}');background-size:cover;background-position:center"` : '';
+      const body = `<div class="npc-row"><span class="npc-portrait">${portrait}</span><div class="npc-say"><b>${_t("Сорока-ювелир")}</b><p class="hint">${s.msg || MAGPIE_LINES[0]}</p></div></div>${jewelerBody(s.tab)}`;
+      return `<div class="modal" role="dialog" aria-label="${_t("Ювелирная лавка")}">${head(_t("Ювелирная лавка"))}${tabs([['cut', _t("Огранка")], ['seals', _t("Печати")], ['sell', _t("Скупка")]], s.tab)}<div class="screen-body tavern-body"${scene}>${body}</div></div>`;
+    },
+    click(b) {
+      const s = st.jeweler, d = b.dataset;
+      if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.cutColor) { s.cutColor = Number(d.cutColor); return render(); }
+      if (d.cutDo) { s.msg = stoneCut(d.cutDo) ? MAGPIE_LINES[2] : _t("Не получилось."); return changed(); }
+      if (d.sealMake) { s.msg = Stones.makeSeal(Profile.stones(), Number(d.sealMake)) ? (Profile.save(), _t("Печать сплавлена.")) : _t("Не хватает самоцветов."); return changed(); }
+      if (d.gemSell) { const c = Number(d.gemSell), S = Profile.stones(); if (Stones.take(S, c, 1)) { Profile.addCoins(Stones.sellPrice(c, unitP())); Profile.save(); s.msg = MAGPIE_LINES[1]; } return changed(); }
+    },
+  };
+
   const forge = {
     html() {
       const s = st.forge;
@@ -536,7 +634,7 @@ const Screens = (() => {
             const next = Gear.item({ ...Profile.item(s.sel), tier: it.tier + 1 });
             const lvlWarn = Hero.canWear(next.wt, Profile.level()) ? '' : _t("<p class=\"hint warn\">Вещь цвета «{0}» можно надеть с {1}-го уровня.</p>", [Tiers.get(next.tier).name, Hero.itemLevel(next.wt)]);
             const worn = Profile.equippedUid(it.uid), locked = worn && !canEditGear();
-            detail = _t("{0}<div class=\"arrow-down\">повышение до {1}</div>{2}\n              <h3>Стоимость (ресурсы того же цвета, что у вещи)</h3>{3}{4}\n              {5}\n              <div class=\"reset\"><button type=\"button\" data-do-upgrade=\"1\" {6}>Улучшить</button></div>", [itemCard(it, _t("Сейчас")), tierChip(next.tier), itemCard(next, _t("В очках снаряжения: {0} → {1}", [it.cost, next.cost])), costHtml(cost), lvlWarn, locked ? _t("<p class=\"hint warn\">Надетую вещь можно улучшать до первого хода боя или после его окончания.</p>") : '', canPay(cost) && !locked ? '' : 'disabled']);
+            detail = _t("{0}<div class=\"arrow-down\">повышение до {1}</div>{2}\n              <h3>Стоимость (ресурсы того же цвета, что у вещи)</h3>{3}{4}\n              {5}\n              <div class=\"reset\"><button type=\"button\" data-do-upgrade=\"1\" {6}>Улучшить</button></div>", [itemCard(it, _t("Сейчас")), tierChip(next.tier), itemCard(next, _t("В очках снаряжения: {0} → {1}", [it.cost, next.cost])) + (() => { const dl = Object.keys(next.stats).filter((k) => next.stats[k] !== it.stats[k]).map((k) => `${Gear.STAT_NAMES[k] || k} ${it.stats[k] || 0} → ${next.stats[k]}`).join(', '); return dl ? `<p class="hint">${_t("Было → стало: {0}", [dl])}</p>` : ''; })(), costHtml(cost), lvlWarn, locked ? _t("<p class=\"hint warn\">Надетую вещь можно улучшать до первого хода боя или после его окончания.</p>") : '', canPay(cost) && !locked ? '' : 'disabled']);
             detail += `<div class="reset">${tryBtn('upgrade', it.uid)}</div>`;
           }
         }
@@ -609,6 +707,8 @@ const Screens = (() => {
           return `<div class="card" style="--t:${tierColor(r.tier)}">${MonsterArt.resIcon(r.kind, r.tier)}<div class="card-body"><span class="item-title">${resLabel(r.kind, r.tier)} × ${r.n}</span><span class="item-foot">${_t("Где добыть: {0}", [src])}</span></div><div class="card-act">${bu}${bd}</div></div>`;
         }).join('') || _t("<p class=\"hint\">Ресурсов пока нет: они выпадают из существ.</p>");
         body = `<p class="hint">${_t("Обмен — только между соседними цветами одного ресурса: {0} → 1 вверх и 1 → {1} вниз. Монеты не нужны.", [E.up, E.downOut])}</p><div class="card-list">${rows}</div>`;
+      } else if (s.tab === 'compass') {
+        body = compassForgeBody();
       } else if (s.tab === 'ammo') {
         const ak = Profile.shotKind(), AM = Ammo.CATALOG[ak], top = Hero.tierFor(Profile.level());
         const C = Ammo.CRAFT, fee = Math.round(ammoPrice(ak) * 0.3);
@@ -630,11 +730,12 @@ const Screens = (() => {
         body = _t("<div class=\"tabs sub\">{0}</div>\n          <p class=\"hint\">Цвет новой вещи (до цвета вашего уровня):</p>{1}<div class=\"card-list\">{2}</div>", [FILTERS.map(([k, label]) => `<button type="button" class="${k === s.filter ? 'on' : ''}" data-filter="${k}">${label}</button>`).join(''), tierPicker(top, ct, 'crafttier'), list]);
       }
       const res = Profile.resList().map((r) => `<span class="need ok">${MonsterArt.resIcon(r.kind, r.tier)}${resLabel(r.kind, r.tier)} × ${r.n}</span>`).join('') || _t("<span class=\"hint\">Ресурсов нет</span>");
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs([['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['ammo', _t("Боеприпасы")], ['swap', _t("Обмен")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], ['repair', _t("Починка")]], s.tab), sceneStyle('forge'), s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', res, forgeTip(s.tab) + body]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs([['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['ammo', _t("Боеприпасы")], ['compass', _t("Стрелки")], ['swap', _t("Обмен")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], ['repair', _t("Починка")]], s.tab), sceneStyle('forge'), s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', res, forgeTip(s.tab) + body]);
     },
     click(b) {
       const s = st.forge, d = b.dataset;
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.cpMake) { s.msg = compassMake(d.cpMake) ? _t("Стрелка в поясе.") : _t("Не получилось: нужен пояс со свободным местом, монеты и ресурсы."); return changed(); }
       if (d.filter) { s.filter = d.filter; return render(); }
       if (d.crafttier) { s.craftTier = Number(d.crafttier); return render(); }
       if (d.pick) { s.sel = d.pick; s.msg = ''; return render(); }
@@ -1026,7 +1127,7 @@ const Screens = (() => {
     return SEAL_LINES[0];
   };
   const chestsOpenedCount = () => { const d = Profile.data; return (d.chestOpened ? 1 : 0) + ['ruby', 'emerald'].filter((k) => d.xchests && d.xchests[k]).length; };
-  const lighthouse = {
+  const lighthouseQuests = {
     html() {
       const s = st.lighthouse;
       const portrait = (typeof Art !== 'undefined' && Art.hasNpc('seal-lighthouse'))
@@ -1043,15 +1144,148 @@ const Screens = (() => {
     },
     click(b) { questClick(b, 'lighthouse'); },
   };
+
+  // ---- 1.8.8: мини-игры смотрителя маяка («Обвал», «Пирамида»), жетоны и лавка жетонов ----
+  const lhData = () => (Profile.data.lh = LHGames.clean(Profile.data.lh));
+  // камни мини-игр — те же рисунки, что на боевом поле (GEM_SVG); особый камень помечен значком поверх
+  const lhStone = (t, sp, extra) => (t < 0 ? '<i class="lh-hole"></i>' : `<i class="lh-stone${extra || ''}">${(typeof GEM_SVG !== 'undefined' && GEM_SVG[GEM_TYPES[t]]) || ''}${sp ? `<b class="lh-sp">${sp === 1 ? '✸' : '✦'}</b>` : ''}</i>`);
+  function lhTabs(s) { return tabs([['quests', _t("Поручения")], ['games', _t("Игры")], ['shop', _t("Лавка жетонов")]], s.tab || 'quests'); }
+  function lhFrame(inner) {
+    const s = st.lighthouse;
+    return `<div class="modal" role="dialog" aria-label="${_t("Маяк")}">${head(_t("Маяк"))}${lhTabs(s)}<div class="screen-body tavern-body mill-body"${sceneStyle('lighthouse')}>${s.msg ? `<div class="gear-toast">${s.msg}</div>` : ''}${inner}</div></div>`;
+  }
+  function lhGamesHtml() {
+    const s = st.lighthouse, d = lhData(), day = Daily.today(), g = s.game;
+    if (g) return g.kind === 'av' ? lhAvHtml(g) : lhPyHtml(g);
+    const row = (k, text) => {
+      const left = LHGames.left(d, k, day), can = LHGames.canPlay(d, k, day);
+      return `<div class="card"><div class="card-body"><span class="item-title">${LHGames.GAME_NAME[k]()}</span><p class="hint">${text}</p>
+        <p class="hint">${_t("Рекорд: {0}. Зачётных раундов сегодня: {1} из {2}. Билетов: {3}.", [d.best[k], left, LHGames.DAILY_PLAYS, d.tickets])}</p>
+        <p class="hint">${_t("Жетоны: от 1 до 5 за раунд — от {0} очков и выше.", [LHGames.TIERS[k][0]])}</p>
+        <div class="mc-act"><button type="button" class="primary" data-lhplay="${k}" ${can ? '' : 'disabled'}>${left > 0 ? _t("Играть") : d.tickets ? _t("Играть за билет") : _t("На сегодня всё")}</button></div></div></div>`;
+    };
+    return `${evBanner()}<p class="hint">${_t("Жетонов маяка: {0}. Игры дают только жетоны — на силу в бою они не влияют.", [d.tokens])}</p><div class="cards">
+      ${row('av', _t("В шахте над полем 60 камней и больше нет. Меняйте соседние камни местами и собирайте линии: четыре в ряд дают взрывной камень ✸ (убирает соседей), пять — линейный ✦ (убирает строку или столбец). Запас кончится — раунд окончен."))}
+      ${row('py', _t("Три шара — весом 1, 2 и 3, каждый бросается один раз. Выберите шар и нажмите стрелку у строки: он выбьет столько ящиков, каков его вес. Верхние падают вниз, три одного цвета в ряд исчезают сами."))}</div>
+      <p class="hint">${_t("Раунд не сохраняется: если выйти раньше, засчитаются набранные очки.")}</p>`;
+  }
+  function lhResult(g) {
+    if (!g.res) return '';
+    return `<div class="gear-toast">${_t("Раунд окончен: {0} очков. Жетонов: +{1}.", [g.res.score, g.res.tokens])}${g.res.record ? ' ' + _t("Новый рекорд!") : ''}</div>`;
+  }
+  function lhAvHtml(g) {
+    const a = g.s, cells = [];
+    for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${g.sel === i ? ' sel' : ''}" data-lhcell="${i}" ${a.done ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(a.typ[i], a.sp[i])}</button>`);
+    return `${lhResult(g)}<p class="hint">${_t("Очки: {0} · ходов: {1} · камней в шахте: {2}{3}", [a.score, a.moves, a.reserve.length, a.shuffles < 3 ? ' · ' + _t("перемешиваний: {0}", [a.shuffles]) : ''])}</p>
+      <div class="lh-board">${cells.join('')}</div>
+      <div class="mc-act"><button type="button" data-lhquit="1">${a.done ? _t("К списку игр") : _t("Закончить раунд")}</button></div>`;
+  }
+  function lhPyHtml(g) {
+    const a = g.s, rows = [];
+    for (let rr = 0; rr < 6; rr++) {
+      const row = 5 - rr, cells = [];
+      for (let c = 0; c < 6; c++) cells.push(lhStone(a.typ[rr * 6 + c], 0, g.hit && g.hit.includes(rr * 6 + c) ? ' hit' : ''));
+      const dis = a.done || !a.balls.includes(g.ball) ? 'disabled' : '';
+      rows.push(`<div class="lh-row"><button type="button" data-lhthrow="L${row}" ${dis} aria-label="${_t("Бросить слева в строку {0}", [row + 1])}">▶</button><div class="lh-cells">${cells.join('')}</div><button type="button" data-lhthrow="R${row}" ${dis} aria-label="${_t("Бросить справа в строку {0}", [row + 1])}">◀</button></div>`);
+    }
+    const balls = [1, 2, 3].map((w) => `<button type="button" class="${g.ball === w ? 'on' : ''}" data-lhball="${w}" ${a.balls.includes(w) ? '' : 'disabled'}>${_t("Шар {0}", [w])}</button>`).join('');
+    return `${lhResult(g)}<p class="hint">${_t("Очки: {0} · выбито ящиков: {1}", [a.score, a.knocked])}</p>
+      <div class="tabs sub">${balls}</div><div class="lh-pyr">${rows.join('')}</div>
+      <div class="mc-act"><button type="button" data-lhquit="1">${a.done ? _t("К списку игр") : _t("Закончить раунд")}</button></div>`;
+  }
+  const LH_ART = { ticket: 'items/ticket-lh', lamp: 'items/badge-lamp', shell: 'items/badge-shell', pearl: 'items/badge-pearl', frame: 'ui/frame-rope' };
+  function lhShopHtml() {
+    const d = lhData(), items = LHGames.SHOP.map((it) => {
+      const have = !it.repeat && d.bought[it.id];
+      const key = LH_ART[it.id], pic = key && typeof Art !== 'undefined' && Art.has(key) ? Art.icon(key) : '';       // картинки лавки (если нарисованы): docs/art-prompts-1.8.8.md
+      return `<div class="card"><div class="card-body"><span class="item-title">${pic}${it.name()}</span><p class="hint">${it.desc()}</p>
+        <div class="mc-act"><button type="button" ${have ? 'disabled' : ''} data-lhbuy="${it.id}">${have ? _t("Есть") : _t("Взять за {0} жет.", [it.cost])}</button></div></div></div>`;
+    }).join('');
+    return `<p class="hint">${_t("Жетонов маяка: {0}. Билетов: {1}.", [d.tokens, d.tickets])}</p><div class="cards">${items}</div>`;
+  }
+  function lhFinish(g) {
+    if (g.res) return;
+    const d = lhData(), r = LHGames.finish(d, g.kind, g.s.score);
+    if (evNow().id === 'games' && r.tokens > 0) { d.tokens += 1; r.tokens += 1; }          // 1.8.9: «Неделя игр»
+    g.res = { score: g.s.score, tokens: r.tokens, record: r.record };
+    if (typeof Chron !== 'undefined' && r.record && g.s.score > 0) Profile.chron('lh', LHGames.GAME_NAME[g.kind]() + ' ' + g.s.score);
+    Profile.save();
+  }
+  const lighthouse = {
+    html() {
+      const s = st.lighthouse, tab = s.tab || 'quests';
+      if (tab === 'quests') return lighthouseQuests.html().replace('</header>', '</header>' + lhTabs(s));
+      return lhFrame(tab === 'games' ? lhGamesHtml() : lhShopHtml());
+    },
+    click(b) {
+      const s = st.lighthouse, d = b.dataset;
+      if (d.tab) { s.tab = d.tab; s.msg = ''; if (d.tab !== 'games') s.game = null; return render(); }
+      if (d.lhplay) {
+        const dd = lhData(), k = d.lhplay;
+        if (!LHGames.begin(dd, k, Daily.today())) { s.msg = _t("На сегодня раундов не осталось."); return render(); }
+        s.msg = ''; s.game = { kind: k, s: k === 'av' ? LHGames.avNew((Date.now() & 0x7fffffff) | 1) : LHGames.pyNew((Date.now() & 0x7fffffff) | 1), sel: null, ball: 3, hit: null, res: null };
+        Profile.save(); return render();
+      }
+      const g = s.game;
+      if (d.lhquit && g) { lhFinish(g); s.game = null; s.msg = ''; return render(); }
+      if (d.lhbuy) { const r = LHGames.buy(lhData(), d.lhbuy); s.msg = r.ok ? _t("Готово.") : r.why === 'poor' ? _t("Не хватает жетонов.") : r.why === 'full' ? _t("Билетов уже много.") : _t("Уже есть."); if (r.ok) Profile.save(); return render(); }
+      if (!g) return questClick(b, 'lighthouse');
+      if (d.lhcell !== undefined && g.kind === 'av') {
+        const i = +d.lhcell;
+        if (g.sel === null) g.sel = i;
+        else if (g.sel === i) g.sel = null;
+        else { const r = LHGames.avMove(g.s, g.sel, i); g.sel = r.ok ? null : i; if (g.s.done) lhFinish(g); }
+        return render();
+      }
+      if (d.lhball && g.kind === 'py') { g.ball = +d.lhball; return render(); }
+      if (d.lhthrow && g.kind === 'py') {
+        const r = LHGames.pyThrow(g.s, +d.lhthrow.slice(1), d.lhthrow[0], g.ball);
+        if (r.ok) { g.hit = null; const rest = g.s.balls; if (!rest.includes(g.ball)) g.ball = rest[rest.length - 1] || 0; if (g.s.done) lhFinish(g); s.msg = r.hit.length ? _t("Выбито: {0}{1}", [r.hit.length, r.chain ? _t(", цепочка: {0}", [r.chain]) : '']) : _t("Мимо."); }
+        return render();
+      }
+    },
+  };
   // Награда сундука — один раз за профиль (Profile.data.chestOpened): монеты, расходники и три части набора «Морской волк».
-  const CHEST_REWARD = { coins: 600, items: ['sea-cutlass', 'sea-head', 'sea-amulet'], cons: { potion: 3, elixir: 2, scroll: 2 } };
+  // 1.8.7: ремонт бригантины (доски, паутина, лом и монеты любого цвета) → плавание на Затерянный остров
+  const SHIP_COST = { coins: 1500, res: { splinter: 20, silk: 10, scrap: 8 } };
+  const resAny = (kind) => Profile.resList().filter((r) => r.kind === kind).reduce((n, r) => n + r.n, 0);
+  function takeResAny(kind, n) {
+    for (const r of Profile.resList()) { if (r.kind !== kind || n <= 0) continue; const t = Math.min(r.n, n); Profile.takeRes(kind, r.tier, t); n -= t; }
+  }
+  function shipBlock() {
+    const d = Profile.data;
+    const sh = d.ship || {};
+    if (sh.paid && !sh.fixed) {
+      const n = sh.pulls || 0;
+      return `<h3>${_t("Вытащить бригантину")}</h3><p class="hint">${_t("Материалы вложены, но корабль крепко сидит на мели. Нужны сильные звери — кабаны, лоси, носороги, леопарды, рыси: их упряжка стащит бригантину в воду. Побед над ними: {0} / 5.", [n])}</p><div class="mc-act"><button type="button" class="primary" data-pull="1"${n >= 5 ? '' : ' disabled'}>${_t("Стащить в море")}</button></div>`;
+    }
+    if (d.ship && d.ship.fixed) return `<h3>${_t("Бригантина на плаву")}</h3><p class="hint">${_t("Бригантина на воде. Можно плыть на Затерянный остров.")}</p><div class="mc-act"><button type="button" class="primary" data-sail="1">${_t("Отплыть на остров")}</button></div>`;
+    const rows = Object.entries(SHIP_COST.res).map(([k, n]) => `${Bestiary.RESOURCES[k].name}: ${resAny(k)} / ${n}`).join('; ');
+    const ok = d.coins >= SHIP_COST.coins && Object.entries(SHIP_COST.res).every(([k, n]) => resAny(k) >= n);
+    return `<h3>${_t("Починить бригантину")}</h3><p class="hint">${_t("Если вернуть кораблю ход, он дойдёт до Затерянного острова. Нужно: {0}; монеты: {1} / {2}.", [rows, d.coins, SHIP_COST.coins])}</p><div class="mc-act"><button type="button" class="primary" data-repair="1"${ok ? '' : ' disabled'}>${_t("Починить")}</button></div>`;
+  }
   const wreck = {
     html() {
       const scene = (typeof Art !== 'undefined' && Art.hasScene('wreck'))
         ? ` style="background-image:linear-gradient(180deg, rgba(14,14,20,.5), rgba(14,14,20,.85)), url('${Art.sceneUrl('wreck')}');background-size:cover;background-position:center"` : '';
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кораблекрушение\">{0}\n        <div class=\"screen-body tavern-body\"{1}>\n          <p class=\"hint\">Бригантина лежит на боку, мачта сломана, рваный парус бьётся на ветру. Рядом на песке стоит запертый сундук, а берег охраняет Капитан — бывший командир этого корабля. Победите его, и он оставит части морского набора.</p>\n        </div></div>", [head(_t("Бригантина")), scene]);
+      const base = _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кораблекрушение\">{0}\n        <div class=\"screen-body tavern-body\"{1}>\n          <p class=\"hint\">Бригантина лежит на боку, мачта сломана, рваный парус бьётся на ветру. Рядом на песке стоит запертый сундук, а берег охраняет Капитан — бывший командир этого корабля. Победите его, и он оставит части морского набора.</p>\n        </div></div>", [head(_t("Бригантина")), scene]);
+      return base.replace(/<\/div><\/div>\s*$/, shipBlock() + '</div></div>');
     },
-    click() {},
+    click(b) {
+      const d = Profile.data;
+      if (b.dataset.repair) {
+        if (d.ship && d.ship.fixed) return;
+        if (d.coins < SHIP_COST.coins || !Object.entries(SHIP_COST.res).every(([k, n]) => resAny(k) >= n)) return;
+        if (!Profile.spend(SHIP_COST.coins)) return;
+        for (const [k, n] of Object.entries(SHIP_COST.res)) takeResAny(k, n);
+        d.ship = { paid: true, pulls: 0 }; Profile.save(); return changed();
+      }
+      if (b.dataset.pull) {
+        if (!d.ship || !d.ship.paid || d.ship.fixed || (d.ship.pulls || 0) < 5) return;
+        d.ship = { fixed: true }; Profile.chron('ship', 1); Profile.save(); return changed();
+      }
+      if (b.dataset.sail && d.ship && d.ship.fixed) { close(); MapView.enterIsland(); }
+    },
   };
   const CHEST_KINDS = {
     sapphire: { title: _t("Сапфировый сундук"), hold: _t("Тяжёлый сундук из тёмного дерева, в крышке — сапфиры."), keyHint: _t("Ключ, говорят, хранит тюлень-смотритель на западном маяке и отдаёт за поручения."),
@@ -1074,7 +1308,7 @@ const Screens = (() => {
   function giveChest(k) {
     const R = CHEST_KINDS[k].reward, d = Profile.data, tier = Math.max(1, Hero.tierFor(Profile.level()));
     if (k === 'sapphire') d.chestOpened = true; else { d.xchests = d.xchests || {}; d.xchests[k] = true; }
-    Profile.addCoins(R.coins);
+    Profile.addCoins(R.coins); Profile.chron('chest', CHEST_KINDS[k].title);
     const names = [];
     for (const id of R.items) { const e = Gear.makeEntry(id, tier); Profile.addItem(e); names.push(Gear.item(e).name); }
     for (const [c, n] of Object.entries(R.cons)) { Profile.addConsumable(c, n); names.push(`${Gear.CONSUMABLES[c].name} ×${n}`); }
@@ -1204,6 +1438,8 @@ const Screens = (() => {
           <div class="card" style="--t:#c9b48a">${itemIcon(k)}<div class="card-body"><span class="item-title">${c.name}</span><span class="item-foot">${c.desc}</span></div></div>`).join('');
         const sets = Object.values(Gear.SETS).map((set) => _t("\n          <div class=\"set\" style=\"--c:{0}\"><b>Набор «{1}»{2}</b>\n            {3}</div>", [set.color, set.name, set.faction ? _t(" (фракция «{0}»)", [Factions.get(set.faction).name]) : '', Object.entries(set.bonuses).map(([n, b]) => _t("<div class=\"off\">{0} шт.: {1}</div>", [n, fmtBonus(b)])).join('')])).join('');
         body = _t("<div class=\"tabs sub\">{0}</div>\n          <p class=\"hint\">Цвет для просмотра (справочно — характеристики вещи растут вместе с цветом):</p>{1}\n          <div class=\"card-list\">{2}</div>\n          <h3>Расходники</h3><div class=\"card-list\">{3}</div>\n          <h3>Наборы</h3>{4}", [FILTERS.map(([k, label]) => `<button type="button" class="${k === s.filter ? 'on' : ''}" data-libfilter="${k}">${label}</button>`).join(''), tierPicker(Tiers.MAX, s.itemTier, 'libtier'), list, cons, sets]);
+      } else if (s.tab === 'diary') {
+        body = diaryBody();
       } else if (s.tab === 'scrolls') {
         // 1.6.6: свитки пишет Бобёр — из «своего» ресурса (Forge.OWN), за четверть цены свитка в монетах
         const cards = Forge.SCROLLS.map((k) => {
@@ -1243,13 +1479,14 @@ const Screens = (() => {
           + (Story.finished(story) ? `${typeof Art !== 'undefined' && Art.has('items/heart') ? `<img class="heart-pic" src="${Art.url('items/heart')}" alt="">` : ''}<p class="hint"><i>${Story.EPILOGUE}</i></p><button type="button" class="primary" data-story-new="1">${_t("Начать новый поход")}</button>` : '');
         body = _t("<div class=\"npc-row\"><span class=\"npc-portrait\">{0}</span>\n            <div class=\"npc-say\"><b>Бобёр-хранитель</b><p class=\"hint\">{1}</p></div></div>\n          {2}\n          <h3>Поручение дня</h3><div class=\"cards\"><div class=\"card quest-card {3}\">\n            <div class=\"card-body\"><span class=\"item-title\">Дежурный обход</span>\n              <span class=\"item-foot\">Победите сегодня в одном бою — бобёр щедро делится знаниями (и не только).</span>\n              <span class=\"item-foot quest-reward\">Награда: монеты и порция каменной пыли</span></div>\n            <div class=\"card-act\">{4}</div></div></div>\n          <p class=\"hint\">Поручение обновляется каждый день, в полночь по вашему времени.</p>\n          {5}", [portrait, s.msg || BEAVER_LINES[0], storyBlock, q.claimed ? 'is-done' : '', qAct, trainBlock]);
       }
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Библиотека\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}</div></div>", [head(_t("Библиотека")), tabs([['npc', _t("Бобёр")], ['beasts', _t("Бестиарий")], ['items', _t("Вещи")], ['medals', _t("Медали")], ['scrolls', _t("Свитки")]], s.tab), scene, body]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Библиотека\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}</div></div>", [head(_t("Библиотека")), tabs([['npc', _t("Бобёр")], ['beasts', _t("Бестиарий")], ['items', _t("Вещи")], ['medals', _t("Медали")], ['scrolls', _t("Свитки")], ['diary', _t("Дневник")]], s.tab), scene, body]);
     },
     click(b) {
       const s = st.library, d = b.dataset;
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
       if (d.libfilter) { s.filter = d.libfilter; return render(); }
       if (d.libtier) { s.itemTier = Number(d.libtier); return render(); }
+      if (d.diaryMake) { s.msg = diaryMake() ? _t("Бобёр вручил путевой дневник.") : _t("Не хватает монет или материалов."); return changed(); }
       if (d.scrollBrew) {
         const k = d.scrollBrew, stack = Forge.SCROLLS.includes(k) && alchStack(2, k), fee = Math.round(consPrice(k) * 0.25);
         if (!stack || Profile.data.coins < fee || !Profile.takeRes(stack.kind, stack.tier, 2)) return;
@@ -1382,7 +1619,10 @@ const Screens = (() => {
   };
 
   const CHECKLIST_URL = 'https://claude.ai/artifact/QhG7ptvQJyXqygJj1Jh1RP';
-    const withChecklist = (h) => h.replace('<div class="test-x10">', '<div class="test-x10"><p class="hint"><a href="' + CHECKLIST_URL + '" target="_blank" rel="noopener">' + _t("Чек-лист проверки графики на телефоне и компьютере ↗") + '</a></p>');
+    const withChecklist = (h) => h.replace('</ul>', () => '</ul>' + thanksHtml()).replace('<div class="test-x10">', '<div class="test-x10"><p class="hint"><a href="' + CHECKLIST_URL + '" target="_blank" rel="noopener">' + _t("Чек-лист проверки графики на телефоне и компьютере ↗") + '</a></p>');
+// 1.8.9: благодарности помощникам; список пополняется вручную (сюда добавляют имена)
+  const THANKS = [];
+  const thanksHtml = () => `<p class="hint">${_t("Благодарим за помощь в создании игры:")}</p>${THANKS.length ? `<ul class="credits-list">${THANKS.map((n) => `<li>${String(n).replace(/</g, '&lt;')}</li>`).join('')}</ul>` : `<p class="hint">${_t("Со временем этот раздел заполнится именами.")}</p>`}`;
 const credits = {
     html() {
       return withChecklist(_t("<div class=\"modal\" role=\"dialog\" aria-label=\"О разработчиках\">{0}\n        <div class=\"screen-body credits-body\">\n          <p class=\"hint\">Игру создали:</p>\n          <ul class=\"credits-list\">\n            <li>Воробьев Александр Сергеевич</li>\n            <li>Никифоренко Екатерина Эдуардовна</li>\n          </ul>\n          <p class=\"hint\">© 2026 Воробьев Александр Сергеевич, Никифоренко Екатерина Эдуардовна. Все права защищены.</p>\n          <div class=\"test-x10\">\n            <label class=\"switch\"><button type=\"button\" role=\"switch\" aria-checked=\"{1}\" data-testx10=\"1\" class=\"{2}\"><i></i></button>\n              <span><b>Тест: характеристики героя ×10</b> — {3}</span></label>\n            <label class=\"switch\"><button type=\"button\" role=\"switch\" aria-checked=\"{4}\" data-testspells=\"1\" class=\"{5}\"><i></i></button>\n              <span><b>Тест: все виды магии открыты</b> — {6}</span></label>\n            {7}\n            <p class=\"hint\">Награды за победы в этом режиме выдаются как обычно — удобно проверять добычу. Для проверки сильных персонажей: Сила, Здоровье, Броня и остальные характеристики, ХП и урон вашего героя умножаются на 10 (проценты упираются в обычные потолки). Не забудьте выключить.</p>\n          </div>\n        </div></div>", [head(_t("О разработчиках")), Profile.data.testX10 ? 'true' : 'false', Profile.data.testX10 ? 'on' : '', Profile.data.testX10 ? _t("включено") : _t("выключено"), Profile.data.testAllSpells ? 'true' : 'false', Profile.data.testAllSpells ? 'on' : '', Profile.data.testAllSpells ? _t("включено") : _t("выключено"), typeof inBattle !== 'undefined' && inBattle && typeof over !== 'undefined' && !over ? _t("<p class=\"hint warn\">Во время боя переключать нельзя.</p>") : '']));
@@ -1411,6 +1651,13 @@ const credits = {
   const npcPortrait = (id, fur, eye) => (typeof Art !== 'undefined' && Art.hasNpc(id)) ? Art.npcPortrait(id) : NPC_SVG(fur, eye);
   const sceneStyle = (id) => (typeof Art !== 'undefined' && Art.hasScene(id))
     ? ` style="background-image:linear-gradient(180deg, rgba(20,16,10,.55), rgba(20,16,10,.85)), url('${Art.sceneUrl(id)}');background-size:cover;background-position:center"` : '';
+  // 1.8.8: дневник питомца под карточкой питомца
+  function diaryHtml(pet) {
+    if (!pet) return '';
+    const list = Profile.petDiaryTick().slice(-6).reverse();
+    const rows = list.length ? list.map((e) => `<li><span class="jr-unk">${Chron.dateStr(e.t)}</span> ${e.s}</li>`).join('') : `<li class="jr-unk">${_t("Пока записей нет: питомец расскажет, чем занимался, когда вы вернётесь.")}</li>`;
+    return `<h3>${_t("Дневник питомца")}</h3><ul class="jr-list">${rows}</ul>`;
+  }
   const kennel = {
     html() {
       const s = st.kennel, pet = Profile.pet();
@@ -1446,7 +1693,7 @@ const credits = {
       }
       const eggTab = hatch || _t("<p class=\"hint\">Яйца редких питомцев падают с грифона, виверны и саламандры. Принесите яйцо — высидим здесь.</p>");
       const kt = s.tab || 'pet';
-      const body = tipBox('kennel', _t("Три вкладки: «Питомец» — выбор спутника, «Уход» — корм, лакомства и ремонт, «Инкубатор» — высидеть яйцо редкого питомца (яйца падают с грифона, виверны и саламандры).")) + tabs([['pet', _t("Питомец")], ['care', _t("Уход")], ['egg', _t("Инкубатор") + (inc ? ' •' : '')]], kt) + (kt === 'care' ? care : kt === 'egg' ? eggTab.replace(_t("<h3>Инкубатор</h3>"), '') : choose.replace(/<h3>[^<]*<\/h3>/, '') + petCard);
+      const body = tipBox('kennel', _t("Три вкладки: «Питомец» — выбор спутника, «Уход» — корм, лакомства и ремонт, «Инкубатор» — высидеть яйцо редкого питомца (яйца падают с грифона, виверны и саламандры).")) + tabs([['pet', _t("Питомец")], ['care', _t("Уход")], ['egg', _t("Инкубатор") + (inc ? ' •' : '')]], kt) + (kt === 'care' ? care : kt === 'egg' ? eggTab.replace(_t("<h3>Инкубатор</h3>"), '') : choose.replace(/<h3>[^<]*<\/h3>/, '') + petCard + diaryHtml(pet));
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Питомник\">{0}\n        <div class=\"screen-body tavern-body\"{1}><div class=\"npc-row\"><span class=\"npc-portrait\">{2}</span>\n          <div class=\"npc-say\"><b>Смотрительница Ласка</b><p class=\"hint\">{3}</p></div></div>{4}</div></div>", [head(_t("Питомник")), sceneStyle('kennel'), npcPortrait('kennel-keeper', '#9a7a52', '#2a1a10'), s.msg || _t("Заходи, заходи. Домашний питомец — твой друг на всю жизнь; зверей из леса можно приручить после 25 побед над видом. Покормлю, подлечу, научу новому — всё за честную монету."), body]);
     },
     click(b) {
@@ -1586,6 +1833,8 @@ const credits = {
         const lots = M.lots.map((l) => _t("<div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1}{2}</span>\n            <span class=\"item-foot\">Цена: {3} · {4}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-mk-withdraw=\"{5}\">Снять</button></div></div>", [lotIcon(l), l.name, l.n > 1 ? ' × ' + l.n : '', money(l.price), Market.etaText(l.price, l.fair), l.id])).join('') || _t("<p class=\"hint\">Лотов нет. Выставьте что-нибудь на вкладке «Выставить».</p>");
         const log = M.log.map((r) => _t("<div class=\"bag-row\"><span>{0} — {1}{2} за {3}</span></div>", [new Date(r.at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), r.name, r.n > 1 ? ' × ' + r.n : '', money(r.price)])).join('') || _t("<p class=\"hint\">Продаж ещё не было.</p>");
         body = _t("<h3>Ваши лоты ({0}/{1})</h3><div class=\"card-list\">{2}</div><h3>Проданное</h3>{3}", [M.lots.length, Village.maxLots(Profile.data.village), lots, log]);
+      } else if (s.tab === 'trader') {
+        body = traderBody();
       } else {
         const assets = mkAssets(s.kind);
         const a = assets.find((x) => x.key === s.sel) || null;
@@ -1601,11 +1850,12 @@ const credits = {
         }
         body = _t("<div class=\"tabs sub\">{0}</div>\n          <div class=\"two-col\"><div class=\"bag-grid\">{1}</div><div>{2}</div></div>\n          <p class=\"hint\">Надетые вещи не выставляются — сначала снимите их в оружейной.</p>", [MK_KINDS.map(([k, label]) => `<button type="button" class="${k === s.kind ? 'on' : ''}" data-mk-kind="${k}">${label}</button>`).join(''), list, panel]);
       }
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Торговые ряды\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<p class=\"hint\">Здесь выставляют объявления о продаже. Пока покупатели — странствующие купцы: чем ближе цена к справедливой, тем быстрее купят. Когда у игры появится сервер, ваши лоты увидят другие игроки.</p>\n        {4}{5}</div></div>", [head(_t("Торговые ряды")), tabs([['lots', _t("Мои лоты")], ['sell', _t("Выставить")]], s.tab), sceneStyle('market'), typeof Art !== 'undefined' && Art.hasNpc('merchant') ? _t("<div class=\"npc-row\"><span class=\"npc-portrait\">{0}</span><div class=\"npc-say\"><b>Странствующий купец</b><p class=\"hint\">Присматриваюсь к объявлениям: чем справедливее цена, тем быстрее куплю.</p></div></div>", [Art.npcPortrait('merchant')]) : '', s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', body]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Торговые ряды\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<p class=\"hint\">Здесь выставляют объявления о продаже. Пока покупатели — странствующие купцы: чем ближе цена к справедливой, тем быстрее купят. Когда у игры появится сервер, ваши лоты увидят другие игроки.</p>\n        {4}{5}</div></div>", [head(_t("Торговые ряды")), tabs([['lots', _t("Мои лоты")], ['sell', _t("Выставить")], ['trader', _t("Торговец")]], s.tab), sceneStyle('market'), typeof Art !== 'undefined' && Art.hasNpc('merchant') ? _t("<div class=\"npc-row\"><span class=\"npc-portrait\">{0}</span><div class=\"npc-say\"><b>Странствующий купец</b><p class=\"hint\">Присматриваюсь к объявлениям: чем справедливее цена, тем быстрее куплю.</p></div></div>", [Art.npcPortrait('merchant')]) : '', s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', body]);
     },
     click(b) {
       const s = st.market, d = b.dataset;
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.trBuy) { const deal = traderBuy(d.trBuy); s.msg = deal ? _t("Обмен состоялся.") : _t("Не получилось: не хватает ресурсов."); return changed(); }
       if (d.mkKind) { s.kind = d.mkKind; s.sel = null; s.qty = 1; s.mult = 1; return render(); }
       if (d.mkPick) { s.sel = d.mkPick; s.msg = ''; return render(); }
       if (d.mkQty) { s.qty = d.mkQty === 'all' ? 'all' : Number(d.mkQty); return render(); }
@@ -1663,6 +1913,101 @@ const credits = {
     const L = Village.lvl(Profile.data.village, 'hall'), D = Siege.defense(L), N = Siege.defense(Math.min(Village.MAX, L + 1));
     return `<p class="hint">${_t("Оборона от осады (Ратуша {0}): башни снимают {1}% ХП с врага перед боем, осада длится {2} мин., унесут не больше {3}% добычи. Следующий уровень Ратуши: {4}% / {5} мин. / {6}%. Осада приходит раз в сутки.", [L, Math.round(D.volley * 100), D.minutes, Math.round(D.theft * 100), Math.round(N.volley * 100), N.minutes, Math.round(N.theft * 100)])}</p>`;
   };
+  /* =============== 1.8.9: промыслы, дом, почта, странствующий торговец (js/crafts.js, decor.js, mail.js, trader.js) =============== */
+  const evNow = () => Events.current(Date.now(), new Date().getTimezoneOffset());
+  const evBanner = () => { const e = evNow(); return `<p class="event-week"><b>${_t("Событие недели: {0}", [e.name()])}</b> — ${e.desc()}.</p>`; };
+  const craftsState = () => (Profile.data.crafts = Crafts.clean(Profile.data.crafts));
+  const decorState = () => (Profile.data.decor = Decor.clean(Profile.data.decor));
+  const mailState = () => (Profile.data.mail = Mail.clean(Profile.data.mail));
+  const traderState = () => (Profile.data.trader = Trader.clean(Profile.data.trader));
+  const unitP = () => Math.max(1, Profile.consumablePrice('potion'));
+  const hm = (ms) => { const m = Math.ceil(ms / 60000), h = Math.floor(m / 60); return h ? _t("{0} ч {1} мин", [h, m % 60]) : _t("{0} мин", [m]); };
+  function mailCtx() {
+    const d = Profile.data;
+    return { wins: d.wins || 0, level: Profile.level(), battles: (d.stats && d.stats.battles) || 0, medals: Profile.medals().length, pet: !!d.pet, trophies: typeof RareHunt !== 'undefined' ? RareHunt.trophyCount(d) : 0, decor: Decor.ownCount(decorState()), puzzle: (d.puzzle && d.puzzle.total) || 0, dungeon: (d.tower && d.tower.best) || 0 };
+  }
+  function mailSync() { const m = mailState(); const fresh = Mail.sync(m, mailCtx(), Date.now()); if (fresh.length) Profile.save(); return m; }
+  function giftText(g) {
+    const parts = [];
+    if (g.p) parts.push(money(g.p * unitP()));
+    for (const [k, n] of Object.entries(g.cons || {})) parts.push(`${Gear.CONSUMABLES[k].name} × ${n}`);
+    return parts.join(', ');
+  }
+  function giveGift(g) { if (g.p) Profile.addCoins(g.p * unitP()); for (const [k, n] of Object.entries(g.cons || {})) Profile.addConsumable(k, n); }
+  function craftReward(id) {
+    const r = Crafts.reward(id, unitP(), Hero.tierFor(Profile.level()));
+    if (evNow().id === 'craft') { if (r.coins) r.coins = Math.round(r.coins * Events.mul('craft', 'craft')); if (r.res) r.res = [r.res[0], r.res[1], r.res[2] + 1]; }
+    return r;
+  }
+  function craftRewardText(id) {
+    const r = craftReward(id);
+    if (r.coins) return money(r.coins);
+    if (r.res) return `${Bestiary.RESOURCES[r.res[0]].name} × ${r.res[2]}`;
+    return `${Gear.CONSUMABLES[r.cons[0]].name} × ${r.cons[1]}`;
+  }
+  function craftsBody() {
+    const c = craftsState(), now = Date.now(), day = Daily.today();
+    const cards = Crafts.IDS.map((id) => {
+      const J = Crafts.JOBS[id], cost = Crafts.cost(id, unitP()), left = Crafts.left(c, id, day);
+      let foot = `${J.desc()}<br>${_t("Вложить: {0} · вернётся: {1} · время: {2} ч · сборов сегодня осталось: {3}", [money(cost), craftRewardText(id), J.hours, left])}`, act;
+      if (Crafts.ready(c, id, now)) act = `<button type="button" class="primary" data-cr-take="${id}">${_t("Забрать")}</button>`;
+      else if (Crafts.running(c, id)) { act = `<button type="button" disabled>${_t("Ещё {0}", [hm(Crafts.msLeft(c, id, now))])}</button>`; }
+      else if (left <= 0) act = `<button type="button" disabled>${_t("До завтра")}</button>`;
+      else act = `<button type="button" ${Profile.data.coins >= cost ? '' : 'disabled'} data-cr-start="${id}">${_t("Начать")}</button>`;
+      return `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${J.name()}</span><span class="item-foot">${foot}</span></div><div class="card-act">${act}</div></div>`;
+    }).join('');
+    return `${evBanner()}<p class="hint">${_t("Поставили дело — можно заниматься другим, а потом вернуться и забрать. Идёт и тогда, когда игра закрыта.")}</p><div class="card-list">${cards}</div>`;
+  }
+  function homeBody() {
+    const d = decorState();
+    const slotTile = (sl) => { const id = d.put[sl], it = id && Decor.BY_ID[id]; return `<div class="home-slot${it ? ' on' : ''}"><span class="hs-ic">${it ? it.icon : '＋'}</span><b>${Decor.SLOT_NAME[sl]()}</b><small>${it ? it.name() : _t("пусто")}</small>${it ? `<button type="button" data-dc-clear="${sl}">${_t("Убрать")}</button>` : ''}</div>`; };
+    const row = (it) => {
+      const own = Decor.owns(d, it.id), on = d.put[it.slot] === it.id;
+      const act = own ? (on ? `<button type="button" disabled>${_t("Стоит")}</button>` : `<button type="button" data-dc-put="${it.id}">${_t("Поставить")}</button>`)
+        : `<button type="button" ${Profile.data.coins >= it.price ? '' : 'disabled'} data-dc-buy="${it.id}">${_t("Купить")}: ${money(it.price)}</button>`;
+      return `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${it.icon} ${it.name()}${on ? ' ✓' : ''}</span><span class="item-foot">${Decor.SLOT_NAME[it.slot]()}</span></div><div class="card-act">${act}</div></div>`;
+    };
+    const tr = Decor.trophies(Profile.data).map((t) => { const m = Bestiary.MONSTERS[t.id]; return `<li>${m ? m.name : t.id} × ${t.n}</li>`; }).join('');
+    return `<p class="hint">${_t("Украшения силу не дают — это просто красиво. Заполнены места: {0} из 6; украшений в коллекции: {1}. Все шесть мест — титул «Хозяин дома», десять украшений — «Коллекционер».", [Decor.filled(d), Decor.ownCount(d)])}</p>
+      <div class="home-slots">${Decor.SLOTS.map(slotTile).join('')}</div>
+      <h3>${_t("Зал трофеев")}</h3>${tr ? `<ul class="arena-list">${tr}</ul>` : `<p class="hint">${_t("Пока пусто. Редкие звери, которые раз в неделю бродят по карте, оставляют трофеи.")}</p>`}
+      <h3>${_t("Украшения")}</h3><div class="card-list">${Decor.ITEMS.map(row).join('')}</div>`;
+  }
+  function mailBody() {
+    const m = mailSync(), esc2 = (x) => String(x).replace(/</g, '&lt;');
+    const list = m.box.slice().reverse().map((e) => {
+      const l = Mail.BY_ID[e.id], g = l.gift, wasNew = !e.read;
+      return `<div class="card letter${wasNew ? ' new' : ''}" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${esc2(l.subject())}</span><span class="item-foot"><i>${esc2(l.from())}</i><br>${esc2(l.body())}${g ? `<br>${_t("Подарок: {0}", [giftText(g)])}` : ''}</span></div>${g ? `<div class="card-act">${e.claimed ? `<button type="button" disabled>${_t("Получено")}</button>` : `<button type="button" class="primary" data-ml-claim="${e.id}">${_t("Забрать")}</button>`}</div>` : ''}</div>`;
+    }).join('');
+    for (const e of m.box) e.read = true;                       // открытая вкладка — все письма прочитаны (подарки остаются)
+    return `<p class="hint">${_t("Письма от жителей деревни и от самой игры. Письма между игроками появятся, когда у игры будет сервер.")}</p><div class="card-list">${list || `<p class="hint">${_t("Писем пока нет.")}</p>`}</div>`;
+  }
+  function traderBody() {
+    const now = Date.now(), at = Trader.at(now, new Date().getTimezoneOffset()), T = Trader.sync(traderState(), at.cycle);
+    if (!at.active) {
+      const when = new Date(at.nextAt).toLocaleDateString(typeof I18N !== 'undefined' && I18N.lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long' });
+      return `<p class="hint">${_t("Странствующий торговец появляется раз в десять дней и стоит два дня. Следующий приход — {0}. Он меняет редкие товары на ресурсы: копите шкуры, кости и руду.", [when])}</p>`;
+    }
+    const pools = { runes: Object.keys(Runes.CATALOG), eggs: Object.keys(Pets.EGGS), res: Object.keys(Bestiary.RESOURCES) };
+    const nameOf = (g) => g.type === 'rune' ? Runes.CATALOG[g.id].name : g.type === 'egg' ? Pets.EGGS[g.id].name : Gear.CONSUMABLES[g.id].name;
+    const rows = Trader.stock(at.cycle, pools).map((deal) => {
+      const have = resAny(deal.give.kind), can = have >= deal.give.n && Trader.canBuy(T, deal.id);
+      const act = !Trader.canBuy(T, deal.id) ? `<button type="button" disabled>${_t("Продано")}</button>` : `<button type="button" ${can ? '' : 'disabled'} data-tr-buy="${deal.id}">${_t("Обменять")}</button>`;
+      return `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${nameOf(deal.get)}${deal.get.n > 1 ? ' × ' + deal.get.n : ''}</span><span class="item-foot">${_t("Отдать: {0} × {1} (любого цвета) · у вас: {2}", [Bestiary.RESOURCES[deal.give.kind].name, deal.give.n, have])}</span></div><div class="card-act">${act}</div></div>`;
+    }).join('');
+    return `<p class="hint">${_t("Торговец у ворот до {0}. Каждый товар — один раз за визит.", [new Date(at.endsAt).toLocaleDateString(typeof I18N !== 'undefined' && I18N.lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long' })])}</p><div class="card-list">${rows}</div>`;
+  }
+  function traderBuy(id) {
+    const at = Trader.at(Date.now(), new Date().getTimezoneOffset()); if (!at.active) return null;
+    const T = Trader.sync(traderState(), at.cycle);
+    const deal = Trader.stock(at.cycle, { runes: Object.keys(Runes.CATALOG), eggs: Object.keys(Pets.EGGS), res: Object.keys(Bestiary.RESOURCES) }).find((x) => x.id === id);
+    if (!deal || !Trader.canBuy(T, id) || resAny(deal.give.kind) < deal.give.n) return null;
+    takeResAny(deal.give.kind, deal.give.n); Trader.mark(T, id);
+    const g = deal.get;
+    if (g.type === 'rune') Profile.addRune(g.id, g.n); else if (g.type === 'egg') Profile.addEgg(g.id); else Profile.addConsumable(g.id, g.n);
+    Profile.save(); return deal;
+  }
+
   const village = {
     html() {
       const s = st.village, V = Profile.data.village || {}, C = Profile.data.cosmetics, ht = Hero.tierFor(Profile.level());
@@ -1685,6 +2030,9 @@ const credits = {
           return card(`${I.name} <small>${dots}</small>`, foot, act);
         }).join('');
         body = `<p class="hint">${_t("Золото можно вложить в деревню: улучшения остаются навсегда. Уровень k открывается с цвета героя 2k, цена растёт вместе с добычей.")}</p>${siegeLine()}<div class="card-list">${cards}</div>`;
+      } else if (s.tab === 'crafts') { body = craftsBody();
+      } else if (s.tab === 'home') { body = homeBody();
+      } else if (s.tab === 'mail') { body = mailBody();
       } else {
         const storyDone = !!(Profile.data.story && Profile.data.story.shards && Profile.data.story.shards.b5);
         const row = (kind, it) => {
@@ -1700,7 +2048,7 @@ const credits = {
         };
         body = `<p class="hint">${_t("Титулы и рамки портрета силу не меняют — это просто красиво.")}</p>
           <h3>${_t("Титулы")}</h3><div class="card-list">${(() => {
-            const grp = (t) => t.arena || t.season ? _t("Арена") : !t.earn ? _t("Продаются в Гардеробе") : t.earn.group ? _t("За медали") : (t.earn.medal || t.earn.explore) ? _t("За мир") : t.earn.tier ? _t("По цвету героя") : _t("Редкие: боссы дальних земель");
+            const grp = (t) => t.earn && (t.earn.decor || t.earn.decorOwn || t.earn.stones) ? _t("За дом") : t.arena || t.season ? _t("Арена") : !t.earn ? _t("Продаются в Гардеробе") : t.earn.group ? _t("За медали") : (t.earn.medal || t.earn.explore) ? _t("За мир") : t.earn.tier ? _t("По цвету героя") : _t("Редкие: боссы дальних земель");
             const groups = [];
             for (const t of Village.TITLES) { const g = grp(t); let G = groups.find((x) => x.g === g); if (!G) groups.push(G = { g, list: [] }); G.list.push(t); }
             return groups.map((G) => {
@@ -1711,12 +2059,32 @@ const credits = {
           })()}</div>
           <h3>${_t("Рамки портрета")}</h3><div class="card-list">${Village.FRAMES.map((f) => row('frames', f)).join('')}</div>`;
       }
-      return `<div class="modal" role="dialog" aria-label="${_t("Улучшения деревни")}">${head(_t("Улучшения деревни"))}${tabs([['build', _t("Здания")], ['wardrobe', _t("Гардероб")]], s.tab)}
+      return `<div class="modal" role="dialog" aria-label="${_t("Улучшения деревни")}">${head(_t("Улучшения деревни"))}${tabs([['build', _t("Здания")], ['wardrobe', _t("Гардероб")], ['crafts', _t("Промыслы")], ['home', _t("Дом")], ['mail', Mail.unread(mailSync()) && s.tab !== 'mail' ? _t("Почта ({0})", [Mail.unread(mailState())]) : _t("Почта")]], s.tab)}
         <div class="screen-body tavern-body">${s.msg ? `<div class="gear-toast">${s.msg}</div>` : ''}${body}</div></div>`;
     },
     click(b) {
       const s = st.village, d = b.dataset;
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.crStart || d.crTake) {
+        const c = craftsState(), now = Date.now(), day = Daily.today();
+        if (d.crStart) {
+          const cost = Crafts.cost(d.crStart, unitP());
+          if (Profile.data.coins < cost) return;
+          const r = Crafts.start(c, d.crStart, now, day);
+          if (r.ok) { Profile.spend(cost); s.msg = _t("Дело поставлено: {0}", [Crafts.JOBS[d.crStart].name()]); Profile.save(); return changed(); }
+          return;
+        }
+        const id = d.crTake, rw = craftReward(id);
+        if (Crafts.collect(c, id, now, day).ok) {
+          if (rw.coins) Profile.addCoins(rw.coins); else if (rw.res) Profile.addRes(rw.res[0], rw.res[1], rw.res[2]); else Profile.addConsumable(rw.cons[0], rw.cons[1]);
+          s.msg = _t("Забрано: {0}", [craftRewardText(id)]); Profile.save(); return changed();
+        }
+        return;
+      }
+      if (d.dcBuy) { const dd = decorState(), it = Decor.BY_ID[d.dcBuy]; if (it && Decor.buy(dd, it.id, Profile.data.coins).ok) { Profile.data.coins -= it.price; s.msg = _t("Куплено и поставлено: {0}", [it.name()]); Profile.save(); return changed(); } return; }
+      if (d.dcPut) { const dd = decorState(); if (Decor.put(dd, d.dcPut)) { Profile.save(); return render(); } return; }
+      if (d.dcClear) { const dd = decorState(); if (Decor.clear(dd, d.dcClear)) { Profile.save(); return render(); } return; }
+      if (d.mlClaim) { const g = Mail.claim(mailState(), d.mlClaim); if (g) { giveGift(g); s.msg = _t("Подарок получен: {0}", [giftText(g)]); Profile.save(); return changed(); } return; }
       if (d.vgBuy) {
         if (Profile.buyVillage(d.vgBuy)) { const I = Village.INFO[d.vgBuy]; s.msg = _t("Улучшено: {0} — {1}", [I.name, I.perk(Village.lvl(Profile.data.village, d.vgBuy))]); return changed(); }
         return;
@@ -1740,6 +2108,7 @@ const credits = {
     }
     st.arena.msg = msg; Profile.save();
   }
+  const duelOn = () => typeof Net !== 'undefined' && !!(Net.current && Net.current.remote && Net.current.remote.enabled);   // 1.9.x: вкладка «Игроки» только при подключении к серверу
   function arenaState() {
     const d = Profile.data, a = d.arena = Object.assign(World.freshArena(), d.arena || {});
     World.arenaSync(a, Daily.today(), Hero.tierFor(Profile.level()));
@@ -1752,6 +2121,7 @@ const credits = {
     if (c.day !== day) { c.day = day; c.tries = 0; c.best = 0; }
     return c;
   }
+  const runState = () => { const r = Profile.data.run = Run.clean(Profile.data.run); return r; };
   const arena = {
     html() {
       const s = st.arena;
@@ -1769,6 +2139,114 @@ const credits = {
           <div class="arena-act"><button type="button" class="primary" data-arena="fight">${_t("В бой")}</button><button type="button" data-arena="reroll">${_t("Другой противник")}</button>
             ${rv ? `<button type="button" data-arena="revenge" ${revLeft > 0 ? '' : 'disabled'}>${_t("Реванш: {0} ({1})", [escText(rv.nick), revLeft])}</button>` : ''}</div>
           <h3>${_t("Титулы за ранги")}</h3><ul class="arena-list">${titles}</ul>`;
+      } else if (s.tab === 'players') {
+        if (!st.duel.vAsked) { st.duel.vAsked = true; try { if (typeof claimLiveRewards === 'function') claimLiveRewards(); } catch (e) { /* без связи */ } }
+        const D = st.duel, lv = Profile.level();
+        const rows = (D.list || []).map((o, i) => { const c = o.card, F = Factions.get(c.faction);
+          return `<div class="arena-foe"><span class="arena-fig">${Figures.avatar(Factions.heroKind(c.faction, c.gender), null)}</span>
+            <div><b>${escText(c.nick)}</b><small>${_t("Тень игрока: {0} · уровень {1} · ранг {2}", [F ? F.name : '', c.level, World.RANKS[Math.min(c.rank || 0, World.RANKS.length - 1)]])}</small></div>
+            <button type="button" class="primary" data-arena="duel-fight" data-i="${i}">${_t("Вызвать")}</button></div>`; }).join('');
+        const pvp = Object.assign({ wins: 0, losses: 0 }, Profile.data.pvp || {}), pr = typeof Tourney !== 'undefined' ? Tourney.pvpRank(pvp.wins) : null;
+        const pvpLine = pr ? `<div class="arena-rank"><b>${_t("Живые бои: победы {0}, поражения {1}", [pvp.wins, pvp.losses])}</b><small>${pr.rank ? _t("Ранг: {0}", [_t(pr.rank.name)]) : _t("Ранга пока нет")}${pr.next ? ' · ' + _t("До «{0}»: ещё {1}", [_t(pr.next.name), pr.left]) : ''}</small></div>` : '';
+        body = pvpLine + `<p class="hint">${_t("Тени живых игроков: их настоящие вещи и умения, бой идёт с ИИ вместо соперника, поэтому ждать, пока он зайдёт в игру, не нужно. Показываем тех, кто близок вам по уровню. Награда и звёзды — как на арене теней.")}</p>
+          <div class="arena-act">${D.live ? `<button type="button" class="primary" disabled>${D.live === 'wait' ? _t("Ищем соперника…") : _t("Подключаемся…")}</button><button type="button" data-arena="live-cancel">${_t("Отмена")}</button>` : `<button type="button" class="primary" data-arena="live-find">${_t("Живой бой")}</button>`}</div>
+          <div class="arena-act"><button type="button" class="primary" data-arena="duel-find"${D.busy || D.live ? ' disabled' : ''}>${D.busy ? _t("Ищем…") : _t("Найти соперников (уровень {0})", [lv])}</button></div>
+          ${D.msg ? `<p class="hint">${escText(D.msg)}</p>` : ''}${rows}`;
+      } else if (s.tab === 'tourney') {
+        const T = typeof TourneyClient !== 'undefined' ? TourneyClient : null;
+        if (T && !T.started) { T.start(); }
+        const S = T ? T.state : null, tv = S && S.tour, when = (ts) => new Date(ts).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const hint = `<p class="hint">${_t("Турнир живых игроков: все выходят с одинаковым уровнем ({0}) и одинаковыми вещами, поэтому решают ходы и заклинания. Питомец, расходники, эликсиры, умения и вещи из рюкзака не участвуют. Проиграл — выбыл; победитель получает титул и монеты.", [tv ? tv.level : 50])}</p>`;
+        if (!tv) body = hint + `<p class="hint">${S && S.msg ? escText(S.msg) : _t("Загрузка…")}</p>`;
+        else {
+          const me = tv.me, bracket = (tv.rounds || []).map((r, i) => `<div class="tr-round"><b>${_t("Раунд {0}", [i + 1])}</b>` + r.map((m) => `<div class="tr-match"><span class="${m.w && m.w === m.a ? 'ok' : ''}">${escText(m.a || '—')}</span> <small>${_t("против")}</small> <span class="${m.w && m.w === m.b ? 'ok' : ''}">${escText(m.b || _t("(пропуск)"))}</span></div>`).join('') + '</div>').join('');
+          let st1 = '', act = '';
+          if (tv.state === 'open') {
+            const sec = T.secondsToStart(), mm = Math.floor(sec / 60), h = Math.floor(mm / 60);
+            st1 = `<b>${_t("Начало: {0}", [when(tv.startAt)])}</b><small>${h > 0 ? _t("До начала: {0} ч {1} мин", [h, mm % 60]) : _t("До начала: {0} мин", [mm])} · ${_t("Записано: {0} из {1}", [tv.size, 16])}</small>`;
+            act = tv.joined ? `<p class="hint">${_t("Вы записаны. Не закрывайте игру: бой начнётся сам, когда подойдёт очередь.")}</p><div class="arena-act"><button type="button" data-arena="tour-leave">${_t("Выйти из турнира")}</button></div>`
+              : `<div class="arena-act"><button type="button" class="primary" data-arena="tour-join"${S.busy ? ' disabled' : ''}>${_t("Записаться")}</button></div>`;
+          } else if (tv.state === 'running') {
+            const out = me && me.out;
+            st1 = `<b>${_t("Турнир идёт: раунд {0}", [tv.round])}</b><small>${_t("Участников: {0}", [tv.size])}</small>`;
+            act = !tv.joined ? `<p class="hint">${_t("Запись закрыта. Следующий турнир — позже.")}</p>` : out ? `<p class="hint">${_t("Вы вылетели в раунде {0}. Спасибо за игру!", [out])}</p>` : (() => {
+              const mt = me && me.match;
+              if (mt && mt.state === 'wait') {
+                const sec = T.secondsLeft(mt.deadline);
+                const line = S.msg === 'lost' || !mt.meOnline ? _t("Связь потеряна — возвращайтесь: бой с {0} начнётся, как только вы подключитесь. Осталось {1} с, потом — поражение.", [escText(mt.opp), sec])
+                  : mt.oppOnline ? _t("Бой с {0} вот-вот начнётся…", [escText(mt.opp)])
+                    : _t("Ждём соперника {0}: у него нет связи. Осталось {1} с, потом вам засчитают победу.", [escText(mt.opp), sec]);
+                return `<p class="hint">${line}</p>`;
+              }
+              return `<p class="hint">${_t("Оставайтесь в игре: ваш бой начнётся сам.")}</p>`;
+            })();
+          } else if (tv.state === 'done') st1 = `<b>${_t("Турнир окончен")}</b>`;
+          const lastc = S.last && S.last.champion ? `<p class="hint">${_t("Последний чемпион: {0}", [escText(S.last.champion)])}</p>` : '';
+          body = hint + `<div class="arena-rank">${st1}</div>${act}${S.msg ? `<p class="hint">${escText(S.msg)}</p>` : ''}${bracket ? `<h3>${_t("Сетка")}</h3>${bracket}` : ''}${lastc}`;
+        }
+      } else if (s.tab === 'rating') {
+        const R = st.rating = st.rating || { period: 'all', data: {}, busy: false, msg: '' };
+        if (!R.seasonAsked) { R.seasonAsked = true; try { if (typeof claimSeasonRewards === 'function') claimSeasonRewards(); } catch (e) { /* без связи */ } }
+        const per = [['all', _t("Общий")], ['week', _t("Неделя")], ['month', _t("Месяц")], ['year', _t("Год")], ['depth', _t("Глубина")], ['cweek', _t("Сезон: неделя")], ['cmonth', _t("Сезон: месяц")], ['folk', _t("Народы")]];
+        const dt = R.data[R.period];
+        if (!dt && !R.busy && !R.msg) {
+          const rem = Net.current && Net.current.remote, p0 = R.period;
+          if (rem && rem.rating && (p0 !== 'depth' || rem.depth) && (p0.charAt(0) !== 'c' || rem.seasonBoard) && (p0 !== 'folk' || rem.factions)) { R.busy = true; Promise.resolve(p0 === 'folk' ? rem.factions() : p0 === 'depth' ? rem.depth() : p0.charAt(0) === 'c' ? rem.seasonBoard(p0 === 'cweek' ? 'week' : 'month') : rem.rating(p0)).then((r) => { R.busy = false; if (r) R.data[p0] = r; else R.msg = _t("Нет связи с сервером. Попробуйте позже."); if (Screens.isOpen && Screens.arenaTab() === 'rating') render(); }).catch(() => { R.busy = false; R.msg = _t("Нет связи с сервером. Попробуйте позже."); if (Screens.isOpen) render(); }); }
+        }
+        const seas = R.period === 'cweek' || R.period === 'cmonth';
+        const folk = R.period === 'folk';
+        const rows = dt && folk ? dt.list.map((r) => `<tr class="${r.faction === dt.me ? 'me' : ''}"><td>${dt.list.indexOf(r) + 1}</td><td>${escText(Factions.get(r.faction).name)}</td><td>${(r.score > 0 ? '+' : '') + r.score}</td><td>${r.players}</td></tr>`).join('') : dt && seas ? dt.list.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td>${escText(r.nick)}</td><td>${(r.score > 0 ? '+' : '') + r.score}</td><td>${r.games}</td></tr>`).join('') : dt && R.period === 'depth' ? dt.list.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td>${escText(r.nick)}</td><td>${r.floor}</td></tr>`).join('') : dt ? dt.list.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td>${escText(r.nick)}</td><td>${R.period === 'all' ? r.elo : (r.score > 0 ? '+' : '') + r.score}</td><td>${r.wins}/${r.losses}</td></tr>`).join('') : '';
+        const seasHint = seas && dt ? (() => {
+          const left = Math.max(0, Math.ceil((dt.end - dt.now) / 86400000)), pt = dt.prev && dt.prev.top && dt.prev.top.length ? dt.prev.top.map((x) => `${x.place}. ${escText(x.nick)} (${x.score > 0 ? '+' : ''}${x.score})`).join(' · ') : _t("никого");
+          return `<p class="hint">${_t("Сезон закончится через {0} дн. В начале нового очки обнуляются. В зачёт идут игроки, сыгравшие от {1} боёв; тройка лучших получает награду, победитель — титул. Прошлый сезон: {2}", [left, dt.minGames, pt])}</p>`
+            + (dt.me ? `<p class="hint">${_t("Ваше место: {0} · очки сезона: {1} · боёв: {2}", [dt.me.place, (dt.me.score > 0 ? '+' : '') + dt.me.score, dt.me.games])}</p>` : `<p class="hint">${_t("Вас пока нет в списке: сыграйте живые бои сезона.")}</p>`);
+        })() : '';
+        const folkHint = folk && dt ? (() => {
+          const left = Math.max(0, Math.ceil((dt.end - dt.now) / 86400000)), pw = dt.prev && dt.prev.winner ? escText(Factions.get(dt.prev.winner).name) : _t("никто");
+          return `<p class="hint">${_t("Битва народов: очки народа — сумма изменений рейтинга всех его игроков за неделю (бои с другими народами переносят очки победителю, бои своих ничего не меняют). Неделя закончится через {0} дн. Побеждает народ с лучшим положительным счётом, где играли хотя бы {1} игрока; его бойцы, сыгравшие от {2} боёв, получают награду. Победитель прошлой недели: {3}.", [left, dt.minPlayers, dt.minGames, pw])}</p>`
+            + (dt.me ? `<p class="hint">${_t("Ваш народ: {0}", [escText(Factions.get(dt.me).name)])}</p>` : `<p class="hint">${_t("Ваш народ появится в списке после первого живого боя.")}</p>`);
+        })() : '';
+        const me = folk ? folkHint : seas ? seasHint : R.period === 'depth' ? (dt ? `<p class="hint">${_t("Рейтинг глубины: лучший пройденный уровень подземелья. Хранитель глубин ждёт на каждом 10-м уровне. Мой лучший уровень: {0}", [(Profile.data.tower && Profile.data.tower.best) || 0])}</p>` : '') : dt && dt.me ? `<p class="hint">${_t("Ваше место: {0} · {1}: {2} · победы/поражения: {3}/{4}", [dt.me.place, R.period === 'all' ? _t("рейтинг") : _t("очки за период"), R.period === 'all' ? dt.me.elo : dt.me.score, dt.me.wins, dt.me.losses])}</p>` : (dt ? `<p class="hint">${_t("Вас пока нет в списке: сыграйте живой бой.")}</p>` : '');
+        body = `<p class="hint">${_t("Рейтинг живых боёв: за победу очки растут, за поражение — падают; победа над сильным даёт больше. Турнирные бои в рейтинг не входят. Недельный, месячный и годовой списки считаются по очкам, набранным за период. Тройка лучших прошлой недели и прошлого месяца получает монеты, победитель — ещё и титул.")}</p>
+          <div class="arena-act">${per.map(([k, n]) => `<button type="button" data-arena="rate-per" data-per="${k}"${R.period === k ? ' class="primary"' : ''}>${n}</button>`).join('')}<button type="button" data-arena="rate-reload">${_t("Обновить")}</button></div>
+          ${R.busy ? `<p class="hint">${_t("Загрузка…")}</p>` : ''}${R.msg ? `<p class="hint">${escText(R.msg)}</p>` : ''}${me}
+          ${rows ? `<div class="rate-wrap"><table class="rate-tab"><thead><tr><th>#</th><th>${folk ? _t("Народ") : _t("Игрок")}</th><th>${folk ? _t("Очки недели") : R.period === 'depth' ? _t("Уровень") : seas ? _t("Очки сезона") : R.period === 'all' ? _t("Рейтинг") : _t("Очки")}</th>${R.period === 'depth' ? '' : folk ? `<th>${_t("Игроков")}</th>` : seas ? `<th>${_t("Боёв")}</th>` : `<th>${_t("П/Пор")}</th>`}</tr></thead><tbody>${rows}</tbody></table></div>` : ''}`;
+      } else if (s.tab === 'square') {
+        const Q = st.sq = st.sq || { data: null, busy: false, msg: '', draft: '' }, rem = Net.current && Net.current.remote;
+        if (!Q.data && !Q.busy && !Q.msg && rem && rem.square) {
+          Q.busy = true;
+          Promise.resolve(rem.square()).then((r) => { Q.busy = false; if (r && r.faction) Q.data = r; else Q.msg = r && r.error === 'no-card' ? _t("Площадка откроется после первого боя на арене или в турнире: сервер должен узнать ваш народ.") : _t("Нет связи с сервером. Попробуйте позже."); if (Screens.isOpen && Screens.arenaTab() === 'square') render(); })
+            .catch(() => { Q.busy = false; Q.msg = _t("Нет связи с сервером. Попробуйте позже."); if (Screens.isOpen) render(); });
+        }
+        const D = Q.data, ago = (t) => { const m = Math.max(0, Math.floor((D.now - t) / 60000)); return m < 1 ? _t("только что") : m < 60 ? _t("{0} мин назад", [m]) : m < 1440 ? _t("{0} ч назад", [Math.floor(m / 60)]) : _t("{0} дн. назад", [Math.floor(m / 1440)]); };
+        body = `<p class="hint">${_t("Площадка народа: короткие записи игроков вашего народа — зовите на турнир, ищите напарников, хвалитесь. Записи видят только свои и хранятся неделю. Ссылки и контакты запрещены, писать можно раз в 20 секунд.")}</p>
+          ${Q.busy ? `<p class="hint">${_t("Загрузка…")}</p>` : ''}${Q.msg ? `<p class="hint">${escText(Q.msg)}</p>` : ''}${Q.note ? `<p class="hint">${escText(Q.note)}</p>` : ''}
+          ${D ? `<div class="arena-rank"><b>${escText(Factions.get(D.faction).name)}</b><small>${D.online.length ? _t("Сейчас в сети: {0}", [D.online.map(escText).join(', ')]) : _t("Сейчас в сети никого нет")}</small></div>
+            <div class="sq-form"><input type="text" id="sq-text" class="sq-text" maxlength="${D.max}" placeholder="${_t("Ваша запись")}" value="${escText(Q.draft)}"><button type="button" class="primary" data-arena="sq-send">${_t("Написать")}</button><button type="button" data-arena="sq-reload">${_t("Обновить")}</button></div>
+            ${D.posts.length ? `<ul class="arena-list sq-list">${D.posts.map((p) => `<li><b>${escText(p.nick)}</b> <small>${ago(p.at)}</small>${p.mine ? ` <button type="button" class="sq-del" data-arena="sq-del" data-id="${p.id}" aria-label="${_t("Удалить")}">✕</button>` : ` <button type="button" class="sq-del" data-arena="sq-report" data-id="${p.id}">${_t("Пожаловаться")}</button><button type="button" class="sq-del" data-arena="sq-hide" data-id="${p.id}">${_t("Скрыть автора")}</button>`}<br>${escText(p.text)}</li>`).join('')}</ul>` : `<p class="hint">${_t("Пока тихо. Напишите первым!")}</p>`}
+            ${D.hidden ? `<p class="hint">${_t("Скрытых авторов: {0}.", [D.hidden])} <button type="button" class="sq-del" data-arena="sq-unhide">${_t("Показать всех")}</button></p>` : ''}` : ''}`;
+      } else if (s.tab === 'run') {
+        const r = runState(), T = Hero.tierFor(Profile.level()), nxt = r.on ? Run.shadow(r, Profile.level(), (Profile.data.map && Profile.data.map.seed) | 0, Factions.ORDER) : null;
+        const money1 = (n) => MonsterArt.moneyHtml(n);
+        body = `<p class="hint">${_t("Забег — серия боёв с тенями подряд, каждая сильнее предыдущей. За каждую победу в копилку идут монеты: после волны можно продолжить или забрать. Поражение или бегство отнимают {0}% копилки.", [Math.round((1 - Run.LOSS_KEEP) * 100)])}</p>
+          <div class="arena-rank"><b>${r.on ? _t("Волна {0} из {1}", [r.wave, Run.MAX_WAVE]) : _t("Забег не начат")}</b>
+            <small>${_t("Рекорд: волна {0} · наибольшая копилка: {1} · забегов: {2}", [r.best || '—', r.bestPot ? money1(r.bestPot) : '—', r.runs])}</small></div>
+          ${r.on ? `<p>${_t("В копилке: {0}", [money1(r.pot)])}</p><div class="arena-foe"><span class="arena-fig">${Figures.avatar(Factions.heroKind(nxt.faction, nxt.gender), null)}</span>
+            <div><b>${escText(nxt.nick)}</b><small>${_t("Тень: {0} · уровень {1} · ум {2}", [Factions.get(nxt.faction).name, nxt.level, Math.round(nxt.ai)])}</small></div></div>
+            <p class="hint">${Run.left(r, Daily.today()) > 0 ? _t("Награда за эту волну: {0}", [money1(Run.waveReward(r.wave, Math.round(World.arenaCoins(Math.max(1, T), 2) * 0.5 * Run.modMult(r.mod) * Events.mul(evNow().id, 'run'))))]) : _t("Монеты за сегодня уже набраны: волны идут в рекорд без наград.")} ${_t("Монетных волн сегодня: {0}/{1}", [Run.DAILY_WAVES - Run.left(r, Daily.today()), Run.DAILY_WAVES])}</p>
+            <div class="arena-act"><button type="button" class="primary" data-arena="run-next">${_t("В бой: волна {0}", [r.wave])}</button><button type="button" data-arena="run-cash"${r.pot > 0 ? '' : ' disabled'}>${_t("Забрать {0}", [money1(r.pot)])}</button></div>`
+          : `<h3>${_t("Условие забега")}</h3><div class="arena-mods">${[['', _t("Без условий"), _t("обычные тени"), 1], ...Object.keys(Run.MODS).map((id) => { const R = World.ARENA_RULES.find((x) => x.id === id); return [id, R.name, R.desc, Run.MODS[id]]; })].map(([id, nm, ds, m]) => `<button type="button" class="arena-mod${(s.mod || '') === id ? ' on' : ''}" data-runmod="${id}" aria-pressed="${(s.mod || '') === id}"><b>${nm}</b> <em>${m > 1 ? '×' + String(m).replace('.', ',') : ''}</em><small>${ds}</small></button>`).join('')}</div>
+            <p class="hint">${_t("Условие действует на весь забег; монеты за каждую волну умножаются на множитель.")}</p>
+            <div class="arena-act"><button type="button" class="primary" data-arena="run-start">${_t("Начать забег")}</button></div>`}`;
+      } else if (s.tab === 'puzzle') {
+        const pz = Profile.data.puzzle = Puzzle.clean(Profile.data.puzzle); Puzzle.sync(pz, Daily.today());
+        const g = Puzzle.game(pz, pz.day), cells = [];
+        for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${s.pzSel === i ? ' sel' : ''}" data-pzcell="${i}" ${pz.done ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(g.typ[i], g.sp[i])}</button>`);
+        const star = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
+        body = `${evBanner()}<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0} ходов. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3} очков; за каждую новую звезду — монеты (раз в день).", [Puzzle.MOVES, Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
+          <div class="arena-rank"><b>${star(pz.stars)}</b> <small>${_t("Очки: {0} · ходов осталось: {1} · рекорд: {2} · решено дней: {3}", [g.score, Puzzle.movesLeft(pz), pz.best || '—', pz.total])}</small></div>
+          <div class="lh-board">${cells.join('')}</div>
+          ${pz.done ? `<p class="hint">${_t("На сегодня всё. Новая головоломка — завтра.")}</p>` : ''}`;
       } else if (s.tab === 'results') {
         const a = arenaState(), tot = a.wins + a.losses, pct = tot ? Math.round(a.wins * 100 / tot) : 0;
         const ruleName = (id) => (World.ARENA_RULES.find((r) => r.id === id) || {}).name || '';
@@ -1792,12 +2270,104 @@ const credits = {
           <div class="arena-act"><button type="button" class="primary" data-arena="challenge" ${left > 0 ? '' : 'disabled'}>${left > 0 ? _t("Начать попытку") : _t("Попытки закончились — до завтра")}</button><button type="button" data-arena="share" ${c.best ? '' : 'disabled'}>${_t("Скопировать результат")}</button></div>
           ${hist ? `<h3>${_t("Ваши результаты")}</h3><ul class="arena-list">${hist}</ul>` : ''}`;
       }
-      return `<div class="modal" role="dialog" aria-label="${_t("Арена")}">${head(_t("Арена"))}${tabs([['shadows', _t("Арена теней")], ['daily', _t("Испытание дня")], ['results', _t("Мои результаты")]], s.tab)}
+      return `<div class="modal" role="dialog" aria-label="${_t("Арена")}">${head(_t("Арена"))}${tabs([['shadows', _t("Арена теней")], ...(duelOn() ? [['players', _t("Игроки")], ['tourney', _t("Турнир")], ['rating', _t("Рейтинг")], ['square', _t("Площадка")]] : []), ['run', _t("Забег")], ['daily', _t("Испытание дня")], ['puzzle', _t("Головоломка")], ['results', _t("Мои результаты")]], s.tab)}
         <div class="screen-body tavern-body"${sceneStyle('arena')}>${s.msg ? `<div class="gear-toast">${s.msg}</div>` : ''}${body}</div></div>`;   // 1.7.5: фон-колизей ui/bg-arena (картинка лежала без дела)
     },
     click(b) {
       const s = st.arena, d = b.dataset;
+      { const inp = root && root.querySelector && root.querySelector('#sq-text'); if (inp && st.sq) st.sq.draft = inp.value; }
+      if (d.arena === 'sq-reload') { st.sq = st.sq || { draft: '' }; st.sq.data = null; st.sq.msg = ''; st.sq.note = ''; return render(); }
+      if (d.arena === 'sq-send') {
+        const Q = st.sq, rem = Net.current && Net.current.remote; if (!Q || !rem || !rem.squarePost || Q.sending) return;
+        const text = (Q.draft || '').trim(); if (!text) return;
+        Q.sending = true;
+        Promise.resolve(rem.squarePost(text)).then((r) => {
+          Q.sending = false;
+          if (r && r.ok) { Q.draft = ''; Q.data = null; Q.msg = ''; }
+          else { const e = r && r.error; Q.msg = e === 'slow' ? _t("Слишком часто: подождите 20 секунд.") : e === 'daily' ? _t("На сегодня записей достаточно: возвращайтесь завтра.") : e === 'link' ? _t("Ссылки и контакты в записях запрещены.") : e === 'dup' ? _t("Такая запись уже есть.") : e === 'long' ? _t("Слишком длинная запись.") : e === 'flagged' || e === 'muted' ? _t("Сейчас писать нельзя.") : _t("Нет связи с сервером. Попробуйте позже."); }
+          if (Screens.isOpen && Screens.arenaTab() === 'square') render();
+        }).catch(() => { Q.sending = false; });
+        return;
+      }
+      if (d.arena === 'sq-report' || d.arena === 'sq-hide' || d.arena === 'sq-unhide') {
+        const rem = Net.current && Net.current.remote; if (!rem) return;
+        const done = (msg) => { if (st.sq) { st.sq.data = null; st.sq.note = msg || ''; } if (Screens.isOpen && Screens.arenaTab() === 'square') render(); };
+        if (d.arena === 'sq-unhide') { Promise.resolve(rem.squareUnhide && rem.squareUnhide()).then(() => done()); return; }
+        if (d.arena === 'sq-hide') { Promise.resolve(rem.squareHide && rem.squareHide(Number(d.id))).then(() => done(_t("Автор скрыт: его записей вы больше не увидите."))); return; }
+        Promise.resolve(rem.squareReport && rem.squareReport(Number(d.id))).then((r) => done(r && r.ok ? _t("Жалоба отправлена. Если на автора пожалуются несколько игроков, запись пропадёт, а писать он не сможет.") : r && r.error === 'daily' ? _t("На сегодня жалоб достаточно.") : _t("Нет связи с сервером. Попробуйте позже.")));
+        return;
+      }
+      if (d.arena === 'sq-del') {
+        const rem = Net.current && Net.current.remote; if (!rem || !rem.squareDelete) return;
+        Promise.resolve(rem.squareDelete(Number(d.id))).then(() => { if (st.sq) { st.sq.data = null; st.sq.msg = ''; } if (Screens.isOpen && Screens.arenaTab() === 'square') render(); });
+        return;
+      }
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.pzcell !== undefined) {
+        const pz = Profile.data.puzzle = Puzzle.clean(Profile.data.puzzle), i = +d.pzcell; Puzzle.sync(pz, Daily.today());
+        if (pz.done) return;
+        if (s.pzSel === undefined || s.pzSel === null) s.pzSel = i;
+        else if (s.pzSel === i) s.pzSel = null;
+        else {
+          const r = Puzzle.move(pz, pz.day, s.pzSel, i);
+          if (r.ok) { s.pzSel = null; if (r.coins) { r.coins = Math.round(r.coins * Events.mul(evNow().id, 'puzzle')); Profile.addCoins(r.coins); s.msg = _t("Звезда! Монеты: {0}", [money(r.coins)]); } else s.msg = ''; Profile.save(); }
+          else s.pzSel = i;
+        }
+        return render();
+      }
+      if (d.runmod !== undefined) { s.mod = d.runmod; return render(); }
+      if (d.arena === 'duel-find') {
+        const rem = Net.current && Net.current.remote; if (!rem || st.duel.busy) return;
+        st.duel.busy = true; st.duel.msg = ''; render();
+        Promise.resolve()
+          .then(() => (Net.current.env && Net.current.env.getCard ? rem.putCard(Net.current.env.getCard()) : false))
+          .then(() => rem.opponents(Profile.level()))
+          .then((list) => { st.duel.busy = false; st.duel.list = list || []; st.duel.msg = list === null ? _t("Нет связи с сервером. Попробуйте позже.") : (list.length ? '' : _t("Пока нет подходящих соперников. Позовите друзей в игру!")); render(); })
+          .catch(() => { st.duel.busy = false; st.duel.msg = _t("Нет связи с сервером. Попробуйте позже."); render(); });
+        return;
+      }
+      if (d.arena === 'rate-per') { const R = st.rating = st.rating || { period: 'all', data: {}, busy: false, msg: '' }; R.period = d.per; R.msg = ''; return render(); }
+      if (d.arena === 'rate-reload') { const R = st.rating = st.rating || { period: 'all', data: {}, busy: false, msg: '' }; delete R.data[R.period]; R.msg = ''; return render(); }
+      if (d.arena === 'tour-join' || d.arena === 'tour-leave') {
+        const T = typeof TourneyClient !== 'undefined' ? TourneyClient : null; if (!T) return;
+        if (d.arena === 'tour-leave') { T.leave().then(() => render()); return; }
+        const c = Net.current.env.getCard();
+        T.join({ nick: c.nick, faction: c.faction, gender: c.gender }).then((r) => { if (r && r.error) T.state.msg = r.error === 'closed' ? _t("Запись закрыта") : r.error === 'full' ? _t("Все места заняты") : _t("Не получилось записаться. Попробуйте позже."); render(); });
+        return;
+      }
+      if (d.arena === 'live-cancel') { const D = st.duel; if (D.net) { try { D.net.leave(); D.net.close(); } catch (e) { /* уже закрыт */ } } D.net = null; D.live = null; return render(); }
+      if (d.arena === 'live-find') {
+        const rem = Net.current && Net.current.remote, D = st.duel; if (!rem || D.live || typeof Live === 'undefined' || typeof WebSocket === 'undefined') return;
+        D.live = 'connect'; D.msg = ''; render();
+        const fail = (msg) => { if (D.net) { try { D.net.close(); } catch (e) { /* уже закрыт */ } } D.net = null; D.live = null; D.msg = msg; if (Screens.isOpen) render(); };
+        const card = Net.current.env.getCard();
+        Promise.resolve().then(() => rem.putCard(card)).then(() => rem.liveAccess()).then((acc) => {
+          if (!acc) return fail(_t("Нет связи с сервером. Попробуйте позже."));
+          const net = Live.create({ url: acc.url, token: acc.token, WS: WebSocket }); D.net = net;
+          net.on('ready', () => { if (D.net === net) { D.live = 'wait'; net.queue(card); if (Screens.isOpen) render(); } });
+          net.on('noopp', () => fail(_t("Живых соперников рядом по уровню сейчас нет. Попробуйте позже или вызовите тень игрока.")));
+          net.on('auth-fail', () => fail(_t("Нет связи с сервером. Попробуйте позже.")));
+          net.on('lost', () => fail(_t("Связь с сервером потеряна.")));
+          net.on('err', (m) => { if (m && m.e === 'busy') fail(_t("Вы уже в бою. Дождитесь его окончания.")); });
+          net.on('matched', (m) => {
+            const sh = liveBegin({ net, role: m.role, first: m.first, seed: m.seed, opp: m.opp, myCard: card });
+            if (!sh) return fail(_t("Не получилось подготовить бой с этим игроком."));
+            D.net = null; D.live = null;
+            const a = arenaState(); World.arenaSync(a, Daily.today(), Hero.tierFor(Profile.level())); Profile.save();
+            MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(sh.level), arena: sh });
+          });
+          net.connect();
+        }).catch(() => fail(_t("Нет связи с сервером. Попробуйте позже.")));
+        return;
+      }
+      if (d.arena === 'duel-fight') {
+        const o = (st.duel.list || [])[Number(d.i)]; if (!o) return;
+        const sh = Duel.toShadow(o.card, Gear.SLOTS, (e) => { try { return !!Gear.item(e); } catch (er) { return false; } });
+        if (!sh) { st.duel.msg = _t("Не получилось подготовить бой с этим игроком."); return render(); }
+        const a = arenaState(); World.arenaSync(a, Daily.today(), Hero.tierFor(Profile.level()));
+        sh.rule = World.arenaRule(Daily.today()).id; Profile.save();
+        return MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(sh.level), arena: sh });
+      }
       if (d.arena === 'reroll') { const a = arenaState(); a.next = null; arenaState(); Profile.save(); s.msg = ''; return render(); }
       if (d.arena === 'fight') {
         const a = arenaState(), nx = a.next; a.next = null; s.msg = ''; nx.rule = World.arenaRule(Daily.today()).id; Profile.save();
@@ -1808,6 +2378,19 @@ const credits = {
         if (!rv || (a.revs || 0) >= World.REVENGE_DAILY) return;
         a.revs = (a.revs || 0) + 1; a.revenge = null; s.msg = ''; Profile.save();
         return MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(rv.level), arena: { ...rv, rev: true, rule: World.arenaRule(Daily.today()).id } });
+      }
+      if (d.arena === 'run-start' || d.arena === 'run-next') {
+        const r = runState();
+        if (d.arena === 'run-start') { if (r.on) return; Run.start(r, s.mod || ''); }
+        else if (!r.on) return;
+        const sh = Run.shadow(r, Profile.level(), (Profile.data.map && Profile.data.map.seed) | 0, Factions.ORDER);
+        Profile.save(); s.msg = '';
+        return MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(sh.level), run: sh });
+      }
+      if (d.arena === 'run-cash') {
+        const r = runState();
+        if (!r.on || r.pot <= 0) return;
+        const c = Run.cash(r); Profile.addCoins(c); Profile.save(); s.msg = _t("Забег завершён: получено {0}.", [money(c)]); return render();
       }
       if (d.arena === 'challenge') {
         const c = challengeState();
@@ -1824,16 +2407,64 @@ const credits = {
     },
   };
 
-  const SCREENS = { help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, valor, credits, kennel, alchemist, market, village, arena };
-  return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: () => open('best'),
+  /* =============== БАНК (1.8.6: вклад, ставка растёт с серией заходов; логика — js/bank.js) =============== */
+  const bankState = () => { const b = Profile.data.bank = Bank.clean(Profile.data.bank); return b; };
+  // 1.8.8: «Визитка героя» — сводка для показа другим игрокам (пока копируется текстом; на сервере те же данные покажем онлайн)
+  const herocard = {
+    html() {
+      const c = HeroCard.build(Profile.data, { level: Profile.level(), medalName: (id) => Medals.nameFor(id) });
+      const fac = (typeof Factions !== 'undefined' && Factions.get(c.faction)) ? Factions.get(c.faction).name : '';
+      const merits = c.merits.length ? c.merits.map((m) => `<li>${HeroCard.meritText(m)}</li>`).join('') : `<li class="jr-unk">${_t("Заслуг пока нет: победите стража или спуститесь в подземелье.")}</li>`;
+      const medals = c.medals.length ? `<p class="hint">${c.medals.slice(0, 40).map((m) => m.name).join(' · ')}</p>` : `<p class="hint">${_t("Медалей пока нет.")}</p>`;
+      return `<div class="modal" role="dialog" aria-label="${_t("Визитка героя")}">${head(_t("Визитка героя"))}<div class="screen-body tavern-body">
+        <h3>${c.name || Profile.heroName()}</h3><p class="hint">${fac ? fac + ' · ' : ''}${_t("уровень {0}", [c.level])}</p>
+        <p>${_t("Боёв: {0}", [c.battles])}</p>
+        <h3>${_t("Заслуги")}</h3><ul class="jr-list">${merits}</ul>
+        <h3>${_t("Медали: {0}", [c.medals.length])}</h3>${medals}
+        <div class="mc-act"><button type="button" data-copycard="1">${_t("Скопировать визитку")}</button></div>
+        <p class="hint">${st.herocard.msg || _t("Когда появится сервер, эту визитку смогут увидеть другие игроки.")}</p></div></div>`;
+    },
+    click(b) {
+      if (!b.dataset.copycard) return;
+      const t = HeroCard.text(HeroCard.build(Profile.data, { level: Profile.level(), medalName: (id) => Medals.nameFor(id) }));
+      const ok = () => { st.herocard.msg = _t("Визитка скопирована."); render(); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, () => { st.herocard.msg = t; render(); }); else { st.herocard.msg = t; render(); }
+    },
+  };
+  const bank = {
+    html() {
+      const s = st.bank, b = bankState();
+      const gain = Bank.visit(b, Date.now());
+      if (gain > 0) { Profile.save(); s.msg = _t("Проценты за серию заходов: +{0}.", [gain]); } else if (!s.msg) Profile.save();
+      const btn = (act, n, label, can) => `<button type="button" data-bank="${act}" data-n="${n}"${can ? '' : ' disabled'}>${label}</button>`;
+      const coins = Profile.data.coins, dep = b.dep, room = Bank.CAP - dep;
+      const pct = (x) => (Math.round(x * 1000) / 10).toString().replace('.', ',');
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Банк\">{0}\n        <div class=\"screen-body tavern-body\">\n          <p class=\"hint\">{1}</p>\n          <h3>Вклад</h3>\n          <p>На счёте: <b>{2}</b> · лимит {3}.</p>\n          <p>Серия заходов: <b>{4}</b> дн. · ставка сегодня: <b>{5}%</b> в сутки (потолок {6}%). Завтра, если зайдёте: +{7}.</p>\n          <div class=\"reset\">{8}</div><div class=\"reset\">{9}</div>\n        </div></div>", [head(_t("Банк")), s.msg || _t("Добро пожаловать. Если играете каждый день, ставка медленно растёт. Пропустили день — ставка снова 0."), money(dep), money(Bank.CAP), b.streak, pct(Bank.rate(b.streak)), pct(Bank.RATE_MAX), Bank.tomorrow(b),
+        [100, 1000].map((n) => btn('dep', n, _t("Внести {0}", [n]), coins >= n && room >= n)).join('') + btn('dep', Math.min(coins, room), _t("Внести всё"), Math.min(coins, room) > 0),
+        [100, 1000].map((n) => btn('wd', n, _t("Снять {0}", [n]), dep >= n)).join('') + btn('wd', dep, _t("Снять всё"), dep > 0)]);
+    },
+    click(b) {
+      const s = st.bank, bk = bankState(), d = b.dataset, n = Number(d.n) || 0;
+      if (d.bank === 'dep') { if (n > 0 && bk.dep + n <= Bank.CAP && Profile.spend(n)) { Bank.deposit(bk, n); s.msg = _t("Внесено: {0}.", [money(n)]); } }
+      else if (d.bank === 'wd') { if (Bank.withdraw(bk, n)) { Profile.addCoins(n); s.msg = _t("Снято: {0}.", [money(n)]); } }
+      else return;
+      Profile.save();
+      changed();
+    },
+  };
+
+  const SCREENS = { herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
+  return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, get screen() { return cur; }, arenaTab: () => (st.arena && st.arena.tab), openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: () => open('best'),
     openTavern: () => { st.tavern.msg = ''; open('tavern'); },
     openJunker: () => { st.junker.msg = ''; open('junker'); },
     openMill: () => { st.mill.msg = ''; open('mill'); },
-    openLighthouse: () => { st.lighthouse.msg = ''; open('lighthouse'); },
+    openLighthouse: () => { st.lighthouse.msg = ''; st.lighthouse.tab = 'quests'; st.lighthouse.game = null; open('lighthouse'); },
+    openHeroCard: () => open('herocard'),
     openWreck: () => { st.wreck.msg = ''; open('wreck'); },
     openChest: (kind) => { st.chest.msg = ''; st.chest.kind = kind || 'sapphire'; open('chest'); },
     deepReward,
     openLibrary: () => { st.library.tab = 'npc'; st.library.msg = ''; open('library'); },
+    openJeweler: () => { st.jeweler.msg = ''; open('jeweler'); },
     openArtistWorkshop: () => { st.artistWorkshop.msg = ''; open('artistWorkshop'); },
     openValor: () => open('valor'),
     openCredits: () => open('credits'),

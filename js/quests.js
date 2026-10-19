@@ -138,8 +138,28 @@ const Quests = (() => {
       need: (d) => ((d.bestiary && d.bestiary.captain && d.bestiary.captain.wins) ? 1 : 0), goal: 1, reward: { diary: true }, rewardText: _t("«Морской дневник» (рецепт для алхимика)") },
     { id: 'jk-keyshard', giver: 'junker', title: _t("Ржавый ключ"), desc: _t("Продайте мне десять ненужных вещей — из рухляди я сгребу ключ от рубинового сундука на восточных камнях."),
       need: (d) => d.junkSold || 0, goal: 10, reward: { keyRuby: true }, rewardText: _t("Ключ от рубинового сундука") },
+    { id: 'hn-belt', giver: 'hunter', title: _t("Первая добыча"), desc: _t("Победите три разных вида существ — и охотники вручат вам Пояс охотника: он копит серии побед и усиливает следующий бой."),
+      need: bestiaryCount, goal: 3, reward: { item: 'belt-hunter' }, rewardText: _t("Пояс охотника") },
     { id: 'lh-key', giver: 'lighthouse', title: _t("Ключ от сундука"), desc: _t("Победите десять разных видов существ — и тюлень отдаст ключ от запертого сундука на восточном берегу, возле бригантины."),
       need: bestiaryCount, goal: 10, reward: { key: true }, rewardText: _t("Ключ от сундука у бригантины") },
+  );
+
+  // 1.8.9: цепочки поручений с небольшой историей. Следующее звено считается, только когда получена награда за предыдущее.
+  const afterQ = (prev, fn) => (d) => (d.quests && d.quests[prev] ? fn(d) : 0);
+  const decorOwn = (d) => (d.decor && d.decor.own ? Object.keys(d.decor.own).length : 0);
+  LIST.push(
+    { id: 'fest-1', giver: 'tavern', title: _t("Праздник в деревне: гости"), desc: _t("К празднику ждут гостей издалека, а дороги небезопасны. Победите в 25 боях — расчистите путь."),
+      need: (d) => d.wins || 0, goal: 25, reward: { coins: 300 }, rewardText: _t("300 медных монет") },
+    { id: 'fest-2', giver: 'tavern', title: _t("Праздник в деревне: уют"), desc: _t("Гостям должно быть уютно. Купите три украшения для дома (Ратуша → «Дом») — после первой части праздника."),
+      need: afterQ('fest-1', decorOwn), goal: 3, reward: { coins: 400, cons: { potion: 2 } }, rewardText: _t("400 медных монет и два зелья здоровья") },
+    { id: 'fest-3', giver: 'tavern', title: _t("Праздник в деревне: угощение"), desc: _t("Для стола нужны припасы: добудьте шесть разных видов ресурсов — после второй части праздника."),
+      need: afterQ('fest-2', resourceKinds), goal: 6, reward: { coins: 600, cons: { luck: 1, honeyjar: 1 } }, rewardText: _t("600 медных монет, свиток удачи и банка мёда") },
+    { id: 'mel-1', giver: 'mill', title: _t("Мукомол: проба пера"), desc: _t("Бобёр дал мне задачу, а я не справляюсь. Решите головоломку дня на Арене — любую, хоть без звёзд."),
+      need: (d) => (d.puzzle && d.puzzle.total) || 0, goal: 1, reward: { coins: 200 }, rewardText: _t("200 медных монет") },
+    { id: 'mel-2', giver: 'mill', title: _t("Мукомол: забег"), desc: _t("Настоящий мукомол вынослив. Дойдите в «Забеге» до третьей волны — после первой части."),
+      need: afterQ('mel-1', (d) => (d.run && d.run.best) || 0), goal: 3, reward: { coins: 350, cons: { scroll: 1 } }, rewardText: _t("350 медных монет и свиток спешки") },
+    { id: 'mel-3', giver: 'mill', title: _t("Мукомол: трофей"), desc: _t("Принесите трофей редкого зверя — он бродит по карте раз в неделю. Это третья часть."),
+      need: afterQ('mel-2', (d) => (d.trophies ? Object.values(d.trophies).reduce((n, x) => n + (x > 0 ? x : 0), 0) : 0)), goal: 1, reward: { coins: 800, cons: { elixir: 2 } }, rewardText: _t("800 медных монет и два боевых настоя") },
   );
 
   // Список заданий с текущим прогрессом. data — Profile.data (или похожий объект в тестах).

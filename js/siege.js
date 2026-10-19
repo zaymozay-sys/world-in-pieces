@@ -98,6 +98,13 @@ const Siege = (() => {
     return l.loot;
   }
 
+  // 1.8.6: плата городской страже за отбитый набег — 60% того, что унесли бы враги (монетами), но не меньше 25.
+  function guardFee(hall, left, total, coins) {
+    if (!(left > 0)) return 0;
+    const stolen = theft(hall, left, total, coins, null).coins;
+    return Math.max(25, Math.round(stolen * 0.6));
+  }
+
   // Награда за полную победу: коэффициент к монетам тайника (cacheCoins) и число ресурсов.
   const rewardCoins = (cache, total) => Math.round(cache * (1 + total * 0.6));
 
@@ -110,7 +117,7 @@ const Siege = (() => {
     return s;
   }
 
-  return { MIN_WINS, LOOT_MIN, GRACE_MS, HALL_MAX, dayKey, due, started, size, defense, make, remaining, active, expired, timeLeft, kill, theft, split, expire, liveLooters, killLooter, rewardCoins, sane };
+  return { MIN_WINS, LOOT_MIN, GRACE_MS, HALL_MAX, dayKey, due, started, size, defense, guardFee, make, remaining, active, expired, timeLeft, kill, theft, split, expire, liveLooters, killLooter, rewardCoins, sane };
 })();
 
 if (typeof module !== 'undefined') module.exports = Siege;

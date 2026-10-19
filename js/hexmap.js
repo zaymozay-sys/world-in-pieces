@@ -7,12 +7,11 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 
    Цвет (уровень) монстров растёт с удалением от деревни: у стен Красный, на краю карты Фиолетовый. */
 
-const HM_B = (typeof Bestiary !== 'undefined') ? Bestiary : require('./bestiary.js');
 const HM_S = (typeof Story !== 'undefined') ? Story : require('./story.js');
 
 const HexMap = (() => {
   const RADIUS = 30;                  // просторная карта: 2791 сота (море на западе и востоке); в 1.2.6 было 23 (1657 сот), в 1.7.2 стало 30
-  const VILLAGE_R = 7;                // деревня (1.2.6): Ратуша на 7 сотах, площадь, 12 усадеб по 3 соты, кольцо прохода у частокола
+  const VILLAGE_R = 9;                // деревня (1.2.6): Ратуша на 7 сотах, площадь, 12 усадеб по 3 соты, кольцо прохода у частокола
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 
   const TERRAIN = {
@@ -23,6 +22,7 @@ const HexMap = (() => {
     water:    { name: _t("Озеро"),  cost: Infinity, pass: false },
     mountain: { name: _t("Горы"),   cost: Infinity, pass: false },
     village:  { name: _t("Деревня"), cost: 0.8, pass: true },
+    castle:   { name: _t("Двор замка"), cost: 0.8, pass: true },      // 1.8.6: заброшенная деревня за стеной замка
     sea:      { name: _t("Море"),   cost: Infinity, pass: false },
     beach:    { name: _t("Берег"),  cost: 1.4, pass: true },
     // 1.7.1: новые местности (накладываются после расстановки существ, см. decorate) и река
@@ -45,7 +45,7 @@ const HexMap = (() => {
   // cells — все соты здания (нажатие на любую открывает его); at — первая сота (якорь); scale — масштаб рисунка.
   const HALL_CELLS = [[0, 0], ...DIRS];
   const BUILDINGS = {
-    hall: { name: _t("Ратуша"), cells: HALL_CELLS, scale: 3.9, desc: _t("Центр деревни. Сюда вы возвращаетесь после поражения.") },
+    hall: { name: _t("Ратуша"), cells: HALL_CELLS, scale: 3.9, desc: _t("Центр деревни.") },
     artistWorkshop: { name: _t("Мастерская художника"), label: _t("Мастерская"), desc: _t("Журавль-художник продаёт и вставляет руны — теперь в каждой вещи по 2 гнезда."), cells: [[0, -4], [1, -4], [1, -5]] },
     junker: { name: _t("Хижина старьёвщика"), label: _t("Старьёвщик"), desc: _t("Скупает ненужные вещи не глядя — дешевле Лавки, зато сразу и все разом, без лишней возни."), cells: [[4, -4], [3, -4], [4, -5]] },
     forge: { name: _t("Кузница"), desc: _t("Улучшение цвета вещей и создание новых из ресурсов."), cells: [[-2, -2], [-1, -2], [-2, -1]] },
@@ -57,6 +57,14 @@ const HexMap = (() => {
     mill: { name: _t("Мельница"), desc: _t("Добрый мышь даёт задания и делится мышиной мудростью."), cells: [[-4, 4], [-3, 4], [-4, 5]] },
     kennel: { name: _t("Питомник"), desc: _t("Смотрительница Ласка лечит, кормит и обучает прирученных питомцев."), cells: [[0, 4], [-1, 4], [-1, 5]] },
     arena: { name: _t("Арена"), desc: _t("Арена теней: бои с тенями героев, ранги и титулы. И Испытание дня — одно поле на всех."), cells: [[-6, 1], [-5, 1], [-6, 2]] },
+    // 1.8.6: деревня стала шире (радиус 9): ещё шесть усадеб, зеркально — две строки сверху и снизу и пара на оси.
+    // Алтарь воскрешения — наверху по центру; сторожка, банк и почта пока «строятся» (soon), для симметрии рядом две стройки.
+    altar: { name: _t("Алтарь воскрешения"), label: _t("Алтарь"), desc: _t("Сюда вы возвращаетесь после поражения: древний алтарь возвращает героя к жизни."), cells: [[3, -7], [3, -6], [4, -7]] },
+    guardhouse: { name: _t("Сторожка городской стражи"), label: _t("Сторожка"), desc: _t("Во время набега стража за плату отобьёт врагов, пока вы заняты своими делами."), cells: [[-4, 7], [-3, 6], [-3, 7]] },
+    bank: { name: _t("Банк"), desc: _t("Вклад: пока играете каждый день, ставка медленно растёт; пропустили день — ставка 0."), cells: [[-1, -6], [-1, -5], [0, -6]] },
+    mail: { name: _t("Почта"), soon: true, desc: _t("Скоро: письма от жителей и награды по почте. Здание строится."), cells: [[7, -6], [6, -5], [6, -6]] },
+    jeweler: { name: _t("Ювелирная лавка"), label: _t("Ювелир"), desc: _t("Сорока-ювелир гранит самоцветы стражей, сплавляет печати и скупает камни."), cells: [[0, 6], [1, 5], [1, 6]] },   // 1.8.9: занял бывшую стройку site1
+    site2: { name: _t("Стройка"), soon: true, desc: _t("Здесь скоро поднимется новое здание."), cells: [[-7, 6], [-6, 5], [-6, 6]] },
     alchemist: { name: _t("Алхимик"), desc: _t("Тётушка Жабка варит зелья и эликсиры из добытых ресурсов."), cells: [[5, 1], [4, 1], [4, 2]] },
   };
   for (const b of Object.values(BUILDINGS)) { b.at = b.cells[0]; if (!b.scale) b.scale = 3.0; }
@@ -75,8 +83,22 @@ const HexMap = (() => {
   BUILDINGS.chestObsidian = { name: _t("Серебряный сундук"), label: _t("Серебряный"), at: [27, 0], landmark: true, gate: 0, scale: 1.6,
     desc: _t("Серебряный сундук с обсидианом лежит под водой у бригантины. Нужно уметь дышать под водой.") };
   // 1.5.4: Врата подземелья — на северных холмах за деревней; пока заперты (soon), внутрь не войти.
-  BUILDINGS.dungeon = { name: _t("Врата подземелья"), label: _t("Подземелье"), at: [0, -16], post: true, soon: true, scale: 2.6,
-    desc: _t("Массивные железные ворота в склоне холма. Вход пока закрыт: подземелье в разработке. Внутри будут монстры, которые становятся сильнее с каждым этажом.") };
+  BUILDINGS.dungeon = { name: _t("Врата подземелья"), label: _t("Подземелье"), at: [0, -16], post: true, scale: 2.6,
+    desc: _t("Массивные железные ворота в склоне холма ведут в бесконечное подземелье. Уровень за уровнем монстры всё сильнее, среди них попадаются элитные, а на каждом пятом уровне лестницу стережёт страж с сундуком.") };
+  // 1.8.6: Ворота замка — на северной границе деревни (ставятся после монстров, как Врата подземелья)
+  BUILDINGS.castle = { name: _t("Ворота замка"), label: _t("Замок"), at: [0, -11], post: true, scale: 2.8,
+    desc: _t("Тёмная стена замка у границы деревни. За ней — брошенная деревня, где бродят духи воинов в доспехах. Вход для опытных героев.") };
+  // Здания карты замка (только для HexMap.generate(seed, 'castle'); на карте деревни не ставятся)
+  BUILDINGS.ruinHall = { name: _t("Руины ратуши"), label: _t("Руины ратуши"), castleOnly: true, at: [0, 0], scale: 3.9, desc: _t("Разрушенная ратуша замка. Здесь, по слухам, ждёт хозяин замка.") };
+  BUILDINGS.ruinHouse = { name: _t("Разрушенный дом"), label: _t("Руины"), castleOnly: true, at: [0, 0], scale: 3.0, desc: _t("Брошенный дом: крыша обвалилась, в окнах холодный свет.") };
+  BUILDINGS.ruinTower = { name: _t("Сторожевая башня"), label: _t("Башня"), castleOnly: true, at: [0, 0], scale: 3.0, desc: _t("Полуразрушенная башня с пустой звонницей.") };
+  BUILDINGS.castleExit = { name: _t("Выход из замка"), label: _t("Выход"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Тяжёлые ворота. Через них можно вернуться в деревню.") };
+  // 1.8.7: Затерянный остров — отдельная карта, на которую плывёт починенная бригантина (кладовая: сундук и его страж)
+  BUILDINGS.islandPier = { name: _t("Бригантина у причала"), label: _t("Бригантина"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Ваша бригантина стоит у острова. Отсюда можно вернуться на материк.") };
+  BUILDINGS.islandChest = { name: _t("Сундук пирата"), label: _t("Сундук"), castleOnly: true, at: [0, 0], scale: 2.0, desc: _t("Закопанный сундук старого капитана. Его стережёт тварь, что живёт на острове.") };
+  // 1.8.7: Башня — бесконечное подземелье из малых этажей (радиус 6), вход — «Врата подземелья» на северных холмах
+  BUILDINGS.towerDoor = { name: _t("Дверь подземелья"), label: _t("Дверь"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Тяжёлая дверь: на первом уровне она ведёт наружу, выше — вниз на уровень.") };
+  BUILDINGS.towerStairs = { name: _t("Лестница вверх"), label: _t("Лестница"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Каменная лестница на следующий уровень.") };
   const GATE_DIRS = [0, 3];          // 1.2.7: ворота и главная улица — восток и запад (симметрия города); от каждых ворот 3 дороги
 
   // Где водятся существа: диапазон цветов и любимая местность.
@@ -140,6 +162,9 @@ const HexMap = (() => {
     leech: { tiers: [3, 7],  terrain: { swamp: 4 } },
     mimic: { tiers: [4, 8],  terrain: { hills: 2, beach: 2, meadow: 1 }, rare: 0.5 },
     salamander: { tiers: [6, 10], terrain: { hills: 2, swamp: 2 } },
+    // 1.8.7: существа Затерянного острова — ставятся только генератором острова (fixed)
+    glowmaw: { tiers: [6, 10], terrain: {}, fixed: true }, coralhulk: { tiers: [6, 10], terrain: {}, fixed: true }, stormray: { tiers: [6, 10], terrain: {}, fixed: true },
+    tidecaller: { tiers: [6, 10], terrain: {}, fixed: true }, thornback: { tiers: [6, 10], terrain: {}, fixed: true },
     bear: { tiers: [4, 8],  terrain: { forest: 4, hills: 1 }, rare: 0.3 },
     griffin: { tiers: [8, 10], terrain: { hills: 4 }, rare: 0.3 },
     wyvern: { tiers: [8, 10], terrain: { hills: 2, swamp: 2 }, rare: 0.3 },
@@ -206,7 +231,123 @@ const HexMap = (() => {
   const fbm = (seed, x, y) => 0.55 * noise(seed, x / 4.2, y / 4.2) + 0.3 * noise(seed + 17, x / 2.1, y / 2.1) + 0.15 * noise(seed + 31, x / 1.1, y / 1.1);
 
   /* ---------- генерация ---------- */
-  function generate(seed) {
+
+  /* ---------- 1.8.6: Замок — отдельная карта ----------
+     Брошенный двойник деревни, но больше (радиус 13, обнесён стеной). В центре — руина Ратуши, вокруг по кругу зеркально
+     стоят руины усадеб (24 штуки по 3 соты). На западе, в конце главной улицы — выход. Всех человекоподобных существ
+     (скелеты-воины, призраки) переселили сюда; хозяин замка — тень прежнего героя. Карта строится сразу целиком. */
+  const CASTLE_R = 13;
+  const CASTLE_RUINS = [[[3, -2], [3, -1], [4, -2]], [[-4, 2], [-3, 1], [-3, 2]], [[-2, -2], [-2, -1], [-1, -2]], [[1, 2], [2, 1], [2, 2]], [[-2, 3], [-2, 4], [-1, 3]], [[1, -3], [2, -4], [2, -3]], [[-5, 4], [-5, 5], [-4, 4]], [[4, -4], [5, -5], [5, -4]], [[0, 4], [0, 5], [1, 4]], [[-1, -4], [0, -5], [0, -4]], [[-6, 1], [-6, 2], [-5, 1]], [[-5, -1], [-4, -2], [-4, -1]], [[4, 1], [4, 2], [5, 1]], [[5, -1], [6, -2], [6, -1]], [[-4, 7], [-3, 6], [-3, 7]], [[3, -7], [3, -6], [4, -7]], [[-8, 5], [-7, 4], [-7, 5]], [[-3, -5], [-3, -4], [-2, -5]], [[2, 5], [3, 4], [3, 5]], [[7, -5], [7, -4], [8, -5]], [[-1, 7], [-1, 8], [0, 7]], [[-7, 7], [-7, 8], [-6, 7]], [[6, -7], [7, -8], [7, -7]], [[0, -7], [1, -8], [1, -7]]];
+  const CASTLE_EXIT = [-(CASTLE_R - 1), 0];
+  // 1.9.3: у части духов замка свой приём вместо видового: щит, отрава, оглушение (не трогает поток случайных чисел карты)
+  const CASTLE_TRAITS = ['ward', 'toxin', 'stun'];
+  function castleTrait(seed, c) { const h = Math.floor(hash2(seed + 91, c.q, c.r) * 100); return h < 18 ? CASTLE_TRAITS[0] : h < 36 ? CASTLE_TRAITS[1] : h < 52 ? CASTLE_TRAITS[2] : null; }
+  function generateCastle(seed) {
+    const R = CASTLE_R, cells = [], index = new Map();
+    for (let q = -R; q <= R; q++) {
+      for (let r = Math.max(-R, -q - R); r <= Math.min(R, -q + R); r++) {
+        const idx = cells.length, d = dist({ q, r }, { q: 0, r: 0 });
+        cells.push({ idx, q, r, d, terrain: d >= R ? 'mountain' : 'castle', road: false, bridge: false, building: null, street: r === 0 && d < R, deco: hash2(seed + 77, q, r) });
+        index.set(key(q, r), idx);
+      }
+    }
+    const map = { seed, kind: 'castle', radius: R, cells, index, buildings: [], spawns: [], gates: [], rivers: [], decorated: true };
+    const put = (id, cs) => { const own = cs.map(([q, r]) => index.get(key(q, r))); for (const i of own) cells[i].building = id; map.buildings.push({ id, idx: own[0], cells: own }); };
+    put('ruinHall', HALL_CELLS);
+    CASTLE_RUINS.forEach((t, n) => put(n % 5 === 4 ? 'ruinTower' : 'ruinHouse', t));
+    put('castleExit', [CASTLE_EXIT]);
+    // достижимость от входа
+    const start = index.get(key(CASTLE_EXIT[0] + 1, 0)), reach = new Set([start]), q = [start];
+    while (q.length) { const c = q.pop(); for (const n of neighbors(map, c)) if (!reach.has(n) && passable(map, n) && !cells[n].building) { reach.add(n); q.push(n); } }
+    map.reachable = reach; map.start = start;
+    // духи: на свободных клетках, чем ближе к Ратуше, тем сильнее; у самой Ратуши — хозяин замка
+    const rand = rng((seed ^ 0xca571e) >>> 0 || 3), taken = new Set([start]);
+    const boss = cells.filter((c) => c.d === 3 && reach.has(c.idx) && !c.building).sort((a, b) => a.idx - b.idx)[0];
+    for (const c of cells) {
+      if (c.d >= R - 1 || !reach.has(c.idx) || c.street || c.d < 3 || taken.has(c.idx)) continue;
+      if (rand() > 0.16 || neighbors(map, c.idx).some((n) => taken.has(n))) continue;
+      const tier = Math.max(6, Math.min(10, 10 - Math.floor(c.d / 3)));
+      map.spawns.push({ id: map.spawns.length, idx: c.idx, species: rand() < 0.55 ? 'skeleton' : 'wraith', tier, castle: true, trait: castleTrait(seed, c) });
+      taken.add(c.idx);
+    }
+    if (boss) { map.spawns = map.spawns.filter((s) => s.idx !== boss.idx && !neighbors(map, boss.idx).includes(s.idx)); map.spawns.forEach((s, i) => { s.id = i; }); map.spawns.push({ id: map.spawns.length, idx: boss.idx, species: 'wraith', tier: 10, castle: true, boss: 'castleLord' }); }
+    return map;
+  }
+
+  const ISLAND_R = 8, ISLAND_PIER = [-6, 0], ISLAND_CHEST = [4, -1];
+  const ISLAND_MOBS = ['glowmaw', 'coralhulk', 'stormray', 'tidecaller', 'thornback'];
+  function generateIsland(seed) {
+    const R = ISLAND_R, cells = [], index = new Map();
+    for (let q = -R; q <= R; q++) {
+      for (let r = Math.max(-R, -q - R); r <= Math.min(R, -q + R); r++) {
+        const idx = cells.length, d = dist({ q, r }, { q: 0, r: 0 }), p = toPixel(q, r, 1);
+        const e = fbm(seed + 31, p.x, p.y), m = fbm(seed + 32, p.x, p.y);
+        let t = e > 0.64 ? 'hills' : m > 0.55 ? 'darkwood' : m > 0.42 ? 'forest' : 'meadow';
+        if (d >= R) t = 'sea'; else if (d >= R - 1) t = 'beach';
+        cells.push({ idx, q, r, d, terrain: t, road: false, bridge: false, building: null, deco: hash2(seed + 41, q, r) });
+        index.set(key(q, r), idx);
+      }
+    }
+    const map = { seed, kind: 'island', radius: R, cells, index, buildings: [], spawns: [], gates: [], rivers: [], decorated: true };
+    const put = (id, c) => { const i = index.get(key(c[0], c[1])); cells[i].building = id; cells[i].terrain = id === 'islandPier' ? 'beach' : cells[i].terrain === 'hills' ? 'meadow' : cells[i].terrain; map.buildings.push({ id, idx: i, cells: [i] }); return i; };
+    put('islandPier', ISLAND_PIER);
+    const chest = put('islandChest', ISLAND_CHEST);
+    const start = index.get(key(ISLAND_PIER[0] + 1, 0)), reach = new Set([start]), st = [start];
+    while (st.length) { const c = st.pop(); for (const n of neighbors(map, c)) if (!reach.has(n) && passable(map, n) && !cells[n].building) { reach.add(n); st.push(n); } }
+    map.reachable = reach; map.start = start;
+    const rand = rng((seed ^ 0x15a4d) >>> 0 || 5), taken = new Set([start, chest]);
+    const guard = neighbors(map, chest).filter((n) => reach.has(n)).sort((a, b) => a - b)[0];
+    for (const c of cells) {
+      if (c.d >= R - 1 || !reach.has(c.idx) || c.d < 2 || taken.has(c.idx) || c.idx === guard) continue;
+      if (rand() > 0.17 || neighbors(map, c.idx).some((n) => taken.has(n) || n === guard) || neighbors(map, c.idx).includes(chest)) continue;
+      map.spawns.push({ id: map.spawns.length, idx: c.idx, species: ISLAND_MOBS[Math.floor(rand() * ISLAND_MOBS.length)], tier: Math.max(6, Math.min(10, 6 + Math.floor((R - c.d) / 2))), island: true });
+      taken.add(c.idx);
+    }
+    if (guard !== undefined) map.spawns.push({ id: map.spawns.length, idx: guard, species: 'troll', tier: 10, island: true, guard: true });
+    return map;
+  }
+
+  const TOWER_R = 6, TOWER_DOOR = [-5, 0], TOWER_STAIRS = [5, 0];
+  const TOWER_MOBS = ['skeleton', 'wraith', 'ghoul', 'troll', 'golem', 'shadow', 'orc'], TOWER_GUARDS = ['troll', 'golem', 'dragon', 'shadow'];
+  // этаж f: seed — зерно башни; сильнее с этажом: цвет мобов 8→10, гуще, каждый 5-й этаж — страж у лестницы
+  function generateTower(seed, f) {
+    const R = TOWER_R, cells = [], index = new Map(), fs = (seed + f * 7919) >>> 0;
+    for (let q = -R; q <= R; q++) {
+      for (let r = Math.max(-R, -q - R); r <= Math.min(R, -q + R); r++) {
+        const idx = cells.length, d = dist({ q, r }, { q: 0, r: 0 });
+        cells.push({ idx, q, r, d, terrain: d >= R ? 'mountain' : (hash2(fs + 5, q, r) > 0.7 ? 'badlands' : 'ash'), road: false, bridge: false, building: null, deco: hash2(fs + 9, q, r) });
+        index.set(key(q, r), idx);
+      }
+    }
+    const map = { seed: fs, kind: 'tower', floor: f, radius: R, cells, index, buildings: [], spawns: [], gates: [], rivers: [], decorated: true };
+    const put = (id, c) => { const i = index.get(key(c[0], c[1])); cells[i].building = id; map.buildings.push({ id, idx: i, cells: [i] }); return i; };
+    put('towerDoor', TOWER_DOOR);
+    const stairs = put('towerStairs', TOWER_STAIRS);
+    const start = index.get(key(TOWER_DOOR[0] + 1, 0)), reach = new Set([start]), st = [start];
+    while (st.length) { const c = st.pop(); for (const n of neighbors(map, c)) if (!reach.has(n) && passable(map, n) && !cells[n].building) { reach.add(n); st.push(n); } }
+    map.reachable = reach; map.start = start;
+    const rand = rng((fs ^ 0x70e3) >>> 0 || 9), taken = new Set([start, stairs]);
+    const tier = Math.min(10, 8 + Math.floor(f / 4)), dens = Math.min(0.4, 0.2 + f * 0.01);
+    const guard = f % 5 === 0 ? neighbors(map, stairs).filter((n) => reach.has(n)).sort((a, b) => a - b)[0] : undefined;
+    for (const c of cells) {
+      if (c.d >= R || !reach.has(c.idx) || taken.has(c.idx) || c.idx === guard) continue;
+      if (rand() > dens || neighbors(map, c.idx).some((n) => taken.has(n) || n === guard)) continue;
+      map.spawns.push({ id: map.spawns.length, idx: c.idx, species: TOWER_MOBS[Math.floor(rand() * TOWER_MOBS.length)], tier, tower: true });
+      taken.add(c.idx);
+    }
+    if (guard !== undefined) {
+      const sp = { id: map.spawns.length, idx: guard, species: 'golem', tier: 10, tower: true, guard: true, gc: Math.min(10, f / 5) };
+      // 1.9.4: каждый 10-й этаж — Хранитель глубин: другой зверь (по кругу) и свой приём (щит / отрава / оглушение), награда больше
+      if (f % 10 === 0) { const n = f / 10 - 1; sp.species = TOWER_GUARDS[n % TOWER_GUARDS.length]; sp.trait = ['ward', 'toxin', 'stun'][n % 3]; sp.deep = true; }
+      map.spawns.push(sp);
+    }
+    return map;
+  }
+
+  function generate(seed, kind, floor) {
+    if (kind === 'tower') return generateTower(seed, Math.max(1, floor | 0 || 1));
+    if (kind === 'castle') return generateCastle(seed);
+    if (kind === 'island') return generateIsland(seed);
     const rand = rng(seed);
     const cells = [], index = new Map();
     for (let q = -RADIUS; q <= RADIUS; q++) {
@@ -249,7 +390,7 @@ const HexMap = (() => {
 
     // здания
     for (const [id, b] of Object.entries(BUILDINGS)) {
-      if (b.post) continue;                      // ставится после монстров, ничего не сдвигая (см. ниже)
+      if (b.post || b.castleOnly) continue;      // ставится после монстров, ничего не сдвигая (см. ниже)
       const own = (b.cells || [b.at]).map(([q, r]) => index.get(key(q, r)));
       for (const i of own) cells[i].building = id;
       map.buildings.push({ id, idx: own[0], cells: own });
@@ -360,7 +501,7 @@ const HexMap = (() => {
     }
     // 1.5.4: Врата подземелья — ближайшая к заданной точке свободная доступная сота; карта, дороги и монстры остаются прежними.
     for (const [id, b] of Object.entries(BUILDINGS)) {
-      if (!b.post) continue;
+      if (!b.post || b.castleOnly) continue;
       const at = cells[index.get(key(b.at[0], b.at[1]))], busy = new Set(map.spawns.map((x) => x.idx));
       const spot = cells.filter((c) => reach.has(c.idx) && !busy.has(c.idx) && !c.building && !c.road && c.d > VILLAGE_R + 1 && TERRAIN[c.terrain].pass && c.terrain !== 'beach')
         .sort((x, y) => dist(x, at) - dist(y, at) || x.idx - y.idx)[0];
@@ -549,6 +690,7 @@ const HexMap = (() => {
   // разрешён только через ворота: внутренняя сота должна быть воротами (map.gates), а внешняя —
   // дорогой от них (та же проверка, что рисует проём в частоколе в mapview.js).
   function fenceBlocks(map, from, to) {
+    if (map.kind) return false;           // у замка и острова своя стена из гор: частокола нет
     const a = map.cells[from], b = map.cells[to];
     const insideA = a.d <= VILLAGE_R, insideB = b.d <= VILLAGE_R;
     if (insideA === insideB) return false;              // не граница деревни
@@ -622,7 +764,7 @@ const HexMap = (() => {
   };
 
   return {
-    RADIUS, VILLAGE_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
+    RADIUS, VILLAGE_R, CASTLE_R, ISLAND_R, TOWER_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
     key, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
   };
 })();

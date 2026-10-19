@@ -121,7 +121,7 @@ const SaveGuard = (() => {
     // --- медали ---
     if (!isObj(d.medals)) { fix('медали'); d.medals = { earned: [], fiveStreaks: 0, strikeKills: 0 }; }
     if (isObj(d.medals)) {
-      d.medals.earned = (Array.isArray(d.medals.earned) ? d.medals.earned : []).filter((m) => isObj(m) && typeof m.id === 'string' && m.id).map((m) => (tierOk(m.tier) ? m : { ...m, tier: clampTier(m.tier) }));
+      d.medals.earned = (Array.isArray(d.medals.earned) ? d.medals.earned : []).filter((m, i, a) => isObj(m) && typeof m.id === 'string' && m.id && a.findIndex((x) => isObj(x) && x.id === m.id) === i).map((m) => (tierOk(m.tier) ? m : { ...m, tier: clampTier(m.tier) }));
       for (const k of ['fiveStreaks', 'strikeKills', 'shotKills', 'drunk']) if (d.medals[k] !== undefined && (!Number.isInteger(d.medals[k]) || d.medals[k] < 0)) { fix('медали.' + k); d.medals[k] = Math.max(0, Math.floor(nonNeg(d.medals[k]))); }
     }
 

@@ -9,7 +9,7 @@ const ItemIcons = (() => {
   const DEFAULT_ID = {
     main: 'sword-novice', off: 'shield-wood', head: 'leather-head', chest: 'leather-chest',
     arms: 'leather-arms', legs: 'leather-legs', amulet: 'amulet-copper',
-    shoulders: 'leather-shoulders', gloves: 'leather-gloves', bag: 'bag-satchel', leash: 'leash-rope', compass: 'compass-brass', ranged: 'crossbow-hunt',
+    shoulders: 'leather-shoulders', gloves: 'leather-gloves', bag: 'bag-satchel', leash: 'leash-rope', compass: 'compass-brass', ranged: 'crossbow-hunt', belt: 'belt-hunter',
   };
 
   function measure(inner) {
@@ -36,6 +36,7 @@ const ItemIcons = (() => {
       case 'leash': return Parts.leash(c, A, it);
       case 'compass': return Parts.compass(c, A, it);
       case 'ranged': return Parts.ranged(c, A, it);
+      case 'belt': return Parts.belt(c, A, it);
       case 'shoulders': return Parts.pauldrons(c, A, it, true);
       case 'gloves': return Parts.gloves(c, A, it, [A.hL]);
       case 'shield': return Parts.shield(c, A, it, { x: 6, y: 40 });

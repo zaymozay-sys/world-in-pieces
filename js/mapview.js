@@ -28,7 +28,15 @@ const MapView = (() => {
     const b = document.getElementById('mm-skywin'); if (b) b.textContent = skyWinLabel();
   }
   const liteLabel = () => (lite ? _t("Графика карты: упрощённая") : _t("Графика карты: высокая"));
-  const MAP_VER = 6;                 // версия раскладки карты: при смене номера сот сбрасывается исследование (1.7.2: радиус 30)
+  // 1.8.6: после поражения герой приходит в себя у Алтаря воскрешения (свободная сота рядом с ним), иначе — в центре деревни.
+  function respawnPos() {
+    const a = map.buildings.find((b) => b.id === 'altar');
+    if (!a) return HexMap.center(map);
+    const home = HexMap.center(map);
+    const near = HexMap.area(map, a.idx, 2).filter((i) => !map.cells[i].building && HexMap.passable(map, i)).sort((x, y) => HexMap.dist(map.cells[a.idx], map.cells[x]) - HexMap.dist(map.cells[a.idx], map.cells[y]) || x - y)[0];
+    return near === undefined ? home : near;
+  }
+  const MAP_VER = 7;                 // версия раскладки карты: при смене номера сот сбрасывается исследование (1.7.2: радиус 30)
   const el = {};
   const cam = { x: 0, y: 0, s: 1 };
   let walking = null, stepping = false, battleSpawn = null, hoverIdx = -1, toastTimer = null;
@@ -102,7 +110,12 @@ const MapView = (() => {
     const d = Profile.data;
     if (!d.map || typeof d.map.seed !== 'number') d.map = { seed: (Math.random() * 2147483646 + 1) | 0, pos: null, revealed: [], defeated: {}, ver: MAP_VER };
     if (!d.seen) d.seen = {};
-    st = d.map;
+    // 1.8.6: локации — отдельные карты со своим состоянием (d.loc = 'castle' | …); строятся при входе, при выходе отбрасываются
+    if (d.castleOn && !d.loc) d.loc = 'castle';
+    const loc = LOCS[d.loc] ? d.loc : null;
+    if (!loc) d.loc = null;
+    if (loc && (!d[loc] || typeof d[loc].seed !== 'number')) d[loc] = { seed: (Math.random() * 2147483646 + 1) | 0, pos: null, revealed: [], defeated: {}, ver: MAP_VER };
+    st = loc ? d[loc] : d.map;
     st.defeated = st.defeated || {};
     // Версия 1.1.10: карта выросла (радиус 20, море, маяк) — номера сот сменились, поэтому старое исследование и
     // позиция сбрасываются (герой, вещи и прогресс остаются); весь мир доступен с самого начала, без кнопки «Новый мир».
@@ -111,26 +124,30 @@ const MapView = (() => {
       st.ver = MAP_VER; st.revealed = []; st.defeated = {}; st.pos = null;
       st.found = {}; st.pins = []; st.evUsed = {}; st.lairCd = {}; st.swarm = {}; st.evShop = {}; st.siege = null;
     }
-    map = HexMap.generate(st.seed);
+    if (loc === 'tower' && !(st.floor >= 1)) st.floor = 1;
+    map = loc === 'tower' ? HexMap.generate(st.seed, 'tower', st.floor) : HexMap.generate(st.seed, loc || undefined);
     spawnAt = new Map(map.spawns.map((sp) => [sp.idx, sp]));
-    world = World.place(map);
+    world = loc ? { lairs: [], events: [], elites: loc === 'tower' ? World.pickElites(map, Dungeon.eliteShare(st.floor), (st.floor || 1) >= Dungeon.MIN_ELITE_LEVEL) : new Map(), landmarks: [] } : World.place(map);
     evAt = new Map(world.events.map((e) => [e.idx, e]));
     lairAt = new Map(world.lairs.map((l) => [l.idx, l]));
     lmAt = new Map((world.landmarks || []).map((m) => [m.idx, m]));
-    st.found = st.found || {}; st.pins = st.pins || [];
+    const isO = (o) => o && typeof o === 'object' && !Array.isArray(o), nCells = map.cells.length;
+    st.found = isO(st.found) ? st.found : {}; st.pins = (Array.isArray(st.pins) ? st.pins : []).filter((n) => Number.isInteger(n) && n >= 0 && n < nCells);
+    if (!isO(st.defeated)) st.defeated = {};
     if (st.siege && !Siege.sane(st.siege)) st.siege = null;
-    st.evUsed = st.evUsed || {}; st.lairCd = st.lairCd || {};
+    st.evUsed = isO(st.evUsed) ? st.evUsed : {}; st.lairCd = isO(st.lairCd) ? st.lairCd : {};
     stripSpecial();                                   // перезагрузка посреди особого боя
-    const home = HexMap.center(map);
+    const home = map.start != null ? map.start : HexMap.center(map);
     if (st.pos == null || !map.cells[st.pos]) st.pos = home;
     else if (!HexMap.passable(map, st.pos)) {          // 1.7.1: на месте героя появилась река — встаём на ближайшую проходимую соту
       const me = map.cells[st.pos], near = HexMap.area(map, st.pos, 3).filter((i) => HexMap.passable(map, i)).sort((a, b) => HexMap.dist(me, map.cells[a]) - HexMap.dist(me, map.cells[b]) || a - b)[0];
       st.pos = near === undefined ? home : near;
     }
-    revealed = new Set(st.revealed || []);
-    for (const i of HexMap.area(map, home, HexMap.VILLAGE_R + 2)) revealed.add(i);
+    revealed = new Set((Array.isArray(st.revealed) ? st.revealed : []).filter((n) => Number.isInteger(n) && n >= 0 && n < nCells));
+    for (const i of HexMap.area(map, home, loc ? LOCS[loc].reveal : HexMap.VILLAGE_R + 2)) revealed.add(i);
     walking = null;
-    guestList = []; skyNight = null;
+    guestList = []; skyNight = null; rareSp = null; rareKey = ''; syncRare();
+    try { const bk = Profile.data.bank = Bank.clean(Profile.data.bank); const g = Bank.visit(bk, Date.now()); if (g > 0) { setTimeout(() => toast(_t("Банк начислил проценты на вклад: +{0}", [g]), 3500), 1800); } } catch (e) { /* банк не критичен */ }
     revealAround(st.pos);
     renderStatic();
     renderAmbient();
@@ -204,8 +221,8 @@ const MapView = (() => {
     for (const c of map.cells) {
       const p = px(c.idx);
       // 1.3.0: маленький город — земля деревни, а главная улица и площадь вокруг Ратуши вымощены
-      const paved = c.terrain === 'village' && (c.street || c.d <= 2);
-      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${paved ? 'cobble' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
+      const paved = (c.terrain === 'village' || c.terrain === 'castle') && (c.street || c.d <= 2);
+      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
       const d = lite ? '' : MapArt.deco(c, HexMap.rng((st.seed ^ Math.imul(c.idx + 1, 2654435761)) >>> 0));
       if (d) bucketPush(deco, p, `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
     }
@@ -250,7 +267,7 @@ const MapView = (() => {
     let fence = '';
     const fenceImgs = [];
     for (const c of map.cells) {
-      if (c.d !== HexMap.VILLAGE_R) continue;
+      if (c.d !== HexMap.VILLAGE_R || map.kind) continue;
       const p = px(c.idx);
       for (const n of HexMap.neighbors(map, c.idx)) {
         const nc = map.cells[n];
@@ -342,11 +359,27 @@ const MapView = (() => {
     const art = sp.species === 'dragon' ? Figures.avatar('dragon', null) : MonsterArt.bust(sp.species, sp.tier);
     return art.replace('<svg ', '<svg x="-21" y="-21" width="42" height="42" ');
   }
+  // 1.8.6: дух замка носит призрачные доспехи героя: шлем с гребнем и наплечники цвета набора, который герой надел чаще всего
+  // у каждого духа — полный комплект одного из наборов, доступных игроку (нейтральные и набор его фракции); выбор стабилен для духа
+  function spiritSet(sp) {
+    const f = Profile.data.faction, ids = Object.keys(Gear.SETS).filter((id) => (!Gear.SETS[id].faction || Gear.SETS[id].faction === f) && Gear.ITEMS.some((i) => i.set === id)).sort();
+    if (!ids.length) return null;
+    return ids[Math.abs((sp.id * 2654435761 + st.seed) | 0) % ids.length];
+  }
+  function ghostColor(sp) { const s = spiritSet(sp); return (s && Gear.SETS[s].color) || '#9fb4c8'; }
+  function castleArmour(sp) {
+    if (!sp.castle || sp.boss) return '';
+    const c = ghostColor(sp);
+    return `<g class="ghost-armour" opacity=".82"><path d="M-12 -4 Q-12 -19 0 -19 Q12 -19 12 -4 L8 -4 L8 -9 Q0 -12 -8 -9 L-8 -4Z" fill="#aab6c4" stroke="#27303c" stroke-width="1.2"/>
+      <path d="M0 -19 Q-3 -26 4 -26 Q1 -22 3 -19Z" fill="${c}" stroke="#27303c" stroke-width=".8"/><path d="M-3 -9 H3" stroke="#27303c" stroke-width="1.2"/>
+      <path d="M-19 8 Q-14 2 -8 6 L-9 12 Q-15 12 -19 8Z M19 8 Q14 2 8 6 L9 12 Q15 12 19 8Z" fill="${c}" stroke="#27303c" stroke-width="1"/>
+      <path d="M-10 16 H10 V19 H-10Z" fill="${c}" stroke="#27303c" stroke-width="1"/><rect x="-2.2" y="15.6" width="4.4" height="4" fill="#e8d28a" stroke="#27303c" stroke-width=".7"/></g>`;
+  }
 
   function renderMonsters() {
     const out = [], mb = new Map();
     const now = Date.now();
-    for (const sp of [...map.spawns, ...guestList]) {
+    for (const sp of [...map.spawns, ...guestList, ...(rareSp ? [rareSp] : [])]) {
       if (!known(sp.idx)) continue;
       const p = px(sp.idx), T = Tiers.get(sp.tier), col = T.edge;
       if (!alive(sp)) {
@@ -356,10 +389,10 @@ const MapView = (() => {
         continue;
       }
       const elite = eliteOf(sp), fig = bossFigure(sp);
-      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
+      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
-          ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>
+          ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>${castleArmour(sp)}
           <circle r="21" fill="none" stroke="${col}" stroke-width="3"/>`}${!fig && (sp.boss || sp.zone) ? ((cr) => `<circle r="25" fill="none" stroke="${cr}" stroke-width="2.5" stroke-dasharray="5 3"/><path class="boss-crown" d="M-11 -22 L-7 -31 L-2 -24 L0 -33 L2 -24 L7 -31 L11 -22Z" fill="${cr}" stroke="#3a2a08" stroke-width="1.2"/>`)(sp.zone ? '#c9d3e6' : '#f2c94c') : ''}${elite ? '<circle r="24.5" fill="none" stroke="#f2c94c" stroke-width="2"/><g class="elite-star" transform="translate(-15 -15)"><circle r="7.5" fill="#2a1f05" stroke="#f2c94c" stroke-width="1.3"/><path d="M0 -4.6 L1.3 -1.4 L4.6 -1.4 L2 0.7 L2.9 4 L0 2.1 L-2.9 4 L-2 0.7 L-4.6 -1.4 L-1.3 -1.4Z" fill="#f2c94c"/></g>' : ''}
           <g class="tier-badge" transform="translate(15 14)"><circle r="7.5" fill="${T.color}" stroke="${col}" stroke-width="1.3"/><text y="3.4" fill="${T.ink}">${sp.tier}</text></g>
         </g></g>`);
@@ -414,7 +447,7 @@ const MapView = (() => {
     }
     (st.pins || []).forEach((i, n) => {
       const p = px(i);
-      out.push(`<g class="pin" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})"><path d="M0 0 V-26" stroke="#2b1d10" stroke-width="2.4" stroke-linecap="round"/><path d="M0 -26 L15 -21 L0 -15Z" fill="#e0452f" stroke="#2b1d10" stroke-width="1.3" stroke-linejoin="round"/><circle r="3" fill="#2b1d10"/><text x="6" y="-17.5" font-size="8" font-weight="700" fill="#fff">${n + 1}</text></g>`);
+      out.push(`<g class="pin" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})"><path d="M0 0 V-26" stroke="#2b1d10" stroke-width="2.4" stroke-linecap="round"/><path d="M0 -26 L15 -21 L0 -15Z" fill="#e0452f" stroke="#2b1d10" stroke-width="1.3" stroke-linejoin="round"/><circle r="3" fill="#2b1d10"/><text x="6" y="-17.5" font-size="8" font-weight="700" fill="#fff">${st.pinNames && st.pinNames[i] ? st.pinNames[i].slice(0, 12) : n + 1}</text></g>`);
     });
     el['l-ev'].innerHTML = out.join('');
     mini.dirty = true; drawMini();
@@ -450,7 +483,9 @@ const MapView = (() => {
       const frame = (t) => {
         const k = Math.max(0, Math.min(1, (t - t0) / ms));
         const x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
-        pl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+        // 1.8.8: «шаг» — лёгкий подскок и покачивание с каждой соты
+        const hop = k < 1 ? Math.abs(Math.sin(k * Math.PI)) * 5 : 0, sway = k < 1 ? Math.sin(k * Math.PI * 2) * 3 : 0;
+        pl.style.transform = `translate(${x.toFixed(1)}px, ${(y - hop).toFixed(1)}px) rotate(${sway.toFixed(1)}deg)`;
         const v = view(), sx = x * cam.s + cam.x, sy = y * cam.s + cam.y;
         const dx = sx - v.width / 2, dy = sy - v.height / 2, zx = v.width * 0.18, zy = v.height * 0.18;
         const ox = Math.abs(dx) > zx ? dx - Math.sign(dx) * zx : 0, oy = Math.abs(dy) > zy ? dy - Math.sign(dy) * zy : 0;
@@ -749,7 +784,7 @@ const MapView = (() => {
       }
       drawPath(stopAt);
       const next = path[0];
-      const ms = Math.round(Math.max(150, Math.min(800, STEP_MS * HexMap.moveCost(map, next) * Sky.stepMul(Sky.kindAt(), map.cells[next].terrain))));
+      const ms = STEP_MS;   // 1.8.8: ровный шаг — болото, брод и дождь героя больше не замедляют (дорога выбирается по стоимости, скорость одна)
       const from = px(st.pos);
       st.pos = next;
       const reveal = revealAround(next);
@@ -783,13 +818,25 @@ const MapView = (() => {
     worldMedal('visit', id);
     if (id === 'shop') return Screens.openShop();
     if (id === 'forge') return Screens.openForge();
-    if (id === 'hunter') return Screens.openBestiary();
+    if (id === 'hunter') return showHunter();
     if (id === 'home') return Inventory.open('left', { armory: true });
     if (id === 'hall') return showHall();
+    if (id === 'guardhouse') return showGuard();
+    if (id === 'bank') return Screens.open('bank');
+    if (id === 'castle') return enterCastle();
+    if (id === 'castleExit') return leaveCastle();
+    if (id === 'islandPier') return leaveIsland();
+    if (id === 'dungeon') return enterTower();
+    if (id === 'towerDoor') return towerDoor();
+    if (id === 'towerStairs') return towerStairs();
+    if (id === 'islandChest') return showIslandChest();
+    if (id === 'ruinHall') return showLord();
+    if (id === 'ruinHouse' || id === 'ruinTower') return toast(`${b.name}: ${b.desc}`, 3500);
     if (id === 'tavern') return Screens.openTavern();
     if (id === 'mill') return Screens.openMill();
     if (id === 'junker') return Screens.openJunker();
     if (id === 'library') return Screens.openLibrary();
+    if (id === 'jeweler') return Screens.openJeweler();
     if (id === 'artistWorkshop') return Screens.openArtistWorkshop();
     if (id === 'lighthouse') return openLighthouse();
     if (id === 'wreck') return Screens.openWreck();
@@ -817,6 +864,35 @@ const MapView = (() => {
     el['map-card'].innerHTML = _t("<div class=\"map-card\"><div class=\"mc-body\">\n      <b class=\"mc-title\">Ратуша</b><p class=\"hint\">{0} На площади у Ратуши — Торговые ряды: здесь выставляют объявления о продаже.</p>\n      <div class=\"stat-list\"><div><span>Уровень</span><b>{1}</b><small>опыт {2} / {3}</small></div>\n      <div><span>Побед</span><b>{4}</b><small>всего</small></div>\n      <div><span>Исследовано</span><b>{5}%</b><small>карты</small></div>\n      <div><span>Существ</span><b>{6}</b><small>сейчас на карте</small></div></div>\n      <p class=\"hint\">Чем дальше от деревни, тем выше цвет существ и богаче добыча.</p>\n      <div class=\"fac-row\">{7}<span>Ваша фракция: <b>{8}</b> ({9})</span></div>\n      <p class=\"hint\">Сохранение хранится в этом браузере. Чтобы перенести персонажа на другое устройство или в другой браузер — скачайте файл сохранения, а там загрузите его обратно.</p>\n      <div class=\"mc-act\">\n        <button type=\"button\" class=\"primary\" data-act=\"market\">Торговые ряды</button>\n        <button type=\"button\" data-act=\"faction\">Сменить фракцию</button>\n        <button type=\"button\" data-act=\"export-save\">Скачать сохранение</button>\n        <button type=\"button\" data-act=\"import-save\">Загрузить сохранение</button>\n        <button type=\"button\" data-act=\"close\">Закрыть</button>\n      </div>\n      <input type=\"file\" id=\"hall-import-input\" accept=\".json,application/json\" hidden></div></div>", [HexMap.BUILDINGS.hall.desc, Profile.level(), Profile.levelInfo().into, Profile.levelInfo().need === Infinity ? '—' : Profile.levelInfo().need, Profile.data.wins, explored, aliveCount, factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem'), fac().name, fac().people]);
     const hallAct = el['map-card'].querySelector('.mc-act');
     if (hallAct) hallAct.insertAdjacentHTML('afterbegin', `<button type="button" class="primary" data-act="village">${_t("Улучшения деревни")}</button>`);   // 1.5.1: куда тратить золото
+    // 1.9.0: если игра подключена к серверу — можно удалить свои данные на нём (152-ФЗ)
+    try {
+      const rem = typeof Net !== 'undefined' && Net.current && Net.current.remote;
+      if (hallAct && rem && rem.enabled) hallAct.insertAdjacentHTML('beforebegin', `<p class="hint">${_t("Сохранение копируется на сервер игры. Если хотите, удалите свои данные с сервера: игра на этом устройстве останется, но копироваться на сервер больше не будет.")}</p><div class="mc-act" id="srv-box"><button type="button" data-act="srv-del">${_t("Удалить мои данные на сервере")}</button></div>`);
+    } catch (e) { /* сервер не обязателен */ }
+  }
+
+  /* ---------- 1.8.9: стрелки компаса (js/compass.js): перенос на материке к Ратуше или к метке; нужен Пояс ---------- */
+  const arrowsOk = () => !map.kind && !Profile.data.loc;
+  function compassS() { return (Profile.data.compass = Compass.clean(Profile.data.compass)); }
+  function arrowJump(kind, idx) {
+    if (!arrowsOk() || !Compass.use(compassS(), kind, Profile.beltTier())) return toast(_t("Стрелки работают только на материке и только с Поясом"));
+    closeCard(); walking = null; st.pos = idx;
+    for (const n of HexMap.area(map, idx, 3)) revealed.add(n);
+    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); save(); renderHud();
+    toast(kind === 'home' ? _t("Стрелка перенесла вас в деревню") : _t("Стрелка перенесла вас к метке"));
+  }
+  function goHome() {
+    const h = map.start != null ? map.start : HexMap.center(map);
+    if (st.pos === h) return toast(_t("Вы уже в деревне"));
+    const C = compassS(), bt = Profile.beltTier();
+    if (arrowsOk() && Compass.canUse(C, 'home', bt)) {
+      el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Домой")}</b>
+        <button type="button" class="primary" data-act="arrow-home">${_t("Стрелка домой (осталось {0})", [Compass.count(C, 'home')])}</button>
+        <button type="button" class="primary" data-act="walk-home">${_t("Пойти пешком")}</button>
+        <button type="button" data-act="close">${_t("Закрыть")}</button></div></div>`;
+      return;
+    }
+    walkTo(h, () => toast(_t("Вы в деревне")));
   }
 
   // Скачивание сохранения. На обычном сайте (GitHub Pages и т.п.) — обычная ссылка-скачивание через blob.
@@ -949,7 +1025,7 @@ const MapView = (() => {
     battleSpawn = sp;
     st.swarm = st.swarm || {};
     if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
-    Profile.data.monster = Object.assign({ id: sp.species, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
+    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -976,7 +1052,7 @@ const MapView = (() => {
     if (typeof Screens !== 'undefined' && Screens.isOpen) Screens.close();
     walking = null;
     battleSpawn = null;
-    if (!sel.arena && !sel.challenge && !sel.siege && sel.night === undefined) Object.assign(sel, Sky.battleFx());   // 1.7.1: ночь и непогода — в логове и засаде; Арена, Испытание и осада — без них
+    if (!sel.arena && !sel.run && !sel.challenge && !sel.siege && sel.night === undefined) Object.assign(sel, Sky.battleFx());   // 1.7.1: ночь и непогода — в логове и засаде; Арена, Испытание и осада — без них
     Profile.data.monster = sel;
     save();
     setMode('battle');
@@ -984,7 +1060,7 @@ const MapView = (() => {
     startBattle();
   }
   // Особые пометки боя (арена, испытание, логово, засада) живут только в бою: на карте герой считается как обычно.
-  function stripSpecial() { const m = Profile.data.monster; if (m) for (const k of ['arena', 'challenge', 'lair', 'lairHp', 'ambush', 'siege', 'siegeKind', 'volley', 'night', 'wx']) delete m[k]; }
+  function stripSpecial() { const m = Profile.data.monster; if (m) for (const k of ['arena', 'run', 'lord', 'lordId', 'castle', 'castleSet', 'trait', 'challenge', 'lair', 'lairHp', 'ambush', 'siege', 'siegeKind', 'volley', 'night', 'wx']) delete m[k]; }
   // Подойти к клетке (на неё или рядом) и тогда выполнить fn.
   function approach(i, fn) {
     if (st.pos === i || HexMap.dist(map.cells[st.pos], map.cells[i]) <= 1) return fn();
@@ -996,6 +1072,7 @@ const MapView = (() => {
   // Быстрый бой: подходит к существу и сразу побеждает (награда — quickReward в game.js).
   function quickFight(sp) {
     closeCard();
+    if (sp.rare) return toast(_t("Редкого зверя быстрым боем не взять: сразитесь с ним сами."), 3500);
     if (!alive(sp)) return;
     approach(sp.idx, () => {
       if (!alive(sp)) return;
@@ -1021,8 +1098,8 @@ const MapView = (() => {
     const E = World.EVENTS[e.kind], T = evTier(e.tier), d = Profile.data;
     let body = '', act = '';
     if (e.kind === 'cache') {
-      body = _t("Под корнями старого дерева что-то блестит — чей-то тайник.");
-      act = `<button type="button" class="primary" data-ev="take" data-e="${e.id}">${_t("Забрать")}</button>`;
+      body = _t("Под корнями старого дерева что-то блестит — чей-то тайник. Схватить быстро: добычи больше на половину, но рядом может дремать страж. Вскрыть осторожно: безопасно, добыча обычная.");
+      act = `<button type="button" class="primary" data-ev="take" data-mode="fast" data-e="${e.id}">${_t("Схватить (+50%, риск)")}</button><button type="button" class="primary" data-ev="take" data-mode="safe" data-e="${e.id}">${_t("Вскрыть осторожно")}</button>`;
     } else if (e.kind === 'altar') {
       body = _t("Камень с рунами тихо гудит. Можно попросить одно благословение на {0} обычных боя.", [World.BLESSINGS.might.fights])
         + (d.blessing && d.blessing.fights > 0 ? _t(" Сейчас на вас: {0} (ещё боёв: {1}) — новое заменит его.", [World.BLESSINGS[d.blessing.kind].name, d.blessing.fights]) : '');
@@ -1062,8 +1139,14 @@ const MapView = (() => {
     if (!e || !evActive(e)) return closeCard();
     const T = evTier(e.tier), d = Profile.data, k = b.dataset.ev;
     if (k === 'take') {
+      const fast = b.dataset.mode === 'fast';
+      if (fast && Math.random() < 0.3) {                              // 1.8.9: рядом дремал страж — тайник охраняет элитный зверь
+        const id = speciesFor(T), affix = World.affixFor(randomAffix(), Bestiary.MONSTERS[id].ability);
+        useEvent(e);
+        return startSpecial({ id, tier: T, elite: affix, ambush: e.id });
+      }
       worldMedal('cache');
-      const coins = World.cacheCoins(T);
+      const coins = Math.round(World.cacheCoins(T) * (fast ? 1.5 : 1));
       Profile.addCoins(coins);
       const drops = Bestiary.rollDrops(speciesFor(T), T, Math.random, d.faction, Hero.tierFor(Profile.level())).resources;
       const lines = [_t("Монеты: {0}", [MonsterArt.moneyHtml(coins)])];
@@ -1172,6 +1255,7 @@ const MapView = (() => {
     else if (!known(i)) return toast(_t("Метку можно ставить только на открытую землю"));
     else if (st.pins.length >= PIN_MAX) return toast(_t("Меток не больше {0} — снимите одну", [PIN_MAX]));
     else st.pins.push(i);
+    if (st.pinNames) Compass.prune(st.pinNames, st.pins);
     renderEvents(); save();
   }
 
@@ -1317,14 +1401,21 @@ const MapView = (() => {
       + (lms.some((m) => !known(m.idx)) ? `<li class="jr-unk">${_t("Ещё не найдено: {0}", [lms.filter((m) => !known(m.idx)).length])}</li>` : '');
     const pinRows = st.pins.length ? st.pins.map((i, n) => {
       const dd = HexMap.dist(map.cells[st.pos], map.cells[i]);
-      return `<li><button type="button" class="jr-go" data-jump="${i}">${_t("Метка {0}", [n + 1])}</button> <span>${HexMap.terrainName(map, i)} · ${_t("{0} сот отсюда", [dd])}</span> <button type="button" class="jr-del" data-delpin="${i}" aria-label="${_t("Снять метку")}">×</button></li>`;
+      const nm = (st.pinNames || {})[i], C = compassS(), bt = Profile.beltTier();
+      const arrow = arrowsOk() && Compass.canUse(C, 'mark', bt) ? `<button type="button" class="jr-go" data-arrow-pin="${i}">${_t("Стрелка ({0})", [Compass.count(C, 'mark')])}</button>` : '';
+      const nameIn = C.diary ? `<input type="text" class="jr-name" data-pinname="${i}" maxlength="${Compass.NAME_MAX}" value="${nm || ''}" placeholder="${_t("Название")}" aria-label="${_t("Название метки")}">` : '';
+      return `<li><button type="button" class="jr-go" data-jump="${i}">${nm || _t("Метка {0}", [n + 1])}</button> <span>${HexMap.terrainName(map, i)} · ${_t("{0} сот отсюда", [dd])}</span> ${arrow} ${nameIn} <button type="button" class="jr-del" data-delpin="${i}" aria-label="${_t("Снять метку")}">×</button></li>`;
     }).join('') : `<li class="jr-unk">${_t("Меток нет. Кнопка «Метка» ставит их на карту.")}</li>`;
+    const chronAll = typeof Chron !== 'undefined' ? Chron.list(Profile.data) : [];
+    const chronRows = chronAll.length ? chronAll.slice(0, 20).map((e) => `<li><span class="jr-unk">${Chron.dateStr(e.t)}</span> ${Chron.text(e)}</li>`).join('') + (chronAll.length > 20 ? `<li class="jr-unk">${_t("Ещё записей: {0}", [chronAll.length - 20])}</li>` : '') : `<li class="jr-unk">${_t("Пока пусто: первые события появятся после боёв и находок.")}</li>`;
     el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Журнал исследователя")}</b>
       <p class="hint">${_t("Исследовано: {0}% суши", [all ? Math.round(got / all * 100) : 0])}</p><div class="jr-bars">${bars}</div>
       <b class="jr-h">${_t("Победы над существами по цветам")}</b><p class="hint">${_t("Справа: побед и изучено обитателей")}</p><div class="jr-bars jr-wins">${winChart}</div>
       <b class="jr-h">${_t("Достопримечательности: {0} из {1}", [doneN, lms.length])}</b><ul class="jr-list">${lmRows}</ul>
       <b class="jr-h">${_t("Метки: {0} из {1}", [st.pins.length, PIN_MAX])}</b><ul class="jr-list">${pinRows}</ul>
-      <div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
+      ${rareSp ? `<b class="jr-h">${_t("Охота за редким зверем")}</b><p class="hint">${rareHint()}</p>` : ''}
+      <b class="jr-h">${_t("Журнал судьбы героя")}</b><p class="hint">${_t("Всего боёв: {0}", [Math.max((Profile.data.stats && Profile.data.stats.battles) || 0, Profile.data.wins || 0)])}</p><ul class="jr-list jr-chron">${chronRows}</ul>
+      <div class="mc-act"><button type="button" data-act="herocard">${_t("Визитка героя")}</button><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
   }
 
   /* ---------- 1.6.9: живой фон карты (дым, огни, облака) ---------- */
@@ -1420,13 +1511,25 @@ const MapView = (() => {
       Profile.data.blessing.fights--;
       if (Profile.data.blessing.fights <= 0) { Profile.data.blessing = null; setTimeout(() => toast(_t("Благословение алтаря иссякло")), 3400); }
     }
-    if ((sel.arena || sel.challenge) && result === 'flee' && typeof specialResult === 'function') specialResult(false);
+    if ((sel.arena || sel.run || sel.challenge || sel.lord) && result === 'flee' && typeof specialResult === 'function') specialResult(false);
     stripSpecial();
     const heroHp = typeof fighters !== 'undefined' ? fighters.left.hp : null;
     leaveBattle();
     setMode('map');
     if (fightFx.scale) { cam.s = fightFx.scale; fightFx.scale = 0; clampCam(); applyCam(); }
-    if (sel.arena || sel.challenge) {
+    const fromLoc = map.kind;
+    if (result === 'win' && typeof Chron !== 'undefined' && Chron.levelMarks(Profile.data, Profile.level())) Profile.save();
+    if (result === 'loss' && (map.kind === 'castle' || map.kind === 'tower')) { gateReturn(map.kind === 'castle' ? 'castle' : 'dungeon'); }
+    else if (result === 'loss' && map.kind) { st.pos = map.start; load(); toast(_t("Вы очнулись у начала локации"), 3000); }       // 1.8.6: проигрыш в замке — герой очнётся в деревне, у Алтаря воскрешения
+    if (sel.lord) {
+      if (result === 'win' && sel.lordId != null) { Profile.chron('lord', 1); st.defeated[sel.lordId] = Date.now() + 20 * 3600000; toast(_t("Хозяин замка повержен!"), 4500); }
+      else if (result === 'loss' && fromLoc) { /* герой уже у ворот замка (gateReturn) */ }
+      else if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); }
+      refreshPlayerArt(); renderMonsters(); renderHud(); save();
+      requestAnimationFrame(() => centerOn(st.pos, false));
+      return;
+    }
+    if (sel.arena || sel.run || sel.challenge) {
       refreshPlayerArt(); renderHud(); save();
       requestAnimationFrame(() => centerOn(st.pos, false));
       setTimeout(() => Screens.open('arena'), 60);
@@ -1441,7 +1544,7 @@ const MapView = (() => {
           else { save(); showLair(l); }
         } else {
           endLair(l);
-          if (result === 'loss') { st.pos = HexMap.center(map); revealAround(st.pos); toast(_t("Вы проиграли и очнулись в деревне")); }
+          if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); }
           else toast(_t("Вы покинули логово с добычей"));
         }
       }
@@ -1451,9 +1554,11 @@ const MapView = (() => {
       return;
     }
     if (result === 'win' && sp) {
-      st.defeated[sp.id] = Date.now() + (sp.guest ? GUEST_REST_MS : RESPAWN_MS);
+      st.defeated[sp.id] = sp.rare ? sp.endsAt : Date.now() + (sp.guest ? GUEST_REST_MS : RESPAWN_MS);
       if (st.swarm) delete st.swarm[sp.id];
-      toast(sp.guest ? _t("{0} повержен. Ночной гость больше не вернётся этой ночью.", [Bestiary.MONSTERS[sp.species].name]) : _t("{0} повержен. Существо вернётся через {1} мин.", [Bestiary.MONSTERS[sp.species].name, RESPAWN_MS / 60000]));
+      if (sp.guard && sp.gc) guardDrop(sp.gc);
+      if (sp.deep) deepWon(st.floor || 1);
+      if (sp.rare) rareWon(sp); else toast(sp.guest ? _t("{0} повержен. Ночной гость больше не вернётся этой ночью.", [Bestiary.MONSTERS[sp.species].name]) : _t("{0} повержен. Существо вернётся через {1} мин.", [Bestiary.MONSTERS[sp.species].name, RESPAWN_MS / 60000]));
     } else if (result === 'win' && sel.siege) {
       siegeWon(sel);
     } else if (result === 'win' && sel.ambush) {
@@ -1464,9 +1569,9 @@ const MapView = (() => {
     } else if (result === 'revive') {
       toast(_t("Вы воскресли на месте гибели"));       // оплаченное воскрешение: герой остаётся на соте, существо ждёт
     } else if (result === 'loss') {
-      st.pos = HexMap.center(map);
+      st.pos = respawnPos();
       revealAround(st.pos);
-      toast(_t("Вы проиграли и очнулись в деревне"));
+      toast(_t("Вы проиграли и очнулись у Алтаря воскрешения"));
     } else {
       toast(_t("Вы отступили"));
     }
@@ -1657,7 +1762,7 @@ const MapView = (() => {
     on('m-pin', () => setPinMode(!pinMode));
     on('m-log', () => { closeCard(); showJournal(); });
     on('m-mini', () => { const on2 = mini.canvas.hidden; st.mini = on2; applyMiniVisible(); save(); });
-    on('m-home', () => { const h = HexMap.center(map); if (st.pos === h) toast(_t("Вы уже в деревне")); else walkTo(h, () => toast(_t("Вы в деревне"))); });
+    on('m-home', goHome);
     el['map-card'].addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -1665,6 +1770,18 @@ const MapView = (() => {
       if (b.dataset.act === 'faction') { closeCard(); Screens.openFactions(false); }
       if (b.dataset.act === 'market') { closeCard(); Screens.open('market'); }
       if (b.dataset.act === 'village') { closeCard(); Screens.open('village'); }
+      if (b.dataset.act === 'arrow-home') arrowJump('home', map.start != null ? map.start : HexMap.center(map));
+      if (b.dataset.act === 'walk-home') { closeCard(); walkTo(map.start != null ? map.start : HexMap.center(map), () => toast(_t("Вы в деревне"))); }
+      if (b.dataset.arrowPin) arrowJump('mark', Number(b.dataset.arrowPin));
+      if (b.dataset.act === 'tower-start') { closeCard(); swapMap(true, 'tower'); }
+      if (b.dataset.act === 'tower-seal') towerSeal(Number(b.dataset.c));
+      if (b.dataset.act === 'guard') callGuard();
+      if (b.dataset.act === 'lord') fightLord();
+      if (b.dataset.act === 'isl-chest') takeIslandChest();
+      if (b.dataset.act === 'herocard') { closeCard(); Screens.openHeroCard(); }
+      if (b.dataset.act === 'hq-accept') { Quests.accept('hn-belt'); showHunter(); }
+      if (b.dataset.act === 'hq-claim') { if (Quests.claim('hn-belt')) { Profile.chron('belt', 1); toast(_t("Вы получили Пояс охотника!"), 3500); Profile.save(); } showHunter(); }
+      if (b.dataset.act === 'hq-open') { closeCard(); Screens.openBestiary(); }
       if (b.dataset.act === 'attack') attack(spById(b.dataset.sp));
       if (b.dataset.act === 'quick') quickFight(spById(b.dataset.sp));
       if (b.dataset.act === 'siege') siegeFight(b.dataset.siege, b.dataset.k);
@@ -1673,10 +1790,18 @@ const MapView = (() => {
       if (b.dataset.lm) landmarkAction(b);
       if (b.dataset.jump) { const i = Number(b.dataset.jump); closeCard(); centerOn(i); hover(-2); hover(i); }
       if (b.dataset.delpin) { togglePin(Number(b.dataset.delpin)); showJournal(); }
+      if (b.dataset.act === 'srv-del') { const bx = document.getElementById('srv-box'); if (bx) bx.innerHTML = `<span class="hint">${_t("Удалить данные на сервере безвозвратно?")}</span><button type="button" data-act="srv-del-yes">${_t("Да, удалить")}</button><button type="button" data-act="srv-del-no">${_t("Отмена")}</button>`; }
+      if (b.dataset.act === 'srv-del-no') { const bx = document.getElementById('srv-box'); if (bx) bx.innerHTML = `<button type="button" data-act="srv-del">${_t("Удалить мои данные на сервере")}</button>`; }
+      if (b.dataset.act === 'srv-del-yes') {
+        const bx = document.getElementById('srv-box'); if (bx) bx.innerHTML = `<span class="hint">${_t("Удаляем…")}</span>`;
+        Promise.resolve(Net.current && Net.current.remote ? Net.current.remote.deleteMe() : false).then((ok) => { if (bx) bx.innerHTML = `<span class="hint">${ok ? _t("Данные на сервере удалены. Копирование на сервер выключено.") : _t("Не получилось удалить: нет связи с сервером. Попробуйте позже.")}</span>`; }).catch(() => { if (bx) bx.innerHTML = `<span class="hint">${_t("Не получилось удалить: нет связи с сервером. Попробуйте позже.")}</span>`; });
+      }
       if (b.dataset.act === 'export-save') exportSave();
       if (b.dataset.act === 'import-save') { const inp = document.getElementById('hall-import-input'); if (inp) inp.click(); }
     });
     el['map-card'].addEventListener('change', (e) => {
+      const pn = e.target.closest('[data-pinname]');
+      if (pn && compassS().diary) { st.pinNames = st.pinNames || {}; Compass.setName(st.pinNames, Number(pn.dataset.pinname), pn.value); save(); renderEvents(); return; }
       const pt = e.target.closest('#mc-pet');
       if (pt) { Profile.setPetStay(!pt.checked); return; }
       const inp = e.target.closest('#hall-import-input');
@@ -1795,7 +1920,7 @@ const MapView = (() => {
     return true;
   }
   function siegeCheck() {
-    if (!map || !st || /^#dev-/.test(location.hash)) return;
+    if (!map || !st || map.kind || /^#dev-/.test(location.hash)) return;
     if (!document.body.classList.contains('mode-map') || Date.now() < siegeReadyAt || Siege.active(st.siege)) return;
     const d = Profile.data;
     if (!d.faction || d.lair || (typeof Screens !== 'undefined' && Screens.isOpen) || (typeof Inventory !== 'undefined' && Inventory.isOpen)) return;
@@ -1867,6 +1992,197 @@ const MapView = (() => {
     updateSiegeUi();
   }
 
+  // 1.8.6: Сторожка городской стражи. Во время набега можно нанять стражу: она отбивает всех оставшихся врагов за плату.
+  function guardFeeNow() { const s = st.siege; return Siege.guardFee(hallLevel(), Siege.remaining(s), s.total, Profile.data.coins); }
+  function showGuard() {
+    const s = st.siege, act = Siege.active(s), B = HexMap.BUILDINGS.guardhouse;
+    let body = `<p class="hint">${B.desc}</p>`, btn = '';
+    if (act) {
+      const fee = guardFeeNow(), can = Profile.data.coins >= fee;
+      body += `<p>${_t("Идёт набег: врагов осталось {0}. Стража отобьёт их за {1}.", [Siege.remaining(s), MonsterArt.moneyHtml(fee)])}</p>`;
+      btn = `<button type="button" class="primary" data-act="guard"${can ? '' : ' disabled'}>${can ? _t("Позвать стражу") : _t("Не хватает монет")}</button>`;
+    } else body += `<p class="hint">${_t("Сейчас всё спокойно. Набег приходит раз в сутки; стража стоит дешевле, чем потеря добычи.")}</p>`;
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${B.name}</b>${body}<div class="mc-act">${btn}<button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
+  }
+  // 1.8.6: Охотничий дом — первое поручение охотников выдаёт Пояс охотника; потом окно сразу открывает бестиарий.
+  function showHunter() {
+    const q = Quests.find('hn-belt'), L = Quests.list(Profile.data, 'hunter')[0];
+    if (!L || L.claimed) return Screens.openBestiary();
+    let act;
+    if (!L.accepted) act = `<button type="button" class="primary" data-act="hq-accept">${_t("Взять задание")}</button>`;
+    else if (L.done) act = `<button type="button" class="primary" data-act="hq-claim">${_t("Забрать пояс")}</button>`;
+    else act = `<span class="quest-progress">${_t("Видов побеждено: {0} / {1}", [L.value, L.goal])}</span>`;
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${HexMap.BUILDINGS.hunter.name}</b><p class="hint">${q.title}: ${q.desc}</p><p>${act}</p><div class="mc-act"><button type="button" data-act="hq-open">${_t("Бестиарий")}</button><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
+  }
+  // 1.8.6: Замок — отдельная карта. Вход на северной границе деревни (для героев от 8 уровня), выход — в конце главной улицы.
+  const CASTLE_LEVEL = 8;
+  const LOCS = { castle: { level: CASTLE_LEVEL, reveal: 4 }, island: { level: 1, reveal: 6 }, tower: { level: 10, reveal: 5 } };      // реестр локаций: остров и Башня добавляются сюда
+  function swapMap(onCastle, to) {
+    const loc = onCastle ? (to || 'castle') : null;
+    Profile.data.loc = loc; Profile.data.castleOn = loc === 'castle';
+    if (loc) Profile.chron('place', loc);
+    map = null; world = null; spawnAt = evAt = lairAt = lmAt = null;   // старая карта освобождается до построения новой
+    save();
+    closeCard();
+    load();
+    toast(loc === 'tower' ? _t("Вы вошли в подземелье. Уровень {0}: ищите лестницу на востоке.", [st.floor || 1]) : loc === 'island' ? _t("Вы высадились на Затерянном острове. Бригантина ждёт у западного берега.") : loc ? _t("Вы вошли в Замок: здесь бродят духи воинов. Выход — на западе, в конце главной улицы.") : _t("Вы вернулись на материк"), 4200);
+  }
+  function enterCastle() {
+    if (map.kind === 'castle') return;
+    if (Profile.level() < CASTLE_LEVEL) return toast(_t("Ворота замка закрыты: нужен {0}-й уровень героя", [CASTLE_LEVEL]), 4200);
+    swapMap(true);
+  }
+  function leaveCastle() { if (map.kind === 'castle') swapMap(false); }
+  // 1.8.7: Затерянный остров — плывёт починенная бригантина (экран «Кораблекрушение»), причал на острове возвращает на материк
+  function enterIsland() { if (!map.kind && Profile.data.ship && Profile.data.ship.fixed) swapMap(true, 'island'); }
+  function leaveIsland() { if (map.kind === 'island') swapMap(false); }
+  // 1.8.7: Башня — бесконечные этажи; лестница вверх на востоке, дверь на западе (на 1-м этаже — выход)
+  // поражение в замке или Башне: герой очнётся на материке у ворот этой локации (замок — «Ворота замка», Башня — «Врата подземелья»)
+  function gateReturn(id) {
+    Profile.data.castleOn = false; Profile.data.loc = null; load();
+    const b = map.buildings.find((x) => x.id === id);
+    if (b) {
+      const near = HexMap.area(map, b.idx, 2).filter((i) => HexMap.passable(map, i) && !map.cells[i].building && i !== b.idx).sort((x, y) => HexMap.dist(map.cells[b.idx], map.cells[x]) - HexMap.dist(map.cells[b.idx], map.cells[y]) || x - y)[0];
+      if (near !== undefined) { st.pos = near; load(); }
+    }
+    toast(id === 'castle' ? _t("Вы очнулись у ворот замка") : _t("Вы очнулись у врат подземелья"), 3500);
+  }
+  // 1.8.9: страж роняет самоцвет своего цвета (Stones)
+  function guardDrop(c) {
+    const n = Stones.dropCount(Math.random()), S = Profile.stones();
+    Stones.add(S, c, n); Profile.save();
+    setTimeout(() => toast(_t("Страж рассыпался. Самоцвет: {0} × {1}", [Stones.name(c), n]), 4500), 900);
+  }
+  // 1.9.4: Хранитель глубин повержен — награда Dungeon.deepReward
+  function deepWon(f) {
+    const r = Dungeon.deepReward(f), T = Math.max(1, Hero.tierFor(Profile.level()));
+    Profile.addCoins(r.coins);
+    for (const [k, n] of r.res) Profile.addRes(k, T, n);
+    for (const k of Object.keys(r.cons)) if (r.cons[k]) Profile.addConsumable(k, r.cons[k]);
+    Profile.chron('floor', f); Profile.save();
+    setTimeout(() => toast(_t("Хранитель глубин повержен! Добыча: {0} монет, ресурсы и расходники.", [r.coins]), 5000), 1800);
+  }
+  function enterTower() {
+    if (map.kind) return;
+    if (Profile.level() < LOCS.tower.level) return toast(_t("Врата подземелья закрыты: нужен {0}-й уровень героя", [LOCS.tower.level]), 4200);
+    const S = Profile.stones(), best = (Profile.data.tower && Profile.data.tower.best) || 1;
+    const seals = [];
+    for (let c = 1; c <= Stones.COLORS; c++) if (Stones.canSeal(S, c, best)) seals.push(c);
+    if (!seals.length) return swapMap(true, 'tower');
+    // 1.8.9: есть печати — выбор: с 1-го этажа или сразу на этаж стража
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Дверь подземелья")}</b><p class="hint">${_t("Печать стража сразу переносит на его этаж. Печать сгорает.")}</p>
+      <button type="button" class="primary" data-act="tower-start">${_t("С первого этажа")}</button>
+      ${seals.map((c) => `<button type="button" class="primary" data-act="tower-seal" data-c="${c}">${_t("Печать «{0}»: этаж {1} (осталось {2})", [Stones.name(c), Stones.sealFloor(c), S.seals[c]])}</button>`).join('')}
+      <button type="button" data-act="close">${_t("Закрыть")}</button></div></div>`;
+  }
+  function towerSeal(c) {
+    const S = Profile.stones(), t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 };
+    const f = Stones.useSeal(S, c, t.best || 1); if (!f) return;
+    t.floor = f; t.pos = null; t.revealed = []; t.defeated = {}; t.found = {}; t.pins = [];
+    closeCard(); swapMap(true, 'tower');
+  }
+  function towerFloor(to) {
+    const t = Profile.data.tower; if (!t) return;
+    t.floor = Math.max(1, to); t.best = Math.max(t.best || 1, t.floor);
+    t.pos = null; t.revealed = []; t.defeated = {}; t.found = {}; t.pins = [];
+    if (t.floor >= 5 && t.floor % 5 === 0) Profile.chron('floor', t.floor);
+    save(); closeCard(); load();
+    toast(Dungeon.levelText(t.floor), 2500);
+  }
+  // 1.8.8: награда за новый уровень подземелья (Dungeon.reward): монеты, на каждом 5-м уровне — сундук с ресурсами и расходниками
+  function towerReward(f) {
+    const r = Dungeon.reward(f), T = Math.max(1, Hero.tierFor(Profile.level()));
+    Profile.addCoins(r.coins);
+    for (const [k, n] of r.res) Profile.addRes(k, T, n);
+    for (const k of Object.keys(r.cons)) Profile.addConsumable(k, r.cons[k]);
+    if (r.egg) Profile.addEgg('dragon');
+    toast(r.chest ? _t("Новый уровень подземелья! Награда: {0} монет и сундук стража — ресурсы и расходники{1}.", [r.coins, r.egg ? _t(" (и драконье яйцо)") : '']) : _t("Новый уровень подземелья! Награда: {0} монет", [r.coins]), 3800);
+  }
+  function towerStairs() {
+    const g = map.spawns.find((x) => x.guard);
+    if (g && !(st.defeated[g.id] > Date.now())) return toast(_t("Лестницу стережёт страж. Победите его."), 3500);
+    const d = Profile.data, f = st.floor || 1;
+    const first = f >= (d.tower.best || 1);
+    towerFloor(f + 1);
+    if (first) towerReward(f);          // сообщение о награде показывается после «Уровень N»
+  }
+  function towerDoor() { if ((st.floor || 1) <= 1) swapMap(false); else towerFloor(st.floor - 1); }
+  const islandGuard = () => map.spawns.find((s) => s.guard);
+  function showIslandChest() {
+    const d = Profile.data, isl = d.island || {}, g = islandGuard(), guarded = g && !(st.defeated[g.id] > Date.now()) && !isl.chestTaken;
+    let body;
+    if (isl.chestTaken) body = _t("Сундук пуст: старый капитан давно всё растратил.");
+    else if (guarded) body = _t("Сундук прикопан под корнями, а рядом ходит страж. Сначала придётся с ним разобраться.");
+    else body = `<div class="mc-act"><button type="button" class="primary" data-act="isl-chest">${_t("Открыть сундук")}</button></div>`;
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${HexMap.BUILDINGS.islandChest.name}</b><p class="hint">${body}</p><div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
+  }
+  function takeIslandChest() {
+    const d = Profile.data; d.island = d.island || {};
+    if (d.island.chestTaken) return closeCard();
+    d.island.chestTaken = true; Profile.chron('chest', _t("Сундук пирата"));
+    const tier = Math.max(1, Hero.tierFor(Profile.level())), e = Gear.makeEntry('sea-belt', tier);
+    Profile.addItem(e); Profile.addCoins(2500); Profile.addConsumable('elixir', 3); Profile.addEgg('dragon');
+    Profile.save(); closeCard();
+    toast(_t("В сундуке: 2500 монет, {0}, 3 эликсира и драконье яйцо.", [Gear.item(e).name]), 5200);
+  }
+  // Хозяин замка — тень прежнего героя: копия вашего героя, сильнее вас на несколько уровней.
+  function lordShadow() {
+    const L = Math.min(100, Profile.level() + 5), d = Profile.data;
+    return { nick: _t("Владыка замка"), faction: d.faction || 'dwarf', gender: d.gender, level: L, ai: Math.min(95, 55 + Profile.level()), seed: st.seed, rule: null };
+  }
+  function lordSpawn() { return map.spawns.find((s) => s.boss === 'castleLord'); }
+  function showLord() {
+    const sp = lordSpawn(), down = sp && st.defeated[sp.id] > Date.now();
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${HexMap.BUILDINGS.ruinHall.name}</b><p class="hint">${_t("Здесь ждёт хозяин замка — тень прежнего героя, который когда-то правил этой деревней. Он сражается вашими приёмами.")}</p><div class="mc-act">${down ? `<span class="hint">${_t("Хозяин замка повержен, он вернётся позже.")}</span>` : `<button type="button" class="primary" data-act="lord">${_t("Вызвать хозяина")}</button>`}<button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
+  }
+  // 1.9.3: Владыка — настоящий игрок: берём с сервера сильнейшего из ближайших по уровню (его вещи и умения), иначе — тень вашего героя
+  async function realLordShadow() {
+    const rem = typeof Net !== 'undefined' && Net.current && Net.current.remote; if (!rem || !rem.opponents) return null;
+    try {
+      const list = await Promise.race([rem.opponents(Math.min(100, Profile.level() + 5)), new Promise((r) => setTimeout(() => r(null), 3500))]);
+      if (!Array.isArray(list) || !list.length) return null;
+      const best = list.filter((o) => o && o.card).sort((a, b) => (b.card.level - a.card.level) || ((b.card.rank || 0) - (a.card.rank || 0)))[0];
+      if (!best) return null;
+      const sh = Duel.toShadow(best.card, Gear.SLOTS, (e) => { try { return !!Gear.item(e); } catch (er) { return false; } });
+      if (!sh) return null;
+      sh.rule = null; sh.lordReal = true; sh.nick = _t("Владыка замка · {0}", [sh.nick]);
+      return sh;
+    } catch (e) { return null; }
+  }
+  let lordBusy = false;
+  async function fightLord() {
+    const sp = lordSpawn();
+    if (!sp || st.defeated[sp.id] > Date.now() || lordBusy) return closeCard();
+    lordBusy = true;
+    try {
+      const real = await realLordShadow();
+      closeCard();
+      const sh = real || lordShadow();
+      if (real) toast(_t("Владыку замка ведёт настоящий игрок: {0}", [real.nick.replace(/^[^·]*· /, '')]), 3500);
+      startSpecial({ id: 'bandit', tier: Hero.tierFor(sh.level), lord: sh, lordId: sp.id, castle: true });
+    } finally { lordBusy = false; }
+  }
+  let guardIv = null;
+  function callGuard() {
+    const s = st.siege;
+    if (!Siege.active(s) || guardIv) return closeCard();
+    const fee = guardFeeNow();
+    if (!Profile.spend(fee)) return;
+    closeCard(); renderHud();
+    toast(_t("Стража выступила: −{0} монет. Враги бегут!", [fee]), 3500);
+    guardIv = setInterval(() => {
+      const left = st.siege && st.siege.raiders.find((r) => !r.dead);
+      if (!left) { clearInterval(guardIv); guardIv = null; return; }
+      const k = Siege.kill(st.siege, left.id);
+      renderMonsters(); updateSiegeUi();
+      if (k.won) {
+        clearInterval(guardIv); guardIv = null;
+        st.siege = null; save(); renderMonsters(); updateSiegeUi(); renderHud();
+        resultCard(_t("Набег отбит стражей"), _t("Городская стража прогнала врагов. Добычи за набег нет, зато деревня цела."));
+      }
+    }, 700);
+  }
+
   function siegeVictory() {
     const s = st.siege, T = s.tier, lines = [];
     const coins = Siege.rewardCoins(World.cacheCoins(T), s.total);
@@ -1881,10 +2197,50 @@ const MapView = (() => {
 
   // Раз в несколько секунд: вернулись ли побеждённые существа.
   /* ---------- 1.7.1: время суток, погода, ночные гости, штормовое предупреждение (js/sky.js) ---------- */
+  // 1.8.8: охота за редким зверем — раз в неделю на три дня на карте бродит один редкий зверь (см. js/rarehunt.js)
+  let rareSp = null, rareKey = '';
+  function syncRare() {
+    if (!map || map.kind) { rareSp = null; return; }
+    const w = RareHunt.at(Date.now(), new Date().getTimezoneOffset()), key = w.active ? w.cycle + ':' + w.species : '';
+    if (key === rareKey && (!rareSp || spawnAt.get(rareSp.idx) === rareSp)) return;
+    if (rareSp && spawnAt.get(rareSp.idx) === rareSp) spawnAt.delete(rareSp.idx);
+    rareKey = key; rareSp = null;
+    if (w.active && Bestiary.MONSTERS[w.species]) {
+      const busy = new Set([...spawnAt.keys(), ...evAt.keys(), ...lairAt.keys(), ...lmAt.keys()]), cands = [];
+      for (const c of map.cells) {
+        if (c.d <= HexMap.VILLAGE_R + 2 || c.road || c.building || c.bridge || c.ford || busy.has(c.idx) || !map.reachable.has(c.idx)) continue;
+        if (c.terrain === 'beach' || !HexMap.TERRAIN[c.terrain].pass) continue;
+        cands.push(c.idx);
+      }
+      const idx = RareHunt.pick(cands, st.seed, w.cycle);
+      if (idx != null) { rareSp = { id: 'rare-' + w.cycle, idx, species: w.species, tier: Math.max(1, Math.min(10, Hero.tierFor(Profile.level()) + 1)), rare: true, endsAt: w.endsAt }; spawnAt.set(idx, rareSp); }
+    }
+    if (document.body.classList.contains('mode-map')) renderMonsters();
+  }
+  // победа над редким зверем: монеты, ресурсы и трофей
+  function rareWon(sp) {
+    const T = Math.max(1, Hero.tierFor(Profile.level())), r = RareHunt.reward(World.cacheCoins(T));
+    Profile.addCoins(r.coins);
+    for (const [k, n] of r.res) Profile.addRes(k, T, n);
+    RareHunt.trophy(Profile.data, sp.species);
+    Profile.chron('rare', Bestiary.MONSTERS[sp.species].name);
+    save();
+    toast(_t("Редкий зверь повержен: {0}! Трофей получен, добыча: {1} монет и ресурсы.", [Bestiary.MONSTERS[sp.species].name, r.coins]), 5200);
+  }
+  // подсказка охотнику: где примерно бродит зверь (расстояние в сотах и сторона света от героя)
+  function rareHint() {
+    if (!rareSp || !map) return '';
+    const sp = rareSp, from = map.cells[st.pos], to = map.cells[sp.idx], name = Bestiary.MONSTERS[sp.species].name;
+    if (st.defeated[sp.id] > Date.now()) return _t("Редкий зверь {0} повержен — до следующей охоты.", [name]);
+    const a = Math.atan2(to.r * 1.5 - from.r * 1.5, (to.q + to.r / 2) - (from.q + from.r / 2));       // экранные оси: x вправо, y вниз
+    const dirs = [_t("востоку"), _t("юго-востоку"), _t("югу"), _t("юго-западу"), _t("западу"), _t("северо-западу"), _t("северу"), _t("северо-востоку")];
+    const dir = dirs[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
+    return _t("Редкий зверь {0} бродит примерно в {1} сотах к {2}. Уйдёт {3}.", [name, HexMap.dist(from, to), dir, new Date(sp.endsAt).toLocaleDateString('ru-RU')]);
+  }
   const GUEST_REST_MS = 9 * 3600 * 1000;           // побеждённый ночной гость больше не возвращается до утра
   let guestList = [], skyNight = null, skyChip = '';
   const PHASE_NAME = { night: _t("Ночь"), dawn: _t("Рассвет"), day: _t("День"), dusk: _t("Вечер") };
-  const spById = (id) => (/^\d+$/.test(String(id)) ? map.spawns[Number(id)] : guestList.find((g) => String(g.id) === String(id)));
+  const spById = (id) => (/^\d+$/.test(String(id)) ? map.spawns[Number(id)] : (rareSp && String(rareSp.id) === String(id) ? rareSp : guestList.find((g) => String(g.id) === String(id))));
   const skyHere = () => { const c = map && map.cells[st.pos]; return Sky.local(Sky.kindAt(), Sky.biomeOf(c ? c.terrain : '')); };
 
   // По ночам на карте появляются ночные гости (лунные мотыльки, огоньки, тени, призраки): дюжина на ночь, всё — на свободных сотах.
@@ -1960,6 +2316,7 @@ const MapView = (() => {
 
   function tick() {
     if (!map) return;
+    syncRare();
     let changed = false;
     for (const [id, t] of Object.entries(st.defeated)) {
       if (t <= Date.now()) { delete st.defeated[id]; changed = true; }
@@ -1982,9 +2339,9 @@ const MapView = (() => {
   return {
     init, reset, returnFromBattle, focusSpecies, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
-    devTeleport, devBuilding, devFindTerrain, devRevealAll,
+    devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland,
     // для тестов
-    get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack,
+    get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack, fightLord,
     // 1.5.4
     startSpecial, quickFight, devSiege, devSky, skyRefresh, skyLabel, get guests() { return guestList; }, get siege() { return st && st.siege; }, get world() { return world; }, showEvent, showLair, eliteOf,
   };

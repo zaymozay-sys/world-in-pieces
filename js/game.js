@@ -80,7 +80,7 @@ const N = RULES.size;
 const ONYX = GEM_TYPES.indexOf('onyx');
 const MAGIC_TYPES = ['sapphire', 'ruby', 'emerald'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const rnd = (n) => Math.floor(Math.random() * n);
+const rnd = (n) => Math.floor(BattleRand.next() * n);   // случайный выбор в бою: общий поток BattleRand (см. js/battlerand.js)
 
 // Бой как фабрика: основной экземпляр — на странице, второй (поле питомца) — на копии разметки.
 function createBattle(host) {
@@ -138,7 +138,12 @@ let beaverTip = null;
 function setBeaverTip(tip) { beaverTip = tip; }
 // Таймер хода игрока (30с): не походил вовремя — ход автопропускается; 3 таких пропуска подряд — поражение.
 let turnTimerHandle = null, turnTimerLeft = 0, skipStreak = 0;
-let boardRand = Math.random;                         // 1.5.4: генератор новых камней (в Испытании дня — по зерну дня)
+// 1.9.x: бой в реальном времени с живым игроком (js/live.js). LIVE живёт от старта боя до выхода с поля.
+let LIVE = null, livePending = null, invalidStreakR = 0;
+const liveLevel = () => (LIVE && LIVE.fixed ? LIVE.fixed.level : Profile.level());   // турнир: уровень один для всех
+const tourneyFight = () => !!(LIVE && LIVE.fixed);               // бой турнира: ни наград арены, ни износа своих вещей
+const liveSide = (role) => (LIVE && role === LIVE.role ? 'left' : 'right');   // чья сторона на нашем экране: свои — слева
+let boardRand = BattleRand.next;                         // 1.5.4: генератор новых камней (в Испытании дня — по зерну дня)
 let specialDone = false;                             // 1.5.4: итог арены/испытания уже записан
 // Скованные столбцы: forSide — чья сторона не может трогать эти камни (Окаменение голема).
 let locks = { cols: new Set(), forSide: null };
@@ -224,7 +229,7 @@ const itemColor = (it) => (it.set && Gear.SETS[it.set] ? Gear.SETS[it.set].color
 // Идёт ли бой (или игрок на карте). Снаряжение можно менять вне боя, до первого хода и после конца боя.
 let inBattle = false;
 function enterBattle() { inBattle = true; }
-function leaveBattle() { inBattle = false; if (!PET && typeof Duo !== 'undefined') Duo.end(); }
+function leaveBattle() { inBattle = false; liveLeave(); if (!PET && typeof Duo !== 'undefined') Duo.end(); }
 const canEditGear = () => !inBattle || (moves === 0 && !busy) || over;
 
 // Тестовый режим «x10» (переключатель в окне «О разработчиках»): все характеристики, ХП и урон своего героя ×10.
@@ -234,6 +239,12 @@ const testMult = () => (typeof Profile !== 'undefined' && Profile.data && Profil
 function recalcStats(side) {
   const f = fighters[side];
   if (PET && side === 'left') return;               // боец питомца уже посчитан (Pets.petFighter)
+  if (side === 'left' && cardFight()) {             // равные условия: как у тени по карточке
+    f.stats = Gear.combine(Gear.stats(f.gear), f.innate || {});
+    if (f.tempDef) f.stats.defense = (f.stats.defense || 0) + f.tempDef;
+    f.max = f.base + f.stats.health + (f.tempMax || 0); f.hp = Math.min(f.hp, f.max); f.weaponPerk = Gear.weaponPerk(f.gear);
+    return;
+  }
   if (side === 'left' && isChallenge()) {           // 1.5.4: Испытание дня — одинаковый для всех герой без вещей и бонусов
     f.stats = Gear.combine(Gear.stats(Gear.emptyLoadout()), {});
     f.max = f.base + f.stats.health; f.hp = Math.min(f.hp, f.max); f.weaponPerk = null;
@@ -260,7 +271,7 @@ function recalcStats(side) {
 
 // Уровень героя: базовое ХП и урон камней (если ХП не подправлено вручную для проверки).
 function applyLevel() {
-  const f = fighters.left, L = Profile.level();
+  const f = fighters.left, L = liveLevel();
   f.level = L;
   f.dmg = Hero.dmgMult(L) * testMult();
   if (!f.hpEdited) f.base = Hero.baseHp(L);
@@ -377,7 +388,9 @@ const isTraining = () => fighters.right.monsterId === 'beaver';
 // 1.5.4: особые бои — Арена теней (sel.arena) и Испытание дня (sel.challenge): без питомца, награда своя.
 const selNow = () => (host.main && Profile.data.monster) || {};
 const isChallenge = () => !!selNow().challenge;
-const isArena = () => !!selNow().arena;
+// 1.9.x: бой с карточкой живого игрока — равные условия: только вещи, народ и уровень (без медалей, рун, эликсиров, умений)
+const cardFight = () => { const a = selNow().arena; return !!(a && a.gear); };
+const isArena = () => !!selNow().arena || !!selNow().lord || !!selNow().run;      // 1.8.6: хозяин замка — тень героя, бой как на арене (без питомца)
 
 // Бобёр-хранитель как тренировочный противник: переиспользует характеристики крысы первого тира
 // (Bestiary.scaled) — лёгкий, точно проходимый бой, — но без способности, снаряжения и добычи,
@@ -402,7 +415,9 @@ function setupTrainerBeaver() {
 function setupEnemy() {
   const sel = Profile.data.monster;
   if (sel.id === 'beaver') return setupTrainerBeaver();
+  if (sel.lord) return setupShadow(sel.lord);
   if (sel.arena) return setupShadow(sel.arena);
+  if (sel.run) return setupShadow(sel.run);             // 1.8.8: «Забег» — тень текущей волны
   const id = Bestiary.MONSTERS[sel.id] ? sel.id : 'rat';
   const tier = Tiers.clamp(sel.tier);
   const m = Bestiary.MONSTERS[id], f = fighters.right;
@@ -429,10 +444,10 @@ function setupEnemy() {
   }, 360);   // 1.5.1: страж говорит перед боем
   Object.assign(f, {
     monsterId: id, tier, swarmSize,
-    name: (sel.boss ? Story.bossName(sel.boss, m.name) : ZB ? ZB.title : m.swarm ? `${m.name} ×${swarmSize}` : m.name) + (sel.elite ? ' ★' : ''),
+    name: (sel.boss ? Story.bossName(sel.boss, m.name) : ZB ? ZB.title : m.swarm ? `${m.name} ×${swarmSize}` : m.name) + (sel.elite ? ' ★' : '') + (sel.trait && Bestiary.ABILITIES[sel.trait] ? ' · ' + Bestiary.ABILITIES[sel.trait].name : ''),
     affixes, elite: !!sel.elite, guardian: sel.boss || null, enraged: false, shadowHero: null,
     base: f.hpEdited ? f.base : sc.hp, innate: sc.stats, gearBudget: sc.gearBudget,
-    dmg: sc.dmg, ability: m.ability,
+    dmg: sc.dmg, ability: sel.trait && Bestiary.ABILITIES[sel.trait] ? sel.trait : m.ability, trait: sel.trait || null,   // 1.9.3: дух замка со своим приёмом
     level: f.levelOverride || sc.ai,
     gear: sc.gearBudget ? Gear.randomLoadout(sc.gearBudget, sel.challenge ? HexMap.rng(sel.challenge.seed + 1) : Math.random, tier) : Gear.emptyLoadout(),   // испытание: снаряжение по зерну дня
   });
@@ -451,10 +466,10 @@ function setupShadow(a) {
   const rand = HexMap.rng(a.seed || 1);
   Object.assign(f, {
     monsterId: 'bandit', tier: t, swarmSize: 1, name: a.nick,
-    base: Hero.baseHp(L), innate: Factions.statsAt(a.faction, Hero.tierFloat(L)), gearBudget: Hero.budget(L),
+    base: Hero.baseHp(L), innate: a.fixed ? {} : Factions.statsAt(a.faction, Hero.tierFloat(L)), gearBudget: Hero.budget(L),
     dmg: Hero.dmgMult(L), ability: null, affixes: [], elite: false, guardian: null, enraged: false,
-    level: a.ai, gear: Gear.randomLoadout(Hero.budget(L), rand, t),
-    shadowHero: { faction: a.faction, gender: a.gender },
+    level: a.ai, gear: a.gear ? { ...Gear.emptyLoadout(), ...a.gear } : Gear.randomLoadout(Hero.budget(L), rand, t),   // 1.9.x: у тени живого игрока — его настоящие вещи
+    shadowHero: { faction: a.faction, gender: a.gender, level: L },
   });
   // 1.7.4: условие дня (World.arenaRule) — приём, здоровье, сила удара или ум теней.
   const rule = a.rule && World.ARENA_RULES.find((r) => r.id === a.rule);
@@ -467,7 +482,7 @@ function setupShadow(a) {
   f.bag = enemyBag(f.level);
 }
 // Приём противника: у существ — по виду, у теней — тот, что дало условие дня.
-const enemyAbility = (f) => (f.shadowHero ? (f.ability ? Bestiary.ABILITIES[f.ability] : undefined) : Bestiary.ability(f.monsterId));
+const enemyAbility = (f) => (f.shadowHero || f.trait ? (f.ability ? Bestiary.ABILITIES[f.ability] : undefined) : Bestiary.ability(f.monsterId));
 
 function refreshEnemyGear() {
   setupEnemy();
@@ -607,7 +622,7 @@ const bagEl = $('bagbar');
 
 function bagDisabled(kind) {
   const f = fighters.left, bag = Profile.data.backpack;
-  if (busy || over || aiming || !(bag[kind] > 0) || isChallenge()) return true;
+  if (busy || over || aiming || !(bag[kind] > 0) || isChallenge() || LIVE) return true;
   if (kind === 'potion') return f.hp >= f.max;
   if (kind === 'elixir') return f.buffs.some((b) => b.kind === 'power');
   if (kind === 'scroll') return f.haste;
@@ -623,7 +638,7 @@ function renderBag() {
   const ak = Profile.shotKind(), A = Ammo.CATALOG[ak], an = Profile.ammo(ak);
   const ammoBtn = _t("<button type=\"button\" class=\"bagitem ammo {0}\" data-ammo=\"{1}\" title=\"{2} (выстрел хода не тратит, один за ход): {3}\" {4}>\n       {5}<b>{6}</b></button>", [aiming && aimKind === 'bomb' ? 'on' : '', ak, A.name, A.desc, ammoDisabled() ? 'disabled' : '', Ammo.icon(ak), an]);
   const nElx = Profile.elixirBag().reduce((a, e) => a + e.n, 0);
-  const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
+  const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || cardFight() || !!LIVE || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
   bagEl.innerHTML = ammoBtn + elxBtn + Object.entries(Gear.CONSUMABLES).map(([k, c]) =>
     `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? (bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
        ${itemIcon(k)}<b>${bag[k] || 0}</b></button>`).join('');
@@ -636,7 +651,7 @@ function renderBag() {
 function ammoDisabled() {
   const ak = Profile.shotKind();
   if (aiming && aimKind === 'bomb') return false;            // повторное нажатие снимает прицел
-  return busy || over || aiming || turnSide !== 'left' || fighters.left.ammoShot || !(Profile.ammo(ak) > 0) || isChallenge();
+  return busy || over || aiming || turnSide !== 'left' || fighters.left.ammoShot || !(Profile.ammo(ak) > 0) || isChallenge() || !!LIVE;
 }
 if (bagEl) bagEl.addEventListener('click', (e) => {
   if (e.target.closest('[data-elxmenu]')) { if (!e.target.closest('button').disabled) openElxMenu(); return; }
@@ -654,7 +669,7 @@ function useAmmo(kind, cell = null) {
   if (busy || over || turnSide !== 'left') return;
   Profile.takeAmmo(kind);
   f.ammoShot = true;
-  const base = Math.round(Combat.strikeDamage(f) * Gear.shotMult(Profile.gear()) * (!isChallenge() && Profile.perk('shot') ? 1.35 : 1));   // метательное оружие: сила по цвету
+  const base = Math.round(Combat.strikeDamage(f) * Gear.shotMult(Profile.gear()) * (!isChallenge() && !cardFight() && Profile.perk('shot') ? 1.35 : 1));   // метательное оружие: сила по цвету
   const fam = (Bestiary.MONSTERS[e.monsterId] || {}).family, am = Ammo.mult(kind, fam);   // 1.5.1: слабости семейств
   if (am > 1) showFloat('right', _t("Слабое место!"), 'crit'); else if (am < 1) showFloat('right', _t("Не берёт!"), 'debuff');
   if (kind === 'bolt') {
@@ -826,8 +841,9 @@ async function petTurn() {
 
 // Передаёт ход противнику: если питомец жив и в строю, он успевает атаковать первым (см. Combat.turnOrder —
 // питомец всегда действует сразу после хода героя, перед ходом монстра, и выпадает из очереди, если погиб).
-async function passToEnemy() {
+async function passToEnemy(noEnd = false) {
   if (over) return;
+  if (LIVE && !noEnd) LIVE.net.act({ k: 'end', h: liveHash(), s: globalThis.__LIVE_DEBUG ? liveState() : undefined }, true);   // ход закончен: соперник узнаёт и сверяет состояние
   if (host.main) Profile.battleMoved();           // 1.6.6: ход сделан (камни, заклинание, пропуск по таймеру)
   if (Combat.turnOrder(true, petAlive()).includes('pet')) await petTurn();
   if (over) return;
@@ -880,7 +896,7 @@ async function cloneTurn() {
 }
 
 // Открыто ли заклинание: по уровню героя; в обучении все нужные заклинания доступны.
-const spellOpen = (kind) => (typeof TUT === 'function' && TUT()) || Hero.isSpellUnlocked(kind, Profile.level());
+const spellOpen = (kind) => (typeof TUT === 'function' && TUT()) || Hero.isSpellUnlocked(kind, liveLevel());
 
 function spellDisabled(kind, on, ready) {
   const f = fighters.left;
@@ -1065,11 +1081,17 @@ function renderEnemyColumn() {
 
 /* ---------- приём фракции ---------- */
 const CHARGE = Balance.faction.charge;
-function addCharge(n) {
-  const f = fighters.left, was = f.charge || 0;
+// Народ стороны: у героя — выбранный, у тени живого игрока — народ соперника; у существ народа нет.
+const factionOf = (side) => (side === 'left' ? playerFaction() : (fighters.right.shadowHero ? Factions.get(fighters.right.shadowHero.faction) : null));
+const heroLevelOf = (side) => (side === 'left' ? liveLevel() : ((fighters.right.shadowHero && fighters.right.shadowHero.level) || fighters.right.level));
+// Приёмы народов в живом бою у обоих игроков (в турнире — нет, там у всех всё одинаковое)
+const facOn = (side) => side === 'left' || (!!LIVE && !tourneyFight());
+function addCharge(n, side = 'left') {
+  if (tourneyFight()) return;       // в турнире приёмов народов нет: заряд не копится ни у кого (иначе у зеркальных сторон он разойдётся)
+  const f = fighters[side], was = f.charge || 0, fac = factionOf(side);
   f.charge = Math.min(CHARGE, was + n);
-  if (was < CHARGE && f.charge >= CHARGE) note(_t("{0} готов!", [playerFaction().ability.name]));
-  renderFactionButton();
+  if (side === 'left' && fac && was < CHARGE && f.charge >= CHARGE) note(_t("{0} готов!", [fac.ability.name]));
+  if (side === 'left') renderFactionButton();
 }
 
 function renderFactionButton() {
@@ -1091,40 +1113,45 @@ function renderFactionButton() {
 }
 
 // Приёмы фракций ход не тратят: их цена — заряд из родных камней.
-async function useFactionAbility() {
-  const fac = playerFaction(), f = fighters.left;
-  if (aiming && aimKind === 'growth') { stopAim(); note(_t("Ваш ход")); return; }
-  if (busy || over || (f.charge || 0) < CHARGE) return;
+async function useFactionAbility(side = 'left') {
+  const fac = factionOf(side), f = fighters[side], foe = fighters[other(side)];
+  if (!fac) return;
+  if (side === 'left') {
+    if (aiming && aimKind === 'growth') { stopAim(); note(_t("Ваш ход")); return; }
+    if (busy || over || (f.charge || 0) < CHARGE || tourneyFight()) return;     // в турнире приёмов народов нет (равные условия)
+  }
   const id = fac.ability.id;
-  if (id === 'growth') { toggleAim('growth'); renderFactionButton(); return; }
+  if (id === 'growth' && side === 'left') { toggleAim('growth'); renderFactionButton(); return; }
+  if (side === 'left' && LIVE && id !== 'growth') LIVE.net.act({ k: 'fac' });
   f.charge = 0;
   const F = Balance.faction;
   if (id === 'banner') {
     f.buffs.push({ kind: 'banner', amount: F.banner.power, turns: F.banner.turns });
-    showFloat('left', _t("Знамя!"), 'buff');
+    showFloat(side, _t("Знамя!"), 'buff');
     SND.lightning();
-    logEvent('left', _t("{0}: Знамя — +{1}% к урону на {2}", [f.name, F.banner.power, `${F.banner.turns} ${turnsWord(F.banner.turns)}`]));
-    note(_t("Знамя поднято: +{0}% к урону на {1} хода", [F.banner.power, F.banner.turns]));
+    logEvent(side, _t("{0}: Знамя — +{1}% к урону на {2}", [f.name, F.banner.power, `${F.banner.turns} ${turnsWord(F.banner.turns)}`]));
+    if (side === 'left') note(_t("Знамя поднято: +{0}% к урону на {1} хода", [F.banner.power, F.banner.turns]));
   } else if (id === 'venom') {
-    const e = fighters.right, dmg = Combat.venomTick(Combat.power(f), f.dmg);
-    e.poison = { turns: F.venom.turns, dmg };
-    showFloat('right', _t("Яд!"), 'venom');
+    const dmg = Combat.venomTick(Combat.power(f), f.dmg);
+    foe.poison = { turns: F.venom.turns, dmg };
+    showFloat(other(side), _t("Яд!"), 'venom');
     SND.transmute();
-    logEvent('left', _t("{0}: Ядовитый укус — {1} урона в начале каждого из {2} ходов противника", [f.name, dmg, F.venom.turns]));
-    note(_t("Яд: {0} будет терять по {1} ХП {2}", [e.name, dmg, `${F.venom.turns} ${turnsWord(F.venom.turns)}`]));
+    logEvent(side, _t("{0}: Ядовитый укус — {1} урона в начале каждого из {2} ходов противника", [f.name, dmg, F.venom.turns]));
+    if (side === 'left') note(_t("Яд: {0} будет терять по {1} ХП {2}", [foe.name, dmg, `${F.venom.turns} ${turnsWord(F.venom.turns)}`]));
   } else if (id === 'hammer') {
+    const keep = busy;
     busy = true;
     renderMagic();
-    await runeHammer();
-    busy = false;
+    await runeHammer(side);
+    if (side === 'left') busy = false; else busy = keep;
   }
   renderMagic();
   renderFighters();
-  if (TUT()) Tutorial.event('ability');
+  if (TUT() && side === 'left') Tutorial.event('ability');
 }
 
 // Рунный молот: три камня (не обсидиан) становятся обсидианом x3 так, чтобы не собралась готовая линия.
-async function runeHammer() {
+async function runeHammer(side = 'left') {
   const picked = [], H = Balance.faction.hammer;
   const cand = [];
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (grid[r][c] && grid[r][c].ti !== ONYX) cand.push({ r, c });
@@ -1136,8 +1163,8 @@ async function runeHammer() {
     picked.push({ r, c, old });
   }
   SND.transmute();
-  logEvent('left', _t("{0}: Рунный молот — {1} стали обсидианом x{2}", [fighters.left.name, _nn(picked.length, 'камень', 'камня', 'камней'), H.value]));
-  note(_t("Рунный молот!"));
+  logEvent(side, _t("{0}: Рунный молот — {1} стали обсидианом x{2}", [fighters[side].name, _nn(picked.length, 'камень', 'камня', 'камней'), H.value]));
+  if (side === 'left') note(_t("Рунный молот!"));
   for (const p of picked) p.old.el.classList.add('morph');
   await sleep(600);
   for (const { r, c, old } of picked) {
@@ -1155,6 +1182,7 @@ async function castGrowth(cell) {
   stopAim();
   if (!grid[cell.r] || !grid[cell.r][cell.c]) { note(_t("Выберите камень, а не пустую клетку")); return; }
   stopTurnTimer();
+  if (LIVE) LIVE.net.act({ k: 'fac', i: cell.r * N + cell.c });
   try { await growthBody(cell); } finally {
     busy = false;
     renderMagic();
@@ -1163,21 +1191,22 @@ async function castGrowth(cell) {
     if (TUT()) Tutorial.event('ability');
   }
 }
-async function growthBody(cell) {
-  const f = fighters.left, G = Balance.faction.growth;
-  const gem = playerFaction().gem, ti = GEM_TYPES.indexOf(gem);
+async function growthBody(cell, side = 'left') {
+  const f = fighters[side], G = Balance.faction.growth;
+  const gem = factionOf(side).gem, ti = GEM_TYPES.indexOf(gem);
   let value = G.value;
-  for (const [lvl, v] of Object.entries(G.valueFrom)) if (Profile.level() >= Number(lvl)) value = v;
+  for (const [lvl, v] of Object.entries(G.valueFrom)) if (heroLevelOf(side) >= Number(lvl)) value = v;
   f.charge = 0;
+  const keepBusy = busy;
   busy = true;
   renderMagic();
   const near = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([dr, dc]) => ({ r: cell.r + dr, c: cell.c + dc }))
     .filter((p) => p.r >= 0 && p.c >= 0 && p.r < N && p.c < N && grid[p.r][p.c]);
   const picks = [cell];
   while (picks.length < G.stones && near.length) picks.push(near.splice(rnd(near.length), 1)[0]);
-  note(_t("Дикий рост!"));
+  if (side === 'left') note(_t("Дикий рост!"));
   SND.heal();
-  logEvent('left', _t("{0}: Дикий рост — {1} стали изумрудами x{2}", [f.name, _nn(picks.length, 'камень', 'камня', 'камней'), value]));
+  logEvent(side, _t("{0}: Дикий рост — {1} стали изумрудами x{2}", [f.name, _nn(picks.length, 'камень', 'камня', 'камней'), value]));
   for (const p of picks) grid[p.r][p.c].el.classList.add('morph');
   await sleep(600);
   for (const { r, c } of picks) {
@@ -1188,12 +1217,13 @@ async function growthBody(cell) {
   await sleep(350);
   if (hasMatches()) {
     turnStats = { stones: 0, dmg: 0, bonus: 1 };
-    await resolveBoard('left');
-    logTurn('left');
+    await resolveBoard(side);
+    logTurn(side);
     if (flushTurnDamage()) await sleep(500);
     if (checkEnd()) return;
   }
   if (isEmptyBoard() || !Engine.hasMoves(typOf())) await refillBoard();
+  if (side !== 'left') busy = keepBusy;
 }
 
 function spendMagic(side, sign, kind = 'lightning') {   // sign: -1 списать, +1 вернуть
@@ -1203,18 +1233,19 @@ function spendMagic(side, sign, kind = 'lightning') {   // sign: -1 списат
 }
 
 // Игрок включает/выключает Магию перед своим ходом.
-function toggleMagic() {
-  if (busy || over || aiming) return;
-  const f = fighters.left;
+function toggleMagic(side = 'left') {
+  if (over || (side === 'left' && (busy || aiming))) return;   // у соперника (right) busy стоит на время его хода — это нормально
+  if (side === 'left' && LIVE) LIVE.net.act({ k: 'lm' });
+  const f = fighters[side];
   if (f.magic) {                                   // отмена: возвращаем ровно уплаченное (цена могла измениться от снаряжения)
-    const paid = f.magicFree ? 0 : (f.magicPaid || magicCostOf('left', 'lightning'));   // Зелье грозы — бесплатно, и возврата нет
+    const paid = f.magicFree ? 0 : (f.magicPaid || magicCostOf(side, 'lightning'));   // Зелье грозы — бесплатно, и возврата нет
     for (const t of MAGIC_TYPES) f.counts[t] += paid;
     f.magic = false; f.magicPaid = 0; f.magicFree = false;
-    renderCounters('left');
-  } else if (canAffordMagic('left', 'lightning')) { f.magicPaid = magicCostOf('left', 'lightning'); f.magic = true; spendMagic('left', -1, 'lightning'); }
+    renderCounters(side);
+  } else if (canAffordMagic(side, 'lightning')) { f.magicPaid = magicCostOf(side, 'lightning'); f.magic = true; spendMagic(side, -1, 'lightning'); }
   renderMagic();
-  if (f.magic) { SND.lightning(); logEvent('left', _t("Игрок включил Шаровую молнию")); if (TUT()) Tutorial.event('lightning'); }
-  note(f.magic ? _t("Шаровая молния: каждый собранный камень наносит урон") : _t("Ваш ход"));
+  if (f.magic) { SND.lightning(); logEvent(side, side === 'left' ? _t("Игрок включил Шаровую молнию") : _t("Противник использует Шаровую молнию")); if (TUT()) Tutorial.event('lightning'); }
+  if (side === 'left') note(f.magic ? _t("Шаровая молния: каждый собранный камень наносит урон") : _t("Ваш ход"));
 }
 
 /* ---------- урон, ход, сообщения ---------- */
@@ -1411,7 +1442,7 @@ function dealDamage(target, amount, raw = false, cover = true) {
     const pct = Medals.familyBonus(Profile.medals(), (Bestiary.MONSTERS[fighters.right.monsterId] || {}).family);
     if (pct) amount = Math.max(1, Math.round(amount * (1 + pct / 100)));
   }
-  if (!raw && attackerSide === 'left' && target === 'right' && !isChallenge() && !PET && Profile.perk('strike') && victim.hp < victim.max * 0.3) {
+  if (!raw && attackerSide === 'left' && target === 'right' && !isChallenge() && !cardFight() && !PET && Profile.perk('strike') && victim.hp < victim.max * 0.3) {
     amount = Math.max(1, Math.round(amount * 1.25));            // 1.6.3: умение «Добивание»
   }
   if (!raw && target === 'left') {                             // эликсир брони: первый удар по вам слабее
@@ -1618,10 +1649,126 @@ function startTurnTimer() {
   }, 1000);
 }
 
+
+/* ---------- бой в реальном времени (1.9.x): помощники ----------
+   Схема «зеркала»: у каждого игрока он слева, соперник справа; оба клиента считают бой по одному зерну
+   (BattleRand) и ходы друг друга. Свои действия уходят на сервер (LIVE.net.act), ходы соперника приходят
+   через LIVE.net.next() и выполняются той же дорогой, что и ходы ИИ за правую сторону. */
+const liveCell = (i) => ({ r: Math.floor(i / N), c: i % N });
+// Отпечаток состояния боя, одинаковый для обоих клиентов: порядок бойцов — по ролям (A, B), а не «слева/справа».
+function liveState() {
+  if (!LIVE) return '';
+  const st = (f) => [f.hp, f.max, f.shield || 0, f.magic ? 1 : 0, f.charge || 0, (f.buffs || []).map((b) => b.kind + b.turns).join('.'), f.poison ? f.poison.turns + 'p' + f.poison.dmg : 0, ...GEM_TYPES.map((t) => f.counts[t] || 0)].join(',');
+  const A = LIVE.role === 'A' ? fighters.left : fighters.right, B = LIVE.role === 'A' ? fighters.right : fighters.left;
+  const g = grid.map((row) => row.map((t) => (t ? t.ti + ':' + t.value : '-')).join(' ')).join('/');
+  return st(A) + '|' + st(B) + '|' + g;
+}
+function liveHash() {
+  const str = liveState(); let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+function liveLeave() {
+  if (!LIVE) return;
+  try { LIVE.net.close(); } catch (e) { /* уже закрыт */ }
+  const wasTourney = !!LIVE.fixed;
+  LIVE = null; livePending = null; host.pvp = false; BattleRand.unseed();
+  if (wasTourney && globalThis.TourneyClient) globalThis.TourneyClient.resume();   // турнир: связь нужна снова — ждём следующий раунд
+}
+// Конец боя по слову сервера (сдача, пропуски хода, итог): если наш клиент ещё не закончил — заканчиваем.
+function liveFinish(m) {
+  if (over) return;
+  LIVE.reported = true;
+  const iWin = m.winner === LIVE.role;
+  if (m.winner === 'draw') { over = true; showOverlay(_t("Бой прерван"), _t("Связь с соперником потеряна или бой разошёлся. Результат не засчитан.")); return; }
+  if (iWin) { fighters.right.hp = 0; renderFighters(); checkEnd(); } else { fighters.left.hp = 0; renderFighters(); checkEnd(); }
+}
+// Применяет действие соперника к правой стороне. true — бой окончен.
+async function liveApply(a) {
+  const f = fighters.right;
+  if (a.k === 'lm') { toggleMagic('right'); return over; }
+  if (a.k === 'mv') {
+    const ok = await takeTurn('right', liveCell(a.a), liveCell(a.b));
+    if (over) return true;
+    if (!ok) {                                          // неверный ход соперника: тот же штраф, что и у нас (playerMove)
+      invalidStreakR++;
+      const pen = Combat.invalidPenalty(f), lim = Balance.invalid.limit;
+      dmgTag = 'pen'; dealDamage('right', pen, true);
+      logEvent('right', _t("{0}: неверный ход, -{1} ХП ({2}/{3})", [f.name, pen, invalidStreakR, lim]));
+      flushTurnDamage();
+      if (invalidStreakR >= lim || f.hp <= 0) { checkEnd(); if (!over) { f.hp = 0; renderFighters(); checkEnd(); } return true; }
+      await sleep(900);
+    } else invalidStreakR = 0;
+    return over;
+  }
+  if (a.k === 'cast') {
+    const cell = liveCell(a.i), kind = a.kind;
+    invalidStreakR = 0;
+    if (kind === 'chaos') await castChaosArea('right', cell); else if (kind === 'transmute') await castTransmute('right', cell);
+    else if (kind === 'square') await castFire('right', cell, { shape: 'square' }); else if (kind === 'pierce') await castFire('right', cell, { shape: 'point' });
+    else await castFire('right', cell);
+    return over;
+  }
+  if (a.k === 'fac') { if (factionOf('right') && factionOf('right').ability.id === 'growth') await growthBody(liveCell(a.i), 'right'); else await useFactionAbility('right'); return over; }
+  if (a.k === 'inst' && INSTANT_CASTERS[a.kind]) { invalidStreakR = 0; await INSTANT_CASTERS[a.kind]('right'); return over; }
+  return over;
+}
+// Ход соперника: ждём его действия из сети, пока не придёт «конец хода» (или пропуск, или конец боя). true — бой окончен.
+async function liveRemoteTurn() {
+  note(_t("Ход соперника"));
+  for (;;) {
+    const m = await LIVE.net.next();
+    if (over) return true;
+    if (m.end) { liveFinish(m); return true; }
+    if (m.timeout) {
+      if (m.side === LIVE.role) continue;               // это про нас: обработает liveSkipMine
+      logEvent('right', _t("{0}: ход пропущен по таймеру ({1}/{2} подряд)", [fighters.right.name, m.strikes || 1, Combat.TURN_TIMER.skipLimit]));
+      note(_t("Соперник не успел: ход переходит к вам"));
+      return false;
+    }
+    const a = m.act; if (!a) continue;
+    if (a.k === 'end') {
+      if (a.h && a.h !== liveHash()) {
+        if (globalThis.__LIVE_DEBUG) globalThis.__desync = { theirs: a.s, mine: liveState() }; LIVE.net.forfeit(); LIVE.reported = true; over = true; showOverlay(_t("Бой прерван"), _t("Бой у вас и у соперника разошёлся. Результат не засчитан.")); return true; }
+      return false;
+    }
+    if (await liveApply(a)) return true;
+  }
+}
+// Наше время вышло (так решил сервер): ход уходит сопернику.
+async function liveSkipMine(m) {
+  if (!LIVE || over || busy || turnSide !== 'left') return;
+  stopTurnTimer();
+  if (aiming) stopAim();
+  endPlayerAction();
+  logEvent('left', _t("Игрок: ход пропущен по таймеру ({0}/{1} подряд)", [m.strikes || 1, Combat.TURN_TIMER.skipLimit]));
+  note(_t("Ход пропущен по таймеру ({0}/{1} подряд)", [m.strikes || 1, Combat.TURN_TIMER.skipLimit]));
+  busy = true;
+  await passToEnemy(true);
+}
+// Запуск боя с живым соперником: cfg { net, role, first, seed, opp (карточка), myCard }. Вызывает карта (MapView.startSpecial).
+function liveBegin(cfg) {
+  const slots = Gear.SLOTS, known = (id) => !!Gear.item(id);
+  let myCard = cfg.myCard, oppCard = cfg.opp;
+  if (cfg.fixed) {                                               // турнир: общий уровень и общие вещи, свои — только ник, народ и пол
+    const deps = { Gear, Hero, HexMap };
+    myCard = Duel.fixedCard(cfg.myCard, cfg.fixed.level, cfg.fixed.seed, deps);
+    oppCard = Duel.fixedCard(cfg.opp, cfg.fixed.level, cfg.fixed.seed, deps);
+  }
+  const mine = Duel.toShadow(myCard, slots, known, () => 0.5);
+  livePending = { net: cfg.net, role: cfg.role, first: cfg.first, seed: cfg.seed, fixed: cfg.fixed || null, myGear: { ...Gear.emptyLoadout(), ...mine.gear }, reported: false };
+  cfg.net.on('timeout', (m) => { if (LIVE && m.side === LIVE.role) liveSkipMine(m); });
+  cfg.net.on('rating', (m) => { if (m.voucher) setTimeout(() => { try { globalThis.claimLiveRewards && globalThis.claimLiveRewards(); } catch (e) { /* без связи */ } }, 800); try { MapView.toast(_t("Рейтинг: {0} ({1})", [m.elo, (m.delta > 0 ? '+' : '') + m.delta]), 4000); } catch (e) { /* карта закрыта */ } });
+  const sh = Duel.toShadow(oppCard, slots, known, () => 0.5);
+  if (sh && cfg.fixed) sh.fixed = true;
+  return sh;
+}
+
 // Ход игрока не сделан вовремя: ход автоматически передаётся противнику (та же дорога, что и обычный
 // ход), а подряд идущие пропуски считаются — на третьем подряд объявляется поражение (Combat.registerSkip).
 async function onTurnTimeout() {
   stopTurnTimer();
+  if (LIVE) return;                                  // в живом бою время ведёт сервер (liveSkipMine)
   if (busy || over || turnSide !== 'left') return;
   if (aiming) stopAim();
   endPlayerAction();
@@ -1679,6 +1826,7 @@ function battleAnalysis(result) {
 
 function showOverlay(text, sub = '') {
   stopTurnTimer();
+  if (LIVE && !LIVE.reported) { LIVE.reported = true; LIVE.net.result(text === _t("Победа!") ? LIVE.role : (LIVE.role === 'A' ? 'B' : 'A')); }
   hideOverlay();
   const o = document.createElement('div');
   o.className = 'overlay';
@@ -1702,7 +1850,7 @@ function showOverlay(text, sub = '') {
     o.querySelector('.to-map').insertAdjacentElement('beforebegin', ab);
   }
   // 1.6.6: итог боя в сохранении: победа снимает отметку «бой идёт», поражение изнашивает надетые вещи на 1 пункт
-  const wear = host.main ? Profile.battleEnd(result) : null;
+  const wear = host.main ? Profile.battleEnd(result, { noWear: tourneyFight() }) : null;
   if (wear && wear.worn) {
     const w = document.createElement('small'); w.className = 'wear-note';
     w.textContent = _t("Прочность надетых вещей: −1") + (wear.broken.length ? _t(". Сломались: {0}. Чинятся в Кузнице", [wear.broken.join(', ')]) : '');
@@ -1944,10 +2092,13 @@ function startGame() {
   specialDone = false;
   strikeKilledMonster = false; shotKilledMonster = false;
   fighters.left.hpEdited = fighters.right.hpEdited = false;   // ручная правка ХП действует только в одном бою
+  if (LIVE) { if (!(livePending && livePending.net === LIVE.net)) { try { LIVE.net.close(); } catch (e) { /* уже закрыт */ } } LIVE = null; }   // новая игра на этом поле — старая связь не нужна
+  if (livePending) { LIVE = livePending; livePending = null; BattleRand.seed(LIVE.seed); host.pvp = true; invalidStreakR = 0; }
   applyFaction();
-  fighters.left.gear = Profile.gear();
+  if (LIVE && LIVE.fixed) fighters.left.innate = {};            // турнир: врождённых способностей народа нет ни у кого
+  fighters.left.gear = LIVE ? LIVE.myGear : Profile.gear();
   const sel0 = selNow();
-  boardRand = sel0.challenge ? HexMap.rng(sel0.challenge.seed) : Math.random;      // 1.5.4: поле испытания одно на всех
+  boardRand = sel0.challenge ? HexMap.rng(sel0.challenge.seed) : BattleRand.next;      // 1.5.4: поле испытания одно на всех
   if (sel0.challenge) {
     const L = World.CH_HERO.level;
     Object.assign(fighters.left, { gear: Gear.emptyLoadout(), innate: {}, base: Hero.baseHp(L), dmg: Hero.dmgMult(L), level: L });
@@ -1959,7 +2110,7 @@ function startGame() {
   setupEnemy();
   clearLocks();
   veiled.clear();
-  fighters.left.charge = 0;
+  fighters.left.charge = 0; fighters.right.charge = 0;
   rec = newRec();
   Object.assign(fighters.right, { tempMax: 0, tempDef: 0, turnNo: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
   Object.assign(fighters.left, { revived2: false, secondWind: false, elx: {}, elxCd: 0, elxUsed: {}, tempMax: 0, tempDef: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
@@ -1973,10 +2124,12 @@ function startGame() {
     fighters[s].counts = Object.fromEntries(GEM_TYPES.map((t) => [t, 0]));
     buildFighter(s);
   }
-  if (!isChallenge() && !PET) {                      // 1.6.3: умения за комплекты медалей
+  if (!isChallenge() && !PET && !cardFight()) {   // 1.6.3: умения за комплекты медалей
     if (Profile.perk('streak')) fighters.left.charge = Math.floor(CHARGE / 2);
     if (Profile.perk('style')) fighters.left.shield = 1;
     if (Profile.perk('daily')) fighters.left.secondWind = true;
+    huntBonus = Profile.huntTake();                                         // 1.8.6: заряженный Пояс охотника
+    if (huntBonus) { fighters.left.dmg *= 1.25; logEvent('left', _t("Пояс охотника заряжен: урон и добыча +25%")); }
   }
   if (host.main && sel0.lairHp != null) fighters.left.hp = Math.max(1, Math.min(fighters.left.max, Math.round(sel0.lairHp)));   // 1.5.4: логово — ХП между боями не восстанавливается
   if (bl) logEvent('left', _t("Благословение алтаря: {0} (ещё боёв: {1})", [World.BLESSINGS[bl].desc, Profile.data.blessing.fights]));
@@ -2033,7 +2186,7 @@ function startGame() {
   if (!PET && typeof fitBattleHeight === 'function') requestAnimationFrame(fitBattleHeight);
   // Проворство решает, кто ходит первым.
   const chanceLeft = Combat.firstMoveChance(fighters.left, fighters.right);
-    const first = TUT() || isChallenge() ? 'left' : RULES.firstMove || (Math.random() * 100 < chanceLeft ? 'left' : 'right');
+    const first = LIVE ? liveSide(LIVE.first) : TUT() || isChallenge() ? 'left' : RULES.firstMove || (BattleRand.next() * 100 < chanceLeft ? 'left' : 'right');
   logEvent('left', _t("Проворство: ваш шанс первого хода {0}%", [chanceLeft]));
   if (first === 'left') {
     logEvent('left', _t("Первым ходит игрок"));
@@ -2101,6 +2254,10 @@ function rewardFor(f, first = true, opts = {}) {
   const skyFx = selNow();                                                    // 1.7.1: ночью добыча богаче на 15%
   const lm = Sky.lootMul(skyFx);
   const drops = Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), lm);
+  if (selNow().castle && !drops.item && !opts.quick && Math.random() < (selNow().trait ? 0.12 : 0.06)) {   // 1.9.3: духи со своим приёмом роняют одежду вдвое чаще
+    const pieces = selNow().castleSet ? Gear.ITEMS.filter((i) => i.set === selNow().castleSet) : [];
+    drops.item = pieces.length ? Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, f.tier) : Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), 1e6).item;
+  }   // 1.8.6: духи замка в доспехах — иногда роняют одежду
   drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm);
   if (lm !== 1) for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * lm));
   if (opts.quick) drops.item = null;
@@ -2111,10 +2268,17 @@ function rewardFor(f, first = true, opts = {}) {
     drops.coins = Math.round(drops.coins * (1 + luckPct / 100));
     for (const r of drops.resources) r.n = Math.round(r.n * (1 + luckPct / 100));
   }
+  if (huntBonus) { drops.coins = Math.round(drops.coins * 1.25); for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * 1.25)); huntBonus = false; }
   const mp = (k) => !isChallenge() && Profile.perk(k);                                  // 1.6.3: умения за комплекты медалей
   if (mp('kill')) { drops.coins = Math.round(drops.coins * 1.25); for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * 1.25)); }
   Profile.data.wins++;
+  Profile.noteBattle();
+  if (typeof Chron !== 'undefined') { const w = Chron.winMark(Profile.data, Profile.data.wins); if (w) Profile.save(); }
+  if (Profile.huntWin()) MapView.toast(_t("Пояс охотника заряжен: в следующем бою урон и добыча +25%"), 3500);
   Profile.recordWin(f.monsterId, f.tier);
+  { const sh = Profile.data.ship;       // 1.8.7: сильные звери помогают вытащить бригантину в море
+    if (sh && sh.paid && !sh.fixed && ['boar', 'elk', 'rhino', 'leopard', 'lynx'].includes(f.monsterId) && (sh.pulls || 0) < 5) {
+      sh.pulls = (sh.pulls || 0) + 1; MapView.toast(_t("Зверь потянул бригантину: {0} / 5", [sh.pulls]), 3000); } }
   Daily.registerWin();
   Profile.addCoins(drops.coins);
   const up = Profile.addXp(xp);
@@ -2178,6 +2342,7 @@ function rewardFor(f, first = true, opts = {}) {
     lines.push(`<i class="boss-defeat">${Story.BY_ID[bossId].defeat}</i>`);
     if (!story.shards[bossId]) {
       story.shards[bossId] = true;
+      Profile.chron('shard', Story.BY_ID[bossId].title);
       const rw = Story.shardReward(bossId, Story.cycle(story)), ch = Story.BY_ID[bossId];
       Profile.addCoins(rw.coins);
       Profile.addXp(rw.xp);
@@ -2220,7 +2385,10 @@ function rewardFor(f, first = true, opts = {}) {
 }
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
+let huntBonus = false;
 function defeat() {
+  if (!tourneyFight()) Profile.huntLoss();
+  if (!isTraining()) { Profile.noteBattle(); Profile.save(); }   // считается любой бой, исход не важен
   if (typeof Profile !== 'undefined' && !isTraining() && moves >= Balance.rewards.minMoves) Profile.noteSecret({ win: false });   // 1.6.2: серия поражений
   if (host.coord) finishBoard('loss'); else showOverlay(_t("Поражение"), host.main && (isArena() || isChallenge()) ? specialResult(false) : '');
 }
@@ -2237,7 +2405,38 @@ function specialResult(win) {
   if (specialDone) return '';
   specialDone = true;
   const sel = selNow(), d = Profile.data, lines = [], T = Hero.tierFor(Profile.level());
-  if (sel.arena) {
+  if (sel.lord) {
+    if (win) {                                                // 1.8.6: награда за хозяина замка — монеты, опыт-победа и вещь высшего цвета
+      const coins = Math.round(World.cacheCoins(Math.max(6, T)) * 3);
+      Profile.addCoins(coins);
+      lines.push(_t("Монеты: {0}", [MonsterArt.moneyHtml(coins)]));
+      const it = Bestiary.rollDrops('bandit', Math.max(6, T), Math.random, d.faction, T, 1e6).item;
+      if (it) { Profile.addItem(it); lines.push(_t("Трофей замка: {0}", [Gear.item(it).name])); }
+      // 1.9.3: хозяин замка сильнее духов — ещё эссенция, эликсиры и вещь из набора замка (раз в 20 часов, пока он не вернулся)
+      const ess = 2 + Math.floor(T / 3); Profile.addRes('essence', Math.max(6, T), ess); lines.push(_t("Эссенция: {0}", [ess]));
+      Profile.addConsumable('elixir', 2); lines.push(_t("Эликсиры: 2"));
+      const sets = Object.keys(Gear.SETS).filter((id) => (!Gear.SETS[id].faction || Gear.SETS[id].faction === d.faction) && Gear.ITEMS.some((i) => i.set === id)).sort();
+      if (sets.length && Math.random() < 0.5) { const pieces = Gear.ITEMS.filter((i) => i.set === sets[Math.floor(Math.random() * sets.length)]); const e2 = Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, Math.max(6, T)); Profile.addItem(e2); lines.push(_t("Доспех духа: {0}", [Gear.item(e2).name])); }
+      Profile.data.wins++;
+    }
+  } else if (sel.run) {                                       // 1.8.8: «Забег» — копилка растёт с каждой волной, поражение отнимает часть
+    const r = d.run = Run.clean(d.run);
+    if (r.on) {
+      if (win) {
+        const wv = r.wave, res = Run.win(r, Math.round(World.arenaCoins(Math.max(1, T), 2) * 0.5 * Run.modMult(r.mod) * Events.mul(Events.current(Date.now(), new Date().getTimezoneOffset()).id, 'run')), Daily.today());
+        Profile.data.wins++;
+        lines.push(res.add ? _t("Волна {0} пройдена: в копилку +{1} (всего {2})", [wv, MonsterArt.moneyHtml(res.add), MonsterArt.moneyHtml(r.pot)]) : _t("Волна {0} пройдена. Монеты за сегодня уже набраны — рекорд всё равно растёт.", [wv]));
+        if (res.done) { const c = Run.cash(r); Profile.addCoins(c); lines.push(_t("<b class=\"lvlup\">Все волны пройдены!</b> Выплата: {0}", [MonsterArt.moneyHtml(c)])); }
+      } else {
+        const c = Run.lose(r); Profile.addCoins(c);
+        lines.push(c ? _t("Забег окончен. Из копилки спасено: {0}", [MonsterArt.moneyHtml(c)]) : _t("Забег окончен."));
+      }
+    }
+  } else if (sel.arena && sel.arena.fixed) {                 // бой турнира: рейтинг и монеты арены не трогаем, награда — за итог турнира
+    lines.push(win ? _t("Победа в бою турнира!") : _t("Поражение в бою турнира"));
+  } else if (sel.arena && LIVE && !LIVE.fixed) {              // живой бой: награду и звёзды ранга выдаёт сервер по квитанции (applyVoucher)
+    lines.push(win ? _t("Победа в живом бою! Награду подтвердит сервер.") : _t("Поражение в живом бою. Итог подтвердит сервер."));
+  } else if (sel.arena) {
     const a = d.arena = Object.assign(World.freshArena(), d.arena || {});
     World.arenaSync(a, Daily.today(), T);
     const sh = sel.arena, rule = sh.rule && World.ARENA_RULES.find((x) => x.id === sh.rule), rev = !!sh.rev;
@@ -2654,7 +2853,7 @@ async function castFire(side, cell, opts = {}) {
         const fl = fighters[side];
         fl.counts[tile.type] += tile.value;         // в копилку без бонусов линии
         gotTypes.add(tile.type);
-        if (side === 'left' && tile.type === playerFaction().gem) charge += tile.value;
+        if (facOn(side) && factionOf(side) && tile.type === factionOf(side).gem) charge += tile.value;
       } else dmg += tile.value * mult;              // дыхание: урон по номиналу камня
       tile.el.style.setProperty('--d', dist * 70 + 'ms');
       tile.el.classList.add('burn');
@@ -2673,7 +2872,7 @@ async function castFire(side, cell, opts = {}) {
     const fm = Sky.spellMul(selNow(), 'fire');                            // 1.7.1: ливень гасит огонь
     if (fm !== 1 && dmg > 0) dmg = Math.max(1, Math.round(dmg * fm));
     renderCounters(side, [...gotTypes]);
-    if (charge) addCharge(charge);
+    if (charge) addCharge(charge, side);
     turnStats.stones += burning.length;
   }
   const dealt = dealDamage(target, dmg);
@@ -3009,6 +3208,7 @@ async function playerCast(cell) {
   busy = true;
   renderMagic();
   invalidStreak = 0;
+  if (LIVE) LIVE.net.act({ k: 'cast', kind, i: cell.r * N + cell.c });
   const res = kind === 'chaos' ? await castChaosArea('left', cell) : kind === 'transmute' ? await castTransmute('left', cell)
     : kind === 'square' ? await castFire('left', cell, { shape: 'square' }) : kind === 'pierce' ? await castFire('left', cell, { shape: 'point' }) : await castFire('left', cell);
   endPlayerAction();
@@ -3036,6 +3236,7 @@ async function playerInstant(kind) {
   busy = true;
   renderMagic();
   invalidStreak = 0;
+  if (LIVE) LIVE.net.act({ k: 'inst', kind });
   const res = await INSTANT_CASTERS[kind]('left');
   endPlayerAction();
   if (TUT()) Tutorial.event('cast', kind);
@@ -3058,6 +3259,7 @@ async function playerMove(a, b) {
   busy = true;
   renderMagic();
   clearSelection();
+  if (LIVE) LIVE.net.act({ k: 'mv', a: a.r * N + a.c, b: b.r * N + b.c });
   const ok = await takeTurn('left', a, b);
   endPlayerAction();
   if (!ok) {
@@ -3102,7 +3304,8 @@ async function enemyTurn() {
   setTurn('right');
   if (await enemyTurnStart()) return;            // яд и приёмы существа; true — бой окончен
   // Оригинал Дикого гриба мог пасть (яд, рикошет), пока стоит его двойник — тогда ходит только двойник.
-  if (fighters.right.hp > 0) for (;;) {
+  if (LIVE) { if (await liveRemoteTurn()) return; }
+  else if (fighters.right.hp > 0) for (;;) {
     await sleep(RULES.timing.think);
     await enemyUseItems();
 
@@ -3347,10 +3550,12 @@ async function resolveBoard(side) {
   // Обсидиан x5 (камень номиналом x5): собранный в линию, убирает с поля все камни вокруг себя на расстоянии 1
   // (см. Engine.obsidianBurst) — в этом же проходе, до падения камней; урон даёт только сосед-обсидиан.
   let bon = Engine.obsidianBurst(typOf(), Engine.bonusMap(typOf()), ONYX, valOf());
+  let step = 0;                                      // 1.8.9: номер шага каскада за ход (со 2-го — надпись и всё более высокий звук)
   while (bon) {
+    step++;
     const bumped = new Set();
     let dmg = 0, maxBonus = 1, charge = 0;
-    const home = side === 'left' ? playerFaction().gem : null;
+    const home = facOn(side) && factionOf(side) ? factionOf(side).gem : null;
     for (let i = 0; i < N * N; i++) {
       if (!bon[i]) continue;
       const tile = grid[Math.floor(i / N)][i % N];
@@ -3373,7 +3578,9 @@ async function resolveBoard(side) {
     for (let i = 0; i < N * N; i++) { if (bon[i]) cleared++; if (bon[i] === 3) has5 = true; }
     turnStats.stones += cleared;
     turnStats.bonus = Math.max(turnStats.bonus, maxBonus);
-    SND.match(cleared, maxBonus);
+    SND.match(cleared, maxBonus, step);
+    if (step >= 2) showFloat(side, _t("Каскад ×{0}", [step]), 'cascade');
+    if (has5) { const bd = document.getElementById('board'); if (bd) { bd.classList.add('flash5'); setTimeout(() => bd.classList.remove('flash5'), 450); } }
     if (maxBonus > 1) { extra = true; note(_t("Бонус x{0}! Дополнительный ход", [maxBonus])); }
     // Линия ровно из 5 камней (бонус x3, см. Engine.bonusFor) копится в счётчик медалей игрока
     // (см. js/medals.js) — вехи считаются по всем боям сразу, не по одному бою.
@@ -3382,7 +3589,7 @@ async function resolveBoard(side) {
       if (medal) note(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(medal.id)]));
     }
     renderCounters(side, [...bumped]);
-    if (charge) addCharge(charge);
+    if (charge) addCharge(charge, side);
     // Споры Дикого гриба: всё, что он собрал за проход (номинал × бонус линии), — см. Combat.addSpores.
     if (side === 'right' && f.ability === 'clone') {
       let got = 0;
@@ -3680,7 +3887,7 @@ const restartBtn = $('restart');
 restartBtn.addEventListener('click', () => {
   const duoOn = !!(host.coord && host.coord.on());
   if (over && !duoOn) return MapView.returnFromBattle(Combat.enemyDefeated(fighters.right) ? 'win' : 'loss');
-  if (busy && !duoOn) return;
+  if (busy && !duoOn && !LIVE) return;
   if (!fleeArmed) {
     restartBtn.textContent = _t("Точно отступить?");
     restartBtn.classList.add('armed');
@@ -3692,9 +3899,11 @@ restartBtn.addEventListener('click', () => {
   restartBtn.textContent = _t("Отступить");
   restartBtn.classList.remove('armed');
   stopTurnTimer();
+  if (LIVE && !LIVE.reported) { LIVE.reported = true; LIVE.net.forfeit(); }    // сдаться живому сопернику — поражение
   if (duoOn) host.coord.flee();                    // награда за уже убитых противников — и при отступлении
-  const fled = host.main ? Profile.battleEnd('flee') : null;      // 1.6.6: сдача после первого хода — поражение (−1 прочность); до первого хода — просто уход
+  const fled = host.main ? Profile.battleEnd('flee', { noWear: tourneyFight() }) : null;      // 1.6.6: сдача после первого хода — поражение (−1 прочность); до первого хода — просто уход
   MapView.returnFromBattle('flee');
+  if (fled) Profile.huntLoss();
   if (fled && fled.worn) setTimeout(() => MapView.toast(_t("Отступление после первого хода — поражение: прочность надетых вещей −1") + (fled.broken.length ? _t(". Сломались: {0}", [fled.broken.join(', ')]) : '')), 700);
 });
 
@@ -4013,6 +4222,9 @@ if (host.main) {
   valOf: { get: () => valOf, enumerable: true, configurable: true },
   veil: { get: () => veil, enumerable: true, configurable: true },
   veiled: { get: () => veiled, enumerable: true, configurable: true },
+  liveBegin: { get: () => liveBegin, enumerable: true, configurable: true },
+  liveHash: { get: () => liveHash, enumerable: true, configurable: true },
+  liveActive: { get: () => !!LIVE, enumerable: true, configurable: true },
   wispBlocks: { get: () => wispBlocks, enumerable: true, configurable: true }
   });
 }
@@ -4272,7 +4484,7 @@ const Duo = (() => {
   function petGrowth() {
     const pd = Profile.pet();
     if (!pd || !st.petOutcomes.length) return '';
-    const before = Pets.intellect(pd), tier0 = pd.tier, heroTier = Hero.tierFor(Profile.level());
+    const before = Pets.intellect(pd), heroTier = Hero.tierFor(Profile.level());
     let gain = 0;
     for (const o of st.petOutcomes) gain += Pets.xpGain(o.tier, o.won);
     const up = Pets.addXp(pd, gain, heroTier);
@@ -4380,4 +4592,150 @@ MapView.marketNews();           // Торговые ряды: что купил�
     return;
   }
   setTimeout(hideAll, 2000);
+})();
+
+// 1.9.0: слой связи с площадкой (js/net.js): определяет сайт / Яндекс Игры / ВКонтакте; без сервера игра работает как раньше
+(function () {
+  try {
+    if (typeof Net === 'undefined') return;
+    const w = typeof window !== 'undefined' ? window : {};
+    const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
+    // гостевой токен сайта: придумываем один раз и храним у себя (на сервере — только его хеш)
+    let guest = ls('wip-guest');
+    if (!guest || guest.length < 32) { guest = ''; const a = '0123456789abcdefghijklmnopqrstuvwxyz'; for (let i = 0; i < 40; i++) guest += a[Math.floor((w.crypto && w.crypto.getRandomValues ? w.crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296 : Math.random()) * a.length)]; ls('wip-guest', guest); }
+    Net.boot({
+      YaGames: w.YaGames, vkBridge: w.vkBridge, search: typeof location !== 'undefined' ? location.search : '',
+      serverUrl: ls('wip-sync-off') === '1' ? '' : (w.GEM_SERVER || ''), onDeleted: () => ls('wip-sync-off', '1'), fetch: typeof fetch === 'function' ? fetch.bind(w) : undefined, guest,
+      getPid: () => (Profile.data ? Profile.data.pid : null),
+      getCard: () => Duel.makeCard({ nick: Profile.data.name || '', faction: Profile.data.faction, gender: Profile.data.gender, level: Profile.level(), rank: (Profile.data.arena && Profile.data.arena.rank) || 0, gear: Profile.gear() }, Gear.SLOTS),
+      lastVersion: Number(ls('wip-sync-ver')) || 0, saveVersion: (v) => ls('wip-sync-ver', String(v)),
+      onNewer: (n, remote) => {
+        // на сервере есть более новое сохранение: спрашиваем в окне, а не заменяем молча; своё сохранение откладываем в запас
+        if (typeof document === 'undefined') return;
+        const back = document.createElement('div'); back.className = 'modal-back'; back.style.display = 'flex';
+        back.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><header><h2>' + _t("Сохранение на сервере") + '</h2></header><div style="padding:14px 16px"><p>' + _t("На сервере есть более новое сохранение, например с другого устройства. Загрузить его? Текущее сохранение останется в запасе.") + '</p><div class="card-act" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="primary" data-x="yes">' + _t("Загрузить с сервера") + '</button><button type="button" data-x="no">' + _t("Оставить моё") + '</button></div></div></div>';
+        back.addEventListener('click', (e) => {
+          const b = e.target.closest && e.target.closest('button'); if (!b) return;
+          back.remove();
+          if (b.dataset.x !== 'yes') { remote.accept(n.version); return; }   // «оставить моё»: больше не спрашиваем про эту версию
+          const cur = ls('gem-match-profile-v2'); if (cur) ls('gem-match-profile-v2-device-bak', cur);
+          ls('gem-match-profile-v2', n.snapshot); remote.accept(n.version);
+          if (typeof location !== 'undefined') location.reload();
+        });
+        document.body.appendChild(back);
+      },
+    });
+    // турнир живых игроков: клиент создаётся, когда есть связь с сервером; опрос включается при открытии вкладки или после записи
+    if (typeof Tourney !== 'undefined' && typeof Live !== 'undefined' && w.WebSocket) {
+      const ensure = () => {
+        const cur = Net.current; if (!cur || !cur.remote || !cur.remote.enabled || w.TourneyClient) return;
+        const T = Tourney.create({
+          remote: cur.remote, Live, WS: w.WebSocket,
+          onBattle: (net, m) => {
+            const c = cur.env.getCard();
+            const sh = liveBegin({ net, role: m.role, first: m.first, seed: m.seed, opp: m.opp, myCard: { nick: c.nick, faction: c.faction, gender: c.gender }, fixed: { level: m.tourney.level, seed: m.tourney.seed } });
+            if (!sh) return;
+            MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(sh.level), arena: sh });
+          },
+          onChange: (S) => {
+            if (S.last && S.last.state === 'done') {
+              const d = Profile.data; d.tourney = d.tourney || { claimed: [] }; const lid = S.last.id;
+              // награду определяет и выдаёт сервер (один раз на игрока); у нас запоминаем только, что уже спрашивали
+              if (!d.tourney.claimed.includes(lid) && !T.claiming) {
+                T.claiming = true;
+                Promise.resolve(Net.current && Net.current.remote && Net.current.remote.tourneyClaim ? Net.current.remote.tourneyClaim(lid) : null).then((cl) => {
+                  T.claiming = false; if (!cl) return;             // нет связи — спросим при следующем обновлении
+                  d.tourney.claimed.push(lid); if (d.tourney.claimed.length > 20) d.tourney.claimed.shift();
+                  if (!cl.view) { Profile.save(); return; }        // уже выдано ранее
+                  const r = Tourney.reward(cl.view, d.pid, World.arenaCoins(Hero.tierFor(Profile.level()), 2));
+                  if (r && (r.coins || r.title)) {
+                    if (r.coins) Profile.addCoins(r.coins);
+                    d.cosmetics = d.cosmetics || Village.fresh();
+                    if (r.title && !d.cosmetics.titles.includes(r.title)) d.cosmetics.titles.push(r.title);
+                    Profile.save();
+                  try { MapView.toast(r.champion ? _t("Вы победили в турнире! Монеты: {0}, титул «Победитель турнира» — в Гардеробе Ратуши", [r.coins]) : _t("Турнир окончен. Выиграно раундов: {0}. Монеты: {1}", [r.roundsWon, r.coins]), 6000); } catch (e) { /* карты может не быть */ }
+                  }
+                }).catch(() => { T.claiming = false; });
+              }
+            }
+            try { if (typeof Screens !== 'undefined' && Screens.isOpen && Screens.screen === 'arena' && Screens.arenaTab() === 'tourney') Screens.refresh(); } catch (e) { /* экран закрыт */ }
+          },
+        });
+        T.started = false; const st0 = T.start; T.start = () => { T.started = true; st0(); };
+        w.TourneyClient = T;
+        // награды сезона: спрашиваем у сервера, берём каждую один раз (локально помним только, что уже брали)
+        // квитанции за живые бои: каждая гасится на сервере один раз; монеты — только если сервер счёл бой оплачиваемым
+        w.claimLiveRewards = async () => {
+          const rem = Net.current && Net.current.remote; if (!rem || !rem.rewardsClaim || w.__voucherBusy) return;
+          w.__voucherBusy = true;
+          try {
+            const list = (await rem.rewardsClaim()) || [];
+            for (const v of list) {
+              const d = Profile.data, T = Hero.tierFor(Profile.level());
+              const a = d.arena = Object.assign(World.freshArena(), d.arena || {});
+              World.arenaSync(a, Daily.today(), T);
+              const before = a.rank, r = World.arenaResult(a, !!v.win, false);
+              World.arenaLog(a, { day: Daily.today(), nick: _t("Живой игрок"), f: '', win: !!v.win, rule: '', rev: false, rank: before });
+              let coins = 0;
+              const pv = d.pvp = Object.assign({ wins: 0, losses: 0 }, d.pvp || {});
+              let pvpUp = null;
+              if (v.win) {
+                const rk0 = Tourney.pvpRank(pv.wins).index; pv.wins++; const rk1 = Tourney.pvpRank(pv.wins);
+                if (rk1.index > rk0) { pvpUp = rk1.rank; const c = World.arenaCoins(T, 2) * pvpUp.mult; Profile.addCoins(c); coins += c; d.cosmetics = d.cosmetics || Village.fresh(); if (!d.cosmetics.titles.includes(pvpUp.id)) d.cosmetics.titles.push(pvpUp.id); }
+              } else pv.losses++;
+              if (v.win) { if (v.paid) { const c0 = World.arenaCoins(T, a.rank); Profile.addCoins(c0); coins += c0; } Profile.data.wins++; Daily.registerWin(); }
+              if (r.rankUp) {
+                const c = World.rankCoins(T, a.rank); Profile.addCoins(c); coins += c;
+                const tid = World.RANK_TITLES[a.rank]; d.cosmetics = d.cosmetics || Village.fresh();
+                if (tid && !d.cosmetics.titles.includes(tid)) d.cosmetics.titles.push(tid);
+              }
+              Profile.save();
+              if (pvpUp) { try { MapView.toast(_t("Новый ранг живых боёв: {0}! Титул — в Гардеробе Ратуши", [_t(pvpUp.name)]), 6000); } catch (e) { /* карта закрыта */ } }
+              try { MapView.toast(v.win ? (coins ? _t("Живой бой: победа! Монеты: {0}", [coins]) : _t("Живой бой: победа засчитана (монеты за сегодня выданы)")) : _t("Живой бой: поражение засчитано"), 4500); } catch (e) { /* карта закрыта */ }
+            }
+          } catch (e) { /* нет связи — заберём позже */ } finally { w.__voucherBusy = false; }
+        };
+        w.claimSeasonRewards = async () => {
+          const rem = Net.current && Net.current.remote; if (!rem || !rem.seasonList || w.__seasonBusy) return;
+          w.__seasonBusy = true;
+          try {
+            const d = Profile.data; d.season = d.season || { claimed: [] };
+            const list = (await rem.seasonList()) || [];
+            for (const it of list) {
+              if (d.season.claimed.includes(it.id)) continue;
+              const cl = await rem.seasonClaim(it.id); if (!cl) continue;
+              d.season.claimed.push(it.id); if (d.season.claimed.length > 30) d.season.claimed.shift();
+              if (!cl.reward) { Profile.save(); continue; }
+              const r = Tourney.seasonReward(cl.reward, World.arenaCoins(Hero.tierFor(Profile.level()), 2));
+              if (!r) continue;
+              Profile.addCoins(r.coins);
+              d.cosmetics = d.cosmetics || Village.fresh();
+              if (r.title && !d.cosmetics.titles.includes(r.title)) d.cosmetics.titles.push(r.title);
+              Profile.save();
+              try { MapView.toast(_t(r.kind === 'week' ? "Рейтинг прошлой недели: место {0}! Монеты: {1}" : "Рейтинг прошлого месяца: место {0}! Монеты: {1}", [r.place, r.coins]), 6000); } catch (e) { /* карта закрыта */ }
+            }
+            // 1.9.4: «Битва народов» — награда бойцам победившего народа прошлой недели
+            if (rem.factions && rem.factionClaim) {
+              const fw = await rem.factions();
+              if (fw && fw.prev && fw.prev.eligible && !d.season.claimed.includes('f:' + fw.prev.id)) {
+                const cl = await rem.factionClaim(fw.prev.id);
+                if (cl) {
+                  d.season.claimed.push('f:' + fw.prev.id); if (d.season.claimed.length > 30) d.season.claimed.shift();
+                  if (cl.reward) {
+                    const coins = Tourney.folkReward(World.arenaCoins(Hero.tierFor(Profile.level()), 2));
+                    Profile.addCoins(coins); Profile.save();
+                    try { MapView.toast(_t("Ваш народ — «{0}» — победил в Битве народов! Монеты: {1}", [Factions.get(cl.reward.faction).name, coins]), 6000); } catch (e) { /* без карты */ }
+                  } else Profile.save();
+                }
+              }
+            }
+          } catch (e) { /* нет связи — спросим позже */ } finally { w.__seasonBusy = false; }
+        };
+        if (ls('wip-tourney') === '1') T.start();
+        const j = T.join; T.join = async (info) => { const r = await j(info); if (r && r.tour) { ls('wip-tourney', '1'); if (!T.started) T.start(); } return r; };
+        const l = T.leave; T.leave = async () => { await l(); ls('wip-tourney', '0'); };
+      };
+      const t0 = setInterval(() => { ensure(); if (w.TourneyClient) clearInterval(t0); }, 1000);
+    }
+  } catch (e) { /* связь с площадкой не критична */ }
 })();

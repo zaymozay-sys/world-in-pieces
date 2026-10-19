@@ -32,7 +32,7 @@ const Forge = (() => {
     weapon1: ['metal', 'bind', 'leather'], weapon2: ['metal', 'wood', 'leather'], shield: ['plate', 'wood', 'leather'],
     head: ['plate', 'leather', 'bind'], chest: ['plate', 'leather', 'bind'], legs: ['plate', 'leather', 'bind'], shoulders: ['plate', 'leather', 'bind'],
     arms: ['leather', 'bind', 'metal'], gloves: ['leather', 'bind', 'metal'], bag: ['leather', 'bind', 'wood'], leash: ['leather', 'bind', 'wood'],
-    amulet: ['arcane', 'bind', 'metal'], compass: ['metal', 'arcane', 'bind'], ranged: ['wood', 'bind', 'leather'],
+    amulet: ['arcane', 'bind', 'metal'], compass: ['metal', 'arcane', 'bind'], ranged: ['wood', 'bind', 'leather'], belt: ['leather', 'metal', 'bind'],
   };
 
   // Лучший источник каждого ресурса на каждом цвете: ожидаемое число штук за бой = шанс × (мин + макс) / 2 (виды с карты, не фиксированные)
