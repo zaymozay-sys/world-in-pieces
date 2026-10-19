@@ -76,7 +76,7 @@ console.log('world 1.5.4: все тесты пройдены');
 // 1.5.4: Врата подземелья стоят на любой карте, закрыты и не сдвигают монстров
 {
   const m = HexMap.generate(7), d = m.buildings.find((b) => b.id === 'dungeon');
-  assert.ok(d && HexMap.BUILDINGS.dungeon.soon, 'врата подземелья есть и закрыты');
+  assert.ok(d && !HexMap.BUILDINGS.dungeon.soon, 'врата Башни есть и открыты');
   assert.ok(!m.spawns.some((x) => x.idx === d.idx), 'на воротах нет существа');
 }
 

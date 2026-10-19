@@ -111,3 +111,13 @@ for (const bad of [null, 5, 'x', {}, { raiders: 'x' }, { raiders: [{ id: 1 }], t
   assert.strictEqual(Siege.sane(bad), null, 'битое состояние отвергается: ' + JSON.stringify(bad));
 }
 console.log('siege: все тесты пройдены');
+
+// 1.8.6: плата страже — дешевле кражи, не меньше 25, при пустой осаде 0
+{
+  const S = require('../js/siege.js');
+  assert.strictEqual(S.guardFee(0, 0, 3, 1000), 0);
+  assert.strictEqual(S.guardFee(0, 3, 3, 0), 25);
+  const fee = S.guardFee(0, 3, 3, 5000);
+  assert.ok(fee > 25 && fee < S.theft(0, 3, 3, 5000, null).coins, 'стража дешевле кражи');
+  console.log('siege: плата страже — ок');
+}

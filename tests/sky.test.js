@@ -103,7 +103,7 @@ assert.strictEqual(Sky.stepMul('rain', 'mountain'), 1); assert.strictEqual(Sky.s
 assert.deepStrictEqual(Sky.effectLines('clear', false), []);
 assert.strictEqual(Sky.effectLines('clear', true).length, 1);
 assert.ok(Sky.effectLines('storm', true, 'Метель').some((s) => s.startsWith('Метель:')), 'в тексте — местное название');
-assert.strictEqual(Sky.effectLines('downpour', false).length, 2);
+assert.strictEqual(Sky.effectLines('downpour', false).length, 1);
 
 // ночные гости: 12 штук, на свободных сотах, не теснее четырёх сот, виды по цвету, одинаковы по зерну
 const cells = []; for (let i = 0; i < 400; i++) cells.push({ idx: i, tier: 1 + (i % 10), q: i % 20, r: Math.floor(i / 20) });

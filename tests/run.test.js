@@ -1,0 +1,22 @@
+const assert = require('assert');
+global._t = (s, a) => (a ? s.replace(/\{(\d+)\}/g, (_, i) => a[i]) : s);
+const R = require('../js/run.js');
+const F = ['human', 'dwarf', 'elf', 'lizard'];
+let r = R.clean(null);
+assert.deepStrictEqual(r, { on: false, wave: 0, pot: 0, best: 0, bestPot: 0, runs: 0, day: '', mod: '', paid: 0 });
+R.start(r); assert.ok(r.on && r.wave === 1 && r.pot === 0 && r.runs === 1);
+const s1 = R.shadow(r, 10, 5, F), s1b = R.shadow(r, 10, 5, F);
+assert.deepStrictEqual(s1, s1b, 'тень детерминирована'); assert.strictEqual(s1.level, 9); assert.ok(F.includes(s1.faction));
+const w1 = R.win(r, 100); assert.strictEqual(w1.add, 60); assert.strictEqual(r.wave, 2); assert.strictEqual(r.best, 1);
+R.win(r, 100); assert.strictEqual(r.pot, 60 + 70); assert.strictEqual(r.best, 2);
+assert.ok(R.shadow(r, 10, 5, F).level >= 10 && R.shadow(r, 10, 5, F).ai > s1.ai, 'каждая волна сильнее');
+const pot = r.pot, got = R.lose(r); assert.strictEqual(got, Math.floor(pot * 0.4)); assert.ok(!r.on && r.pot === 0);
+assert.strictEqual(r.best, 2, 'рекорд остаётся'); assert.strictEqual(r.bestPot, 130);
+R.start(r); R.win(r, 100); const c = R.cash(r); assert.strictEqual(c, 60); assert.ok(!r.on);
+R.start(r); let last; for (let i = 0; i < R.MAX_WAVE; i++) last = R.win(r, 1);
+assert.ok(last.done && r.best === R.MAX_WAVE, 'все волны пройдены');
+assert.deepStrictEqual(R.clean({ wave: 'x', pot: -5, best: 999, on: 1 }), { on: true, wave: 0, pot: 0, best: 30, bestPot: 0, runs: 0, day: '', mod: '', paid: 0 });
+{ const q = R.clean(null); R.start(q); let sum = 0; for (let i = 0; i < R.DAILY_WAVES + 3; i++) sum += R.win(q, 10, '2026-10-18').add > 0 ? 1 : 0;
+  assert.strictEqual(sum, R.DAILY_WAVES, 'монеты только за первые волны суток'); assert.strictEqual(R.left(q, '2026-10-18'), 0);
+  assert.strictEqual(R.left(q, '2026-10-19'), R.DAILY_WAVES, 'новые сутки — счётчик сброшен'); }
+console.log('run: все тесты пройдены');

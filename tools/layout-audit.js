@@ -14,7 +14,7 @@ const VIEWPORTS = QUICK ? [['phone-p', 390, 844, 1], ['phone-l', 667, 375, 1], [
   ['phone-p', 390, 844, 1], ['phone-s', 320, 568, 1], ['phone-m', 375, 667, 1], ['phone-l', 844, 390, 1], ['phone-l2', 667, 375, 1], ['phone-l3', 568, 320, 1], ['phone-l4', 932, 430, 1],
   ['tablet', 768, 1024, 1], ['tablet-l', 1024, 768, 1], ['laptop', 1366, 650, 0], ['desk', 1280, 800, 0], ['wide', 1920, 1080, 0]];
 const SKINS = ['3'];   // с 1.5.2 оформление одно («колонки»); номер оставлен в именах файлов
-const BUILDINGS = ['hall', 'artistWorkshop', 'junker', 'forge', 'shop', 'hunter', 'tavern', 'library', 'home', 'mill', 'kennel', 'arena', 'alchemist'];
+const BUILDINGS = ['hall', 'artistWorkshop', 'jeweler', 'junker', 'forge', 'shop', 'hunter', 'tavern', 'library', 'home', 'mill', 'kennel', 'arena', 'alchemist'];
 const SCENES = [
   ...BUILDINGS.map((x) => 'bld-' + x), 'scr-bag', 'scr-best', 'scr-medals', 'scr-village', 'scr-credits',
   'scr-arena', 'scr-trial', 'ev-merchant', 'ev-altar', 'ev-lair', 'map-village', 'map-meadow', 'fight-goblin-3', 'fight-wolf-2', 'fight-rat-1-solo', 'boss-b1', 'result-win', 'result-loss'];

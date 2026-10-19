@@ -30,7 +30,7 @@ for (const seed of [1, 42, 777, 123456, 99991, 2024]) {
   assert.deepStrictEqual(m2.spawns, m.spawns);
 
   // деревня: все здания на месте, внутри частокола — только деревня, ворота с дорогами
-  for (const id of Object.keys(HexMap.BUILDINGS)) assert.ok(m.buildings.some((b) => b.id === id), id);
+  for (const id of Object.keys(HexMap.BUILDINGS).filter((k) => !HexMap.BUILDINGS[k].castleOnly)) assert.ok(m.buildings.some((b) => b.id === id), id);
   for (const c of m.cells) if (c.d <= HexMap.VILLAGE_R) assert.strictEqual(c.terrain, 'village');
   assert.strictEqual(m.gates.length, 2);   // 1.2.7: ворота на западе и востоке
   for (const g of m.gates) assert.ok(m.cells[g].road);
@@ -144,11 +144,11 @@ for (const seed of [1, 42, 777, 2024]) {
 }
 
 
-// 1.2.6: город из усадеб — Ратуша на 7 сотах, 12 зданий по 3 соты, симметрично, с проходами и свободными улицами
+// 1.2.6: город из усадеб — Ратуша на 7 сотах, 18 зданий (1.8.6) по 3 соты, симметрично, с проходами и свободными улицами
 {
   const m = HexMap.generate(42);
   const village = m.buildings.filter((b) => !HexMap.BUILDINGS[b.id].landmark && !HexMap.BUILDINGS[b.id].post);
-  assert.strictEqual(village.length, 13);
+  assert.strictEqual(village.length, 19);
   assert.strictEqual(village.find((b) => b.id === 'hall').cells.length, 7);
   const owner = new Map();
   for (const b of village) {
@@ -240,4 +240,72 @@ for (const seed of [1, 42, 777, 2024]) {
   assert.ok(/слабое место/.test(Ammo.hint('bolt', 'Нежить')) && Ammo.hint('bolt', 'Звери') === '');
   assert.deepStrictEqual(Ammo.steal({ sapphire: 5, ruby: 1, emerald: 0 }, ['sapphire', 'ruby', 'emerald']), { sapphire: 2, ruby: 1 });
   console.log('ammo: все тесты пройдены');
+}
+
+// 1.8.6: Замок — отдельная карта: руины зеркально, существа и хозяин достижимы, выход у западной стены
+{
+  const c = HexMap.generate(7, 'castle');
+  assert.strictEqual(c.kind, 'castle');
+  assert.ok(c.buildings.some((b) => b.id === 'castleExit') && c.buildings.some((b) => b.id === 'ruinHall'));
+  const ruins = c.buildings.filter((b) => b.id === 'ruinHouse' || b.id === 'ruinTower');
+  assert.strictEqual(ruins.length, 24, '24 руины');
+  const key = (i) => `${c.cells[i].q},${c.cells[i].r}`;
+  const set = new Set(ruins.map((b) => b.cells.map(key).sort().join('|')));
+  for (const b of ruins) {   // зеркало слева-направо и сверху-вниз
+    for (const f of [([q, r]) => [-q - r, r], ([q, r]) => [q + r, -r]]) {
+      const m = b.cells.map((i) => f([c.cells[i].q, c.cells[i].r]).join(',')).sort().join('|');
+      assert.ok(set.has(m), 'руины симметричны');
+    }
+  }
+  assert.ok(c.spawns.length > 10 && c.spawns.every((s) => c.reachable.has(s.idx) && s.castle && ['skeleton', 'wraith'].includes(s.species)), 'духи на достижимых сотах');
+  assert.strictEqual(c.spawns.filter((s) => s.boss === 'castleLord').length, 1, 'один хозяин замка');
+  assert.ok(c.reachable.has(c.start) && HexMap.fenceBlocks(c, c.start, c.start) === false);
+  assert.deepStrictEqual(HexMap.generate(7, 'castle').spawns, c.spawns, 'карта замка детерминирована');
+  console.log('map: замок — все тесты пройдены');
+}
+
+{
+  const assert = require('assert');
+  const HexMap = require('../js/hexmap.js');
+  for (const seed of [1, 7, 12345, 99999]) {
+    const m = HexMap.generate(seed, 'island');
+    assert.strictEqual(m.kind, 'island');
+    assert.ok(m.buildings.some((b) => b.id === 'islandPier') && m.buildings.some((b) => b.id === 'islandChest'));
+    const chest = m.buildings.find((b) => b.id === 'islandChest').idx, guard = m.spawns.filter((s) => s.guard);
+    assert.strictEqual(guard.length, 1, 'один страж');
+    assert.ok(HexMap.dist(m.cells[guard[0].idx], m.cells[chest]) === 1 && m.reachable.has(guard[0].idx), 'страж у сундука и достижим');
+    assert.ok(m.reachable.has(m.start) && m.spawns.every((s) => m.reachable.has(s.idx) && s.island), 'мобы на достижимых сотах');
+    assert.ok(m.cells.length < 260, 'остров малый');
+    assert.deepStrictEqual(HexMap.generate(seed, 'island').spawns, m.spawns, 'детерминирован');
+  }
+  console.log('map: остров — все тесты пройдены');
+}
+
+{
+  const assert = require('assert');
+  const HexMap = require('../js/hexmap.js');
+  for (const f of [1, 2, 5, 10, 25]) {
+    const m = HexMap.generate(777, 'tower', f);
+    assert.strictEqual(m.kind, 'tower'); assert.strictEqual(m.floor, f);
+    assert.ok(m.buildings.some((b) => b.id === 'towerDoor') && m.buildings.some((b) => b.id === 'towerStairs'));
+    assert.ok(m.spawns.every((s) => m.reachable.has(s.idx) && s.tower), 'мобы достижимы');
+    assert.strictEqual(m.spawns.filter((s) => s.guard).length, f % 5 === 0 ? 1 : 0, 'страж на каждом 5-м этаже');
+    assert.ok(m.cells.length === 127 && m.spawns.every((s) => s.tier >= 8 && s.tier <= 10));
+    assert.deepStrictEqual(HexMap.generate(777, 'tower', f).spawns, m.spawns, 'этаж детерминирован');
+  }
+  assert.notDeepStrictEqual(HexMap.generate(777, 'tower', 1).spawns, HexMap.generate(777, 'tower', 2).spawns, 'этажи разные');
+  console.log('map: Башня — все тесты пройдены');
+}
+
+// 1.9.3: у духов замка бывают свои приёмы; карта и расстановка от этого не меняются
+{
+  const a = require('assert'), HexMap = require('../js/hexmap.js');
+  const m1 = HexMap.generate(12345, 'castle'), m2 = HexMap.generate(12345, 'castle');
+  a.deepStrictEqual(m1.spawns, m2.spawns, 'карта замка детерминирована');
+  const traits = new Set(m1.spawns.filter((s) => !s.boss).map((s) => s.trait || null));
+  a.ok([...traits].every((t) => t === null || ['ward', 'toxin', 'stun'].includes(t)), 'приёмы только из списка');
+  const all = new Set(); for (let seed = 1; seed <= 40; seed++) for (const s of HexMap.generate(seed, 'castle').spawns) if (!s.boss) all.add(s.trait || null);
+  a.ok(all.has('ward') && all.has('toxin') && all.has('stun') && all.has(null), 'на разных картах встречаются все приёмы и обычные духи');
+  a.ok(m1.spawns.filter((s) => s.boss).every((s) => !s.trait), 'у хозяина замка приёма духа нет');
+  console.log('map: приёмы духов замка ок');
 }
