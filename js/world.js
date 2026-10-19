@@ -34,7 +34,6 @@ const World = (() => {
   AFFIXES.ward  = { name: _t("Щит"),       desc: _t("каждый 4-й ход щит на 12% здоровья") };
   // Элитный: крепче и злее, но и добычи больше. Числа — для боя (game.js) и наград (rewardFor).
   const ELITE = { hp: 1.25, dmg: 1.05, coins: 1.6, xp: 1.5, share: 0.1 };
-  const affixName = (id) => (AFFIXES[id] ? AFFIXES[id].name : '');
 
   // Механики стражей осколков: свойства (как у элитных) и особый приём.
   //   pack — «Зов стаи»: каждый 4-й ход стая кусает на 7% вашего ХП (броня не помогает);
@@ -118,6 +117,18 @@ const World = (() => {
   const LAIR_TIERS = [2, 3, 5, 7, 9];
 
   // Хэш для детерминированных выборов (элитные, свойства, награды по дню).
+  // 1.8.8: выбор элитных существ вынесен в функцию — подземелье задаёт свою долю; guaranteed — хотя бы один элитный, если есть из кого
+  function pickElites(map, share, guaranteed) {
+    const elites = new Map(), pool = [];
+    for (const sp of map.spawns) {
+      if (sp.boss || sp.zone || sp.guard || sp.tier < 2) continue;
+      pool.push(sp);
+      if (hash(map.seed, 'elite', sp.id) >= share) continue;
+      elites.set(sp.id, AFFIX_IDS[Math.floor(hash(map.seed, 'affix', sp.id) * AFFIX_IDS.length)]);
+    }
+    if (guaranteed && !elites.size && pool.length) { const sp = pool[Math.floor(hash(map.seed, 'elite1') * pool.length)]; elites.set(sp.id, AFFIX_IDS[Math.floor(hash(map.seed, 'affix', sp.id) * AFFIX_IDS.length)]); }
+    return elites;
+  }
   function hash(...xs) {
     let h = 2166136261;
     for (const x of xs) { const s = String(x); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= 0x9e37; h = Math.imul(h, 16777619); }
@@ -188,12 +199,7 @@ const World = (() => {
     }
 
     // элитные: около 10% обычных существ от 2-го цвета; свойство не совпадает с приёмом вида
-    const elites = new Map();
-    for (const sp of map.spawns) {
-      if (sp.boss || sp.zone || sp.tier < 2) continue;
-      if (hash(map.seed, 'elite', sp.id) >= ELITE.share) continue;
-      elites.set(sp.id, AFFIX_IDS[Math.floor(hash(map.seed, 'affix', sp.id) * AFFIX_IDS.length)]);
-    }
+    const elites = pickElites(map, ELITE.share);
     // 1.7.1: новые местности и реки — поверх уже расставленного (номера сот у существ и событий не меняются)
     if (!map.decorated) W_HM.decorate(map, new Set([...spawnCells, ...taken]));
     return { lairs, events, elites, landmarks };
@@ -325,9 +331,9 @@ const World = (() => {
   const CH_HERO = { level: 25 };
 
   return {
-    AFFIXES, AFFIX_IDS, ELITE, GUARDIANS, PACK, ENRAGE, ZONE, ZONE_BOSSES, ZONE_IDS, scaleZone, zoneHp, zonePower, zoneReward, EVENTS, LANDMARKS, LANDMARK_COUNT, LANDMARK_REVEAL, EVENT_RESPAWN, LAIR_COOLDOWN, BLESSINGS, LAIR_TIERS, QUICK, REVIVE_ON, REVIVE_BASE, reviveCost,
+    pickElites, AFFIXES, AFFIX_IDS, ELITE, GUARDIANS, PACK, ENRAGE, ZONE, ZONE_BOSSES, ZONE_IDS, scaleZone, zoneHp, zonePower, zoneReward, EVENTS, LANDMARKS, LANDMARK_COUNT, LANDMARK_REVEAL, EVENT_RESPAWN, LAIR_COOLDOWN, BLESSINGS, LAIR_TIERS, QUICK, REVIVE_ON, REVIVE_BASE, reviveCost,
     RANKS, STARS, ARENA_DAILY, RANK_TITLES, CH_POOL, CH_TRIES, CH_HERO,
-    hash, place, affixFor, affixName, quickAllowed, lairLength, lairChestCoins, cacheCoins,
+    hash, place, affixFor, quickAllowed, lairLength, lairChestCoins, cacheCoins,
     freshArena, arenaResult, shadow, arenaCoins, rankCoins, ARENA_RULES, RULE_BONUS, REVENGE_DAILY, SEASON_TITLE_RANK, arenaRule, seasonOf, seasonLabel, seasonCoins, arenaSync, arenaLog, dayNo, challengeFor, challengeScore, freshChallenge,
   };
 })();

@@ -65,6 +65,15 @@ const Village = (() => {
     { id: 'arenaMaster',  name: _t("Мастер арены"),     price: 0, arena: 7 },
     { id: 'arenaHero',    name: _t("Герой арены"),      price: 0, arena: 8 },
     { id: 'arenaLegend',  name: _t("Легенда арены"),    price: 0, arena: 9 },
+    { id: 'pvp1', name: _t("Новобранец дуэлей"), price: 0, tourney: true },
+    { id: 'pvp2', name: _t("Дуэлянт"), price: 0, tourney: true },
+    { id: 'pvp3', name: _t("Боец"), price: 0, tourney: true },
+    { id: 'pvp4', name: _t("Ветеран"), price: 0, tourney: true },
+    { id: 'pvp5', name: _t("Мастер дуэлей"), price: 0, tourney: true },
+    { id: 'pvp6', name: _t("Легенда арены"), price: 0, tourney: true },
+    { id: 'ratingWeek', name: _t("Лучший недели"), price: 0, tourney: true },   // 1.9.2: первое место недельного рейтинга живых боёв
+    { id: 'ratingMonth', name: _t("Лучший месяца"), price: 0, tourney: true },
+    { id: 'tourneyChamp', name: _t("Победитель турнира"), price: 0, tourney: true },   // 1.9.x: за победу в турнире живых игроков
     { id: 'seasonChamp', name: _t("Чемпион сезона"),  price: 0, season: true },   // 1.7.4: за сезон с Золотым рангом и выше (World.SEASON_TITLE_RANK)
     // 1.8.4: титулы за достижения — выдаются сами (Village.syncTitles), не продаются
     // — за комплекты медалей (все медали раздела)
@@ -84,6 +93,9 @@ const Village = (() => {
     { id: 'tWAltars',  name: _t("Паломник алтарей"),  price: 0, earn: { medal: 'world:altars' }, how: _t("получить благословение у 5 древних алтарей") },
     { id: 'tExplorer', name: _t("Исследователь"),     price: 0, earn: { explore: true },         how: _t("исследовать всю сушу карты (100% в журнале)") },
     // — по цвету героя (по одному на каждый из 10 цветов)
+    { id: 'tHome',    name: _t("Хозяин дома"),     price: 0, earn: { decor: 6 },      how: _t("заполнить все шесть мест в доме украшениями") },
+    { id: 'tStones',   name: _t("Хранитель камня"),  price: 0, earn: { stones: 10 },    how: _t("добыть самоцветы всех десяти цветов у стражей подземелья") },
+    { id: 'tCollect', name: _t("Коллекционер"),     price: 0, earn: { decorOwn: 10 },  how: _t("собрать 10 украшений для дома") },
     { id: 'tT1',  name: _t("Носитель рубина"),     price: 0, earn: { tier: 1 },  how: _t("герой цвета «Красный»") },
     { id: 'tT2',  name: _t("Носитель янтаря"),     price: 0, earn: { tier: 2 },  how: _t("герой цвета «Оранжевый»") },
     { id: 'tT3',  name: _t("Носитель гелиодора"),    price: 0, earn: { tier: 3 },  how: _t("герой цвета «Жёлтый»") },
@@ -138,6 +150,9 @@ const Village = (() => {
       else if (e.boss) ok = won(e.boss);
       else if (e.allBosses) ok = e.allBosses.every(won);
       else if (e.explore) ok = !!ctx.explored;
+      else if (e.decor) ok = (ctx.decor || 0) >= e.decor;
+      else if (e.stones) ok = (ctx.stones || 0) >= e.stones;
+      else if (e.decorOwn) ok = (ctx.decorOwn || 0) >= e.decorOwn;
       if (ok) out.push(t.id);
     }
     return out;

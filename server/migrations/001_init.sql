@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS players (
+  pid TEXT PRIMARY KEY,
+  platform TEXT NOT NULL,
+  ext_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (platform, ext_id)
+);
+CREATE TABLE IF NOT EXISTS snapshots (
+  pid TEXT NOT NULL REFERENCES players(pid) ON DELETE CASCADE,
+  version BIGINT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (pid, version)
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  pid TEXT NOT NULL REFERENCES players(pid) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS audit (
+  id BIGSERIAL PRIMARY KEY,
+  kind TEXT NOT NULL,
+  pid TEXT,
+  info TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -54,8 +54,8 @@ const Sound = (() => {
     },
     swap()  { tone(320, 0.07, 'triangle', 0.05, 0, 460); },
     bad()   { tone(200, 0.18, 'sawtooth', 0.05, 0, 110); },
-    match(count = 3, bonus = 1) {
-      const base = bonus > 1 ? 520 : 400;
+    match(count = 3, bonus = 1, step = 1) {
+      const base = (bonus > 1 ? 520 : 400) * Math.pow(1.122, Math.min(5, Math.max(0, step - 1)));   // 1.8.9: каждый шаг каскада — на тон выше
       for (let i = 0; i < Math.min(4, Math.max(2, count - 1)); i++) tone(base * Math.pow(1.25, i), 0.12, 'triangle', 0.05, i * 0.06);
     },
     hit(amount = 1) { noise(0.12, Math.min(0.12, 0.03 + amount / 200)); tone(140, 0.15, 'square', 0.04, 0, 70); },

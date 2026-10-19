@@ -248,5 +248,5 @@ const Tutorial = (() => {
     if (!(d.wins > 0)) setTimeout(() => { if (!active) start(); }, 4600);   // 1.7.5: заставка с осколками идёт дольше (≈ 3,2 с + афиша)
   }
 
-  return { _go: go, start, finish, event, resumeIfStarted, boot, plantBoard, guard: guardBeaver, enemySkips: () => inBattle(), maybeAutoStart, inBattle, get active() { return active; }, get planted() { return planted; }, STEPS };
+  return { _go: go, start, finish, event, resumeIfStarted, boot, plantBoard, guard: guardBeaver, maybeAutoStart, inBattle, get active() { return active; }, get planted() { return planted; }, STEPS };
 })();

@@ -1,0 +1,13 @@
+const assert = require('assert');
+const { standings, FACTIONS, MIN_PLAYERS } = require('../src/factionwar');
+let r = standings([]);
+assert.deepStrictEqual(r.list.map((x) => x.faction), FACTIONS, 'пустая неделя — все четыре народа, порядок по умолчанию'); assert.strictEqual(r.winner, null);
+r = standings([{ faction: 'elf', score: 40, games: 6, players: 3 }, { faction: 'dwarf', score: -40, games: 6, players: 2 }]);
+assert.strictEqual(r.winner, 'elf'); assert.strictEqual(r.list[0].faction, 'elf'); assert.strictEqual(r.list[3].faction, 'dwarf');
+r = standings([{ faction: 'elf', score: 40, games: 6, players: 1 }, { faction: 'dwarf', score: -40, games: 6, players: 2 }]);
+assert.strictEqual(r.winner, null, `меньше ${MIN_PLAYERS} играющих — победителя нет`);
+r = standings([{ faction: 'elf', score: 10, games: 6, players: 3 }, { faction: 'human', score: 10, games: 4, players: 3 }]);
+assert.strictEqual(r.winner, null, 'ничья по очкам — победителя нет');
+r = standings([{ faction: 'elf', score: 0, games: 6, players: 3 }]);
+assert.strictEqual(r.winner, null, 'нулевой счёт — не победа');
+console.log('factionwar: ок');

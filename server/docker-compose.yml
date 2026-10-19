@@ -1,0 +1,20 @@
+# Один и тот же файл для обоих облаков; платформы и ключи задаёт .env
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gem
+      POSTGRES_USER: gem
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes: [dbdata:/var/lib/postgresql/data]
+    restart: unless-stopped
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://gem:${DB_PASSWORD}@db:5432/gem
+    ports: ["8080:8080"]
+    depends_on: [db]
+    restart: unless-stopped
+volumes:
+  dbdata:

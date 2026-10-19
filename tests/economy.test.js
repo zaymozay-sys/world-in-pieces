@@ -61,7 +61,7 @@ assert.ok(nRes(Gear.craftCost('berserk-amulet', 5)) > nRes(Gear.craftCost('leath
 assert.ok(Gear.craftCost('berserk-amulet', 5).res.length > Gear.craftCost('leather-head', 5).res.length, 'у редкой больше видов ресурсов');
 
 // бестиарий: 29 видов (в 1.2.0 добавлены звери нижних уровней, существа побережья и боссы), характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
-assert.strictEqual(Bestiary.ORDER.length, 62);      // 1.6.7: +12 существ; 1.7.3: +3 (огр, гоблин-берсерк, тень-убийца)
+assert.strictEqual(Bestiary.ORDER.length, 67);      // 1.6.7: +12 существ; 1.7.3: +3 (огр, гоблин-берсерк, тень-убийца)
 for (const id of ['orc', 'orcShaman', 'ghoul', 'crab', 'bolotnik', 'shadow', 'treant', 'mushroom', 'wildbees', 'lynx', 'hedgehog', 'viper', 'spider', 'vulture', 'wisp', 'gull', 'hermit', 'smuggler', 'captain']) assert.ok(Bestiary.ORDER.includes(id), id);
 for (const id of Bestiary.ORDER) {
   const m = Bestiary.MONSTERS[id];
@@ -78,7 +78,7 @@ for (const id of Bestiary.ORDER) {
   for (const [kind] of Bestiary.MONSTERS[id].drops) assert.ok(Bestiary.RESOURCES[kind], kind);
 }
 assert.deepStrictEqual(Bestiary.unlockedSpecies(0), ['rat', 'wolf']);
-assert.strictEqual(Bestiary.unlockedSpecies(999).length, 62);
+assert.strictEqual(Bestiary.unlockedSpecies(999).length, 67);
 // снаряжение только у дракона
 assert.ok(Bestiary.scaled('dragon', 3).gearBudget > 0 && Bestiary.scaled('wolf', 3).gearBudget === 0);
 
@@ -137,7 +137,7 @@ console.log('economy: все тесты пройдены');
 // 1.2.0: боссы, набор «Морской волк» и добыча Капитана
 assert.ok(Bestiary.MONSTERS.captain.boss && Bestiary.MONSTERS.wisp.boss);
 assert.ok(!Gear.itemsFor('human').some((i) => i.set === 'sea'), 'набор «Морской волк» не продаётся и не падает обычной добычей');
-assert.strictEqual(Gear.ITEMS.filter((i) => i.set === 'sea').length, 8);
+assert.strictEqual(Gear.ITEMS.filter((i) => i.set === 'sea').length, 9);
 let seaDrops = 0;
 for (let i = 0; i < 200; i++) { const d = Bestiary.rollDrops('captain', 8, Math.random, 'human'); if (d.item && Gear.item(d.item.id).set === 'sea') seaDrops++; }
 assert.ok(seaDrops > 60, 'Капитан часто оставляет части набора');
