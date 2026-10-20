@@ -118,3 +118,13 @@ setTimeout(async () => {
     console.log('pg rankOf ok'); await store.close();
   } catch (e) { console.error(e); process.exit(1); }
 }, 12000);
+setTimeout(async () => {
+  try {
+    const store = await require('../server/src/store-pg').create(process.env.DATABASE_URL || 'postgres://postgres@127.0.0.1:54329/postgres');
+    await store.funnelAdd('2026-10-20', 'win1'); await store.funnelAdd('2026-10-20', 'win1'); await store.funnelAdd('2026-10-21', 'tut_done');
+    const d = await store.funnelDays('2026-10-20');
+    assert.ok(d['2026-10-20'].win1 >= 2 && d['2026-10-21'].tut_done >= 1, JSON.stringify(d));
+    assert.ok(!(await store.funnelDays('2026-10-22'))['2026-10-20'], 'since режет старые дни');
+    console.log('pg funnel ok'); await store.close();
+  } catch (e) { console.error(e); process.exit(1); }
+}, 14000);

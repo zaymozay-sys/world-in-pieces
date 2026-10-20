@@ -5,14 +5,14 @@ global.Gear = Gear;
 const Quests = require('../js/quests.js');
 
 // четырнадцать заданий (пять от трактирщика, пять от мыши, четыре от тюленя-смотрителя маяка), у каждого — цель, описание и понятная награда
-assert.strictEqual(Quests.LIST.length, 24);
-assert.strictEqual(new Set(Quests.LIST.map((q) => q.id)).size, 24, 'id заданий уникальны');
+assert.strictEqual(Quests.LIST.length, 29);
+assert.strictEqual(new Set(Quests.LIST.map((q) => q.id)).size, 29, 'id заданий уникальны');
 assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'tavern').length, 8, 'у трактирщика пять заданий');
 assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'mill').length, 8, 'у мыши пять заданий');
 assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'lighthouse').length, 6, 'у тюленя шесть заданий');
 assert.ok(Quests.find('lh-key').reward.key, 'последнее поручение тюленя выдаёт ключ');
 for (const q of Quests.LIST) {
-  assert.ok(['tavern', 'mill', 'lighthouse', 'junker', 'hunter'].includes(q.giver), q.id);
+  assert.ok(['tavern', 'mill', 'lighthouse', 'junker', 'hunter', 'library'].includes(q.giver), q.id);
   assert.ok(q.title && q.desc && q.rewardText, q.id);
   assert.ok(q.goal > 0, q.id);
   if (q.reward.item) assert.ok(Gear.ITEMS.some((i) => i.id === q.reward.item), 'нет такой вещи: ' + q.reward.item);

@@ -69,11 +69,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(await p.evaluate(() => !document.querySelector('.overlay .revive-btn') && !!document.querySelector('.overlay .to-map')), 'воскрешение выключено: кнопки нет, «На карту» есть');
   await toMap(p);
   // горячие клавиши боя: H — подсказка, 1 — первое заклинание (по коду клавиши, не по букве)
+  await p.evaluate(() => { window.__w = Profile.data.wins; Profile.data.wins = 99; });   // 1.9.7: у новичка (<10 побед) подсказка остаётся
   await p.evaluate(async () => { MapView.startSpecial({ id: 'rat', tier: 1 }); await new Promise((r) => setTimeout(r, 1500)); window.__k = { h: 0, s: 0 }; document.getElementById('hint').addEventListener('click', () => window.__k.h++); const sb = spellbarEl.children[0]; sb.disabled = false; sb.addEventListener('click', () => window.__k.s++); });
   await p.keyboard.press('KeyH');
   await p.evaluate(() => { spellbarEl.children[0].disabled = false; document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1', key: '1', bubbles: true })); });   // в одном вызове: игра не успеет снова выключить кнопку
   await sleep(300);
   const kk = await p.evaluate(() => window.__k);
+  await p.evaluate(() => { Profile.data.wins = window.__w; });
   ok(kk.h === 0 && kk.s === 1, 'горячие клавиши боя: 1 работает, H (подсказки после обучения нет) нет → ' + JSON.stringify(kk));
   // 1.5.9: долгое нажатие на кнопку заклинания (сенсор) показывает описание и не нажимает кнопку
   const lp = await p.evaluate(async () => { const w = (ms) => new Promise((r) => setTimeout(r, ms)); const b = spellbarEl.children[1]; let clicks = 0; b.addEventListener('click', () => clicks++); const ev = (t) => b.dispatchEvent(new PointerEvent(t, { pointerType: 'touch', bubbles: true, clientX: 50, clientY: 50 })); ev('pointerdown'); await w(700); const tip = document.querySelector('.lp-tip'); const shown = !!tip && !tip.hidden && tip.textContent === b.title && b.title.length > 3; ev('pointerup'); b.click(); await w(100); return { shown, clicks, title: b.title }; });

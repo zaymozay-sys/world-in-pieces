@@ -20,3 +20,7 @@ assert.ok(/Задание «Оберег в дорогу»: 0 из 1/.test(g(act
 console.log('unlocks: все тесты пройдены');
 assert.ok(/Алхимик — варит/.test(Unlocks.hint('alchemist')));
 console.log('unlocks: подсказки ок');
+assert.deepStrictEqual(Unlocks.target({ wins: 0 }, []), { kind: 'monster' });
+assert.deepStrictEqual(Unlocks.target({ wins: 1 }, [{ accepted: true, done: true, claimed: false, giver: 'tavern' }]), { kind: 'building', id: 'tavern' });
+assert.deepStrictEqual(Unlocks.target({ wins: 1 }, [{ accepted: true, done: false, claimed: false, giver: 'tavern' }]), { kind: 'monster' });
+console.log('unlocks: «Что дальше?» ок');

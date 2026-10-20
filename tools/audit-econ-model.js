@@ -19,7 +19,7 @@ const rand = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.im
 
 const R = Balance.rewards, C = Balance.hero;
 const species = Bestiary.ORDER.filter((id) => !Bestiary.MONSTERS[id].boss);
-const SLOTS_WORN = Gear.SLOTS.filter((s) => s !== 'bag');                   // «всё надетое, кроме сумки» (решение владельца для 1.6.5)
+const SLOTS_WORN = Gear.SLOTS.filter((s) => s !== 'bag');                   // «всё надетое, кроме сумки» (правило для 1.6.5)
 const shopPerk = Math.min(...Factions.ORDER.map((f) => Factions.perk(f, 'shop')));
 const coinPerk = Math.max(...Factions.ORDER.map((f) => Factions.perk(f, 'coins')));
 const out = { params: { coinK: R.coinK, itemChance: R.itemChance, consumableChance: R.consumableChance, shopPerk, coinPerk, levelsPerTier: C.levelsPerTier }, tiers: [] };
