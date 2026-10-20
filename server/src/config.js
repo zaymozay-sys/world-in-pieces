@@ -16,6 +16,7 @@ const load = (env = process.env) => ({
   tourneyHours: (env.TOURNEY_HOURS || '17').split(',').map(Number).filter((h) => Number.isInteger(h) && h >= 0 && h < 24), // часы начала турнира по UTC
   tourneyLevel: num(env.TOURNEY_LEVEL, 50),   // уровень героя у всех участников
   rateIp: num(env.RATE_IP, 120),       // запросов в минуту с адреса
+  statsKey: env.STATS_KEY || '',      // ключ для чтения счётчиков воронки (/funnel); пусто — чтение выключено
   rateAuth: num(env.RATE_AUTH, 20),    // входов в минуту с адреса
 });
 module.exports = { load };

@@ -28,6 +28,7 @@ const cleanCard = (c) => {
   const body = JSON.stringify(out);
   return body.length <= 12000 ? { out, body } : null;
 };
+const funnel = require('./funnel');
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 const limiter = (limit, windowMs, now) => {
@@ -41,6 +42,7 @@ const limiter = (limit, windowMs, now) => {
 };
 
 const create = ({ cfg, store, now = Date.now, tourney = null }) => {
+  const funnelOk = limiter(40, 3600000, now);
   const ipOk = limiter(cfg.rateIp, 60000, now), authOk = limiter(cfg.rateAuth, 60000, now);
 
   const send = (res, code, obj, origin) => {
@@ -135,6 +137,21 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
         if (!['all', 'week', 'month', 'year'].includes(per)) return send(res, 400, { error: 'period' }, origin);
         const list = await store.leaderboard(per, 50, now());
         return send(res, 200, { period: per, list: list.map((r) => ({ place: r.place, nick: r.nick, score: r.score, elo: r.elo, wins: r.wins, losses: r.losses, me: r.pid === pid })), me: await store.rankOf(pid, per, now()).then((r) => r && { place: r.place, score: r.score, elo: r.elo, wins: r.wins, losses: r.losses }) }, origin);
+      }
+      if (url === '/funnel') {
+        if (req.method === 'POST') {
+          if (!funnelOk(ip)) return send(res, 429, { error: 'rate' }, origin);
+          const b = await readBody(req);
+          if (!b || typeof b.e !== 'string' || !funnel.EVENTS.includes(b.e)) return send(res, 400, { error: 'event' }, origin);
+          await store.funnelAdd(funnel.dayOf(now()), b.e);
+          return send(res, 200, { ok: true }, origin);
+        }
+        if (req.method === 'GET') {
+          const key = String(new URL(req.url, 'http://x').searchParams.get('key') || '');
+          const ok = cfg.statsKey && key.length === cfg.statsKey.length && crypto.timingSafeEqual(Buffer.from(key), Buffer.from(cfg.statsKey));
+          if (!ok) return send(res, 404, { error: 'none' }, origin);
+          return send(res, 200, { days: await store.funnelDays(funnel.dayOf(now() - funnel.DAYS * 86400000)) }, origin);
+        }
       }
       if (url === '/depth' && req.method === 'GET') {
         const pid = await authed(req);

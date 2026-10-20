@@ -46,6 +46,8 @@ const create = async (databaseUrl) => {
     async reportCounts(ids) { const m = new Map(); if (!ids.length) return m; const r = await q('SELECT post_id, count(*)::int AS n FROM square_reports WHERE post_id = ANY($1::bigint[]) GROUP BY post_id', [ids]); for (const x of r.rows) m.set(Number(x.post_id), x.n); return m; },
     async distinctReporters(author, since) { const r = await q('SELECT count(DISTINCT reporter)::int AS n FROM square_reports WHERE author=$1 AND at >= $2', [author, since]); return r.rows[0].n; },
     async reportsSince(reporter, since) { const r = await q('SELECT count(*)::int AS n FROM square_reports WHERE reporter=$1 AND at >= $2', [reporter, since]); return r.rows[0].n; },
+    async funnelAdd(day, event) { await q('INSERT INTO funnel_counts(day,event,n) VALUES($1,$2,1) ON CONFLICT (day,event) DO UPDATE SET n=funnel_counts.n+1', [day, event]); },
+    async funnelDays(since) { const r = await q('SELECT to_char(day,$2) AS d, event, n FROM funnel_counts WHERE day>=$1', [since, 'YYYY-MM-DD']); const o = {}; for (const x of r.rows) (o[x.d] = o[x.d] || {})[x.event] = Number(x.n); return o; },
     async addHide(pid, author) { await q('INSERT INTO square_hides(pid,author) VALUES($1,$2) ON CONFLICT DO NOTHING', [pid, author]); },
     async clearHides(pid) { await q('DELETE FROM square_hides WHERE pid=$1', [pid]); },
     async hiddenAuthors(pid) { const r = await q('SELECT author FROM square_hides WHERE pid=$1', [pid]); return new Set(r.rows.map((x) => x.author)); },

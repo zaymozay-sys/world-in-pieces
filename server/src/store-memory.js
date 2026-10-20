@@ -2,7 +2,7 @@
 const create = () => {
   const rating = require('./rating');
   const checks = new Map(), vouchers = [];  let voucherSeq = 0;
-  const posts = [], reports = [], hides = new Map(); let postSeq = 0;
+  const posts = [], reports = [], hides = new Map(), funnel = new Map(); let postSeq = 0;
   const rats = new Map(), rlog = [], claims = new Set(), tours = new Map(), cards = new Map(), players = new Map(), byExt = new Map(), snaps = new Map(), sessions = new Map(), audit = [];
   return {
     async findOrCreatePlayer(platform, ext, wantPid) {
@@ -39,6 +39,8 @@ const create = () => {
     async reportCounts(ids) { const m = new Map(); for (const x of reports) if (ids.includes(x.post)) m.set(x.post, (m.get(x.post) || 0) + 1); return m; },
     async distinctReporters(author, since) { return new Set(reports.filter((x) => x.author === author && x.at >= since).map((x) => x.reporter)).size; },
     async reportsSince(reporter, since) { return reports.filter((x) => x.reporter === reporter && x.at >= since).length; },
+    async funnelAdd(day, event) { const k = day + '|' + event; funnel.set(k, (funnel.get(k) || 0) + 1); },
+    async funnelDays(since) { const o = {}; for (const [k, n] of funnel) { const [d, e] = k.split('|'); if (d >= since) (o[d] = o[d] || {})[e] = n; } return o; },
     async addHide(pid, author) { if (!hides.has(pid)) hides.set(pid, new Set()); hides.get(pid).add(author); },
     async clearHides(pid) { hides.delete(pid); },
     async hiddenAuthors(pid) { return new Set(hides.get(pid) || []); },
