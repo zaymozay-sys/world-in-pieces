@@ -724,7 +724,7 @@ const MapView = (() => {
     if (!known(i)) return _t("Неизведанная земля");
     const t = tierOfCell(i), sp = monsterAt(i);
     const zone = t ? _t(" · зона <b style=\"color:{0}\">{1}</b>", [Tiers.get(t).edge, Tiers.get(t).name]) : '';
-    if (sp) return `<b>${Bestiary.MONSTERS[sp.species].name}</b> ${tierChip(sp.tier)}${zone}`;
+    if (sp) return `<b>${Bestiary.MONSTERS[sp.species].name}</b> ${tierChip(sp.tier, Growth.steps(st, sp))}${zone}`;
     const sg = siegeAt(i);
     if (sg) return `<b>${Bestiary.MONSTERS[sg.r.species].name}</b> ${tierChip(sg.r.tier)}${sg.looter ? _t(" · похититель") : _t(" · осада")}${zone}`;
     const lm = lmAt.get(i);
@@ -1025,7 +1025,7 @@ const MapView = (() => {
     battleSpawn = sp;
     st.swarm = st.swarm || {};
     if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
-    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
+    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -1117,7 +1117,7 @@ const MapView = (() => {
       body = _t("Засада! Из кустов выскакивает {0} ★ — элитное существо со свойством «{1}»: {2}.", [Bestiary.MONSTERS[id].name, World.AFFIXES[affix].name, World.AFFIXES[affix].desc]);
       act = `<button type="button" class="primary" data-ev="ambush" data-id="${id}" data-affix="${affix}" data-t="${T}" data-e="${e.id}">${_t("В бой")}</button>`;
     }
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${E.name}</b> ${tierChip(T)}<p class="hint">${body}</p><div class="mc-act">${act}<button type="button" data-act="close">${_t("Уйти")}</button></div></div></div>`;
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${E.name}</b> ${colorChip(T)}<p class="hint">${body}</p><div class="mc-act">${act}<button type="button" data-act="close">${_t("Уйти")}</button></div></div></div>`;
   }
   // 1.6.5 (A2-01): цена у торговца считается от цены расходника НА ВАШЕМ УРОВНЕ (как в Лавке), а не от базовой: раньше на 46-м уровне
   // за 348 меди давали товар, который Лавка продаёт за ~12 000. Цена не хранится в предложении — старые сохранённые предложения тоже исправляются.
@@ -1200,7 +1200,7 @@ const MapView = (() => {
   function showLandmark(m) {
     const L = World.LANDMARKS[m.kind], done = !!st.found[m.id], T = evTier(m.tier);
     const act = done ? '' : `<button type="button" class="primary" data-lm="look" data-m="${m.id}">${_t("Осмотреть")}</button>`;
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${L.name}</b> ${tierChip(T)}<p class="hint">${LM_TEXT[m.kind]}${done ? ' ' + _t("Вы здесь уже всё осмотрели.") : ''}</p><div class="mc-act">${act}<button type="button" data-act="close">${done ? _t("Закрыть") : _t("Уйти")}</button></div></div></div>`;
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${L.name}</b> ${colorChip(T)}<p class="hint">${LM_TEXT[m.kind]}${done ? ' ' + _t("Вы здесь уже всё осмотрели.") : ''}</p><div class="mc-act">${act}<button type="button" data-act="close">${done ? _t("Закрыть") : _t("Уйти")}</button></div></div></div>`;
   }
   function revealArea(center, r) {
     let added = 0;
@@ -1505,6 +1505,10 @@ const MapView = (() => {
     battleSpawn = null;
     if (!Profile.storageOk) setTimeout(warnNoSave, 1500);     // 1.6.5: запись сломалась во время боя
     const sel = { ...(Profile.data.monster || {}) };
+    if (sp && Growth.eligible(sp)) {                                   // 2.0.0: существо, победившее героя, набирает шаг; убитое — обнуляется
+      if (result === 'loss') { const n = Growth.bump(st, sp); if (n) setTimeout(() => toast(_t("{0} окреп после победы: +{1}", [Bestiary.MONSTERS[sp.species].name, n]), 3200), 1200); }
+      else if (result === 'win') Growth.reset(st, sp);
+    }
     if (st.siege && !st.siege.over) st.siege.t1 = Math.max(st.siege.t1, Date.now() + Siege.GRACE_MS);   // 1.7.0: бой не съедает время осады
     // 1.5.4: благословение алтаря тратится за каждый обычный бой, где оно действовало
     if (Profile.data.blessing && typeof fighters !== 'undefined' && fighters.left.bless) {
@@ -1736,6 +1740,19 @@ const MapView = (() => {
     document.getElementById('mm-lang').textContent = I18N.lang === 'ru' ? 'English' : 'Русский';
     document.getElementById('mm-anim').textContent = AnimSpeed.label();
     document.body.classList.toggle('map-lite', lite); document.getElementById('mm-lite').textContent = liteLabel();   // 1.7.2
+    // Эффекты карты по блокам: облака, осадки, дым/флаги, покачивание существ (сохраняется в браузере)
+    const FX = { clouds: _t("Облака"), weather: _t("Осадки и туман"), amb: _t("Дым и флаги"), bob: _t("Покачивание существ") };
+    let fxOff = {}; try { fxOff = JSON.parse(localStorage.getItem('gm_fx') || '{}') || {}; } catch (e) { fxOff = {}; }
+    const fxPaint = () => Object.keys(FX).forEach((k) => {
+      document.body.classList.toggle('fx-no-' + k, !!fxOff[k]);
+      const bt = document.getElementById('mm-fx-' + k); if (bt) bt.textContent = FX[k] + ': ' + (fxOff[k] ? _t("выкл") : _t("вкл"));
+    });
+    fxPaint();
+    Object.keys(FX).forEach((k) => document.getElementById('mm-fx-' + k).addEventListener('click', (e) => {
+      e.stopPropagation(); fxOff[k] = !fxOff[k];
+      try { localStorage.setItem('gm_fx', JSON.stringify(fxOff)); } catch (er) { /* ничего */ }
+      fxPaint();
+    }));
     setSkyWin(skyWinOn);   // 1.7.6
     document.getElementById('mm-night').textContent = skyLabel('night'); document.getElementById('mm-wx').textContent = skyLabel('weather');   // 1.7.1
     const timerLabel = () => { document.getElementById('mm-timer').textContent = TurnTimerSetting.label(); };

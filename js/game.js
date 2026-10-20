@@ -448,6 +448,7 @@ function setupEnemy() {
   // (см. Bestiary.rollSwarmSize/scaled). У видов без поля swarm всегда 1 и ни на что не влияет.
   const swarmSize = sel.swarm || Bestiary.rollSwarmSize(id, Math.random);
   let sc = Bestiary.scaled(id, tier, swarmSize);
+  if (sel.grow > 0) sc = { ...sc, hp: Math.round(sc.hp * Growth.mul(sel.grow)), dmg: sc.dmg * Growth.mul(sel.grow) };   // 2.0.0: существо, набравшее шаги, крепче
   if (sel.boss) sc = Story.scaleBoss(sc, sel.boss, Story.cycle(Profile.data.story));          // 1.3.0: страж осколка — вдвое крепче
   // 1.5.4: элитное существо — крепче, злее и со свойством (вторым приёмом); у стража — свои свойства и особый приём.
   const G = sel.boss && World.GUARDIANS[sel.boss];
@@ -1584,7 +1585,10 @@ function shake() {
 
 /* ---------- журнал ходов ---------- */
 
+// 2.0.0: полный журнал боя для кнопки «Журнал боя» на экране итога (на экране хранится только последние 40 строк)
+let battleLog = [];
 function logEvent(side, text) {
+  battleLog.push({ side, text }); if (battleLog.length > 600) battleLog.shift();
   const list = $('log');
   if (!list) return;
   const li = document.createElement('li');
@@ -1876,6 +1880,17 @@ function showOverlay(text, sub = '') {
     o.querySelector('.to-map').insertAdjacentElement('beforebegin', an);
     o.querySelector('.to-map').insertAdjacentElement('beforebegin', ab);
   }
+  if (host.main && !TUT()) {                                    // 2.0.0: «Журнал боя» — весь ход боя по порядку
+    const lg = document.createElement('ol'), lb = document.createElement('button');
+    lg.className = 'battle-log'; lg.hidden = true;
+    lb.type = 'button'; lb.className = 'an-btn'; lb.textContent = _t("Журнал боя");
+    lb.addEventListener('click', () => {
+      if (lg.hidden) { lg.textContent = ''; for (const r of battleLog) { const li = document.createElement('li'); li.className = r.side; li.textContent = r.text; lg.appendChild(li); } lg.scrollTop = lg.scrollHeight; }
+      lg.hidden = !lg.hidden; lb.setAttribute('aria-expanded', String(!lg.hidden));
+    });
+    o.querySelector('.to-map').insertAdjacentElement('beforebegin', lb);
+    o.querySelector('.to-map').insertAdjacentElement('beforebegin', lg);
+  }
   // 1.6.6: итог боя в сохранении: победа снимает отметку «бой идёт», поражение изнашивает надетые вещи на 1 пункт
   const wear = host.main ? Profile.battleEnd(result, { noWear: tourneyFight() }) : null;
   if (wear && wear.worn) {
@@ -2111,6 +2126,7 @@ function startGame() {
   aimCell = null;
   stopTurnTimer();
   skipStreak = 0;
+  battleLog = [];
   const logEl = $('log');
   if (logEl) logEl.innerHTML = '';
   hideOverlay();
@@ -2277,7 +2293,7 @@ function rewardFor(f, first = true, opts = {}) {
   const R = Balance.rewards;
   // 1.5.4: элитное — опыт и монеты больше; быстрый бой — половина, без вещей и находок
   const k = (opts.quick ? World.QUICK.share : 1), ke = f.elite ? World.ELITE : null;
-  const xp = Math.round(Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level()) * k * (ke ? ke.xp : 1) * (!isChallenge() && Profile.perk('world') ? 1.15 : 1));
+  const xp = Math.round(Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level()) * k * Growth.xpMul(selNow().grow) * (ke ? ke.xp : 1) * (!isChallenge() && Profile.perk('world') ? 1.15 : 1));
   const skyFx = selNow();                                                    // 1.7.1: ночью добыча богаче на 15%
   const lm = Sky.lootMul(skyFx);
   const drops = Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), lm);
@@ -2285,7 +2301,7 @@ function rewardFor(f, first = true, opts = {}) {
     const pieces = selNow().castleSet ? Gear.ITEMS.filter((i) => i.set === selNow().castleSet) : [];
     drops.item = pieces.length ? Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, f.tier) : Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), 1e6).item;
   }   // 1.8.6: духи замка в доспехах — иногда роняют одежду
-  drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm);
+  drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm * Growth.xpMul(selNow().grow));
   if (lm !== 1) for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * lm));
   if (opts.quick) drops.item = null;
   // 1.2.9: в режиме «×10» награда выдаётся как обычно (так удобно проверять добычу и ошибки сильным героем).
@@ -4403,10 +4419,10 @@ const Duo = (() => {
     const b = M().brief(), f = b.foe, boss = Profile.data.monster && Profile.data.monster.boss, ch = boss && typeof Story !== 'undefined' ? Story.BY_ID[boss] : null;
     const nm = bar.querySelector('.dt-name');
     const label = ch ? (ch.id === 'b5' ? _t("Последний осколок") : _t("Страж осколка {0}", [ch.id.slice(1)])) : '';
-    const key = f.name + '|' + f.tier + '|' + label;
+    const gr = (Profile.data.monster && Profile.data.monster.grow) || 0, key = f.name + '|' + f.tier + '|' + label + '|' + gr;
     if (nm.dataset.key !== key) {
       nm.dataset.key = key; nm.textContent = f.name + (label ? ' · ' + label + ' ' : ' ');
-      nm.insertAdjacentHTML('beforeend', tierChip(f.tier));
+      nm.insertAdjacentHTML('beforeend', tierChip(f.tier, gr));
     }
     bar.querySelector('.dt-hp i').style.width = Math.max(0, b.foeHp / b.foeMax * 100) + '%';
     const pt = b.pet ? ` · ${b.pet.name}${b.pet.alive ? '' : _t(" (пал в бою)")} ${Math.max(0, b.pet.hp)}/${b.pet.max}` : '';
@@ -4559,6 +4575,23 @@ const Duo = (() => {
 buildSpellbar();
 loadSettings();
 onGearChanged();
+// 1.9.10: лента заходов — отмечаем заход; награду предлагаем, когда обучение позади, есть хотя бы одна победа и на экране
+// ничего не открыто (повторяем попытку, пока игрок не освободит экран)
+setTimeout(() => {
+  let can = false;
+  try { const d = Profile.data; d.streak = Streak.clean(d.streak); can = Streak.visit(d.streak, Daily.today()); Profile.save(); } catch (e) { return; }
+  let tries = 0;
+  const offer = () => {
+    try {
+      const d = Profile.data, tut = d.tutorial || {};
+      if (!can || !tut.done || (d.wins || 0) < 1 || Streak.available(d.streak, Daily.today()) === false) return;
+      const busy = Screens.isOpen || (typeof Tutorial !== 'undefined' && Tutorial.active) || document.body.classList.contains('mode-battle');
+      if (!busy) return Screens.openLogin();
+      if (++tries < 20) setTimeout(offer, 3000);
+    } catch (e) { /* лента не должна мешать игре */ }
+  };
+  offer();
+}, 2500);
 MapView.init();                 // игра начинается на карте; бой — при нападении на существо
 if (typeof Tutorial !== 'undefined') Tutorial.boot();   // 1.5.4: новичок — сразу в учебный бой; перезагрузка посреди обучения — заново
 MapView.marketNews();           // Торговые ряды: что купили, пока игра была закрыта

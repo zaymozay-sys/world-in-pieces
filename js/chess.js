@@ -154,6 +154,69 @@ const Chess = (() => {
     return best;
   }
   function perft(s, d) { if (d === 0) return 1; let n = 0; for (const m of legal(s)) n += perft(make(s, m), d - 1); return n; }
+
+  // ---------- подсказка и разбор партии ----------
+  const GLY = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '' };
+  // ход в читаемом виде: фигура, откуда, взятие или тире, куда (превращение — =Ф)
+  function notate(s, m) {
+    if (m.castle) return m.castle === 'k' ? 'O-O' : 'O-O-O';
+    const p = s.b[m.from], cap = s.b[m.to] || m.ep;
+    return (GLY[p.toLowerCase()] || '') + sqName(m.from) + (cap ? '×' : '-') + sqName(m.to) + (m.promo ? '=' + GLY[m.promo] : '');
+  }
+  // подсказка игроку: лучший ход по сильному поиску (используется один раз на ход; в партии отмечается g.hints)
+  function hint(p) {
+    const g = p.game; if (!g || g.over) return null;
+    const { s } = replay(g); if (s.turn !== 'w') return null;
+    const m = choose(s, 8, () => 0.5); if (!m) return null;
+    g.hints = (g.hints || 0) + 1;
+    return { from: m.from, to: m.to, text: notate(s, m) };
+  }
+  // разбор: для каждого хода белых — насколько он хуже лучшего (в сотых пешки), глубина 2 с тихим поиском
+  function review(g) {
+    const out = []; let s = fromFen(START);
+    for (let i = 0; i < g.moves.length; i++) {
+      const m = parseMove(s, g.moves[i]); if (!m) break;
+      if (s.turn === 'w') {
+        const scored = legal(s).map((x) => ({ x, v: -search(make(s, x), 1, -Infinity, Infinity, 1, true) }));
+        const best = scored.reduce((a, c) => (c.v > a.v ? c : a), scored[0]);
+        const mine = scored.find((c) => mvStr(c.x) === g.moves[i]);
+        const loss = best.v - (mine ? mine.v : best.v);
+        out.push({ n: Math.floor(i / 2) + 1, played: notate(s, m), best: notate(s, best.x), loss, kind: loss >= 300 ? 'blunder' : loss >= 120 ? 'mistake' : 'ok' });
+      }
+      s = make(s, m);
+    }
+    return out;
+  }
+
+
+  // ---------- съеденные фигуры, список ходов, возврат хода ----------
+  const START_COUNT = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+  // съеденные фигуры: { w: [потерянные белыми, по убыванию ценности], b: [потерянные чёрными], diff: перевес белых в пешках }
+  function captured(s) {
+    const have = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
+    for (const p of s.b) if (p && p.toLowerCase() !== 'k') have[isW(p) ? 'w' : 'b'][p.toLowerCase()]++;
+    const lost = (side) => { const out = []; for (const t of ['q', 'r', 'b', 'n', 'p']) for (let i = Math.max(0, START_COUNT[t] - have[side][t]); i > 0; i--) out.push(t); return out; };
+    const mat = (side) => Object.entries(have[side]).reduce((a, [t, n]) => a + VAL[t] * n, 0);
+    return { w: lost('w'), b: lost('b'), diff: Math.round((mat('w') - mat('b')) / 100) };
+  }
+  // список ходов парами: [{ n, w, b }]
+  function moveList(g) {
+    const out = []; let s = fromFen(START);
+    for (let i = 0; i < g.moves.length; i++) {
+      const m = parseMove(s, g.moves[i]); if (!m) break;
+      const t = notate(s, m);
+      if (s.turn === 'w') out.push({ n: out.length + 1, w: t, b: '' }); else out[out.length - 1].b = t;
+      s = make(s, m);
+    }
+    return out;
+  }
+  // вернуть последний ход игрока (и ответ Бобра): считается помощью — награда за первую победу не выдаётся
+  function undo(p) {
+    const g = p.game; if (!g || g.over || !g.moves.length) return false;
+    g.moves.pop(); if (replay(g).s.turn === 'b') g.moves.pop();
+    g.hints = (g.hints || 0) + 1; return true;
+  }
+
   // ---------- партия игрока ----------
   // награда символическая и только за ПЕРВУЮ победу на уровне — иначе монеты можно накручивать партиями с ботом
   const COINS = [5, 8, 10, 15, 20, 30, 40, 60, 80, 120], DRAW_COINS = COINS.map(() => 0);
@@ -163,10 +226,10 @@ const Chess = (() => {
     const g = p.game && typeof p.game === 'object' ? p.game : null;
     const lv = (x) => Math.max(1, Math.min(NLEV, num(x) || 1));
     const rec = (a) => Array.from({ length: NLEV }, (_, i) => num(a && a[i]));
-    return { level: lv(p.level), game: g && Array.isArray(g.moves) ? { level: lv(g.level), moves: g.moves.filter((m) => typeof m === 'string' && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(m)).slice(0, 600), over: !!g.over, result: ['w', 'b', 'draw'].includes(g.result) ? g.result : '', paid: !!g.paid } : null,
+    return { level: lv(p.level), game: g && Array.isArray(g.moves) ? { level: lv(g.level), moves: g.moves.filter((m) => typeof m === 'string' && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(m)).slice(0, 600), over: !!g.over, result: ['w', 'b', 'draw'].includes(g.result) ? g.result : '', paid: !!g.paid, hints: Math.min(999, num(g.hints)) } : null,
       wins: rec(p.wins), draws: rec(p.draws), losses: rec(p.losses), first: rec(p.first) };
   }
-  function newGame(p, level) { p.level = level; p.game = { level, moves: [], over: false, result: '', paid: false }; return p.game; }
+  function newGame(p, level) { p.level = level; p.game = { level, moves: [], over: false, result: '', paid: false, hints: 0 }; return p.game; }
   // позиция партии и история ключей
   function replay(g) {
     let s = fromFen(START); const hist = [key(s)];
@@ -199,11 +262,11 @@ const Chess = (() => {
   function settle(p) {
     const g = p.game; if (!g || !g.over || g.paid) return { coins: 0, first: false };
     g.paid = true; const i = g.level - 1; let coins = 0, first = false;
-    if (g.result === 'w') { p.wins[i]++; if (!p.first[i]) { p.first[i] = 1; coins = COINS[i]; first = true; } }
+    if (g.result === 'w') { p.wins[i]++; if (!p.first[i] && !g.hints) { p.first[i] = 1; coins = COINS[i]; first = true; } }
     else if (g.result === 'draw') { p.draws[i]++; } else p.losses[i]++;
     return { coins, first };
   }
-  return { START, fromFen, legal, make, status, choose, perft, mvStr, parseMove, sqName, sqOf, isW, inCheck, key, LEVELS, NLEV, COINS, DRAW_COINS, clean, newGame, replay, playerMove, bobMove, resign, settle };
+  return { START, fromFen, legal, make, status, choose, perft, mvStr, parseMove, sqName, sqOf, isW, inCheck, key, LEVELS, NLEV, COINS, DRAW_COINS, clean, newGame, replay, playerMove, bobMove, resign, settle, hint, review, notate, captured, moveList, undo };
 })();
 
 if (typeof module !== 'undefined') module.exports = Chess;

@@ -3849,3 +3849,33 @@ body.no-hint.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p3; }
 }
 /* пока на экране подсказка обучения, строка цели под ней не нужна (раньше выглядывала из-под окна) */
 body:has(.coach:not([hidden])) #goal-strip { visibility: hidden; }
+.ch-board .ch-cell.hint { box-shadow: inset 0 0 0 3px #4cc0ee; }
+.ch-promo { display: flex; gap: 8px; align-items: center; justify-content: center; margin: 6px 0; }
+.ch-promo button { font-size: 28px; padding: 2px 10px; line-height: 1.2; }
+.ch-review { text-align: left; max-width: 360px; margin: 4px auto; }
+.ch-bad { margin: 4px 0 8px 18px; padding: 0; font-size: 13px; }
+.login-ribbon { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+.login-cell { position: relative; border: 1px solid #4a4d55; border-radius: 8px; padding: 6px 4px; text-align: center; display: flex; flex-direction: column; gap: 3px; font-size: 11px; background: rgba(255,255,255,.04); }
+.login-cell b { font-size: 12px; } .login-cell span { color: var(--muted); line-height: 1.2; }
+.login-cell.cur { border-color: #f0c14b; background: rgba(240,193,75,.16); box-shadow: 0 0 0 2px rgba(240,193,75,.25); }
+.login-cell.done { opacity: .6; } .login-cell i { position: absolute; top: 2px; right: 5px; color: #6ccf7a; font-style: normal; }
+.ch-cell .ch-pic { width: 88%; height: 88%; object-fit: contain; pointer-events: none; }
+.ch-cell .ch-co { position: absolute; font-style: normal; font-size: 10px; line-height: 1; font-weight: 700; color: rgba(60, 40, 20, .75); pointer-events: none; }
+.ch-cell.ch-d .ch-co { color: rgba(250, 235, 200, .8); }
+.ch-cell .ch-rk { left: 3px; top: 2px; } .ch-cell .ch-fl { right: 3px; bottom: 2px; }
+.ch-tray { min-height: 26px; max-width: 360px; margin: 2px auto; display: flex; align-items: center; flex-wrap: wrap; gap: 0; font-size: 20px; line-height: 1; padding: 0 4px; }
+.ch-tray i { font-style: normal; margin-right: -4px; } .ch-tray b { font-size: 12px; margin-left: 10px; color: var(--muted); }
+.ch-tray .cw { color: #fffaf0; text-shadow: 0 0 2px #000, 0 0 2px #000; } .ch-tray .cb { color: #1b1209; text-shadow: 0 0 1px #fff6; }
+.ch-moves { max-width: 360px; max-height: 84px; overflow-y: auto; margin: 6px auto; padding: 4px 6px; border: 1px solid #4a4d55; border-radius: 6px; font-size: 12px; display: flex; flex-wrap: wrap; gap: 2px 10px; text-align: left; }
+.ch-moves b { color: var(--muted); font-weight: 600; }
+.ch-tray { background: #e8d3a2; border-radius: 6px; box-sizing: border-box; } .ch-tray b { color: #4a3419; }
+.ch-board[style] .ch-cell { background-image: var(--sq-l); background-size: cover; } .ch-board[style] .ch-cell.ch-d { background-image: var(--sq-d); }
+
+/* Настройки эффектов карты (меню ☰): каждый блок отключается отдельно — слабым компьютерам хватает на плавный ход */
+.fx-no-clouds .map-clouds { display: none; }
+.fx-no-weather .map-wx i { display: none; }
+.fx-no-amb #l-amb { display: none; }
+.fx-no-bob .mon .bob, .fx-no-bob .mon .siege-ring, .fx-no-bob .pl-pulse { animation: none; }
+.overlay .battle-log { text-align: left; font-size: 13px; line-height: 1.35; margin: 8px 0 0; padding: 8px 10px 8px 28px; max-height: 38vh; overflow: auto; background: #0007; border: 1px solid #ffffff22; border-radius: 8px; }
+.overlay .battle-log li.left { color: #bfe3ff; }
+.overlay .battle-log li.right { color: #ffc9b8; }
