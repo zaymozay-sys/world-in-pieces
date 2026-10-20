@@ -41,4 +41,15 @@ Chess.newGame(r, 1); ok(Chess.resign(r) && r.game.result === 'b' && Chess.settle
 // скорость хода уровня 3 из середины игры
 const mid = Chess.fromFen('r1bq1rk1/pp2bppp/2n1pn2/2pp4/3P1B2/2PBPN2/PP1N1PPP/R2QK2R w KQ - 0 9');
 const after = Chess.make(mid, Chess.parseMove(mid, 'e1g1')); let dt = 0; for (const lv of [8, 9, 10]) { const t0 = Date.now(); Chess.choose(after, lv); dt = Date.now() - t0; ok(dt < 5200, 'уровень ' + lv + ' укладывается во время: ' + dt + ' мс'); }
+// подсказка, выбор фигуры, разбор
+const h = Chess.clean(null); Chess.newGame(h, 1);
+const hs = Chess.hint(h); ok(hs && Chess.parseMove(Chess.fromFen(Chess.START), Chess.sqName(hs.from) + Chess.sqName(hs.to)) && h.game.hints === 1, 'подсказка — допустимый ход и учтена');
+h.game.over = true; h.game.result = 'w'; ok(Chess.settle(h).coins === 0 && h.wins[0] === 1 && !h.first[0], 'победа с подсказкой не платит и не открывает «первую победу»');
+const pr = Chess.fromFen('8/P6k/8/8/8/8/8/K7 w - - 0 1'); ok(['a7a8q', 'a7a8r', 'a7a8b', 'a7a8n'].every((m) => Chess.parseMove(pr, m)), 'превращение в любую фигуру');
+const rv = Chess.review({ moves: ['f2f3', 'e7e5', 'g2g4', 'd8h4'] }); ok(rv.length === 2 && rv[1].kind === 'blunder' && rv[1].n === 2, 'разбор находит зевок: ' + JSON.stringify(rv.map((x) => x.kind)));
+ok(Chess.review({ moves: ['e2e4', 'e7e5', 'g1f3'] }).every((x) => x.kind === 'ok'), 'нормальные ходы без замечаний');
+const cp = Chess.captured(Chess.fromFen('rnbqkbnr/ppp1pppp/8/8/8/8/PPPPPPPP/RNBQKBN1 w kq - 0 1')); ok(cp.w.join('') === 'r' && cp.b.join('') === 'p' && cp.diff === -4, 'съеденные фигуры и перевес: ' + JSON.stringify(cp));
+ok(Chess.captured(S).w.length === 0 && Chess.captured(S).diff === 0, 'в начале никого не съели');
+const ml = Chess.moveList({ moves: ['e2e4', 'e7e5', 'g1f3'] }); ok(ml.length === 2 && ml[0].w === 'e2-e4' && ml[0].b === 'e7-e5' && ml[1].w === '♞g1-f3' && ml[1].b === '', 'список ходов: ' + JSON.stringify(ml));
+const ud = Chess.clean(null); Chess.newGame(ud, 1); Chess.playerMove(ud, 'e2e4'); Chess.bobMove(ud, () => 0.5); ok(ud.game.moves.length === 2 && Chess.undo(ud) && ud.game.moves.length === 0 && ud.game.hints === 1, 'возврат хода убирает пару ходов и считается помощью');
 console.log(fails ? 'chess: ' + fails + ' ошибок' : 'chess: все тесты пройдены (ход уровня 10: ' + dt + ' мс)'); process.exit(fails ? 1 : 0);

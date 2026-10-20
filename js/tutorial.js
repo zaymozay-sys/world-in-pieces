@@ -156,7 +156,15 @@ const Tutorial = (() => {
   function onClick(e) {
     const b = e.target.closest('button[data-coach]');
     if (!b) return;
-    if (b.dataset.coach === 'skip') return finish(false);
+    if (b.dataset.coach === 'skip') {
+      // 1.9.10: случайное касание рядом с окном не должно обрывать обучение — нужно подтвердить вторым нажатием
+      if (b.dataset.armed !== '1') {
+        b.dataset.armed = '1'; b.dataset.label = b.textContent; b.textContent = _t("Точно пропустить? Нажмите ещё раз");
+        setTimeout(() => { if (b.isConnected) { b.dataset.armed = ''; b.textContent = b.dataset.label; } }, 4000);
+        return;
+      }
+      return finish(false);
+    }
     const s = cur();
     if (s.next && !inMapMode()) return;      // «В учебный бой» — только с карты, не посреди обычного боя
     go(idx + 1);                 // сначала шаг вперёд: бой, запущенный в next(), уже видит фазу «battle»
