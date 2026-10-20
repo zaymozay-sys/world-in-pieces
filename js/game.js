@@ -134,6 +134,29 @@ let strikeKilledMonster = false;   // текущий монстр добит з�
 // Подсказка бобра-хранителя (Библиотека → «Бобёр», см. Screens.library) на следующий запуск боя:
 // { text } — просто баннер-подсказка; { text, spellKey } — вдобавок гарантирует стартовый запас камней
 // для этого заклинания. Одноразовая: сбрасывается сразу после применения в startGame().
+// 1.9.7: подсказка при первом событии — только в обычном бою героя (не в обучении, тренировке и онлайн-дуэли)
+function tipOnce(id) { if (typeof Tips !== 'undefined' && host.main && !TUT() && !isTraining() && !LIVE) Tips.fire(Profile.data, id) && Profile.save(); }
+// 1.9.7: мягкий старт — в первых боях новичка противник играет хуже, подсказка под рукой, а после долгого раздумья ходит сама
+const HINT_WINS = 10, SOFT_WINS = 5, IDLE_HINT_MS = 25000;
+const softStart = () => host.main && !LIVE && !isTraining() && !TUT() && (Profile.data.wins || 0) < SOFT_WINS;
+const softWins0 = () => softStart() && (Profile.data.wins || 0) < 3;
+const softLevel = (lvl) => (softStart() ? Math.max(1, Math.round(lvl * [0.2, 0.35, 0.5, 0.65, 0.8][Math.min(4, Profile.data.wins || 0)])) : lvl);
+let idleHint = null;
+function stopIdleHint() { clearTimeout(idleHint); idleHint = null; }
+function startIdleHint() {
+  stopIdleHint();
+  if (!softStart()) return;
+  idleHint = setTimeout(() => { if (!over && !busy && turnSide === 'left' && !windowOpen()) { showHint(); tipOnce('idle'); } }, IDLE_HINT_MS);
+}
+// после проигрыша в первых боях — одна строка о причине и что делать
+function earlyLossHelp() {
+  if (!softStart() || typeof Tips === 'undefined') return;
+  const lost = rec.taken + rec.pen + rec.poison + rec.pack, E = fighters.right;
+  const text = rec.pen * 4 >= lost && rec.pen > 0 ? _t("Много здоровья ушло на неверные ходы. Перед ходом ищите линию из 3 одинаковых камней — кнопка «Подсказка» покажет удачный обмен.")
+    : rec.dealt * 3 < E.max ? _t("Мало урона. Собирайте линии из 4 камней: они дают дополнительный ход и бонус ×2 — этому учит Бобёр в Библиотеке.")
+    : _t("Противник оказался сильнее. Загляните в посёлок: купите оружие и броню — и возвращайтесь.");
+  Tips.show(text);
+}
 let beaverTip = null;
 function setBeaverTip(tip) { beaverTip = tip; }
 // Таймер хода игрока (30с): не походил вовремя — ход автопропускается; 3 таких пропуска подряд — поражение.
@@ -913,7 +936,8 @@ function spellDisabled(kind, on, ready) {
 // 1.8.5: кнопка «Подсказка» нужна только на обучении; после него её убираем (прорицание остаётся заклинанием)
 function syncHintBtn() {
   const t = Profile.data.tutorial;
-  document.body.classList.toggle('no-hint', !!(t && t.done) && !(typeof Tutorial !== 'undefined' && Tutorial.active));
+  // 1.9.7: «Подсказка» остаётся, пока у героя меньше 10 побед (мягкий старт)
+  document.body.classList.toggle('no-hint', !!(t && t.done) && !(typeof Tutorial !== 'undefined' && Tutorial.active) && (Profile.data.wins || 0) >= HINT_WINS);
 }
 function renderMagic() {
   syncHintBtn();
@@ -923,6 +947,7 @@ function renderMagic() {
     const btn = spellbarEl.querySelector(`button.${kind}`);
     if (!btn) continue;
     const ready = canAffordMagic('left', kind);
+    if (ready && spellOpen(kind)) tipOnce('spell');
     const on = kind === 'lightning' ? f.magic : (aiming && aimKind === kind);
     btn.classList.toggle('on', on);
     btn.classList.toggle('ready', ready && !on);
@@ -1616,6 +1641,7 @@ function renderTurnTimer() {
 }
 
 function stopTurnTimer() {
+  stopIdleHint();
   if (turnTimerHandle) clearInterval(turnTimerHandle);
   turnTimerHandle = null;
   if (timerEl) timerEl.hidden = true;
@@ -1638,6 +1664,7 @@ function startTurnTimer() {
   if (autopilot) { kickAuto(); return; }            // нашу сторону ведёт ИИ — таймера нет
   if (TUT()) return;                               // в обучении таймера нет — учимся без спешки
   if (host.main && !PET) AdPause.arm();             // заготовка рекламной паузы (выключена)
+  startIdleHint();
   if (!timerActive()) return;                      // 1.6.5: таймер хода выключен настройкой — думайте сколько нужно
   turnTimerLeft = Combat.TURN_TIMER.seconds;
   renderTurnTimer();
@@ -2261,7 +2288,7 @@ function rewardFor(f, first = true, opts = {}) {
   drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm);
   if (lm !== 1) for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * lm));
   if (opts.quick) drops.item = null;
-  // 1.2.9: в режиме «×10» награда выдаётся как обычно (просьба владельца — проверять добычу и ошибки сильным героем).
+  // 1.2.9: в режиме «×10» награда выдаётся как обычно (так удобно проверять добычу и ошибки сильным героем).
   drops.coins = Math.round(drops.coins * Factions.perk(Profile.data.faction, 'coins'));   // люди: +10% монет
   const luckPct = fighters.left.luck || 0;                    // Свиток удачи: +% к монетам и ресурсам с этой победы
   if (luckPct) {
@@ -2387,6 +2414,7 @@ function rewardFor(f, first = true, opts = {}) {
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
 let huntBonus = false;
 function defeat() {
+  earlyLossHelp();
   if (!tourneyFight()) Profile.huntLoss();
   if (!isTraining()) { Profile.noteBattle(); Profile.save(); }   // считается любой бой, исход не важен
   if (typeof Profile !== 'undefined' && !isTraining() && moves >= Balance.rewards.minMoves) Profile.noteSecret({ win: false });   // 1.6.2: серия поражений
@@ -3202,7 +3230,7 @@ async function afterPlayerSpell(res) {
 async function playerCast(cell) {
   if (busy || over) return;                   // 1.6.5 (A2-16): ход уже идёт или бой окончен — второй вызов не запускает второе заклинание
   const kind = aimKind;
-  if (!canAffordMagic('left', kind)) { stopAim(); note(_t("Не хватает камней на это заклинание")); return; }
+  if (!canAffordMagic('left', kind)) { stopAim(); note(_t("Не хватает камней на это заклинание")); tipOnce('short'); return; }
   stopTurnTimer();
   skipStreak = 0;                             // реальный ход — сбрасывает счётчик пропусков по таймеру
   busy = true;
@@ -3274,6 +3302,7 @@ async function playerMove(a, b) {
       return;                                   // busy остаётся true до новой игры
     }
     note(_t("Неверный ход: -{0} ХП ({1}/{2} подряд). Ход переходит к противнику", [pen, invalidStreak, lim]));
+    tipOnce('wrong');
     await sleep(900);
     await passToEnemy();                        // неверный ход — очередь противника (и питомца)
     return;
@@ -3282,6 +3311,7 @@ async function playerMove(a, b) {
   if (TUT()) Tutorial.event('move');
   if (over) return;
   if (ok === 2) {                              // линия из 4+ камней — ходите ещё раз
+    tipOnce('four');
     busy = false;
     renderMagic();
     note(_t("Дополнительный ход!"));
@@ -3311,7 +3341,7 @@ async function enemyTurn() {
 
     const f = fighters.right;
     const v = Combat.aiView(f, fighters.left);          // ХП в «камнях» с учётом роста урона, Силы и Брони
-    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, f.level, f.magic ? {} : affordability('right'),
+    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, softLevel(f.level), f.magic || softWins0() ? {} : affordability('right'),
       { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right') });
     if (!mv) { note(_t("{0} не нашёл хода", [f.name])); break; }
 
@@ -3566,7 +3596,7 @@ async function resolveBoard(side) {
       if (tile.type === home) charge += amount;  // родные камни заряжают приём фракции
       // Урон наносит только обсидиан (или камни любого цвета в режиме Магии) — в том числе клетки,
       // взорванные взрывом обсидиана x5: если взорванный сосед сам не обсидиан, урона не даёт,
-      // только ресурсы (подтверждено пользователем: взрыв собирает соседей в копилку, но «боевой
+      // только ресурсы (так задумано: взрыв собирает соседей в копилку, но «боевой
       // эффект» — только если сосед тоже был обсидианом). Клетки исчезают с поля сразу же в этом же
       // проходе — ниже идут gravity/shiftRight, они не ждут следующего хода игрока.
       if (tile.ti === ONYX || f.magic) dmg += amount;       // под Молнией — множитель Balance.magic.lightning.mult (ниже)

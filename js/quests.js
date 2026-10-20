@@ -162,6 +162,21 @@ const Quests = (() => {
       need: afterQ('mel-2', (d) => (d.trophies ? Object.values(d.trophies).reduce((n, x) => n + (x > 0 ? x : 0), 0) : 0)), goal: 1, reward: { coins: 800, cons: { elixir: 2 } }, rewardText: _t("800 медных монет и два боевых настоя") },
   );
 
+
+  // ---------- Библиотека: Бобёр-хранитель. Наградой за каждое поручение становится урок (js/lessons.js) ----------
+  LIST.push(
+    { id: 'bob-1', giver: 'library', lesson: 'l1', title: _t("Бобёр: первые шаги"), desc: _t("Для начала покажи, что умеешь держать оружие: победи двух существ. Взамен научу собирать четвёрку."),
+      need: (d) => d.wins || 0, goal: 2, reward: { coins: 50 }, rewardText: _t("50 медных монет и урок «Прямая четвёрка»") },
+    { id: 'bob-2', giver: 'library', lesson: 'l2', title: _t("Бобёр: знакомство со зверьём"), desc: _t("Встреть четыре разных вида существ — записи в Бестиарии растут сами. Тогда научу собирать четвёрку в два хода."),
+      need: afterQ('bob-1', bestiaryCount), goal: 4, reward: { coins: 80 }, rewardText: _t("80 медных монет и урок «Две тройки подряд»") },
+    { id: 'bob-3', giver: 'library', lesson: 'l3', title: _t("Бобёр: опыт"), desc: _t("Дорасти до 5 уровня. Тогда покажу, как каскад сам складывает четвёрку."),
+      need: afterQ('bob-2', levelOf), goal: 5, reward: { coins: 120 }, rewardText: _t("120 медных монет и урок «Каскад»") },
+    { id: 'bob-4', giver: 'library', lesson: 'l4', title: _t("Бобёр: закалка"), desc: _t("Выиграй 15 боёв. Следом научу готовить каскад заранее."),
+      need: afterQ('bob-3', (d) => d.wins || 0), goal: 15, reward: { coins: 180 }, rewardText: _t("180 медных монет и урок «Тройка, затем каскад»") },
+    { id: 'bob-5', giver: 'library', lesson: 'l5', title: _t("Бобёр: мастерство"), desc: _t("Встреть двенадцать видов существ. Последний урок — самый хитрый: четвёрка за три хода."),
+      need: afterQ('bob-4', bestiaryCount), goal: 12, reward: { coins: 300 }, rewardText: _t("300 медных монет и урок «Цепочка из трёх ходов»") }
+  );
+
   // Список заданий с текущим прогрессом. data — Profile.data (или похожий объект в тестах).
   // giver — необязательный фильтр ('tavern' | 'mill'); без него возвращаются все задания.
   function list(data, giver) {

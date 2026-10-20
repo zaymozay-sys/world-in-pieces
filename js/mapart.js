@@ -144,7 +144,7 @@ const MapArt = (() => {
   }
 
   /* ---------- здания ---------- */
-  const shadow = '';                    // 1.2.7: тени-пятна под зданиями убраны (решение владельца)
+  const shadow = '';                    // 1.2.7: тени-пятна под зданиями убраны
   const house = (wall, roof, w = 30, h = 18) => `
     <rect x="${-w / 2}" y="${16 - h}" width="${w}" height="${h}" fill="${wall}" stroke="${O}" stroke-width="1"/>
     <path d="M${-w / 2 - 4} ${18 - h} L0 ${-2 - h} L${w / 2 + 4} ${18 - h}Z" fill="${roof}" stroke="${O}" stroke-width="1"/>

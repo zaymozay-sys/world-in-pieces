@@ -193,6 +193,7 @@ const Profile = (() => {
     try {
       const json = JSON.stringify(data);
       localStorage.setItem(KEY, json);
+      try { if (typeof Funnel !== 'undefined' && typeof Net !== 'undefined' && Net.current) Funnel.sync(data, Net.current.remote); } catch (e4) { /* статистика игре не мешает */ }
       try { if (typeof Net !== 'undefined' && Net.current) Net.current.mirror(json); } catch (e3) { /* 1.9.0: копия на площадку (если адаптер умеет) игре не мешает */ }
     }
     catch (e) {
@@ -680,7 +681,7 @@ const ItemInfo = (() => {
     return null;
   }
 
-  // 1.3.2: карточка предмета — развёрнутый свиток пергамента (по просьбе владельца). Крупный рисунок со свечением цвета уровня, бейджи редкости и уровня, строка типа
+  // 1.3.2: карточка предмета — развёрнутый свиток пергамента (замысел оформления). Крупный рисунок со свечением цвета уровня, бейджи редкости и уровня, строка типа
   // и набора, требование уровня и фракции, характеристики с пояснением и сравнением с надетой вещью, бонусы набора,
   // руны, цена и действия (в оружейной — надеть / снять). Открывается значком «i» на любой карточке вещи:
   // у вещей игрока и противника — по uid, у образцов Лавки, Кузницы и Библиотеки — по «id:цвет» (base).
@@ -701,7 +702,7 @@ const ItemInfo = (() => {
   };
   const slotFor = (it) => (it.type === 'weapon1' || it.type === 'weapon2' ? 'main' : it.type === 'shield' ? 'off' : it.type);
 
-  let base = null;     // { id, tier } — образец без владельца
+  let base = null;     // { id, tier } — образец без хозяина
 
   function render() {
     if (!pop) return;

@@ -1596,6 +1596,22 @@ const MapView = (() => {
     centerOn(p);
   }
 
+  // «Что дальше?»: нажатие на строку цели — камера и кольцо на нужном здании либо ближайший живой зверь.
+  let nextTimer = 0;
+  function whatNext() {
+    if (!map || battleSpawn) return;
+    const d = Profile.data, t = Unlocks.target(d, Quests.list(d));
+    clearTimeout(nextTimer);
+    if (t.kind === 'building' && map.buildings.find((b) => b.id === t.id)) {
+      coachRing(t.id); nextTimer = setTimeout(() => coachRing(null), 6000);
+      return toast(_t("Вам сюда: {0}", [Unlocks.NAMES[t.id] || t.id]));
+    }
+    const cands = map.spawns.filter((sp) => !sp.boss && known(sp.idx) && alive(sp));
+    if (!cands.length) return toast(_t("Исследуйте карту — рядом пока никого нет"));
+    cands.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]));
+    centerOn(cands[0].idx); showMonster(cands[0]);
+  }
+
   // Летопись Бобра: показать стража осколка на карте (если место уже открыто) или подсказать направление.
   function reviveBosses() { for (const sp of map.spawns) if (sp.boss) delete st.defeated[sp.id]; save(); renderMonsters(); }
   function focusBoss(id) {
@@ -1704,6 +1720,7 @@ const MapView = (() => {
     const on = (id, fn) => document.getElementById(id).addEventListener('click', fn);
     on('m-gear', () => Inventory.open('left'));
     if (el['siege-strip']) el['siege-strip'].addEventListener('click', siegeFocus);
+    { const gs = document.getElementById('goal-strip'); if (gs) gs.addEventListener('click', whatNext); }
     const sx = document.getElementById('sky-x'); if (sx) sx.addEventListener('click', (e) => { e.stopPropagation(); setSkyWin(false); toast(_t("Окошко погоды скрыто: вернуть можно в меню ☰")); });
     if (el['sky-chip']) { el['sky-chip'].addEventListener('click', skyCard); el['sky-chip'].addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); skyCard(); } }); }
     el['map-me'].style.cursor = 'pointer'; el['map-me'].addEventListener('click', () => Inventory.open('left'));
@@ -2337,7 +2354,7 @@ const MapView = (() => {
   }
 
   return {
-    init, reset, returnFromBattle, focusSpecies, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
+    init, reset, returnFromBattle, focusSpecies, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
     devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland,
     // для тестов

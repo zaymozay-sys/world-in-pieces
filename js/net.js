@@ -132,6 +132,7 @@ const Net = (() => {
       async squareDelete(id) { if (!(await auth())) return false; const r = await call('POST', '/square/delete', { id }); return r.code === 200 && !!(r.json && r.json.deleted); },
       async rating(period) { if (!(await auth())) return null; const r = await call('GET', '/rating?period=' + encodeURIComponent(period)); return r.code === 200 && r.json && Array.isArray(r.json.list) ? r.json : null; },
       // награды сезона: что положено за прошлую неделю и месяц, и одноразовое получение
+      async funnel(e) { if (!base || off) return false; try { const r = await call('POST', '/funnel', { e }); return r.code === 200; } catch (x) { return false; } },
       async seasonList() { if (!(await auth())) return null; const r = await call('GET', '/rating/season'); return r.code === 200 && r.json && Array.isArray(r.json.list) ? r.json.list : null; },
       async seasonClaim(id) { if (!(await auth())) return null; const r = await call('POST', '/rating/season/claim', { id }); return r.code === 200 && r.json ? r.json : null; },
       // квитанции за подтверждённые живые бои (сервер отдаёт каждую один раз)
