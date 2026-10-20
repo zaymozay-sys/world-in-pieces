@@ -3822,3 +3822,30 @@ body.no-hint.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p3; }
 .sq-list li { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); color: inherit; overflow-wrap: anywhere; }
 .sq-list small { color: var(--muted); margin-left: 6px; }
 .sq-del { margin-left: 6px; padding: 0 6px; font-size: 12px; background: none; border: 0; color: var(--muted); cursor: pointer; }
+
+.goal-strip { cursor: pointer; }
+#tip-banner { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 56px); transform: translateX(-50%); z-index: 60; max-width: min(92vw, 460px); padding: 10px 14px; border-radius: 10px; background: rgba(34, 26, 14, 0.96); border: 1px solid #c9a23a; color: #f6e7b8; font-size: 14px; line-height: 1.35; box-shadow: 0 4px 16px rgba(0,0,0,.5); cursor: pointer; }
+#tip-banner[hidden] { display: none; }
+
+.ch-board { display: grid; grid-template-columns: repeat(8, 1fr); max-width: 360px; margin: 8px auto; border: 2px solid #6b4f2a; border-radius: 6px; overflow: hidden; }
+.ch-board .ch-cell { aspect-ratio: 1; padding: 0; border: 0; border-radius: 0; background: #e8d3a2; display: flex; align-items: center; justify-content: center; font-size: clamp(20px, 7vw, 34px); line-height: 1; position: relative; }
+.ch-board .ch-cell.ch-d { background: #a8794a; }
+.ch-cell.last { box-shadow: inset 0 0 0 100px rgba(240, 210, 80, .35); }
+.ch-cell.sel { box-shadow: inset 0 0 0 3px #f0c14b; }
+.ch-cell.chk { box-shadow: inset 0 0 0 100px rgba(220, 50, 40, .45); }
+.ch-cell.tgt::after { content: ''; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(40, 120, 60, .6); }
+.ch-cell:disabled { opacity: 1; }
+.ch-cell .cw { color: #fffaf0; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 1px #000; }
+.ch-cell .cb { color: #1b1209; text-shadow: 0 0 1px #fff3; }
+.ch-line { text-align: center; }
+.ch-levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0; }
+.ch-levels .ch-lv { background: var(--c); color: var(--ink); border: 2px solid transparent; padding: 6px 2px; display: flex; flex-direction: column; align-items: center; gap: 1px; border-radius: 8px; }
+.ch-lv b { font-size: 16px; } .ch-lv small { font-size: 10px; line-height: 1.1; }
+.ch-levels .ch-lv.won { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+/* 1.9.7: на узких телефонах (≤380px) имя героя и строка «ХП · побед» не помещались рядом с народом — раскладываем в столбец */
+@media (max-width: 380px) {
+  body.phone .me-txt { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  body.phone .me-txt > small, body.phone .me-txt > b { line-height: 1.2; }
+}
+/* пока на экране подсказка обучения, строка цели под ней не нужна (раньше выглядывала из-под окна) */
+body:has(.coach:not([hidden])) #goal-strip { visibility: hidden; }
