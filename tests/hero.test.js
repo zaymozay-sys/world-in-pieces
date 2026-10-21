@@ -30,11 +30,11 @@ assert.strictEqual(Hero.tierFor(100), 10);
 assert.deepStrictEqual([1, 2, 3, 10].map(Hero.itemLevel), [1, 11, 21, 91]);
 assert.ok(Hero.canWear(2, 11) && !Hero.canWear(2, 10) && Hero.canWear(1, 1));
 
-// ХП и урон героя растут тем же темпом, что ХП и урон существ его цвета
+// ХП и урон героя растут тем же темпом, что ХП и урон существ его цвета (до множителей Balance.monsters.hpBoost и dmgScale)
 assert.strictEqual(Hero.baseHp(1), Balance.hero.baseHp);
 for (const t of [1, 3, 6, 10]) {
   const L = Hero.itemLevel(t), sc = Bestiary.scaled('bandit', t);
-  assert.strictEqual(Hero.dmgMult(L), Math.round(sc.dmg * 100) / 100, 'урон на цвете ' + t);
+  { const r = Hero.dmgMult(L) / (sc.dmg / Balance.monsters.dmgScale[t - 1]); assert.ok(r > 0.75 && r < 1.35, 'рост урона героя (линейная Сила уровня) близок к росту существ цвета ' + t + ': ' + r.toFixed(2)); }   // 2.0.4: герой растёт линейно, существа — по таблице
   assert.ok(Math.abs(Hero.baseHp(L) / Balance.hero.baseHp - Tiers.GROWTH[t - 1]) < 0.01, 'ХП на цвете ' + t);
 }
 for (let L = 1; L < 100; L++) assert.ok(Hero.baseHp(L + 1) > Hero.baseHp(L) && Hero.budget(L + 1) >= Hero.budget(L));

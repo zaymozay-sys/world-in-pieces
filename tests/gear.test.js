@@ -28,7 +28,7 @@ let s = Gear.emptyLoadout();
 s = Gear.equip(s, 'sword-novice', 'main');       // Сила 6
 s = Gear.equip(s, 'shield-wood', 'off');         // Защита 5
 let st = Gear.stats(s);
-assert.strictEqual(st.power, 6);
+assert.strictEqual(st.power, Math.round(6 * require('../js/tiers.js').POWER_ABS[0] * 10) / 10);
 assert.strictEqual(st.defense, 5);
 
 // бонусы набора включаются по числу предметов (2 шт. Стража: +10 здоровья)
@@ -46,11 +46,9 @@ let d = Gear.emptyLoadout();
 for (const [slot, id] of [['off', 'guard-shield'], ['head', 'guard-head'], ['chest', 'guard-chest'], ['arms', 'guard-arms'], ['legs', 'guard-legs']]) d = Gear.equip(d, id, slot);
 assert.ok(Gear.stats(d).defense <= Gear.MAX_DEFENSE);
 
-// цена заклинаний: Магия снижает её, но не ниже 2
-assert.strictEqual(Gear.spellCost(5, 0), 5);
-assert.strictEqual(Gear.spellCost(5, 4), 4);
-assert.strictEqual(Gear.spellCost(5, 12), 2);
-assert.strictEqual(Gear.spellCost(5, 100), 2);
+// цена заклинаний не зависит от характеристик, но не ниже 2
+assert.strictEqual(Gear.spellCost(5), 5);
+assert.strictEqual(Gear.spellCost(1), 2);
 
 // случайное снаряжение противника укладывается в лимит очков и подчиняется правилам рук
 for (const budget of [10, 40, 90, 150]) {

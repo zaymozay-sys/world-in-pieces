@@ -64,7 +64,7 @@ for (const id of Object.values(World.RANK_TITLES)) assert.ok(require('../js/vill
 // испытание дня: одно на всех в этот день
 const c1 = World.challengeFor('2026-10-09'), c2 = World.challengeFor('2026-10-09');
 assert.deepStrictEqual(c1, c2);
-assert.ok(Bestiary.MONSTERS[c1.species] && c1.tier === 2 && c1.seed > 0);
+assert.ok(Bestiary.MONSTERS[c1.species] && c1.tier === 3 && c1.seed > 0);
 const days = new Set(Array.from({ length: 30 }, (_, i) => World.challengeFor('2026-11-' + String(i + 1).padStart(2, '0')).species));
 assert.ok(days.size >= 5, 'противники меняются по дням');
 for (const id of World.CH_POOL) assert.ok(Bestiary.MONSTERS[id], 'вид испытания есть: ' + id);

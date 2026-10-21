@@ -1,0 +1,14 @@
+const assert = require('assert');
+const Medals = require('../js/medals.js');
+const M = Medals.SPELL_MILESTONES;
+assert.strictEqual(M.length, 10); assert.strictEqual(M[0], 100); assert.strictEqual(M[9], 100000);
+for (let i = 1; i < M.length; i++) assert.ok(M[i] > M[i - 1] * 1.4, 'вехи растут быстро: ' + M[i]);
+assert.strictEqual(Medals.checkSpellMedal(99, []), null);
+assert.strictEqual(Medals.checkSpellMedal(100, []), 'spell:100');
+assert.strictEqual(Medals.checkSpellMedal(400, [{ id: 'spell:100' }]), 'spell:300', 'вехи выдаются по порядку');
+assert.strictEqual(Medals.checkSpellMedal(1e6, M.map(Medals.spellMedalId).map((id) => ({ id }))), null);
+assert.deepStrictEqual(Medals.bonusFor('spell:100'), { health: 4, power: 1 });
+assert.deepStrictEqual(Medals.bonusFor('spell:100000'), { health: 40, power: 5 });
+assert.ok(/заклинаний в победных/.test(Medals.nameFor('spell:100')));
+assert.strictEqual(Medals.tierUnlockLevel('spell:100'), 1); assert.strictEqual(Medals.tierUnlockLevel('spell:100000'), 91);
+console.log('spellmedals 2.0.4 ok');

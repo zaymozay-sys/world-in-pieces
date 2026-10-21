@@ -53,8 +53,8 @@ assert.strictEqual(Factions.CHARGE, Balance.faction.charge);
 
 // врождённые бонусы растут с уровнем героя: Здоровье — быстро, шансы — медленно
 const l1 = Factions.statsAt('lizard', 1), l10 = Factions.statsAt('lizard', 10);
-assert.deepStrictEqual(l1, Factions.get('lizard').stats);
-assert.ok(l10.health >= l1.health * 8 && l10.power > l1.power && l10.power < l1.power * 3);
+assert.strictEqual(l1.health, Factions.get('lizard').stats.health);
+assert.ok(l10.health >= l1.health * 8 && l10.power > l1.power, 'Сила народа — число к удару: на 1-м цвете почти ноль, к 10-му растёт');
 const e10 = Factions.statsAt('elf', 10);
 assert.ok(e10.initiative > Factions.get('elf').stats.initiative && e10.initiative <= Factions.get('elf').stats.initiative * 2.2);
 

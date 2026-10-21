@@ -7,6 +7,20 @@ const { fork } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+// Сильный герой конца цвета: вещи на весь лимит очков, 14 рун (6 мощи, 4 оберега, 4 ярости), по огранённой вещи
+// на 7 слотов (Сила самоцвета за каждую) и все медали-наборы. Питомцы и улучшения вещей в модель не входят.
+function strongExtra(tier) {
+  const g = global.Tiers.HERO_DMG[tier - 1], cut = Math.max(1, Math.round(tier * 0.045 * g));   // Сила самоцвета цвета tier (Stones.cutBonus)
+  return { power: 6 * 2 + 7 * cut + Math.round(7 * 0.045 * g), defense: 4 * 2 + 3 + 4, fury: 4 * 4 + 6, ricochet: 3, health: 10 };
+}
+// 'full' — сильные вещи + все медали (убийства существ и награды групп), эликсиры всех видов цвета героя, умения медалей и бонус коллекций.
+// 'medals' — только бонусы за победы над видами и 5% коллекции, без умений и эликсиров. Не учтены: руны, огранка, питомец, алтарь.
+function medalExtra(full) {
+  const M = global.Medals, B = global.Bestiary, G = global.Gear;
+  let st = M.bonusStats(Object.keys(B.MONSTERS).map((s) => ({ id: M.killMedalId(s) })), B);
+  if (full) for (const k of M.GROUP_ORDER) st = G.combine(st, M.GROUPS[k].bonus);
+  return st;
+}
 // ---------- рабочий процесс: считает одну задачу ----------
 if (process.argv[2] === '--worker') {
   const sim = require('./sim.js');
@@ -14,8 +28,12 @@ if (process.argv[2] === '--worker') {
     if (job === 'exit') process.exit(0);
     const H = global.Hero;
     const level = job.level || H.itemLevel(job.tier);
-    const gear = job.gear === 'starter' ? () => sim.STARTER : () => sim.typicalGear(level, job.share || 0.8);
-    const r = sim.simulate({ faction: job.faction, level, monster: job.monster, tier: job.tier, n: job.n, player: job.player || 'avg', gear, seedBase: job.seed || 1, zone: job.zone });
+    const gear = job.gear === 'starter' ? () => sim.STARTER : () => sim.typicalGear(level, job.power === 'strong' || job.power === 'full' || job.power === 'medals' ? 1 : (job.share || 0.8));
+    const full = job.power === 'full', med = job.power === 'medals';
+    const xt = full || med ? global.Gear.combine(global.Gear.combine(strongExtra(job.tier), {}), medalExtra(full)) : (job.power === 'strong' ? strongExtra(job.tier) : undefined);
+    const elixirs = full ? Object.fromEntries(['power', 'defense', 'block', 'ricochet', 'fury', 'health', 'cunning', 'stones', 'swap'].map((k) => [k, job.tier])) : undefined;
+    const boost = full ? { strike: 1, style: 1, daily: 1, streak: 1, familyPct: 5 } : (med ? { familyPct: 5 } : null);
+    const r = sim.simulate({ extra: xt, elixirs, boost, faction: job.faction, level, monster: job.monster, tier: job.tier, n: job.n, player: job.player || 'avg', gear, seedBase: job.seed || 1, zone: job.zone });
     process.send({ job, r });
   });
   return;
@@ -55,7 +73,7 @@ if (require.main === module) {
   const factions = args.faction ? String(args.faction).split(',') : ['human', 'dwarf', 'elf', 'lizard'];
   const jobs = [];
   for (const monster of species) for (const tier of tiers) for (const faction of factions)
-    jobs.push({ monster, tier, faction, n, player: args.player || 'avg', gear: args.gear || 'typical', seed: Number(args.seed || 1) });
+    jobs.push({ monster, tier, faction, n, player: args.player || 'avg', gear: args.gear || 'typical', power: args.power || 'avg', seed: Number(args.seed || 1) });
   const t0 = Date.now();
   runJobs(jobs, Number(args.workers || 2)).then((res) => {
     const by = {};

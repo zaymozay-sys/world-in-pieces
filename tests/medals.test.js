@@ -222,7 +222,8 @@ console.log('medals 1.6.2: серия дней ok');
 /* ---------- 1.6.3: умения и реликвии за комплекты ---------- */
 {
   for (const k of Medals.GROUP_ORDER) {
-    assert.ok(Medals.PERKS[k] && Medals.PERKS[k].name && Medals.PERKS[k].desc, 'умение раздела ' + k);
+    if (k === 'strike') assert.ok(!Medals.PERKS[k], '2.0.4: умения «Добивание» больше нет');   // комплект остаётся: бонусы и реликвия
+    else assert.ok(Medals.PERKS[k] && Medals.PERKS[k].name && Medals.PERKS[k].desc, 'умение раздела ' + k);
     const rel = Gear.item({ id: Medals.relicId(k), tier: 1 });
     assert.ok(rel && rel.type === 'amulet' && rel.rarity === 'epic', 'реликвия ' + k);
     assert.ok(!Gear.ITEMS.some((i) => i.id === rel.id), 'реликвия не в каталоге добычи');

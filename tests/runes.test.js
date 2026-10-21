@@ -17,7 +17,7 @@ assert.deepStrictEqual(Runes.ORDER, Object.keys(Runes.CATALOG));
 
 // Руны не «ломают» баланс: бонус заметно меньше типичного вклада одной вещи 1-го уровня того же стата
 // (ориентир — Кираса стража: +5% Броня, +3 Блок и т.п. — сравним максимум по каждой характеристике).
-const ITEM_TIER1_MAX = { power: 10, health: 15, defense: 6, magic: 4, initiative: 6, ricochet: 3, block: 10, fury: 10 };
+const ITEM_TIER1_MAX = { power: 10, health: 15, defense: 6, initiative: 6, ricochet: 3, block: 10, fury: 10 };
 for (const r of Object.values(Runes.CATALOG)) assert.ok(r.value <= ITEM_TIER1_MAX[r.stat], `${r.name}: не сильнее типичной вещи 1-го цвета`);
 
 // Гнёзда: 2 — открыты Мастерской художника (было 1, пока руны временно продавались в Лавке).
@@ -41,7 +41,7 @@ assert.deepStrictEqual(Runes.statsOf(entry), Gear.blankStats());
 Runes.insert(entry, 'rune-might');                 // слот 0 (пустой)
 Runes.insert(entry, 'rune-haste');                 // слот 1 (первый свободный)
 assert.deepStrictEqual(entry.runes, ['rune-might', 'rune-haste']);
-assert.deepStrictEqual(Runes.statsOf(entry), { ...Gear.blankStats(), power: 4, initiative: 3 });
+assert.deepStrictEqual(Runes.statsOf(entry), { ...Gear.blankStats(), power: 2, initiative: 3 });
 // Оба гнезда заняты — вставка без слота заменяет 0-е (как раньше при одном гнезде).
 Runes.insert(entry, 'rune-ward');
 assert.deepStrictEqual(entry.runes, ['rune-ward', 'rune-haste']);
@@ -61,12 +61,12 @@ assert.strictEqual(legacy.rune, undefined, 'старое поле заменяе
 // Сумма бонусов по всему снаряжению: руны в разных ячейках складываются, в т.ч. одна и та же характеристика.
 let gear = Gear.emptyLoadout();
 const main = Gear.makeEntry('sword-novice', 1);   // power 6
-Runes.insert(main, 'rune-might');                 // +4 power
+Runes.insert(main, 'rune-might');                 // +2 Сила
 const chest = Gear.makeEntry('leather-chest', 1);
-Runes.insert(chest, 'rune-might');                 // ещё +4 power
+Runes.insert(chest, 'rune-might');                 // ещё +2 Сила
 gear = Gear.equip(gear, main, 'main');
 gear = Gear.equip(gear, chest, 'chest');
-assert.strictEqual(Runes.bonusForGear(gear).power, 8, 'два rune-might в разных ячейках складываются');
+assert.strictEqual(Runes.bonusForGear(gear).power, 4, 'два rune-might в разных ячейках складываются');
 
 // Пустая ячейка / вещь без руны не даёт бонуса; снаряжение без рун — нулевые бонусы.
 let plain = Gear.equip(Gear.emptyLoadout(), Gear.makeEntry('shield-wood', 1), 'off');

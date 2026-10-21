@@ -25,10 +25,10 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   for (const id of ['m-zin', 'm-zout', 'm-mute', 'm-fs', 'm-lang', 'm-help', 'm-credits']) ok(!(await vis(p, '#' + id)), id + ' скрыт');
   const top = await rect(p, '.map-top'), ctrl = await rect(p, '.map-ctrl'), info = await rect(p, '.map-info');
   ok(top.b <= 80, 'верхняя строка ≤ 80 px (с отступом под «челку», 1.8.1), а не ' + Math.round(top.b));
-  ok(844 - info.t <= 50 && ctrl.b <= info.t, 'плашка одной строкой внизу: высота от низа ' + Math.round(844 - info.t));
+  ok(844 - info.t <= 56 && ctrl.b <= info.t, 'плашка одной строкой внизу (с полосой цели обучения до 56 px): высота от низа ' + Math.round(844 - info.t));
   for (const id of ['m-gear', 'm-best', 'm-more', 'm-me', 'm-home']) { const r = await rect(p, '#' + id); ok(r.w >= 40 && r.h >= 40, id + ' ≥ 40 px: ' + Math.round(r.w) + '×' + Math.round(r.h)); }
   const covered = (top.h + ctrl.h + info.h) * 390 / (390 * 844);
-  ok(covered < 0.18, 'интерфейс закрывает < 18% экрана: ' + covered.toFixed(2));
+  ok(covered < 0.21, 'интерфейс закрывает < 21% экрана: ' + covered.toFixed(2));
   // меню
   ok(await p.evaluate(() => document.getElementById('map-menu').hidden), 'меню закрыто');
   await p.tap('#m-more'); await p.waitForTimeout(150);

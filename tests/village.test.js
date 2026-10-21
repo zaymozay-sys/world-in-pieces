@@ -36,7 +36,7 @@ assert.strictEqual(Village.elixirExtra(w), 3); assert.strictEqual(Village.temper
 assert.strictEqual(Market.fee(1000, 0.01), 10); assert.strictEqual(Market.fee(1000), 50);
 const pet = { speciesId: 'dog', tier: 2, xp: 0 }; Pets.studyStart(pet, 0, 'ball', 0.5);
 assert.strictEqual(pet.study, Pets.ACTS.ball.ms / 2, 'Питомник ускоряет занятие');
-const act = {}; Elixirs.drink(act, 'power', 5, 3); assert.strictEqual(act.power.left, 1); assert.strictEqual(Elixirs.bonusStats(act).power, Math.round(Elixirs.bonus(5, 'power') * 1.15), 'Алхимик усиливает эликсир на 5% за уровень');
+const act = {}; Elixirs.drink(act, 'power', 5, 3); assert.strictEqual(act.power.left, 1); assert.strictEqual(Elixirs.activePct(act), Math.round(Elixirs.bonus(5, 'power') * 1.15), 'Алхимик усиливает эликсир на 5% за уровень');
 
 // закалка
 {

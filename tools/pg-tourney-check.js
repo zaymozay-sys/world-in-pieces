@@ -128,3 +128,18 @@ setTimeout(async () => {
     console.log('pg funnel ok'); await store.close();
   } catch (e) { console.error(e); process.exit(1); }
 }, 14000);
+// гонки: параллельные награды и платные бои не превышают лимиты
+setTimeout(async () => {
+  const assert = require('assert'), rating = require('../server/src/rating');
+  const store = await require('../server/src/store-pg').create(process.env.DATABASE_URL || 'postgres://postgres@127.0.0.1:54329/postgres');
+  const A = 'p-rrrrrrr1-rrrrrrr1-rrrrrrr1', B = 'p-rrrrrrr2-rrrrrrr2-rrrrrrr2';
+  await store.findOrCreatePlayer('site', 'race1', A); await store.findOrCreatePlayer('site', 'race2', B);
+  const at = Date.now();
+  await Promise.all(Array.from({ length: 20 }, (_, i) => store.addVoucher(A, { at: at + i, win: true, level: 5 })));
+  assert.strictEqual((await store.claimVouchers(A, at + 100)).filter((x) => x.paid).length, rating.PAID_DAILY);
+  assert.strictEqual((await Promise.all(Array.from({ length: 20 }, () => store.claimTournament('race-t', A)))).filter(Boolean).length, 1);
+  const m = await Promise.all(Array.from({ length: 12 }, () => store.recordMatch({ a: { pid: A, nick: 'a' }, b: { pid: B, nick: 'b' }, winner: 'A', at })));
+  assert.strictEqual(m.filter(Boolean).length, rating.PAIR_DAILY);
+  await store.deletePlayer(A); await store.deletePlayer(B); await store.close();
+  console.log('pg races ok');
+}, 1500);

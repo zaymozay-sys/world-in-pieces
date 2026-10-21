@@ -28,6 +28,7 @@ global.Bestiary = require(J('bestiary.js'));
 global.Factions = require(J('factions.js'));
 global.Combat = require(J('combat.js'));
 global.Elixirs = require(J('elixirs.js'));
+global.Medals = require(J('medals.js'));
 let Hero = null;
 try { Hero = require(J('hero.js')); global.Hero = Hero; } catch (e) { /* уровни героя ещё не подключены */ }
 const AI = require(J('ai.js'));
@@ -43,6 +44,9 @@ if (process.env.BAL_OVERRIDE) {
 }
 
 const N = 6, ONYX = 3;
+let CHAOS_DMG = 0;
+let TUNE = null;    // правила для опытов: { delay: {thr, ticks}, decay, lightOnce }
+let BOOST = null;   // опыт «всё усиление»: { strike, familyPct, style, daily, streak } — умения и коллекции медалей
 const TYPES = ['sapphire', 'ruby', 'emerald', 'onyx'];
 const MAGIC_T = [0, 1, 2];
 const MAGIC_NAMES = ['sapphire', 'ruby', 'emerald'];
@@ -57,6 +61,7 @@ function makeHero(o) {
   const gear = o.gear || Gear.emptyLoadout();
   const facStats = o.faction === 'none' ? {} : Factions.statsAt(o.faction, Hero ? Hero.tierFloat(o.level || 1) : 1);
   let stats = Gear.combine(Gear.stats(gear), facStats);
+  if (o.extra) stats = Gear.combine(stats, o.extra);   // руны, огранка, медали и прочие усиления сверх вещей
   // 1.6.0: эликсиры { вид: цвет } — по одному каждого вида в сумке; героя «пьёт» их по правилам игры (см. elxStep в Battle)
   const elx = o.elixirs || {};
   const base = o.baseHp != null ? o.baseHp : (Hero ? Hero.baseHp(o.level || 1) : 100);
@@ -105,14 +110,22 @@ function Battle(hero, mon, player) {
   const canAfford = (side, kind = 'lightning') => { const f = S.f[side], c = Combat.spellCost(f, kind); return MAGIC_NAMES.every((t) => f.counts[t] >= c); };
   const spend = (side, kind = 'lightning') => { const f = S.f[side], c = Combat.spellCost(f, kind); for (const t of MAGIC_NAMES) f.counts[t] -= c; };
   const afford = (side) => ({ lightning: canAfford(side, 'lightning'), fire: canAfford(side, 'fire'), square: canAfford(side, 'square'), transmute: canAfford(side, 'transmute'), heal: canAfford(side, 'heal'), chaos: canAfford(side, 'chaos') });
+  const aimOnly = (side) => ({ fire: canAfford(side, 'fire'), square: canAfford(side, 'square') });   // под Молнией ИИ может добавить Крест или Захват
   const anyAfford = (side) => Object.values(afford(side)).some(Boolean);
-  const hit = (side, amount, raw = false) => {
+  const hit = (side, amount, raw = false, mult = 1) => {
     // Удары героя сначала принимает живой двойник Дикого гриба (см. Combat.enemyTarget); у прочих — сам противник.
     const att = S.f[side], tgt = side === 'left' ? Combat.enemyTarget(S.f.right) : S.f.left;
     const H = S.f.left, fire = (k) => { const a = H.elx[k]; if (H.noFx || !a || a.left <= 0 || a.tier < Elixirs.FX_MIN || H.elxUsed[k]) return null; H.elxUsed[k] = true; return Elixirs.effect(k, a.tier); };
-    if (!raw && side === 'left') { const fx = fire('power'); if (fx) amount = Math.round(amount * fx.v); }
-    if (!raw && side === 'right') { const fx = fire('defense'); if (fx) amount = Math.max(1, Math.round(amount * (1 - fx.v / 100))); }
-    const r = Combat.hit(att, tgt, amount, raw, rand);
+    if (!raw && side === 'right') { const fx = fire('defense'); if (fx) mult *= Math.max(0.01, 1 - fx.v / 100); }
+    if (BOOST && !raw && side === 'left') {
+      if (BOOST.familyPct) mult *= 1 + BOOST.familyPct / 100;
+      if (BOOST.strike && tgt.hp < tgt.max * 0.3) mult *= 1.25;
+    }
+    const r = Combat.hit(att, tgt, amount, raw, rand, mult);
+    if (TUNE && TUNE.delay && r.kind === 'hit' && tgt.max) {      // удар сверх порога достаётся цели не сразу, а долями в её ходы
+      const ex = r.amount - Math.round(TUNE.delay.thr * tgt.max);
+      if (ex > 0) { tgt.hp = Math.min(tgt.max, tgt.hp + ex); tgt.pend = (tgt.pend || 0) + ex; tgt.pendN = TUNE.delay.ticks; r.amount -= ex; }
+    }
     if (side === 'right') {                                   // эффекты эликсиров на получаемый героем удар (как в game.js dealDamage)
       if (r.kind === 'block' || r.kind === 'blockreflect') { const fx = fire('block'); if (fx) Combat.loseHp(att, Math.max(1, Math.round(amount * fx.v / 100))); }
       if (r.kind === 'reflect' || r.kind === 'blockreflect') { const fx = fire('ricochet'); if (fx) H.hp = Math.min(H.max, H.hp + Math.max(1, Math.round((H.dmg || 1) * B.damage.stone * fx.v))); }
@@ -133,7 +146,9 @@ function Battle(hero, mon, player) {
     const burst = () => Engine.obsidianBurst(S.typ, Engine.bonusMap(S.typ), ONYX, S.val);
     let extra = false, bon = burst();
     const gained = {};                              // магические камни за проход — для Хитрости противника
+    let pass = 0;
     while (bon) {
+      pass++;
       let dmg = 0, charge = 0;
       for (let i = 0; i < 36; i++) {
         if (!bon[i]) continue;
@@ -142,12 +157,12 @@ function Battle(hero, mon, player) {
         f.counts[TYPES[S.typ[i]]] += amount;
         if (S.typ[i] !== ONYX) gained[TYPES[S.typ[i]]] = (gained[TYPES[S.typ[i]]] || 0) + amount;
         if (S.typ[i] === home) charge += amount;
-        if (S.typ[i] === ONYX || f.magic) dmg += amount;
+        if (S.typ[i] === ONYX || f.magic) dmg += S.val[i] * bon[i];
         if (bon[i] > 1) extra = true;
       }
       if (charge) addCharge(charge);
       if (side === 'right') { let got = 0; for (let i = 0; i < 36; i++) if (bon[i]) got += S.val[i] * bon[i]; Combat.addSpores(f, got); }   // споры гриба
-      hit(side, f.magic ? Math.round(dmg * B.magic.lightning.mult) : dmg);
+      hit(side, dmg, false, (f.magic ? B.magic.lightning.mult : 1) * (TUNE && TUNE.decay ? Math.pow(TUNE.decay, pass - 1) : 1));
       for (let i = 0; i < 36; i++) if (bon[i]) { S.typ[i] = -1; S.val[i] = 0; }
       if ((side === 'left' ? Combat.enemyDefeated(S.f.right) : tgt.hp <= 0) || f.hp <= 0) return extra;
       Engine.gravity(S.typ, S.val);
@@ -177,7 +192,7 @@ function Battle(hero, mon, player) {
       return 0;
     }
     const extra = resolve(side);
-    S.f[side].magic = Combat.continueMagic(S.f[side].magic, extra);   // как в игре: Молния держится на доп. ходах
+    S.f[side].magic = TUNE && TUNE.lightOnce ? false : Combat.continueMagic(S.f[side].magic, extra);   // как в игре: Молния держится на доп. ходах
     if (checkEnd()) return 1;
     refillIfNeeded();
     return Combat.finishAction(S.f[side], extra).extra ? 2 : 1;
@@ -187,7 +202,7 @@ function Battle(hero, mon, player) {
   function burn(side, idx, shape = 'cross', mult = 1, free = false) {
     if (!free) spend(side, shape === 'square' ? 'square' : 'fire');
     const r0 = Math.floor(idx / N), c0 = idx % N;
-    let dmg = 0, all = 0, obs = 0;
+    let dmg = 0, all = 0, obs = 0, spellMul = 1;
     const cells = [];
     for (let i = 0; i < 36; i++) {
       if (S.typ[i] < 0) continue;
@@ -206,9 +221,10 @@ function Battle(hero, mon, player) {
     }
     if (shape !== 'row') {
       const fl = S.f[side];
-      dmg = (shape === 'square' ? B.magic.square : B.magic.cross).fixed + Combat.strikeDamage(fl) + (fl.magic ? Math.round(all * B.magic.lightning.mult) : obs);
+      dmg = (shape === 'square' ? B.magic.square : B.magic.cross).fixed + (fl.magic ? Math.round(all * B.magic.lightning.mult) : obs);
+      spellMul = (shape === 'square' ? B.magic.square : B.magic.cross).mult * mult;
     }
-    hit(side, dmg);
+    hit(side, dmg, false, spellMul);
     for (const i of cells) { S.typ[i] = -1; S.val[i] = 0; }
     if (S.f.left.hp <= 0 || Combat.enemyDefeated(S.f.right)) { checkEnd(); return 1; }
     Engine.gravity(S.typ, S.val);
@@ -235,6 +251,7 @@ function Battle(hero, mon, player) {
   }
   function chaos(side) {
     spend(side, 'chaos');
+    { const e = S.typ.filter((x) => x < 0).length * (CHAOS_DMG || B.magic.chaos.perEmpty); if (e > 0) hit(side, e); }   // Хаос бьёт за каждую пустую клетку (Balance.magic.chaos.perEmpty)
     const cells = [];
     for (let i = 0; i < 36; i++) if (S.typ[i] >= 0) cells.push(i);
     const tiles = cells.map((i) => [S.typ[i], S.val[i]]);
@@ -276,9 +293,10 @@ function Battle(hero, mon, player) {
   };
 
   /* ---------- ход существа ---------- */
+  const tickPend = (f) => { if (f.pend > 0 && f.pendN > 0) { const d = Math.ceil(f.pend / f.pendN); f.pendN--; f.pend -= d; f.hp -= d; if (f.pendN <= 0) f.pend = 0; } };
   function monsterTurn() {
     const f = S.f.right, h = S.f.left;
-    f.turnNo++;
+    f.turnNo++; tickPend(f); if (checkEnd()) return;
     if (f.poison && f.poison.turns > 0) {
       f.poison.turns--;
       Combat.hit(h, f, f.poison.dmg, true, rand);
@@ -316,8 +334,8 @@ function Battle(hero, mon, player) {
     for (let guard = 0; guard < 20; guard++) {
       for (const k of Combat.enemyItemPlan(f, anyAfford('right'), rand)) useItem('right', k);
       const v = Combat.aiView(f, h);
-      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, f.level, f.magic ? {} : afford('right'),
-        { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right') });
+      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, f.level, f.magic ? aimOnly('right') : afford('right'),
+        { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: f.magic ? B.magic.lightning.mult : 0 });
       if (!mv) break;
       S.stats.monActions++;
       let res;
@@ -371,8 +389,7 @@ function Battle(hero, mon, player) {
       return;
     }
     Elixirs.drink(h.elx, kind, t, 0); h.elxUsed[kind] = false;
-    if (kind === 'fury' && t >= Elixirs.FX_MIN && !h.noFx) h.critExtra = Elixirs.effect('fury', t).v - 2;
-    h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx));
+    h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx)); h.elxPct = Elixirs.activePct(h.elx);
   }
   function elxStep() {
     const h = S.f.left, plan = h.elxPlan;
@@ -397,11 +414,11 @@ function Battle(hero, mon, player) {
     if (!Object.keys(h.elx).length) return;
     Elixirs.tick(h.elx);
     if (!h.elx.fury) h.critExtra = 0;
-    h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx));
+    h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx)); h.elxPct = Elixirs.activePct(h.elx);
   }
   function heroTurn() {
     const h = S.f.left;
-    h.turnNo++; if (h.elxCd > 0) h.elxCd--;
+    h.turnNo++; if (h.elxCd > 0) h.elxCd--; tickPend(h); if (checkEnd()) return;
     for (let guard = 0; guard < 20; guard++) {
       elxStep();
       if (player.items) player.items(S, h, useItem);
@@ -587,7 +604,9 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, bag, swarm, elixirs, elxFx, elite, zone, affixes } = {}) {
+function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune } = {}) {
+  CHAOS_DMG = chaosDmg || 0;
+  BOOST = boost || null; TUNE = tune || null;
   let wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
@@ -597,7 +616,8 @@ function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n
   for (let k = 0; k < n; k++) {
     seed((h ^ Math.imul(k + 1, 2654435761)) >>> 0);
     const g = typeof gear === 'function' ? gear() : gear;
-    const hero = makeHero({ faction, level, gear: g, baseHp, bag, elixirs, elxFx });
+    const hero = makeHero({ faction, level, gear: g, baseHp, extra, bag, elixirs, elxFx });
+    if (BOOST) { if (BOOST.style) hero.shield = 1; if (BOOST.daily) hero.secondWind = true; if (BOOST.streak) hero.charge = Math.floor(B.faction.charge / 2); }
     const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes });
     const pl = typeof player === 'string' ? PLAYERS[player]() : typeof player === 'function' ? player() : player;
     const S = Battle(hero, mon, pl).run();

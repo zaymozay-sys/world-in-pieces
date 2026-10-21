@@ -183,7 +183,7 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
       out.drankStones = useElixir('stones', 3);              // общий запас «раз в 3 хода» — нельзя
       out.cd1 = f.elxCd;
       out.badges = document.querySelectorAll('.elx-badge').length;
-      out.crit = f.critExtra; out.after = { power: f.stats.power, defense: f.stats.defense };
+      out.pct = f.elxPct; out.after = { power: f.stats.power, defense: f.stats.defense };
       out.bag = Profile.elixirBag().length;
       const lf = () => JSON.stringify(Object.fromEntries(Object.entries(f.elx).map(([k, a]) => [k, a.left]).sort()));
       out.left = lf();
@@ -193,7 +193,7 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
     });
     assert.deepStrictEqual(r.drank, [true, true, true]); assert.ok(r.after.power > r.before.power && r.after.defense >= r.before.defense, 'прибавки применены');
     assert.ok(r.healed > 0, 'Жизнь лечит цифрой'); assert.strictEqual(r.drankStones, false, 'мгновенные — раз в 3 хода, запас общий'); assert.strictEqual(r.cd1, 3);
-    assert.strictEqual(r.badges, 3); assert.ok(r.crit > 1, 'ярость 10-го цвета взвела сильный крит'); assert.strictEqual(r.bag, 1, 'из сумки расходуются');
+    assert.strictEqual(r.badges, 3); assert.strictEqual(r.pct, 50, 'эликсир силы 5-го цвета: +50% к суммарной Силе (2.0.4)'); assert.strictEqual(r.bag, 1, 'из сумки расходуются');
     assert.strictEqual(r.left, '{"defense":10,"fury":10,"power":1}'); assert.strictEqual(r.afterTurn, '{"defense":9,"fury":9}', 'Сила кончилась с ходом');
     assert.strictEqual(r.cd2, 2);
     assert.deepStrictEqual(errs, []);

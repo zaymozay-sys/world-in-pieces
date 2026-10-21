@@ -88,7 +88,8 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
   {
     const { p, ctx } = await mk('');
     const q = await ctx.newPage(); await q.goto(URL); await q.waitForTimeout(1500);
-    await q.evaluate(() => { Profile.data.coins = 777; Profile.save(); });
+    // другая вкладка записала профиль (напрямую в хранилище: сама q к этому моменту могла стать устаревшей из-за автосохранения p — гонка теста)
+    await q.evaluate(() => { const k = 'gem-match-profile-v2', d = JSON.parse(localStorage.getItem(k)); d.coins = 777; localStorage.setItem(k, JSON.stringify(d)); });
     await p.waitForTimeout(500);
     const r = await p.evaluate(() => { Profile.data.coins = 1; Profile.save(); return { stale: Profile.stale, overlay: !!document.querySelector('.stale-tab'), stored: JSON.parse(localStorage.getItem('gem-match-profile-v2')).coins }; });
     ok('устаревшая вкладка видит окно и не затирает чужой прогресс', r.stale && r.overlay && r.stored === 777, JSON.stringify(r));

@@ -169,4 +169,15 @@ for (let i = 0; i < N; i++) {
   assert.deepStrictEqual(g.battle, { moved: true }, 'флаг боя сохраняется');
   const h = GOOD(); h.battle = 'junk'; SaveGuard.normalize(h); assert.strictEqual(h.battle, null, 'мусорный флаг боя сброшен');
 }
+// руны, огранка и разделы новых систем
+{
+  const g = GOOD(); const it = g.items[0];
+  it.runes = ['nope', 'rune-insight', 'rune-insight', 'rune-insight']; it.cut = 99;
+  g.bank = { dep: 5e6, streak: 3 }; g.streak = 'junk'; g.lessons = { done: 5 };
+  SaveGuard.normalize(g);
+  assert.ok(!('cut' in g.items[0]) && g.items[0].runes.length <= 2 && g.items[0].runes.every((r) => r !== 'nope'), 'руны и огранка очищены');
+  assert.strictEqual(g.bank.dep, 5e6, 'крупный вклад не обрезается');
+  assert.ok(g.streak && typeof g.streak === 'object', 'раздел streak приведён к виду');
+  const h = GOOD(); SaveGuard.normalize(h); assert.ok(!('bank' in h) || h.bank === GOOD().bank, 'отсутствующие разделы не создаются');
+}
 console.log(`saveguard: все тесты пройдены (исправный профиль без правок; ${Object.keys(CASES).length} случаев; фаззинг ${N})`);

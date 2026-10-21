@@ -116,7 +116,7 @@ assert.deepStrictEqual(Combat.turnOrder(false, true), ['monster', 'hero', 'pet']
   const a = fighter({ dmg: 2, stats: { power: 50 } }), t = fighter({ stats: { defense: 20 } });
   const r = Combat.hit(a, t, 10, false, never);
   assert.strictEqual(r.kind, 'hit');
-  assert.strictEqual(r.amount, Combat.mitigate(Math.ceil(10 * 2 * 1.5), Combat.armorOf(t)), 'формула урона: Броня вычитается цифрой (1.6.0)');
+  assert.strictEqual(r.amount, Combat.mitigate(Math.ceil(10 + 50 + Combat.levelPower(2)), Combat.armorOf(t)), 'формула урона: Броня вычитается цифрой (1.6.0)');
   assert.strictEqual(t.hp, 100 - r.amount);
 }
 
@@ -262,15 +262,16 @@ console.log('pets 1.5.1 ok');
 // 1.5.1: эликсиры — один заметный эффект за бой, растёт с цветом
 {
   const Elixirs = require('../js/elixirs.js');
-  for (const k of ['power', 'defense', 'block', 'ricochet', 'fury']) {
+  assert.strictEqual(Elixirs.effect('power', 10), null, '2.0.4: у эликсира силы нет «первого удара ×», он даёт проценты Силы'); assert.strictEqual(Elixirs.effect('fury', 10), null, '2.0.4: у эликсира ярости нет побочного эффекта');
+  for (const k of ['defense', 'block', 'ricochet']) {
     assert.strictEqual(Elixirs.effect(k, 4), null, 'до 5-го цвета эффекта нет: ' + k);
     assert.ok(Elixirs.effect(k, 5) && Elixirs.sideText(k, 5), 'есть текст: ' + k);
     if (k !== 'initiative') assert.ok(Elixirs.effect(k, 10).v >= Elixirs.effect(k, 5).v, 'растёт с цветом: ' + k);
   }
-  assert.ok(Elixirs.effect('power', 5).v >= 1.5 && Elixirs.effect('power', 10).v >= 2);
+  assert.ok(/%/.test(Elixirs.describe('power', 7)) && /Сил/.test(Elixirs.describe('power', 7)));
   assert.ok(Elixirs.effect('defense', 10).v <= 90, 'первый удар не обнуляется');
   assert.ok(Elixirs.effect('health', 5) === null && Elixirs.effect('initiative', 9) === null, 'Жизнь и Инициатива без побочного эффекта');
-  assert.ok(/ХП/.test(Elixirs.describe('health', 10)) && /×/.test(Elixirs.describe('fury', 7)));
+  assert.ok(/ХП/.test(Elixirs.describe('health', 10)) && /%/.test(Elixirs.describe('fury', 7)));
   // крит с добавкой от эликсира ярости
   const Combat = require('../js/combat.js');
   const mk = (extra) => ({ hp: 1000, max: 1000, dmg: 1, stats: { power: 0, fury: 100, defense: 0, block: 0, ricochet: 0 }, buffs: [], critExtra: extra });
