@@ -15,9 +15,11 @@ const Bank = (() => {
   const SALT = 'hrupkiy-mir-bank';
 
   const blank = () => ({ dep: 0, day: 0, streak: 0, cheques: {} });
-  const clean = (b) => {
+  // Потолок вклада растёт с ценами: scale — Hero.priceScale(уровень героя); без аргумента — базовые 20000.
+  const capFor = (scale) => Math.max(CAP, Math.round(CAP * (Number.isFinite(scale) && scale > 0 ? scale : 1)));
+  const clean = (b, cap = CAP) => {
     const o = (b && typeof b === 'object') ? b : {};
-    const dep = Number.isFinite(o.dep) && o.dep > 0 ? Math.min(CAP, Math.floor(o.dep)) : 0;
+    const dep = Number.isFinite(o.dep) && o.dep > 0 ? Math.min(cap, Math.floor(o.dep)) : 0;
     const day = Number.isInteger(o.day) && o.day > 0 ? o.day : 0, streak = Number.isInteger(o.streak) && o.streak > 0 ? Math.min(1000, o.streak) : 0;
     return { dep, day, streak, cheques: (o.cheques && typeof o.cheques === 'object' && !Array.isArray(o.cheques)) ? o.cheques : {} };
   };
@@ -28,22 +30,22 @@ const Bank = (() => {
   const rate = (streak) => Math.min(RATE_MAX, Math.max(0, streak) * RATE_STEP);
   // Заход в игру: новые сутки подряд — серия растёт и вклад получает проценты; пропуск суток — серия с нуля и ставка 0.
   // Возвращает начисленные проценты.
-  function visit(b, now) {
+  function visit(b, now, cap = CAP) {
     const today = dayOf(now);
     if (b.day === today) return 0;
     const consecutive = b.day > 0 && today === b.day + 1;
     b.streak = consecutive ? b.streak + 1 : 1;
     b.day = today;
     if (!consecutive || !(b.dep > 0)) return 0;
-    const gain = Math.min(CAP - b.dep, Math.floor(b.dep * rate(b.streak)));
+    const gain = Math.min(cap - b.dep, Math.floor(b.dep * rate(b.streak)));
     b.dep += Math.max(0, gain);
     return Math.max(0, gain);
   }
   // Проценты, которые прибавятся при заходе завтра (если зайти).
-  const tomorrow = (b) => (b && b.dep > 0 && b.day > 0 ? Math.min(CAP - b.dep, Math.floor(b.dep * rate((b.streak || 0) + 1))) : 0);
-  function deposit(b, n) {
+  const tomorrow = (b, cap = CAP) => (b && b.dep > 0 && b.day > 0 ? Math.min(cap - b.dep, Math.floor(b.dep * rate((b.streak || 0) + 1))) : 0);
+  function deposit(b, n, cap = CAP) {
     n = Math.floor(n);
-    if (!(n > 0) || b.dep + n > CAP) return false;
+    if (!(n > 0) || b.dep + n > cap) return false;
     b.dep += n;
     return true;
   }
@@ -77,7 +79,7 @@ const Bank = (() => {
     return { ok: true, amount: c.amount };
   }
 
-  return { DAY, RATE_STEP, RATE_MAX, CAP, blank, clean, dayOf, rate, visit, tomorrow, deposit, withdraw, sig, makeCheque, parseCheque, redeem };
+  return { DAY, RATE_STEP, RATE_MAX, CAP, capFor, blank, clean, dayOf, rate, visit, tomorrow, deposit, withdraw, sig, makeCheque, parseCheque, redeem };
 })();
 
 if (typeof module !== 'undefined') module.exports = Bank;

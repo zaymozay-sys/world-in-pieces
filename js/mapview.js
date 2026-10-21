@@ -134,6 +134,7 @@ const MapView = (() => {
     const isO = (o) => o && typeof o === 'object' && !Array.isArray(o), nCells = map.cells.length;
     st.found = isO(st.found) ? st.found : {}; st.pins = (Array.isArray(st.pins) ? st.pins : []).filter((n) => Number.isInteger(n) && n >= 0 && n < nCells);
     if (!isO(st.defeated)) st.defeated = {};
+    if (!isO(st.loot)) st.loot = {};                  // 2.0.4: трофейные эликсиры существ (Trophy)
     if (st.siege && !Siege.sane(st.siege)) st.siege = null;
     st.evUsed = isO(st.evUsed) ? st.evUsed : {}; st.lairCd = isO(st.lairCd) ? st.lairCd : {};
     stripSpecial();                                   // перезагрузка посреди особого боя
@@ -147,7 +148,7 @@ const MapView = (() => {
     for (const i of HexMap.area(map, home, loc ? LOCS[loc].reveal : HexMap.VILLAGE_R + 2)) revealed.add(i);
     walking = null;
     guestList = []; skyNight = null; rareSp = null; rareKey = ''; syncRare();
-    try { const bk = Profile.data.bank = Bank.clean(Profile.data.bank); const g = Bank.visit(bk, Date.now()); if (g > 0) { setTimeout(() => toast(_t("Банк начислил проценты на вклад: +{0}", [g]), 3500), 1800); } } catch (e) { /* банк не критичен */ }
+    try { const bk = Profile.data.bank = Bank.clean(Profile.data.bank, Bank.capFor(Hero.priceScale(Profile.level()))); const g = Bank.visit(bk, Date.now(), Bank.capFor(Hero.priceScale(Profile.level()))); if (g > 0) { setTimeout(() => toast(_t("Банк начислил проценты на вклад: +{0}", [g]), 3500), 1800); } } catch (e) { /* банк не критичен */ }
     revealAround(st.pos);
     renderStatic();
     renderAmbient();
@@ -222,7 +223,7 @@ const MapView = (() => {
       const p = px(c.idx);
       // 1.3.0: маленький город — земля деревни, а главная улица и площадь вокруг Ратуши вымощены
       const paved = (c.terrain === 'village' || c.terrain === 'castle') && (c.street || c.d <= 2);
-      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
+      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${c.terrain === 'castle' && hasArt('map/tex-castle') ? (paved || !hasArt('map/tex-castle-grass') ? 'castle' : 'castle-grass') : paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
       const d = lite ? '' : MapArt.deco(c, HexMap.rng((st.seed ^ Math.imul(c.idx + 1, 2654435761)) >>> 0));
       if (d) bucketPush(deco, p, `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
     }
@@ -346,9 +347,12 @@ const MapView = (() => {
   }
 
   // Фигурки боссов (1.7.7): art/map/boss-<b1..b5|z1..z9>. Нет картинки — старый круглый жетон с бюстом.
+  const hasArt = (k) => typeof Art !== 'undefined' && Art.has(k);
   function bossFigure(sp) {
     const k = sp.boss || sp.zone;
-    return k && typeof Art !== 'undefined' && Art.has('map/boss-' + k) ? 'map/boss-' + k : null;
+    if (typeof Art === 'undefined') return null;
+    if (k) return Art.has('map/boss-' + k) ? 'map/boss-' + k : null;
+    return sp.species && !sp.castle && Art.has('map/mob-' + sp.species) ? 'map/mob-' + sp.species : null;   // фигурки обычных существ: art/map/mob-<вид>
   }
   function figureToken(key, sp, col) {
     const ring = sp.zone ? '#c9d3e6' : '#f2c94c';
@@ -942,12 +946,31 @@ const MapView = (() => {
   /* ---------- монстры и бой ---------- */
   // Оценка опасности: модель шанса победы «среднего» игрока (combat.js, числа — balance.js, обучена на симуляторе).
   const DANGER = { easy: [_t("Лёгкий"), '#6ecb7a'], even: [_t("Равный"), '#e0c85a'], hard: [_t("Опасный"), '#f0913a'], deadly: [_t("Смертельный"), '#ff5d5d'] };
+  // 2.0.4: оценка опасности учитывает трофейные эликсиры существа: броня и блок действуют 10 ходов (берём сильнейший), сила — один ход
+  // (по доле ходов боя), жизнь — прибавка к ХП. Это среднее за бой, а не точный расчёт.
+  const withLoot = (sc, loot) => {
+    const out = { ...sc, stats: { ...sc.stats } };
+    const FIGHT_TURNS = 7;
+    let powerPct = 0;
+    for (const [k, n] of Object.entries(loot)) {
+      const { kind, tier } = Trophy.split(k);
+      if (kind === 'power') powerPct += Elixirs.powerPct(tier) * Math.min(1, n / FIGHT_TURNS);
+      else if (kind === 'defense') out.stats.defense = Math.max(out.stats.defense || 0, 0) + (n > 0 ? Elixirs.bonus(tier, 'defense') : 0);
+      else if (kind === 'block') out.stats.block = (out.stats.block || 0) + (n > 0 ? Elixirs.bonus(tier, 'block') : 0);
+      else if (kind === 'health') out.hp += Elixirs.heal(tier) * n;
+    }
+    if (powerPct > 0) out.stats.power = (out.stats.power || 0) + Combat.power({ dmg: sc.dmg, stats: sc.stats, buffs: [] }) * powerPct / 100;
+    return out;
+  };
   const spawnScaled = (sp) => {
     let sc = Bestiary.scaled(sp.species, sp.tier);
     if (sp.boss) sc = Story.scaleBoss(sc, sp.boss, Story.cycle(Profile.data.story));
     if (sp.zone) sc = World.scaleZone(sc, sp.zone);                                                              // 1.7.3: хозяин зоны
     if (eliteOf(sp)) sc = { ...sc, hp: Math.round(sc.hp * World.ELITE.hp), dmg: sc.dmg * World.ELITE.dmg };   // 1.5.4
     if (sp.siegeV > 0) sc = { ...sc, hp: Math.max(1, Math.round(sc.hp * (1 - sp.siegeV))) };                    // 1.7.0: башни уже обстреляли
+    const gr = Growth.steps(st, sp); if (gr > 0) sc = { ...sc, hp: Math.round(sc.hp * Growth.mul(gr)), dmg: sc.dmg * Growth.mul(gr) };   // 2.0.0: существо окрепло после побед над героем
+    const loot = st.loot && st.loot[sp.id] && Trophy.eligible(sp) ? st.loot[sp.id] : null;
+    if (loot) sc = withLoot(sc, loot);
     return sc;
   };
   function danger(sp) {
@@ -974,7 +997,19 @@ const MapView = (() => {
     const drops = weakRes ? `<span class="hint">${_t("ресурсов нет: существо слабее вашего цвета")}</span>` : m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
     const near = HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1;
     const art = sp.species === 'dragon' ? `<div class="dragon-art sm" style="--t:${col}">${Figures.avatar('dragon', null)}</div>` : MonsterArt.bust(sp.species, sp.tier);
-    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : ZB ? ZB.title : m.name, tierChip(sp.tier), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss || ZB ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + zoneNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
+    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : ZB ? ZB.title : m.name, tierChip(sp.tier, Growth.steps(st, sp)), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss || ZB ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + zoneNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
+    const lootN = st.loot && st.loot[sp.id] && Trophy.eligible(sp) ? Trophy.total(st.loot[sp.id]) : 0;
+    const grN = Growth.steps(st, sp);
+    if (lootN > 0) {                                                  // 2.0.4: видно, что существо несёт трофеи героя
+      const lnote = document.createElement('p'); lnote.className = 'hint grow-note';
+      lnote.textContent = _t("Несёт трофеи, отнятые у героя: эликсиров {0}. Выпьет их в бою; убьёте — вернутся к вам.", [lootN]);
+      const lb = el['map-card'].querySelector('.mc-body'); if (lb) lb.insertBefore(lnote, el['map-card'].querySelector('.mc-act'));
+    }
+    if (grN > 0) {                                                    // 2.0.0: видно, что существо выросло
+      const note = document.createElement('p'); note.className = 'hint grow-note';
+      note.textContent = _t("Окрепло после побед над героем (+{0}): здоровье и сила удара +{1}%, за победу больше опыта и монет.", [grN, Math.round(Growth.STEP * grN * 100 * 10) / 10]);
+      const hb = el['map-card'].querySelector('.mc-body'); if (hb) hb.insertBefore(note, el['map-card'].querySelector('.mc-act'));
+    }
     // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
     // 1.5.4: быстрый бой — слабое (на 2+ цвета ниже) и уже побеждённое существо
     const beaten = Profile.data.bestiary && Profile.data.bestiary[sp.species] && Profile.data.bestiary[sp.species].wins > 0;
@@ -1025,7 +1060,7 @@ const MapView = (() => {
     battleSpawn = sp;
     st.swarm = st.swarm || {};
     if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
-    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
+    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -1506,8 +1541,24 @@ const MapView = (() => {
     if (!Profile.storageOk) setTimeout(warnNoSave, 1500);     // 1.6.5: запись сломалась во время боя
     const sel = { ...(Profile.data.monster || {}) };
     if (sp && Growth.eligible(sp)) {                                   // 2.0.0: существо, победившее героя, набирает шаг; убитое — обнуляется
-      if (result === 'loss') { const n = Growth.bump(st, sp); if (n) setTimeout(() => toast(_t("{0} окреп после победы: +{1}", [Bestiary.MONSTERS[sp.species].name, n]), 3200), 1200); }
+      if (result === 'loss') { const n = Growth.bump(st, sp); if (n) setTimeout(() => toast(_t("{0} окреп после победы: +{1}", [Bestiary.MONSTERS[sp.species].name, n]), 3500), 3600); }
       else if (result === 'win') Growth.reset(st, sp);
+    }
+    if (sp && Trophy.eligible(sp)) {                                   // 2.0.4: трофейные эликсиры существа (см. js/trophy.js)
+      st.loot = st.loot && typeof st.loot === 'object' ? st.loot : {};
+      const left = sel.loot && typeof sel.loot === 'object' ? sel.loot : {};         // то, что существо не успело выпить в бою
+      if (result === 'loss') {
+        const bag = {}; for (const e of Profile.elixirBag()) bag[Elixirs.key(e.kind, e.tier)] = e.n;
+        const taken = Trophy.steal(bag, sp.tier);
+        for (const [k, n] of Object.entries(taken)) { const e = Elixirs.split(k); for (let i = 0; i < n; i++) Profile.takeElixir(e.kind, e.tier); }
+        st.loot[sp.id] = Trophy.add(left, taken);
+        const n = Trophy.total(taken); if (n) setTimeout(() => toast(_t("{0} забрал у вас эликсиры: {1}", [Bestiary.MONSTERS[sp.species].name, n]), 4000), 600);
+      } else if (result === 'win') {
+        const back = Trophy.total(left);
+        for (const [k, n] of Object.entries(left)) { const e = Elixirs.split(k); Profile.addElixir(e.kind, e.tier, n); }
+        delete st.loot[sp.id];
+        if (back) setTimeout(() => toast(_t("Трофей: вернулись эликсиры: {0}", [back]), 4000), 600);
+      } else if (Trophy.total(left)) st.loot[sp.id] = left; else delete st.loot[sp.id];
     }
     if (st.siege && !st.siege.over) st.siege.t1 = Math.max(st.siege.t1, Date.now() + Siege.GRACE_MS);   // 1.7.0: бой не съедает время осады
     // 1.5.4: благословение алтаря тратится за каждый обычный бой, где оно действовало
@@ -2377,6 +2428,6 @@ const MapView = (() => {
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack, fightLord,
     // 1.5.4
-    startSpecial, quickFight, devSiege, devSky, skyRefresh, skyLabel, get guests() { return guestList; }, get siege() { return st && st.siege; }, get world() { return world; }, showEvent, showLair, eliteOf,
+    startSpecial, withLoot, quickFight, devSiege, devSky, skyRefresh, skyLabel, get guests() { return guestList; }, get siege() { return st && st.siege; }, get world() { return world; }, showEvent, showLair, eliteOf,
   };
 })();

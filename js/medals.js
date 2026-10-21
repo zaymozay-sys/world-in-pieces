@@ -18,13 +18,16 @@ const Medals = (() => {
   // Медаль за первую победу над видом. Характеристика подобрана по духу монстра — понемногу разных
   // приёмов, чтобы коллекция медалей давала не один раздутый стат, а всестороннюю прибавку.
   const KILL_STAT = {
-    rat: 'health', wolf: 'power', bandit: 'block', goblin: 'magic', skeleton: 'defense',
+    rat: 'health', wolf: 'power', bandit: 'block', goblin: 'power', skeleton: 'defense',
     boar: 'power', troll: 'health', golem: 'defense', wraith: 'ricochet', dragon: 'fury',
-    orc: 'power', orcShaman: 'magic', ghoul: 'health', crab: 'block', bolotnik: 'ricochet',
+    orc: 'power', orcShaman: 'power', ghoul: 'health', crab: 'block', bolotnik: 'ricochet',
     shadow: 'fury', treant: 'defense', mushroom: 'health',
   };
   // Небольшой фиксированный бонус за медаль (в единицах той же характеристики, что и у вещей — см. items.js).
-  const KILL_AMOUNT = { power: 1, health: 3, defense: 1, magic: 1, initiative: 1, ricochet: 1, block: 1, fury: 1 };
+  // Сила медалей — число, прибавляемое к удару. Значения заданы в старой шкале «очков» и переводятся функцией P
+  // (≈ 0,045 × средний рост урона героя ≈ 0,22 Силы за очко, не меньше 1): все медали вместе дают порядка 20 Силы.
+  const P = (n) => Math.max(1, Math.round(n * 0.22));
+  const KILL_AMOUNT = { power: P(3), health: 3, defense: 1, initiative: 1, ricochet: 1, block: 1, fury: 1 };
   const killMedalId = (species) => 'kill:' + species;
   const killSpecies = (id) => (id.startsWith('kill:') ? id.slice(5) : null);
 
@@ -79,6 +82,15 @@ const Medals = (() => {
     return null;
   }
 
+  // 2.0.4 «Чародей»: заклинания, применённые в ПОБЕДНЫХ боях (все виды вместе: Крест, Квадрат, Молния, Хаос, Удар, выстрелы). Числа большие —
+  // по 10–20 заклинаний за бой, до последней вехи — годы игры. Счётчик — Profile.data.medals.spellWins.
+  const SPELL_MILESTONES = [100, 300, 750, 1500, 3000, 6000, 12000, 25000, 50000, 100000];
+  const spellMedalId = (n) => 'spell:' + n;
+  function checkSpellMedal(total, earned = []) {
+    for (const n of SPELL_MILESTONES) { const id = spellMedalId(n); if (total >= n && !earned.some((m) => m.id === id)) return id; }
+    return null;
+  }
+
   /* 1.7.5: «Алхимик» — по медали за первый выпитый эликсир каждого из девяти видов (в бою). Бонус — по духу эликсира, небольшой;
      комплект из всех девяти даёт умение «Мастер зелий» (эликсиры сильнее на 20%) и реликвию «Флакон алхимика». */
   const ELIXIR_ORDER = ['power', 'defense', 'block', 'ricochet', 'fury', 'cunning', 'health', 'stones', 'swap'];
@@ -125,12 +137,16 @@ const Medals = (() => {
       const amt = 1 + idx;                        // та же логика, что у streak: дальше веха — весомее награда
       return { fury: amt };
     }
+    if (id.startsWith('spell:')) {                  // 2.0.4: ХП растёт с вехой, Сила — каждую вторую веху
+      const idx = Math.max(0, SPELL_MILESTONES.indexOf(Number(id.slice(6))));
+      return { health: 4 * (1 + idx), power: 1 + Math.floor(idx / 2) };
+    }
     if (id.startsWith('drunk:')) {                  // здоровье растёт с вехой; каждая третья веха (3-я, 6-я) добавляет Хитрость
       const idx = Math.max(0, DRUNK_MILESTONES.indexOf(Number(id.slice(6))));
       return idx % 3 === 2 ? { health: 3 * (1 + idx), cunning: (idx + 1) / 3 } : { health: 3 * (1 + idx) };
     }
     if (elixirKey(id)) return { ...(ELIXIR_BONUS[elixirKey(id)] || {}) };
-    if (id.startsWith('daily:')) { const idx = Math.max(0, DAILY_MILESTONES.indexOf(Number(id.slice(6)))); return { power: 1 + idx, health: 3 * (1 + idx) }; }
+    if (id.startsWith('daily:')) { const idx = Math.max(0, DAILY_MILESTONES.indexOf(Number(id.slice(6)))); return { power: P(1 + idx), health: 3 * (1 + idx) }; }
     if (secretKey(id)) return { ...(SECRET[secretKey(id)] ? SECRET[secretKey(id)].bonus : {}) };
     if (worldKey(id)) return { ...(WORLD[worldKey(id)] ? WORLD[worldKey(id)].bonus : {}) };
     if (styleKey(id)) return { ...(STYLE[styleKey(id)] ? STYLE[styleKey(id)].bonus : {}) };
@@ -149,7 +165,7 @@ const Medals = (() => {
      открытие вещей по цвету (Hero.itemLevel — один цвет на каждые 10 уровней героя). */
   function tierUnlockLevel(id) {
     if (killSpecies(id)) return 1;                              // медали за первую победу видны с самого начала
-    const list = id.startsWith('drunk:') ? DRUNK_MILESTONES : id.startsWith('streak:') ? STREAK_MILESTONES : id.startsWith('strike:') ? STRIKE_MILESTONES : id.startsWith('shot:') ? SHOT_MILESTONES : null;
+    const list = id.startsWith('spell:') ? SPELL_MILESTONES : id.startsWith('drunk:') ? DRUNK_MILESTONES : id.startsWith('streak:') ? STREAK_MILESTONES : id.startsWith('strike:') ? STRIKE_MILESTONES : id.startsWith('shot:') ? SHOT_MILESTONES : null;
     if (!list) return 1;
     const idx = Math.max(0, list.indexOf(Number(id.slice(id.indexOf(':') + 1))));
     return 1 + idx * 10;                                         // 1.6.6: шаг — 10 уровней на цвет, как у вещей
@@ -158,22 +174,21 @@ const Medals = (() => {
   /* 1.6.2: разделы Стены доблести и бонус за комплект. Когда в разделе получены ВСЕ медали, к бонусам
      добавляется награда раздела (она весомее одной медали, но сумма по-прежнему меньше, чем даёт хорошая вещь). */
   const GROUPS = {
-    kill:   { name: _t("Охотник"),         ids: () => ME_B.ORDER.map(killMedalId),            bonus: { power: 3, defense: 3, health: 10 } },
-    streak: { name: _t("Мастер линий"),    ids: () => STREAK_MILESTONES.map(streakMedalId),    bonus: { power: 4, defense: 4 } },
+    kill:   { name: _t("Охотник"),         ids: () => ME_B.ORDER.map(killMedalId),            bonus: { power: P(3), defense: 3, health: 10 } },
+    streak: { name: _t("Мастер линий"),    ids: () => STREAK_MILESTONES.map(streakMedalId),    bonus: { power: P(4), defense: 4 } },
     strike: { name: _t("Мастер Удара"),    ids: () => STRIKE_MILESTONES.map(strikeMedalId),    bonus: { fury: 6 } },
-    style:  { name: _t("Мастер боя"),        ids: () => STYLE_ORDER.map(styleMedalId),        bonus: { magic: 3, ricochet: 3 } },
+    style:  { name: _t("Мастер боя"),        ids: () => STYLE_ORDER.map(styleMedalId),        bonus: { power: P(8), ricochet: 3 } },
     world:  { name: _t("Путешественник"),    ids: () => WORLD_ORDER.map(worldMedalId),        bonus: { health: 20, block: 2 } },
     secret: { name: _t("Тайны"),             ids: () => SECRET_ORDER.map(secretMedalId),       bonus: { cunning: 4 } },
-    daily:  { name: _t("Верный испытанию"),  ids: () => DAILY_MILESTONES.map(dailyMedalId),   bonus: { power: 4, health: 15 } },
+    daily:  { name: _t("Верный испытанию"),  ids: () => DAILY_MILESTONES.map(dailyMedalId),   bonus: { power: P(4), health: 15 } },
     shot:   { name: _t("Меткий стрелок"),  ids: () => SHOT_MILESTONES.map(shotMedalId),        bonus: { health: 20, ricochet: 2 } },
-    elixir: { name: _t("Алхимик"),          ids: () => ELIXIR_ORDER.map(elixirMedalId),         bonus: { health: 15, power: 3, defense: 3 } },
+    elixir: { name: _t("Алхимик"),          ids: () => ELIXIR_ORDER.map(elixirMedalId),         bonus: { health: 15, power: P(3), defense: 3 } },
   };
   /* 1.6.3: за каждый собранный комплект — особое умение (действует в обычных боях, не в Испытании дня) и реликвия-амулет
      (id вещи — 'relic-<раздел>', выдаётся один раз, см. Profile.grantMedal). */
   const PERKS = {
     kill:   { name: _t("Чутьё охотника"),   desc: _t("+25% монет и ресурсов с побед") },
     streak: { name: _t("Эхо линий"),         desc: _t("бой начинается с половиной заряда приёма народа") },
-    strike: { name: _t("Добивание"),         desc: _t("+25% урона по врагу, у которого осталось меньше 30% ХП") },
     shot:   { name: _t("Меткий глаз"),       desc: _t("+35% к урону болта и бомбы") },
     style:  { name: _t("Боевая стойка"),     desc: _t("первый удар по вам в каждом бою блокируется") },
     world:  { name: _t("Бывалый путник"),    desc: _t("+15% опыта с побед") },
@@ -192,7 +207,7 @@ const Medals = (() => {
      stats боя: { fullHp: герой цел, moves: ходов, spells: заклинаний, elixirs: эликсиров }. */
   const STYLE = {
     flawless:  { name: _t("Без единой царапины"),  desc: _t("победить, не потеряв ни одного ХП"),               bonus: { block: 2 },     test: (s) => s.fullHp },
-    swift:     { name: _t("Молниеносная победа"),  desc: _t("победить не больше чем за 4 хода"),                bonus: { power: 2 },     test: (s) => s.moves <= 4 },
+    swift:     { name: _t("Молниеносная победа"),  desc: _t("победить не больше чем за 4 хода"),                bonus: { power: P(2) },     test: (s) => s.moves <= 4 },
     nomagic:   { name: _t("Чистые руки"),          desc: _t("победить без единого заклинания"),                  bonus: { defense: 2 },   test: (s) => s.spells === 0 },
     onespell:  { name: _t("Один выстрел"),         desc: _t("победить, использовав ровно одно заклинание"),      bonus: { fury: 2 },      test: (s) => s.spells === 1 },
     alchemist: { name: _t("Алхимик боя"),          desc: _t("победить, выпив в одном бою не меньше трёх эликсиров"), bonus: { health: 8 }, test: (s) => s.elixirs >= 3 },
@@ -210,7 +225,7 @@ const Medals = (() => {
      Счётчики хранятся в Profile.data.medals.world = { visited: {id:1}, caches, altars }. */
   const WORLD = {
     visit:  { name: _t("Свой в посёлке"),   desc: _t("побывать в 12 разных зданиях"),            bonus: { health: 10 },  test: (w) => Object.keys(w.visited || {}).length >= 12 },
-    chests: { name: _t("Хранитель ключей"), desc: _t("открыть все четыре сундука побережья"),    bonus: { power: 3 },    test: (w, d) => !!(d && d.chestOpened && d.xchests && d.xchests.ruby && d.xchests.emerald && d.xchests.obsidian) },
+    chests: { name: _t("Хранитель ключей"), desc: _t("открыть все четыре сундука побережья"),    bonus: { power: P(3) },    test: (w, d) => !!(d && d.chestOpened && d.xchests && d.xchests.ruby && d.xchests.emerald && d.xchests.obsidian) },
     caches: { name: _t("Кладоискатель"),    desc: _t("найти 10 тайников"),                       bonus: { defense: 3 },  test: (w) => (w.caches || 0) >= 10 },
     altars: { name: _t("Благословлённый"),  desc: _t("получить благословение у 5 древних алтарей"), bonus: { magic: 3 }, test: (w) => (w.altars || 0) >= 5 },
   };
@@ -239,7 +254,7 @@ const Medals = (() => {
      Условия: ctx = { hpLeft, tier, heroTier, lossStreak, spent }. */
   const SECRET = {
     hair:    { name: _t("На волоске"),         desc: _t("победить, оставшись с 1 ХП"),                       bonus: { block: 2 },     test: (c) => c.win && c.hpLeft === 1 },
-    giant:   { name: _t("Убийца великанов"),   desc: _t("победить существо на два цвета сильнее вас"),       bonus: { power: 3 },     test: (c) => c.win && c.tier >= c.heroTier + 2 },
+    giant:   { name: _t("Убийца великанов"),   desc: _t("победить существо на два цвета сильнее вас"),       bonus: { power: P(3) },     test: (c) => c.win && c.tier >= c.heroTier + 2 },
     stubborn:{ name: _t("Упрямый"),            desc: _t("проиграть 10 боёв подряд и не сдаться"),             bonus: { health: 10 },   test: (c) => (c.lossStreak || 0) >= 10 },
     spender: { name: _t("Широкая душа"),       desc: _t("потратить за один раз не меньше 100 золотых"),       bonus: { defense: 2 },   test: (c) => (c.spent || 0) >= 100 * 10000 },
   };
@@ -283,13 +298,14 @@ const Medals = (() => {
     if (styleKey(id) && STYLE[styleKey(id)]) return STYLE[styleKey(id)].name;
     if (worldKey(id) && WORLD[worldKey(id)]) return WORLD[worldKey(id)].name;
     if (secretKey(id) && SECRET[secretKey(id)]) return SECRET[secretKey(id)].name;
+    if (id.startsWith('spell:')) return _t("{0} заклинаний в победных боях", [id.slice(6)]);
     if (id.startsWith('drunk:')) return _t("{0} выпитых эликсиров", [id.slice(6)]);
     if (elixirKey(id)) return _t("Выпит: {0}", [ME_X().KINDS[elixirKey(id)].name]);
     if (id.startsWith('daily:')) return _t("{0} дней подряд в Испытании дня", [id.slice(6)]);
     return id;
   }
 
-  return { DRUNK_MILESTONES, drunkMedalId, checkDrunkMedal, ELIXIR_ORDER, ELIXIR_BONUS, elixirMedalId, elixirKey, checkElixirMedal, PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_NAMES, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
+  return { SPELL_MILESTONES, spellMedalId, checkSpellMedal, DRUNK_MILESTONES, drunkMedalId, checkDrunkMedal, ELIXIR_ORDER, ELIXIR_BONUS, elixirMedalId, elixirKey, checkElixirMedal, PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_NAMES, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
     strikeMedalId, checkKillMedal, checkFiveStreakMedal, checkStrikeMedal, bonusFor, bonusStats, nameFor, tierUnlockLevel };
 })();
 

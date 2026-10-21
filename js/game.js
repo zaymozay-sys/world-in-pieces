@@ -200,6 +200,9 @@ const canAffordMagic = (side, kind = 'lightning') => !fighters[side].isPet && MA
 const anyMagicAffordable = (side) => Object.keys(MAGICS).some((k) => canAffordMagic(side, k));
 // { lightning, fire, transmute, heal, chaos } → может ли сторона позволить себе именно это заклинание (для ИИ).
 const affordability = (side) => Object.fromEntries(Object.keys(MAGICS).map((k) => [k, canAffordMagic(side, k)]));
+// Под активной Шаровой молнией ИИ может добавить только Крест или Захват (связка «Молния + Крест/Захват»)
+const aimOnly = (side) => ({ fire: canAffordMagic(side, 'fire'), square: canAffordMagic(side, 'square') });
+const lightningMult = (f) => (f.magic ? Balance.magic.lightning.mult * Sky.spellMul(selNow(), 'lightning') : 0);
 
 function buildFighter(side) {
   const f = fighters[side];
@@ -263,7 +266,7 @@ function recalcStats(side) {
   const f = fighters[side];
   if (PET && side === 'left') return;               // боец питомца уже посчитан (Pets.petFighter)
   if (side === 'left' && cardFight()) {             // равные условия: как у тени по карточке
-    f.stats = Gear.combine(Gear.stats(f.gear), f.innate || {});
+    f.stats = Gear.combine(Gear.combine(Gear.stats(f.gear), f.innate || {}), Runes.bonusForGear(f.gear));   // руны и огранка — как у тени
     if (f.tempDef) f.stats.defense = (f.stats.defense || 0) + f.tempDef;
     f.max = f.base + f.stats.health + (f.tempMax || 0); f.hp = Math.min(f.hp, f.max); f.weaponPerk = Gear.weaponPerk(f.gear);
     return;
@@ -274,9 +277,11 @@ function recalcStats(side) {
     return;
   }
   f.stats = Gear.combine(side === 'left' ? Gear.statsFor(f.gear, Profile.level()) : Gear.stats(f.gear), f.innate || {});   // предметы + врождённые способности
+  if (side === 'right' && f.shadowHero) f.stats = Gear.combine(f.stats, Runes.bonusForGear(f.gear));   // тень живого игрока: его руны и огранка
   if (side === 'left') {
     f.stats = Gear.combine(f.stats, Profile.medalsBonus());
     f.stats = Gear.combine(f.stats, Elixirs.bonusStats(f.elx));   // 1.6.0: эликсиры, выпитые в этом бою
+    f.elxPct = Elixirs.activePct(f.elx);                          // 2.0.4: эликсир силы — % к суммарной Силе (Combat.power)
     f.stats = Gear.combine(f.stats, Runes.bonusForGear(f.gear));   // + руны, вставленные в снаряжение (js/runes.js)
     if (testMult() > 1) {
       const x = {};
@@ -284,6 +289,7 @@ function recalcStats(side) {
       f.stats = Gear.combine(x, {});                               // с обычными потолками
     }
   }
+  if (side === 'right') { f.stats = Gear.combine(f.stats, Elixirs.bonusStats(f.elx || {})); f.elxPct = Elixirs.activePct(f.elx || {}); }   // 2.0.4: трофейные эликсиры существа
   if (f.tempDef) f.stats.defense = (f.stats.defense || 0) + f.tempDef;   // Каменная кожа держится весь бой
   f.max = (side === 'left' ? f.base * testMult() : f.base) + f.stats.health;
   if (side === 'left' && f.bless === 'stone') f.max = Math.round(f.max * (1 + World.BLESSINGS.stone.amount / 100));   // 1.5.4: алтарь
@@ -353,14 +359,13 @@ function renderGear(side) {
     const it = Gear.item(f.gear[slot]);
     return `<span class="gslot ${it ? 'on' : ''}" title="${Gear.SLOT_NAMES[slot]}: ${it ? it.name : _t("пусто")}">${it ? itemIcon(it.type, itemColor(it), it.id) : ''}</span>`;
   }).join('');
-  const st = f.stats, power = st.power + buffPower(f);
+  const st = f.stats, power = Math.round(Combat.power(f));   // Сила = вещи + уровень + усиления: столько прибавляется к каждому удару
   const parts = [];
-  if (power) parts.push(_t("Сила +{0}%", [power]));
+  if (power) parts.push(_t("Сила +{0}", [power]));
   if (st.defense) parts.push(_t("Броня −{0}", [Combat.armorOf(f)]));
   if (st.block) parts.push(_t("Блок {0}%", [st.block]));
   if (st.ricochet) parts.push(_t("Рикошет {0}%", [st.ricochet]));
   if (st.initiative) parts.push(_t("Провор. {0}%", [st.initiative]));
-  if (st.magic) parts.push(_t("Магия {0}", [st.magic]));
   if (f.weaponPerk) parts.push(WEAPON_PERK_NAMES[f.weaponPerk.type] || '');
   el.querySelector('.statline').textContent = parts.join(' · ') || _t("Без снаряжения");
 }
@@ -444,6 +449,7 @@ function setupEnemy() {
   const id = Bestiary.MONSTERS[sel.id] ? sel.id : 'rat';
   const tier = Tiers.clamp(sel.tier);
   const m = Bestiary.MONSTERS[id], f = fighters.right;
+  f.elx = {}; f.elxPct = 0; f.elxTurn = 0; f.elxDrunk = 0;     // 2.0.4: трофейные эликсиры существа
   // Рой (Дикие пчёлы): размер выпадает заново при каждой встрече — 1, 3 или 5 «на деле» в одном бою
   // (см. Bestiary.rollSwarmSize/scaled). У видов без поля swarm всегда 1 и ни на что не влияет.
   const swarmSize = sel.swarm || Bestiary.rollSwarmSize(id, Math.random);
@@ -579,7 +585,7 @@ const MAGICS = {
   heal: { name: _t("Целебный дождь"), icon: healIcon,
     tip: _t("Лечит на сумму номиналов изумрудов на поле; использованные изумруды теряют один уровень номинала (×5 → ×3 → ×1)") },
   chaos: { name: _t("Хаос"), icon: chaosIcon,
-    tip: _t("Выберите центр области 3×3: камни в ней перемешиваются в лучший для вас расклад") },
+    tip: _t("Перемешивает все камни на поле без готовых линий и бьёт по врагу: за каждую пустую клетку — полкамня урона") },
   pierce: { name: _t("Выпад"), icon: (typeof pierceIcon === 'function' ? pierceIcon : chaosIcon),
     tip: _t("Выберите камень: он сгорит, поле осядет по обычным правилам (каскады — ваши), а ход не тратится. Очень дорого") },
   // Удар доступен всем фракциям с 1-го уровня (как стартовая пятёрка) — в Balance.spellUnlock не упомянут.
@@ -636,7 +642,7 @@ function buildSpellbar() {
     if (b.classList.contains('new-spell') && Profile.data.spellSeen) { Profile.data.spellSeen[k] = true; Profile.save(); b.classList.remove('new-spell'); }
     if (k === 'faction') useFactionAbility();
     else if (k === 'lightning') toggleMagic();
-    else if (k === 'fire' || k === 'transmute' || k === 'square' || k === 'chaos' || k === 'pierce') toggleAim(k);
+    else if (k === 'fire' || k === 'transmute' || k === 'square' || k === 'pierce') toggleAim(k);
     else playerInstant(k);      // heal, chaos, strike, mirror, tide, sacrifice, divination, fury
   });
 }
@@ -754,7 +760,7 @@ function useConsumable(side, kind) {
     logEvent(side, _t("{0}: Зелье здоровья, +{1} ХП", [f.name, ef.heal]));
   } else if (kind === 'elixir') {
     SND.lightning();
-    logEvent(side, _t("{0}: Боевой настой, +{1}% к урону до конца хода", [f.name, ef.power]));
+    logEvent(side, _t("{0}: Боевой настой, +{1} к Силе до конца хода", [f.name, ef.power]));
     note(_t("{0}: Боевой настой", [f.name]));
   } else if (kind === 'dust') {
     renderCounters(side);
@@ -794,6 +800,26 @@ function useConsumable(side, kind) {
 }
 
 // Расходники противника: использует по простым правилам в начале своего хода.
+// 2.0.4: существо пьёт трофейные эликсиры, отнятые у героя (Trophy): не больше одного за ход; сроки идут по ходам существа.
+async function enemyUseElixirs() {
+  const loot = host.main && !LIVE && Profile.data.monster && Profile.data.monster.loot, f = fighters.right;
+  if (!loot || f.hp <= 0) return;
+  let changed = false;
+  if (f.elxTurn !== f.turnNo) { f.elxTurn = f.turnNo; Elixirs.tick(f.elx); changed = true; }
+  if (f.elxDrunk !== f.turnNo) {
+    const key = Trophy.pick(loot, f.elx, f.hp / f.max);
+    if (key) {
+      const { kind, tier } = Trophy.split(key);
+      loot[key]--; if (loot[key] <= 0) delete loot[key];
+      f.elxDrunk = f.turnNo; changed = true;
+      if (kind === 'health') { const h = Math.min(f.max - f.hp, Elixirs.heal(tier)); f.hp += h; showFloat('right', '+' + h, 'heal'); }
+      else Elixirs.drink(f.elx, kind, tier, 0);
+      logEvent('right', _t("{0} выпивает отнятый у героя эликсир: {1}", [f.name, Elixirs.KINDS[kind].name]));
+      await sleep(500);
+    }
+  }
+  if (changed) { const hp = f.hp; recalcStats('right'); f.hp = Math.min(hp, f.max); renderFighters(); }
+}
 async function enemyUseItems() {
   for (const k of Combat.enemyItemPlan(fighters.right, anyMagicAffordable('right'))) if (useConsumable('right', k)) await sleep(650);
 }
@@ -822,7 +848,6 @@ function setupPet() {
     if (tr.hpMult > 1 || tr.defense) logEvent('left', _t("{0}: угощение даёт {1}{2}{3}", [petName(), tr.hpMult > 1 ? _t("больше здоровья") : '', tr.hpMult > 1 && tr.defense ? _t(" и ") : '', tr.defense ? _t("крепче броню") : '']));
     Profile.save();
     if (pet.fedBonus > 1) logEvent('left', _t("{0} сыт: удары сильнее на {1}% в этом бою", [petName(), Math.round((pet.fedBonus - 1) * 100)])); }
-  if (false) { pet.fedBonus = Pets.useFeed(Profile.pet()); Profile.save(); if (pet.fedBonus > 1) logEvent('left', _t("{0} сыт: удары сильнее на {1}% в этом бою", [petName(), Math.round((pet.fedBonus - 1) * 100)])); }
   petFell = false;
   renderPetPanel();
 }
@@ -927,7 +952,7 @@ function spellDisabled(kind, on, ready) {
   if (busy || over) return true;
   if (!spellOpen(kind)) return true;   // не открыто по уровню героя
   if (kind === 'lightning') return aiming || (!on && !ready);
-  if (kind === 'fire' || kind === 'transmute' || kind === 'square' || kind === 'chaos' || kind === 'pierce') return (aiming && !on) || (!on && !ready);
+  if (kind === 'fire' || kind === 'transmute' || kind === 'square' || kind === 'pierce') return (aiming && !on) || (!on && !ready);
   if (aiming || f.magic || !ready) return true;            // heal, chaos, strike, mirror, tide, sacrifice, divination
   if (kind === 'heal' && f.hp >= f.max) return true;
   if (kind === 'fury' && !furyState().ok) return true;      // родной цвет не господствует на поле
@@ -1054,7 +1079,16 @@ const EC_BUFFS = {
   evasion: ['shield', _t("Изворотливость"), _t("Блок")], retribution: ['spikes', _t("Возмездие"), _t("Рикошет")],
 };
 
+// Фон боя: во дворе замка — лунный зал (ui/bg-castle), иначе лесная поляна (ui/bg-battle).
+function applyBattleBg() {
+  try {
+    if (typeof Art === 'undefined') return;
+    const k = (selNow().castle && Art.has('ui/bg-castle')) ? 'ui/bg-castle' : 'ui/bg-battle';
+    if (Art.has(k)) document.body.style.setProperty('--battle-bg', `url('${new URL(Art.url(k), location.href).href}')`);
+  } catch (e) { /* без картинок остаётся цветной фон */ }
+}
 function renderEnemyColumn() {
+  applyBattleBg();
   if (!enemyColEl) return;
   if (!document.body.classList.contains('ui-columns')) { enemyColEl.innerHTML = ''; return; }
   const f = fighters.right;
@@ -1155,8 +1189,8 @@ async function useFactionAbility(side = 'left') {
     f.buffs.push({ kind: 'banner', amount: F.banner.power, turns: F.banner.turns });
     showFloat(side, _t("Знамя!"), 'buff');
     SND.lightning();
-    logEvent(side, _t("{0}: Знамя — +{1}% к урону на {2}", [f.name, F.banner.power, `${F.banner.turns} ${turnsWord(F.banner.turns)}`]));
-    if (side === 'left') note(_t("Знамя поднято: +{0}% к урону на {1} хода", [F.banner.power, F.banner.turns]));
+    logEvent(side, _t("{0}: Знамя — +{1} к Силе на {2}", [f.name, F.banner.power, `${F.banner.turns} ${turnsWord(F.banner.turns)}`]));
+    if (side === 'left') note(_t("Знамя поднято: +{0} к Силе на {1} хода", [F.banner.power, F.banner.turns]));
   } else if (id === 'venom') {
     const dmg = Combat.venomTick(Combat.power(f), f.dmg);
     foe.poison = { turns: F.venom.turns, dmg };
@@ -1392,7 +1426,6 @@ function useElixir(kind, tier) {
   } else {
     Elixirs.drink(f.elx, kind, tier, elxExtra());
     f.elxUsed[kind] = false;
-    if (kind === 'fury' && tier >= Elixirs.FX_MIN) f.critExtra = Elixirs.effect('fury', tier).v - 2;
     elxRecalc();
     SND.lightning();
     showFloat('left', K.name, 'buff');
@@ -1456,25 +1489,19 @@ function openElxMenu() {
 }
 function elxImmune() { return false; }                      // 1.5.1: невосприимчивость заменена «первым ударом слабее»
 
-function dealDamage(target, amount, raw = false, cover = true) {
+function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   const tag = dmgTag; dmgTag = '';
   if (amount <= 0) return 0;
   const attackerSide = other(target), attacker = fighters[attackerSide];
   const victim = target === 'right' && cover ? Combat.enemyTarget(fighters.right) : fighters[target];
-  if (!raw && attackerSide === 'left') {                       // эликсир силы: первый ваш удар в бою сильнее
-    const fx = elxFire('power'); if (fx) amount = Math.round(amount * fx.v);
-  }
   if (!raw && attackerSide === 'left' && target === 'right') {   // 1.6.2: коллекция медалей — урон по семейству
     const pct = Medals.familyBonus(Profile.medals(), (Bestiary.MONSTERS[fighters.right.monsterId] || {}).family);
-    if (pct) amount = Math.max(1, Math.round(amount * (1 + pct / 100)));
-  }
-  if (!raw && attackerSide === 'left' && target === 'right' && !isChallenge() && !cardFight() && !PET && Profile.perk('strike') && victim.hp < victim.max * 0.3) {
-    amount = Math.max(1, Math.round(amount * 1.25));            // 1.6.3: умение «Добивание»
+    if (pct) mult *= 1 + pct / 100;
   }
   if (!raw && target === 'left') {                             // эликсир брони: первый удар по вам слабее
-    const fx = elxFire('defense'); if (fx) amount = Math.max(1, Math.round(amount * (1 - fx.v / 100)));
+    const fx = elxFire('defense'); if (fx) mult *= Math.max(0.01, 1 - fx.v / 100);
   }
-  const r = Combat.hit(attacker, victim, amount, raw);
+  const r = Combat.hit(attacker, victim, amount, raw, undefined, mult);
   if (r.charged) showFloat(attackerSide, _t("Натиск!"), 'buff');
   if (r.pierceBlock) showFloat(attackerSide, _t("Пробивной болт!"), 'buff');
   if (target === 'left' && (r.kind === 'block' || r.kind === 'blockreflect')) {     // эликсир блока: контрудар
@@ -2317,7 +2344,8 @@ function rewardFor(f, first = true, opts = {}) {
   Profile.data.wins++;
   Profile.noteBattle();
   if (typeof Chron !== 'undefined') { const w = Chron.winMark(Profile.data, Profile.data.wins); if (w) Profile.save(); }
-  if (Profile.huntWin()) MapView.toast(_t("Пояс охотника заряжен: в следующем бою урон и добыча +25%"), 3500);
+  // Пояс охотника заряжается только настоящим боем (не быстрым) с существом не слабее цвета героя минус один
+  if (!opts.quick && f.tier >= Hero.tierFor(Profile.level()) - 1 && Profile.huntWin()) MapView.toast(_t("Пояс охотника заряжен: в следующем бою урон и добыча +25%"), 3500);
   Profile.recordWin(f.monsterId, f.tier);
   { const sh = Profile.data.ship;       // 1.8.7: сильные звери помогают вытащить бригантину в море
     if (sh && sh.paid && !sh.fixed && ['boar', 'elk', 'rhino', 'leopard', 'lynx'].includes(f.monsterId) && (sh.pulls || 0) < 5) {
@@ -2327,6 +2355,7 @@ function rewardFor(f, first = true, opts = {}) {
   const up = Profile.addXp(xp);
   const killMedal = Profile.checkKillMedal(f.monsterId, Hero.tierFor(Profile.level()));   // первая победа над видом
   const shotMedal = first && shotKilledMonster ? Profile.registerShotKill(Hero.tierFor(Profile.level())) : null;
+  const spellMedal = first && !opts.quick ? Profile.registerSpellWins(battleStyle.spells, Hero.tierFor(Profile.level())) : null;   // 2.0.4: «Чародей»
   const strikeMedal = first && strikeKilledMonster ? Profile.registerStrikeKill(Hero.tierFor(Profile.level())) : null;
   const styleMedals = first && !opts.quick ? Profile.registerBattleStyle({ fullHp: fighters.left.hp >= fighters.left.max, moves, spells: battleStyle.spells, elixirs: battleStyle.elixirs }, Hero.tierFor(Profile.level())) : [];
   const secretMedals = first && !opts.quick ? Profile.noteSecret({ win: true, hpLeft: Math.round(fighters.left.hp), tier: f.tier, heroTier: Hero.tierFor(Profile.level()) }) : [];
@@ -2336,13 +2365,14 @@ function rewardFor(f, first = true, opts = {}) {
   if (eggKind) lines.push(_t("<b class=\"lvlup\">Находка!</b> {0} — высиживается в Питомнике", [Pets.EGGS[eggKind].name]));
   if (killMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(killMedal.id)]));
   if (shotMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(shotMedal.id)]));
+  if (spellMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(spellMedal.id)]));
   if (strikeMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(strikeMedal.id)]));
   for (const sm of secretMedals) lines.push(_t("<b class=\"lvlup\">Секретная медаль!</b> {0}", [Medals.nameFor(sm.id)]));
   for (const sm of styleMedals) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(sm.id)]));
-  for (const m of [killMedal, shotMedal, strikeMedal, ...secretMedals, ...styleMedals]) {      // 1.6.3: собран комплект — умение и реликвия
-    if (m && m.relic) { const gk = m.relic.slice(6); lines.push(_t("<b class=\"lvlup\">Комплект собран!</b> Умение «{0}»: {1}. Реликвия: {2}", [Medals.PERKS[gk].name, Medals.PERKS[gk].desc, Gear.item({ id: m.relic, tier: 1 }).name])); }
+  for (const m of [killMedal, shotMedal, strikeMedal, spellMedal, ...secretMedals, ...styleMedals]) {      // 1.6.3: собран комплект — умение и реликвия
+    if (m && m.relic) { const gk = m.relic.slice(6); lines.push(Medals.PERKS[gk] ? _t("<b class=\"lvlup\">Комплект собран!</b> Умение «{0}»: {1}. Реликвия: {2}", [Medals.PERKS[gk].name, Medals.PERKS[gk].desc, Gear.item({ id: m.relic, tier: 1 }).name]) : _t("<b class=\"lvlup\">Комплект собран!</b> Реликвия: {0}", [Gear.item({ id: m.relic, tier: 1 }).name])); }
   }
-  for (const m of [killMedal, shotMedal, strikeMedal, ...secretMedals, ...styleMedals]) {        // 1.8.5: медаль — картинкой в добыче, по нажатию/наведению — суть
+  for (const m of [killMedal, shotMedal, strikeMedal, spellMedal, ...secretMedals, ...styleMedals]) {        // 1.8.5: медаль — картинкой в добыче, по нажатию/наведению — суть
     if (!m) continue;
     const e = Profile.medals().find((x) => x.id === m.id), cap = Screens.medalCaption(m.id);
     chips.push(`<button type="button" class="loot-chip medal-chip" data-cap="${cap.replace(/"/g, '&quot;')}" title="${cap.replace(/"/g, '&quot;')}">${Screens.medalTile(m.id, e || { id: m.id, tier: 1 }, Profile.level(), 1, 1).replace(/ data-medal="[^"]*"| data-tip="[^"]*"| tabindex="0"| role="button"/g, '')}</button>`);
@@ -2369,7 +2399,7 @@ function rewardFor(f, first = true, opts = {}) {
   }
   if (up.to > up.from) {
     const L = up.to, t = Hero.tierFor(L);
-    lines.unshift(_t("<b class=\"lvlup\">Новый уровень {0}!</b> ХП {1}, урон камня ×{2}, очки снаряжения {3}", [L, Hero.baseHp(L), Hero.dmgMult(L), Hero.budget(L)]) +
+    lines.unshift(_t("<b class=\"lvlup\">Новый уровень {0}!</b> ХП {1}, Сила уровня {2}, очки снаряжения {3}", [L, Hero.baseHp(L), Math.round(Hero.levelPower(L) * 10) / 10, Hero.budget(L)]) +
       (Hero.itemLevel(t) === L ? _t(". Теперь можно надевать вещи цвета «{0}»", [Tiers.get(t).name]) : ''));
     const opened = Object.entries(Balance.spellUnlock).filter(([k, lv]) => lv > up.from && lv <= up.to && MAGICS[k]).map(([k]) => MAGICS[k].name);
     if (opened.length) lines.splice(1, 0, _t("<b class=\"lvlup\">Новое заклинание:</b> {0}", [opened.join(', ')]));   // 1.4.3: не пропустить открытие магии
@@ -2468,7 +2498,7 @@ function specialResult(win) {
     if (r.on) {
       if (win) {
         const wv = r.wave, res = Run.win(r, Math.round(World.arenaCoins(Math.max(1, T), 2) * 0.5 * Run.modMult(r.mod) * Events.mul(Events.current(Date.now(), new Date().getTimezoneOffset()).id, 'run')), Daily.today());
-        Profile.data.wins++;
+        if (res.add > 0) { Profile.data.wins++; Daily.registerWin(); }   // победы засчитываются только за оплачиваемые волны: после суточного лимита счётчик не накручивается
         lines.push(res.add ? _t("Волна {0} пройдена: в копилку +{1} (всего {2})", [wv, MonsterArt.moneyHtml(res.add), MonsterArt.moneyHtml(r.pot)]) : _t("Волна {0} пройдена. Монеты за сегодня уже набраны — рекорд всё равно растёт.", [wv]));
         if (res.done) { const c = Run.cash(r); Profile.addCoins(c); lines.push(_t("<b class=\"lvlup\">Все волны пройдены!</b> Выплата: {0}", [MonsterArt.moneyHtml(c)])); }
       } else {
@@ -2663,8 +2693,8 @@ async function autoTurn() {
     if (!autopilot) { busy = false; renderMagic(); startTurnTimer(); return; }   // управление передали нам посреди хода
     const f = fighters.left;
     const v = Combat.aiView(f, fighters.right);
-    const afford = (f.isPet || f.magic) ? {} : Object.fromEntries(Object.keys(MAGICS).map((k) => [k, spellOpen(k) && canAffordMagic('left', k)]));
-    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, autoLevel, afford, { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('left') });
+    const afford = f.isPet ? {} : f.magic ? Object.fromEntries(['fire', 'square'].map((k) => [k, spellOpen(k) && canAffordMagic('left', k)])) : Object.fromEntries(Object.keys(MAGICS).map((k) => [k, spellOpen(k) && canAffordMagic('left', k)]));
+    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, autoLevel, afford, { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('left'), strike: Combat.strikeDamage(f), lightning: lightningMult(f) });
     if (!mv) { note(_t("{0} не нашёл хода", [f.name])); break; }
     let res;
     if (SPELL_NAMES[mv.kind]) {
@@ -2877,7 +2907,7 @@ async function castFire(side, cell, opts = {}) {
 
   const target = other(side);
   const burning = [];
-  let dmg = 0, maxDist = 0, all = 0, obs = 0, charge = 0;
+  let dmg = 0, spellMul = 1, maxDist = 0, all = 0, obs = 0, charge = 0;
   const gotTypes = new Set();
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
@@ -2911,15 +2941,14 @@ async function castFire(side, cell, opts = {}) {
     // Фиксированный + базовый урон героя + обсидианы; под Шаровой молнией — все собранные камни с её множителем.
     const B = Balance.magic, fx = (shape === 'square' ? B.square : B.cross).fixed;
     const stones = fighters[side].magic ? Math.round(all * B.lightning.mult * Sky.spellMul(selNow(), 'lightning')) : obs;
-    dmg = shape === 'point' ? 0 : fx + Combat.strikeDamage(fighters[side]) + stones;   // Выпад: урона нет, ценна позиция
-    if (mult !== 1 && dmg > 0) dmg = Math.max(1, Math.round(dmg * mult));            // 1.5.1: слабость семейства (шашка)
-    const fm = Sky.spellMul(selNow(), 'fire');                            // 1.7.1: ливень гасит огонь
-    if (fm !== 1 && dmg > 0) dmg = Math.max(1, Math.round(dmg * fm));
+    dmg = shape === 'point' ? 0 : fx + stones;   // Выпад: урона нет, ценна позиция
+    // (камни + Сила) × множитель заклинания × слабость семейства (1.5.1, шашка) × ливень гасит огонь (1.7.1)
+    spellMul = (shape === 'square' ? B.square : B.cross).mult * mult * Sky.spellMul(selNow(), 'fire');
     renderCounters(side, [...gotTypes]);
     if (charge) addCharge(charge, side);
     turnStats.stones += burning.length;
   }
-  const dealt = dealDamage(target, dmg);
+  const dealt = dealDamage(target, dmg, false, true, spellMul);
   logEvent(side, _t("{0}: {1}, собрано {2}, урон {3}", [fighters[side].name, title, burning.length, dealt]));
   await sleep(RULES.timing.burn + maxDist * 70);
 
@@ -3055,7 +3084,6 @@ async function castChaos(side) {
   spendMagic(side, -1, 'chaos');
   note(_t("Хаос!"));
   SND.chaos();
-  logEvent(side, _t("{0}: Хаос, поле перемешано", [fighters[side].name]));
 
   const cells = [];
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (grid[r][c]) cells.push({ r, c });
@@ -3078,6 +3106,11 @@ async function castChaos(side) {
     final[i].el.classList.add('chaos');
     setTimeout(() => final[i].el.classList.remove('chaos'), 600);
   });
+  const empty = N * N - cells.length;                  // Хаос бьёт по врагу: Balance.magic.chaos.perEmpty за каждую пустую клетку поля
+  if (empty > 0) {
+    const dealt = dealDamage(other(side), empty * Balance.magic.chaos.perEmpty);
+    logEvent(side, _t("{0}: Хаос, пустых клеток {1}, урон {2}", [fighters[side].name, empty, dealt]));
+  } else logEvent(side, _t("{0}: Хаос, поле перемешано", [fighters[side].name]));
   await sleep(650);
   return afterSpell(side);
 }
@@ -3353,12 +3386,13 @@ async function enemyTurn() {
   if (LIVE) { if (await liveRemoteTurn()) return; }
   else if (fighters.right.hp > 0) for (;;) {
     await sleep(RULES.timing.think);
+    await enemyUseElixirs();
     await enemyUseItems();
 
     const f = fighters.right;
     const v = Combat.aiView(f, fighters.left);          // ХП в «камнях» с учётом роста урона, Силы и Брони
-    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, softLevel(f.level), f.magic || softWins0() ? {} : affordability('right'),
-      { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right') });
+    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, softLevel(f.level), softWins0() ? {} : f.magic ? aimOnly('right') : affordability('right'),
+      { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: lightningMult(f) });
     if (!mv) { note(_t("{0} не нашёл хода", [f.name])); break; }
 
     let res;
@@ -3464,7 +3498,7 @@ async function enemyTurnStart() {
       if (prankSwap()) say(_t("Пакость: поменял два камня местами")); else acted = false;
       break;
     case 'howl':
-      say(_t("Вой! Этот ход бьёт на {0}% сильнее", [A.howl.power])); renderMagic();
+      say(_t("Вой! В этот ход Сила +{0}", [A.howl.power])); renderMagic();
       break;
     case 'petrify': {
       const cols = [...Array(N).keys()].filter((c) => grid.some((row) => row[c]));
@@ -3615,7 +3649,7 @@ async function resolveBoard(side) {
       // только ресурсы (так задумано: взрыв собирает соседей в копилку, но «боевой
       // эффект» — только если сосед тоже был обсидианом). Клетки исчезают с поля сразу же в этом же
       // проходе — ниже идут gravity/shiftRight, они не ждут следующего хода игрока.
-      if (tile.ti === ONYX || f.magic) dmg += amount;       // под Молнией — множитель Balance.magic.lightning.mult (ниже)
+      if (tile.ti === ONYX || f.magic) dmg += tile.value * bon[i];       // номинал × бонус линии; Сила прибавляется к сумме волны в Combat.hit; под Молнией — множитель Balance.magic.lightning.mult (ниже)
       if (bon[i] > maxBonus) maxBonus = bon[i];
       bumped.add(tile.type);
       tile.el.classList.add('pop');
@@ -3643,7 +3677,7 @@ async function resolveBoard(side) {
       Combat.addSpores(f, got);
       renderBadge('right');
     }
-    turnStats.dmg += dealDamage(target, f.magic ? Math.round(dmg * Balance.magic.lightning.mult * Sky.spellMul(selNow(), 'lightning')) : dmg);
+    turnStats.dmg += dealDamage(target, dmg, false, true, f.magic ? Balance.magic.lightning.mult * Sky.spellMul(selNow(), 'lightning') : 1);   // (камни + Сила) × Молния
     await sleep(RULES.timing.clear);
 
     for (let i = 0; i < N * N; i++) {
@@ -3987,7 +4021,8 @@ renderFs();
 if (host.main) {
   const moreBtn = $('more'), moreMenu = $('more-menu');
   const phoneMq = () => {
-    const small = Math.min(window.innerWidth, window.innerHeight) <= 520 && matchMedia('(pointer: coarse)').matches;
+    // Раскладка «телефон» по размеру окна, а не только по сенсорному вводу: узкое окно на компьютере иначе уходит за нижний край экрана
+    const small = Math.min(window.innerWidth, window.innerHeight) <= 520;
     document.body.classList.toggle('phone', small || (typeof location !== 'undefined' && /[?&]phone\b/.test(location.search)));
   };
   phoneMq(); window.addEventListener('resize', phoneMq); window.addEventListener('orientationchange', phoneMq);
@@ -4091,6 +4126,7 @@ if (host.main) {
   elxArm: { get: () => elxArm, enumerable: true, configurable: true },
   elxBadgeKey: { get: () => elxBadgeKey, set: (v) => { elxBadgeKey = v; }, enumerable: true, configurable: true },
   elxFire: { get: () => elxFire, enumerable: true, configurable: true },
+  enemyUseElixirs: { get: () => enemyUseElixirs, enumerable: true, configurable: true },
   useElixir: { get: () => useElixir, enumerable: true, configurable: true },
   elxWhy: { get: () => elxWhy, enumerable: true, configurable: true },
   openElxMenu: { get: () => openElxMenu, enumerable: true, configurable: true },

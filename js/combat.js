@@ -25,7 +25,7 @@ const Combat = (() => {
   const armorOf = (f) => armorAt(f.stats && f.stats.defense, f.dmg);
   const mitigate = (amount, armor) => Math.max(Math.max(1, Math.ceil(amount * FLOOR)), Math.round(amount) - armor);
   // Доля удара нападающего (типичного, линия из 3 камней), доходящая до цели, — для оценок ИИ.
-  const armorFactor = (attacker, target) => { const a = Math.max(0.01, (attacker.dmg || 1) * (1 + power(attacker) / 100) * C_B.damage.stone * HIT_STONES); return Math.max(FLOOR, 1 - armorOf(target) / a); };
+  const armorFactor = (attacker, target) => { const a = Math.max(0.01, AVG_HIT + power(attacker)); return Math.max(FLOOR, 1 - armorOf(target) / a); };
 
   // Сумма всех усилений урона (эликсир силы, Знамя, Вой).
   const buffPower = (f) => f.buffs.reduce((s, b) => s + (b.amount || 0), 0);
@@ -34,12 +34,23 @@ const Combat = (() => {
   // срабатываний подряд СКЛАДЫВАЮТСЯ (каждое — отдельная запись в buffs со своим таймером в 3 хода).
   const buffStat = (f, kind) => f.buffs.reduce((s, b) => s + (b.kind === kind ? (b.amount || 0) : 0), 0);
 
-  // Итоговая Сила бойца: снаряжение + усиления + Ярость раненого орка.
+  /* Сила — единственная прибавка к удару: удар = (камни + Сила) × магия × Ярость − Броня.
+     Камни не растут с уровнем. Рост урона даёт Сила уровня: levelPower(dmg) = 4,5 · levelMul · (dmg − 1), то есть линия из трёх
+     камней среднего номинала (4,5) бьёт так же, как раньше била «4,5 × dmg». dmg хранит рост бойца (герой — по уровню, существо — по цвету)
+     и по-прежнему множится Знаменем, Яростью дракона, питомцами и т. п. — Сила уровня пересчитывается сама.
+     Усиления Знамя/Вой/эликсир/Ярость орка заданы в «старых очках» (0,045 × dmg Силы за очко). */
+  const levelPower = (dmg) => HIT_STONES * C_B.damage.stone * (C_B.damage.levelMul || 1) * Math.max(0, (dmg || 1) - 1);
+  const buffUnit = (f) => 0.045 * (f.dmg || 1);
+  const basePower = (f) => ((f.stats && f.stats.power) || 0) + levelPower(f.dmg);
   function power(f) {
-    let p = f.stats.power + buffPower(f);
-    if (f.ability === 'rage' && f.hp < f.max * A.rage.below) p += A.rage.power;
-    return p;
+    let p = (f.stats.power || 0) + levelPower(f.dmg);
+    let extra = buffPower(f);
+    if (f.ability === 'rage' && f.hp < f.max * A.rage.below) extra += A.rage.power;
+    return (p + extra * buffUnit(f)) * (1 + (f.elxPct || 0) / 100);   // 2.0.4: эликсир силы — % от суммарной Силы
   }
+  // Типичный удар (линия из HIT_STONES камней среднего номинала) — для оценок шансов, брони и ИИ.
+  const AVG_HIT = C_B.damage.stone * HIT_STONES;
+  const powerEst = (f) => (AVG_HIT + power(f)) / AVG_HIT;
 
   // Снимает ХП. «Неупокоенный» один раз встаёт вместо смерти. Возвращает true, если боец восстал.
   function loseHp(f, amount) {
@@ -65,7 +76,7 @@ const Combat = (() => {
      как обычно на уже удвоенный урон).
      raw = true — урон без модификаторов (штраф за неверный ход, яд).
      Возвращает { kind: 'hit' | 'block' | 'reflect', amount, charged, crit, pierce, heal, revived, attackerRevived }. */
-  function hit(attacker, target, amount, raw = false, rand = battleRand) {
+  function hit(attacker, target, amount, raw = false, rand = battleRand, mult = 1) {
     const out = { kind: 'hit', amount: 0, charged: false, crit: false, pierce: false, pierceBlock: false, shred: 0, heal: 0, revived: false, attackerRevived: false };
     if (amount <= 0) return out;
     if (raw) {
@@ -73,7 +84,7 @@ const Combat = (() => {
       out.amount = amount;
       return out;
     }
-    amount = Math.ceil(amount * (attacker.dmg || 1) * (1 + power(attacker) / 100));   // dmg — рост урона с уровнем/цветом
+    amount = Math.ceil((amount + power(attacker)) * mult);   // (камни + Сила) × магия; рост урона — внутри Силы
     // Жертва: если заклинатель принёс в жертву ХП перед этим сбором, следующий удар усилен ×mult —
     // одноразово, флаг снимается сразу (см. Combat.applySacrifice).
     if (attacker.tripleNext) {
@@ -191,7 +202,7 @@ const Combat = (() => {
   // Цена заклинания kind в камнях каждого вида при Магии бойца (по умолчанию — Шаровая молния, самое частое
   // заклинание). Смола Древеня (см. ability 'sap') на 1 ход добавляет камень, независимо от заклинания.
   const spellCost = (f, kind = 'lightning') => {
-    const base = Math.max(C_B.magic.minCost, C_B.magic.costs[kind] - Math.floor(f.stats.magic / C_B.magic.magicPerStone));
+    const base = Math.max(C_B.magic.minCost, C_B.magic.costs[kind]);
     const sap = f.buffs.filter((b) => b.kind === 'sap').reduce((s, b) => s + (b.extra || 0), 0);
     return base + sap;
   };
@@ -438,18 +449,18 @@ const Combat = (() => {
     return { kind: id, passive: true };
   }
 
-  // Урон яда за один ход: растёт с Силой и уровнем отравителя.
-  const venomTick = (pow, dmg = 1) => Math.ceil(C_B.faction.venom.base * dmg * (1 + pow / 100));
+  // Урон яда за один ход: растёт с уровнем и Силой отравителя.
+  const venomTick = (pow, dmg = 1) => Math.ceil(C_B.faction.venom.base * dmg + 0.25 * pow);
   // Лечение Целебного дождя: сумма номиналов цветных камней × рост урона заклинателя.
   const rainHeal = (f, sum) => Math.min(f.max - f.hp, Math.round(sum * (f.dmg || 1)));
   /* ХП цели в «камнях» нападающего: сколько собранных камней нужно, чтобы её добить (с учётом роста урона,
      Силы нападающего и Брони цели). ИИ считает в камнях, поэтому ему передаются такие значения. */
   const hpUnits = (target, attacker, hp = target.hp) =>
-    hp / Math.max(0.01, (attacker.dmg || 1) * (1 + power(attacker) / 100) * armorFactor(attacker, target));
+    hp / Math.max(0.01, powerEst(attacker) * armorFactor(attacker, target));
   // Всё, что нужно ИИ бойца me против соперника opp.
   const aiView = (me, opp) => ({
     hpMe: hpUnits(me, opp), hpOpp: hpUnits(opp, me), maxMe: hpUnits(me, opp, me.max),
-    healMult: (me.dmg || 1) / Math.max(0.01, (opp.dmg || 1) * (1 + power(opp) / 100) * armorFactor(opp, me)),
+    healMult: (me.dmg || 1) / Math.max(0.01, powerEst(opp) * armorFactor(opp, me)),
   });
   /* Оценка шанса победы «среднего» игрока: hero = { max, dmg, stats }, mon = { max, dmg, stats, ai }, species — вид.
      Модель и её числа — Balance.danger (обучена на симуляторе). */
@@ -462,8 +473,10 @@ const Combat = (() => {
       const [a0, v0] = D.aiTable[i - 1], [a1, v1] = D.aiTable[i];
       if (mon.ai <= a1) { aiDmg = v0 + (v1 - v0) * (Math.max(a0, mon.ai) - a0) / (a1 - a0); break; }
     }
-    const heroDpr = D.heroBase * (hero.dmg || 1) * (1 + (hero.stats.power || 0) / 100) * (1 + 0.06 * Math.floor((hero.stats.magic || 0) / 4));
-    const monDpr = aiDmg * (mon.dmg || 1) * (1 + (mon.stats.power || 0) / 100);
+    // Удар за ход = камни + Сила за каждое собрание: собраний за ход примерно столько, сколько линий среднего размера в heroBase.
+    const heroHits = D.heroBase / AVG_HIT, monHits = aiDmg / AVG_HIT;
+    const heroDpr = D.heroBase + heroHits * basePower(hero);
+    const monDpr = aiDmg + monHits * basePower(mon);
     const x = Math.log((ehp(hero) / monDpr) / (ehp(mon) / heroDpr));
     const z = D.slope * x + D.init * ((hero.stats.initiative || 0) - (mon.stats.initiative || 0)) / 100 + (D.offset[species] || 0);
     return 1 / (1 + Math.exp(-z));
@@ -540,7 +553,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { armorOf, armorAt, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { levelPower, basePower, armorOf, armorAt, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

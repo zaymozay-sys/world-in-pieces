@@ -14,6 +14,7 @@ const SG_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
 const SG_E = (typeof Elixirs !== 'undefined') ? Elixirs : require('./elixirs.js');
 const SG_A = (typeof Ammo !== 'undefined') ? Ammo : require('./ammo.js');
 const SG_R = (typeof Runes !== 'undefined') ? Runes : require('./runes.js');
+const SG_S = (typeof Stones !== 'undefined') ? Stones : (typeof require === 'function' ? require('./stones.js') : null);
 const SG_P = (typeof Pets !== 'undefined') ? Pets : require('./pets.js');
 
 const SaveGuard = (() => {
@@ -59,6 +60,11 @@ const SaveGuard = (() => {
         else if (!Number.isInteger(c.dur) || c.dur < 0 || c.dur > max) { c = { ...c, dur: Math.max(0, Math.min(max, Math.round(c.dur))) }; fix('прочность вещи ' + e.id); }
         if (c.dur !== undefined && c.dur >= max) { c = { ...c }; delete c.dur; }   // целую вещь храним без поля
       }
+      if (c.runes !== undefined) {                                     // руны: только известные, не больше гнёзд
+        const rs = Array.isArray(c.runes) ? c.runes.filter((r) => typeof r === 'string' && SG_R.CATALOG[r]).slice(0, SG_R.socketsFor(c)) : [];
+        if (!Array.isArray(c.runes) || rs.length !== c.runes.length) { c = { ...c }; fix('руны вещи ' + e.id); if (rs.length) c.runes = rs; else delete c.runes; }
+      }
+      if (c.cut !== undefined && !(SG_S && SG_S.valid(c.cut))) { c = { ...c }; delete c.cut; fix('огранка вещи ' + e.id); }
       seen.add(c.uid); items.push(c);
     }
     d.items = items;
@@ -122,7 +128,7 @@ const SaveGuard = (() => {
     if (!isObj(d.medals)) { fix('медали'); d.medals = { earned: [], fiveStreaks: 0, strikeKills: 0 }; }
     if (isObj(d.medals)) {
       d.medals.earned = (Array.isArray(d.medals.earned) ? d.medals.earned : []).filter((m, i, a) => isObj(m) && typeof m.id === 'string' && m.id && a.findIndex((x) => isObj(x) && x.id === m.id) === i).map((m) => (tierOk(m.tier) ? m : { ...m, tier: clampTier(m.tier) }));
-      for (const k of ['fiveStreaks', 'strikeKills', 'shotKills', 'drunk']) if (d.medals[k] !== undefined && (!Number.isInteger(d.medals[k]) || d.medals[k] < 0)) { fix('медали.' + k); d.medals[k] = Math.max(0, Math.floor(nonNeg(d.medals[k]))); }
+      for (const k of ['fiveStreaks', 'strikeKills', 'shotKills', 'drunk', 'spellWins']) if (d.medals[k] !== undefined && (!Number.isInteger(d.medals[k]) || d.medals[k] < 0)) { fix('медали.' + k); d.medals[k] = Math.max(0, Math.floor(nonNeg(d.medals[k]))); }
     }
 
     // --- бестиарий: известные виды, счётчик побед, цвет ---
@@ -137,6 +143,14 @@ const SaveGuard = (() => {
     }
     // --- 1.6.6: отметка «бой идёт» (закрытие вкладки после первого хода — поражение) ---
     if (d.battle !== null && d.battle !== undefined && !(isObj(d.battle) && typeof d.battle.moved === 'boolean')) { fix('бой'); d.battle = null; }
+    // разделы новых систем (1.8.6–1.9.x): у каждого модуля есть своя clean(); раньше она вызывалась лениво, при открытии окна
+    const modOf = (name, file) => (typeof globalThis !== 'undefined' && globalThis[name]) || (typeof require === 'function' ? (() => { try { return require(file); } catch (e) { return null; } })() : null);
+    for (const [key, name, file] of [['stones', 'Stones', './stones.js'], ['compass', 'Compass', './compass.js'], ['bank', 'Bank', './bank.js'], ['streak', 'Streak', './streak.js'], ['puzzle', 'Puzzle', './puzzle.js'], ['lessons', 'Lessons', './lessons.js'], ['chess', 'Chess', './chess.js'], ['lh', 'LHGames', './lhgames.js'], ['crafts', 'Crafts', './crafts.js'], ['decor', 'Decor', './decor.js'], ['mail', 'Mail', './mail.js'], ['trader', 'Trader', './trader.js'], ['run', 'Run', './run.js']]) {
+      if (d[key] === undefined || d[key] === null) continue;           // нет раздела — не создаём
+      const M = modOf(name, file);
+      if (!M || typeof M.clean !== 'function') continue;
+      try { d[key] = key === 'bank' ? M.clean(d[key], 2e9) : M.clean(d[key]); } catch (e) { fix('раздел ' + key + ' сброшен'); delete d[key]; }
+    }
     return { fixed: notes.length, notes };
   }
 

@@ -23,7 +23,7 @@ const Factions = (() => {
       stats: { initiative: 6, block: 5 },
       perks: { shop: 0.9, coins: 1.1 },
       perkText: _t("Лавка дешевле на 10%, монет с добычи на 10% больше"),
-      ability: { id: 'banner', name: _t("Знамя"), desc: _t("+50% к урону на 3 ваших хода") },
+      ability: { id: 'banner', name: _t("Знамя"), desc: _t("+50 к Силе на 3 ваших хода") },
     },
     dwarf: {
       name: _t("Гномы"), people: _t("Подгорные кланы"), hero: _t("Старый боевой гном"), heroF: _t("Боевая гномка"), figure: 'dwarf',
@@ -61,18 +61,18 @@ const Factions = (() => {
   // Звание героя с учётом пола (по умолчанию — мужской вариант).
   const heroTitle = (id, gender) => { const f = LIST[id]; return f ? (gender === 'f' ? f.heroF : f.hero) : ''; };
   // Врождённые бонусы фракции растут с уровнем героя, как характеристики вещей его цвета:
-  // Здоровье — как ХП, Сила — умеренно, шансы — медленно. tf — «дробный цвет» уровня (Hero.tierFloat).
+  // Здоровье — как ХП, Сила — как у вещей (число к удару), шансы — медленно. tf — «дробный цвет» уровня (Hero.tierFloat).
   function statsAt(id, tf = 1) {
     const f = LIST[id], out = {};
     if (!f || typeof Tiers === 'undefined') return f ? { ...f.stats } : {};
-    const T = { health: Tiers.GROWTH, power: Tiers.POWER_MULT, magic: Tiers.POWER_MULT };
+    const T = { health: Tiers.GROWTH, power: Tiers.POWER_ABS };
     for (const [k, v] of Object.entries(f.stats)) out[k] = Math.round(v * Tiers.at(T[k] || Tiers.PCT_MULT, tf));
     return out;
   }
   // Бонус вне боя (по умолчанию 1 — без изменений).
   const perk = (id, key) => { const f = LIST[id]; return (f && f.perks[key]) || 1; };
-  // Урон яда за один ход: растёт с Силой отравителя.
-  const venomTick = (power, dmg = 1) => Math.ceil(((typeof Balance !== 'undefined') ? Balance.faction.venom.base : 3) * dmg * (1 + power / 100));
+  // Урон яда за один ход: растёт с уровнем и Силой отравителя (та же формула, что Combat.venomTick).
+  const venomTick = (power, dmg = 1) => Math.ceil(((typeof Balance !== 'undefined') ? Balance.faction.venom.base : 3) * dmg + 0.25 * power);
 
   return { LIST, ORDER, CHARGE, get, heroKind, heroTitle, statsAt, perk, venomTick };
 })();

@@ -51,7 +51,7 @@ const MapArt = (() => {
     // 1.2.8: местность из картинок-текстур (art/map/tex-<местность>), если файл есть; иначе градиент.
     // Текстуры бесшовные — обычная плитка; z — размер плитки в пикселях карты.
     const TEX = { sea: 260, water: 200, river: 200, swamp: 200, beach: 180, village: 220, cobble: 160, meadow: 200, forest: 200, hills: 200, mountain: 200, road: 160,
-      field: 200, tundra: 200, snow: 200, sand: 200, badlands: 200, darkwood: 200, ash: 200 };   // 1.7.1: подключены луг, лес, холмы, горы и дорога; новые местности — по мере появления файлов
+      field: 200, castle: 160, 'castle-grass': 200, tundra: 200, snow: 200, sand: 200, badlands: 200, darkwood: 200, ash: 200 };   // 1.7.1: подключены луг, лес, холмы, горы и дорога; новые местности — по мере появления файлов
     let tex = '', drop = [];
     for (const [k, z] of Object.entries(TEX)) {
       if (typeof Art === 'undefined' || !Art.has('map/tex-' + k)) continue;
@@ -343,6 +343,7 @@ const MapArt = (() => {
   function building(id, soon) {
     // 1.7.5: картинки сундуков лежат под именами chest-ruby/-emerald/-obsidian, а id зданий — chestRuby…: пробуем обе записи
     const key = (typeof Art !== 'undefined' && !Art.has('map/' + id) && Art.has('map/' + id.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()))) ? 'map/' + id.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()) : 'map/' + id;
+    if (soon && typeof Art !== 'undefined' && Art.has('map/site')) return `<g class="bld soon" transform="translate(0 -5) scale(1.35)"><image href="${Art.url('map/site')}" x="-22" y="-26" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></g>`;   // стройка вместо недоступного здания
     if (typeof Art !== 'undefined' && Art.has(key)) {
       return `<g class="bld ${soon ? 'soon' : ''}" transform="translate(0 -5) scale(1.35)"><image href="${Art.url(key)}" x="-22" y="-26" width="44" height="44" preserveAspectRatio="xMidYMid meet"/></g>`;
     }

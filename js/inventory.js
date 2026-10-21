@@ -412,6 +412,16 @@ const Profile = (() => {
     },
     // Вызывается, когда монстр добит заклинанием Удар (см. game.js/dealDamage). Считает и, если пройдена
     // очередная веха (Medals.STRIKE_MILESTONES), выдаёт медаль. Возвращает медаль или null.
+    // 2.0.4: «Чародей» — заклинания, применённые в победном бою (n штук); выдаёт очередную веху Medals.SPELL_MILESTONES.
+    registerSpellWins(n, tier) {
+      if (!Number.isFinite(n) || n <= 0) return null;
+      data.medals.spellWins = (data.medals.spellWins || 0) + Math.floor(n);
+      const wonId = Medals.checkSpellMedal(data.medals.spellWins, data.medals.earned);
+      const m = wonId ? api.grantMedal(wonId, tier) : null;
+      save();
+      return m;
+    },
+    spellWins: () => data.medals.spellWins || 0,
     registerStrikeKill(tier) {
       data.medals.strikeKills = (data.medals.strikeKills || 0) + 1;
       const wonId = Medals.checkStrikeMedal(data.medals.strikeKills, data.medals.earned);
@@ -602,8 +612,10 @@ const escText = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<'
 // Цвет уровня для обводок и свечения (у обсидиана — светлый отблеск, чтобы было видно на тёмном).
 const tierColor = (t) => Tiers.get(t).edge;
 
+// Сила вещей бывает дробной (десятые): запятая в русском, точка в английском
+const num1 = (x) => String(Math.round(x * 10) / 10).replace('.', (typeof I18N !== 'undefined' && I18N.lang === 'en') ? '.' : ',');
 const fmtStat = (k, v) => ({
-  power: _t("+{0}% Сила", [v]), health: _t("+{0} Здоровье", [v]), defense: _t("+{0} Броня", [v]), magic: _t("+{0} Магия", [v]),
+  power: _t("+{0} Сила", [num1(v)]), health: _t("+{0} Здоровье", [v]), defense: _t("+{0} Броня", [v]),
   initiative: _t("+{0}% Проворство", [v]), ricochet: _t("+{0}% Рикошет", [v]), block: _t("+{0}% Блок", [v]), fury: _t("+{0}% Ярость", [v]),
   cunning: _t("+{0}% Хитрость", [v]),
 }[k]);
@@ -692,13 +704,13 @@ const ItemInfo = (() => {
   // руны, цена и действия (в оружейной — надеть / снять). Открывается значком «i» на любой карточке вещи:
   // у вещей игрока и противника — по uid, у образцов Лавки, Кузницы и Библиотеки — по «id:цвет» (base).
   const STAT_HELP = {
-    power: _t("к наносимому урону"), health: _t("к максимуму здоровья"), defense: _t("вычитается из каждого удара (потолок 60 очков)"),
-    magic: _t("каждые 4 очка — заклинания дешевле на 1 камень"), initiative: _t("шанс ходить первым (потолок 50%)"),
+    power: _t("прибавляется к каждому удару"), health: _t("к максимуму здоровья"), defense: _t("вычитается из каждого удара (потолок 60 очков)"),
+ initiative: _t("шанс ходить первым (потолок 50%)"),
     ricochet: _t("шанс отразить удар в нападающего (потолок 40%)"), block: _t("шанс полностью отбить удар (потолок 50%)"),
     fury: _t("шанс нанести двойной урон (потолок 35%)"), cunning: _t("шанс забрать половину магических камней врага (потолок 30%)"),
   };
-  const STAT_SCALE = { power: 30, health: 30, defense: 20, magic: 5, initiative: 15, ricochet: 12, block: 15, fury: 15, cunning: 12 };
-  const STAT_ORDER = ['power', 'health', 'defense', 'block', 'initiative', 'magic', 'ricochet', 'fury', 'cunning'];
+  const STAT_SCALE = { power: 30, health: 30, defense: 20, initiative: 15, ricochet: 12, block: 15, fury: 15, cunning: 12 };
+  const STAT_ORDER = ['power', 'health', 'defense', 'block', 'initiative', 'ricochet', 'fury', 'cunning'];
   const SET_LORE = {
     crown: _t("Знамёна Вольных городов: сталь, позолота и синяя эмаль."), rune: _t("Кованое железо подгорных кланов; руны тлеют, как угли горна."),
     grove: _t("Кора, листья и серебряная нить Лесных домов — лёгкое, как утро."), scale: _t("Панцири, кости и болотный яд племён Чешуи."),
@@ -900,10 +912,6 @@ const Inventory = (() => {
   let statBase = null;       // характеристики героя на момент открытия карточки (для зелёного/красного)
   // 1.6.0: рядом с каждой характеристикой — во что она превращается на деле (числа для героя этого уровня; who — боец-противник)
   function statsBlock(stats, who) {
-    // У каждого заклинания своя цена (Balance.magic.costs) — показываем диапазон мин..макс по всем пяти.
-    const costs = Object.keys(Balance.magic.costs).map((k) => Combat.spellCost({ stats, buffs: [] }, k));
-    const lo = Math.min(...costs), hi = Math.max(...costs);
-    const costLabel = lo === hi ? `${lo}` : `${lo}–${hi}`;
     const dmg = who ? who.dmg : Hero.dmgMult(Profile.level()), base = who ? who.base : Hero.baseHp(Profile.level());
     const stone = dmg * Balance.damage.stone, N = Gear.STAT_NAMES;
     const nth = (p) => Math.max(1, Math.round(100 / p));
@@ -914,10 +922,9 @@ const Inventory = (() => {
     const row = (name, big, small, k) => { const d = k ? delta(k) : 0; const cls = d > 0 ? ' class="stat-up"' : d < 0 ? ' class="stat-down"' : ''; return `<div><span>${name}</span><b${cls}>${big}${d ? ` <i>(${d > 0 ? '+' : '−'}${Math.abs(d)})</i>` : ''}</b><small>${small}</small></div>`; };
     const arm = Combat.armorAt(stats.defense, dmg), cap = stats.defense >= Gear.CAPS.defense ? _t(" (максимум)") : '';
     return `<div class="stat-list">${[
-      row(N.power, `+${stats.power}%`, _t("урон камня: {0} → {1}", [fmt1(stone), fmt1(stone * (1 + stats.power / 100))]), 'power'),
+      row(N.power, `+${num1(stats.power)}`, _t("к каждому удару: +{0} (с Силой уровня +{1})", [fmt1(stats.power + Combat.levelPower(dmg)), fmt1(Combat.levelPower(dmg))]), 'power'),
       row(N.health, `+${stats.health}`, _t("ХП всего: {0} (без вещей {1})", [base + stats.health, base]), 'health'),
       row(N.defense, `−${arm}`, _t("вычитается из каждого удара ({0} очк.{1}); не меньше 20% удара", [stats.defense, cap]), 'defense'),
-      row(N.magic, `${stats.magic}`, _t("цена заклинаний: {0} камней каждого вида", [costLabel]), 'magic'),
       row(N.initiative, `+${stats.initiative}%`, _t("шанс первого хода"), 'initiative'),
       row(N.ricochet, `${stats.ricochet}%`, stats.ricochet > 0 ? _t("≈ каждый {0}-й удар по вам отлетает в нападающего", [nth(stats.ricochet)]) : _t("удар по вам отлетает в нападающего: пока нет"), 'ricochet'),
       row(N.block, `${stats.block}%`, stats.block > 0 ? _t("≈ каждый {0}-й удар по вам блокируется полностью", [nth(stats.block)]) : _t("полный блок удара: пока нет"), 'block'),

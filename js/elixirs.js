@@ -36,7 +36,19 @@ const Elixirs = (() => {
   const PER_TIER = { power: 12.5, fury: 3.6, cunning: 3, defense: 3.4, block: 1.6, ricochet: 0.9 };   // 1.8.0: подобрано симулятором (tools/elixir-tune.js): один эликсир на 3-м…10-м цвете даёт +2…+11 п.п.
   // 1.8.0: низкие цвета получают добавку, сходящую на нет к 6-му цвету (на 1-м прибавка в единицы процентов героя не двигала)
   const LOW = { power: 60, fury: 15, cunning: 13, defense: 15, block: 7, ricochet: 3 };   // не больше 5 × PER_TIER, иначе эликсир 2-го цвета слабее 1-го
-  const bonus = (tier, kind) => (KINDS[kind] && KINDS[kind].stat === null) ? 0 : Math.round((PER_TIER[kind] || 4) * tier + (LOW[kind] || 0) * Math.max(0, 6 - tier) / 5);
+  const rawBonus = (tier, kind) => (KINDS[kind] && KINDS[kind].stat === null) ? 0 : Math.round((PER_TIER[kind] || 4) * tier + (LOW[kind] || 0) * Math.max(0, 6 - tier) / 5);
+  // Сила — число, прибавляемое к удару: очки таблицы выше переводятся в число так же, как очки Силы вещей (0,045 × рост урона героя цвета).
+  const HERO_DMG = [1.67, 2.17, 2.83, 3.63, 4.59, 5.75, 7.22, 9.09, 11.61, 14.93];   // = Tiers.HERO_DMG
+  const asStat = (stat, v, tier) => (stat === 'power' ? Math.round(v * 0.045 * HERO_DMG[Math.max(1, Math.min(10, tier)) - 1]) : v);
+  const bonus = (tier, kind) => (kind === 'power' ? powerPct(tier) : KINDS[kind] ? asStat(KINDS[kind].stat, rawBonus(tier, kind), tier) : rawBonus(tier, kind));
+  // 2.0.4: эликсир силы — проценты от СУММАРНОЙ Силы бойца (уровень + вещи + медали + усиления): 10% × цвет, 10-й цвет — +100%.
+  // Улучшение Алхимика (+5% за уровень) умножает прибавку. Считается в Combat.power (поле бойца elxPct), прибавкой к стату не является.
+  const POWER_PCT = 10;
+  const powerPct = (tier) => POWER_PCT * Math.max(1, Math.min(10, tier));
+  function activePct(active) {
+    const a = active && active.power;
+    return a && a.left > 0 ? Math.round(powerPct(a.tier) * (1 + (a.pct || 0) / 100)) : 0;
+  }
   const battles = (tier) => 1;   // устарело (до 1.6.0 — срок в боях); оставлено для совместимости
   const key = (kind, tier) => kind + ':' + tier;
   const split = (k) => { const [kind, tier] = k.split(':'); return { kind, tier: Number(tier) }; };
@@ -50,22 +62,18 @@ const Elixirs = (() => {
     if (!KINDS[kind] || tier < FX_MIN) return null;
     const s = tier - 4;                                     // 1…6
     switch (kind) {
-      case 'power': return { v: +(1.4 + 0.1 * s).toFixed(1) };            // первый удар ×
       case 'defense': return { v: Math.min(90, 40 + 10 * s) };            // первый полученный удар слабее на %
       case 'block': return { v: 30 + 10 * s };                            // первый блок бьёт в ответ на % удара
       case 'ricochet': return { v: 2 + s };                               // первый рикошет лечит на урон стольких камней (3…8)
-      case 'fury': return { v: +(2 + 0.2 * s).toFixed(1) };               // первая Ярость бьёт ×
     }
     return null;
   }
   function sideText(kind, tier) {
     const fx = effect(kind, tier); if (!fx) return '';
     switch (kind) {
-      case 'power': return _t("первый ваш удар в бою ×{0}", [fx.v]);
       case 'defense': return _t("первый удар по вам слабее на {0}%", [fx.v]);
       case 'block': return _t("первый ваш блок бьёт в ответ на {0}% удара", [fx.v]);
       case 'ricochet': return _t("первый ваш рикошет лечит как удар по {0} камням", [fx.v]);
-      case 'fury': return _t("первая Ярость бьёт ×{0} вместо ×2", [fx.v]);
     }
     return '';
   }
@@ -74,14 +82,14 @@ const Elixirs = (() => {
     if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно раз в {1} хода, ход не тратится.", [heal(tier), INSTANT_CD]);
     if (kind === 'swap') return _t("Превращает до {0} камней того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1} хода, ход не тратится.", [swapAmount(tier), INSTANT_CD]);
     if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1} хода, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), INSTANT_CD]);
-    const b = bonus(tier, kind), name = st[K.stat] || K.stat, pc = K.stat === 'defense' ? '' : '%';
+    const b = bonus(tier, kind), name = st[K.stat] || K.stat, pc = (K.stat === 'defense' || K.stat === 'power') ? '' : '%';
     // Броня — цифры: показываем, сколько вычитается из каждого удара у героя середины этого цвета.
     const flat = (kind === 'defense' && typeof Combat !== 'undefined' && typeof Hero !== 'undefined') ? Combat.armorAt(b, Hero.dmgMult((tier - 1) * 10 + 5)) : null;
     let t = K.mode === 'turn'
-      ? _t("+{0}% {1} до конца хода. Пить перед ударом.", [b, name])
+      ? (kind === 'power' ? _t("+{0}% к Силе до конца хода. Пить перед ударом.", [b]) : _t("+{0} {1} до конца хода. Пить перед ударом.", [b, name]))
       : flat !== null ? _t("{1} +{0} (−{0} к каждому удару) на {2} ходов", [flat, name, LONG_TURNS])
       : _t("+{0}{2} {1} на {3} ходов.", [b, name, pc, LONG_TURNS]);
-    if (tier >= 10) t += `; +${Math.round(b * GREAT.k)} ${st[K.second] || K.second}`;
+    if (tier >= 10) t += `; +${Math.round(asStat(K.second, rawBonus(tier, kind), tier) * GREAT.k)} ${st[K.second] || K.second}`;
     if (tier >= FX_MIN && sideText(kind, tier)) t += `; ${sideText(kind, tier)}`;
     return t;
   };
@@ -92,8 +100,8 @@ const Elixirs = (() => {
       if (!a || a.left <= 0 || !KINDS[kind] || KINDS[kind].stat === null) continue;
       const K = KINDS[kind];
       const m = 1 + (a.pct || 0) / 100;
-      out[K.stat] = (out[K.stat] || 0) + Math.round(bonus(a.tier, kind) * m);
-      if (a.tier >= 10) out[K.second] = (out[K.second] || 0) + Math.round(bonus(a.tier, kind) * m * GREAT.k);
+      if (kind !== 'power') out[K.stat] = (out[K.stat] || 0) + Math.round(bonus(a.tier, kind) * m);   // 2.0.4: Сила — проценты (activePct)
+      if (a.tier >= 10) out[K.second] = (out[K.second] || 0) + Math.round(asStat(K.second, rawBonus(a.tier, kind), a.tier) * m * GREAT.k);
     }
     return out;
   }
@@ -119,6 +127,6 @@ const Elixirs = (() => {
     const col = (typeof Tiers !== 'undefined' && Tiers.get(tier)) ? Tiers.get(tier).color : '#c33';
     return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M42 12h16v6l-2 2v12c14 7 24 22 24 38 0 12-8 18-30 18S20 82 20 70c0-16 10-31 24-38V20l-2-2z" fill="#e8f1f4" fill-opacity=".35" stroke="#222" stroke-width="3"/><path d="M24 62c0 14 8 20 26 20s26-6 26-20c-8 4-18-4-26 0s-18 4-26 0z" fill="${col}" stroke="#222" stroke-width="2"/><rect x="40" y="8" width="20" height="9" rx="2" fill="#8a5a2c" stroke="#222" stroke-width="2"/><text x="50" y="76" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" stroke="#000" stroke-width=".6">${tier}</text></svg>`;
   };
-  return { LOW, GREAT, SWAP, STONES, HEAL, PER_TIER, FX_MIN, effect, sideText, icon, KINDS, ORDER, MAX_TIER, bonus, battles, key, split, price, need, describe, bonusStats, drink, tick, heal, stonesGain, swapAmount, swapMove, turns, LONG_TURNS, INSTANT_CD };
+  return { powerPct, activePct, LOW, GREAT, SWAP, STONES, HEAL, PER_TIER, FX_MIN, effect, sideText, icon, KINDS, ORDER, MAX_TIER, bonus, battles, key, split, price, need, describe, bonusStats, drink, tick, heal, stonesGain, swapAmount, swapMove, turns, LONG_TURNS, INSTANT_CD };
 })();
 if (typeof module !== 'undefined') module.exports = Elixirs;

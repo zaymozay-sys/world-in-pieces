@@ -24,7 +24,10 @@ const Hero = (() => {
   const growth = (L) => H_T.at(H_T.GROWTH, tierFloat(L));
 
   const baseHp = (L) => Math.round(C.baseHp * growth(L));
-  const dmgMult = (L) => Math.round(growth(L) * H_B.damage.stone * 100) / 100;   // множитель урона камней
+  // 2.0.4: Сила уровня — линейно: 2,5 на 1-м уровне, +0,4 за уровень до 50-го, дальше +1,5 за уровень (100-й даёт ≈97).
+  // dmgMult — тот же рост в виде множителя (его читает Combat.levelPower, он же масштабирует усиления боя).
+  const levelPower = (L) => 2.5 + 0.4 * (Math.min(L, 50) - 1) + 1.5 * Math.max(0, L - 50);
+  const dmgMult = (L) => Math.round((1 + levelPower(L) / (3 * H_B.damage.stone * (H_B.damage.levelMul || 1))) * 100) / 100;
   const budget = (L) => Math.round(C.budget * H_T.at(H_T.POINT_MULT, tierFloat(L)));
   // С какого уровня можно надеть вещь цвета tier.
   // 1.3.9: подуровень героя внутри цвета усиливает надетые вещи — до +1% к их характеристикам.
@@ -76,7 +79,7 @@ const Hero = (() => {
   // позже (см. Balance.spellUnlock).
   const isSpellUnlocked = (kind, L) => H_B.unlockAll || (typeof Profile !== 'undefined' && Profile.data && Profile.data.testAllSpells) || clampL(L) >= (H_B.spellUnlock[kind] || 1);
 
-  return { clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
+  return { clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

@@ -75,6 +75,7 @@ const Screens = (() => {
     if (species) glyph = (typeof MonsterArt !== 'undefined' && MonsterArt.bust(species, 1)) || `<span class="mg-num">${(Medals.nameFor(id).split(': ')[1] || '?').slice(0, 2)}</span>`;
     else if (Medals.styleKey(id)) glyph = `<span class="mg-num mg-style">${{ flawless: '✚', swift: '⚡', nomagic: '✋', onespell: '◎', alchemist: '⚗' }[Medals.styleKey(id)] || '★'}</span>`;
     else if (id.startsWith('daily:')) glyph = _t("<span class=\"mg-num\">{0}<small>дней</small></span>", [id.slice(6)]);
+    else if (id.startsWith('spell:')) glyph = _t("<span class=\"mg-num\">{0}<small>закл.</small></span>", [id.slice(6) >= 1000 ? (id.slice(6) / 1000) + 'k' : id.slice(6)]);
     else if (id.startsWith('drunk:')) glyph = _t("<span class=\"mg-num\">{0}<small>эликс.</small></span>", [id.slice(6)]);
     else if (Medals.elixirKey(id)) glyph = `<span class="mg-num mg-style">⚗</span>`;
     else if (Medals.secretKey(id)) glyph = `<span class="mg-num mg-style">${got ? '✧' : '?'}</span>`;
@@ -108,7 +109,7 @@ const Screens = (() => {
   }
   function medalHow(id, got) {
     const species = Medals.killSpecies(id), n = id.slice(id.indexOf(':') + 1);
-    return id.startsWith('drunk:') ? _t("Выдаётся за {0} выпитых в боях эликсиров любого вида за всё время игры.", [n]) : Medals.elixirKey(id) ? _t("Выдаётся один раз — за первый выпитый в бою «{0}».", [Elixirs.KINDS[Medals.elixirKey(id)].name]) : id.startsWith('daily:') ? _t("Выдаётся за {0} дней подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
+    return id.startsWith('spell:') ? _t("Выдаётся за {0} заклинаний, применённых в победных боях, за всё время игры.", [n]) : id.startsWith('drunk:') ? _t("Выдаётся за {0} выпитых в боях эликсиров любого вида за всё время игры.", [n]) : Medals.elixirKey(id) ? _t("Выдаётся один раз — за первый выпитый в бою «{0}».", [Elixirs.KINDS[Medals.elixirKey(id)].name]) : id.startsWith('daily:') ? _t("Выдаётся за {0} дней подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
       : id.startsWith('strike:') ? _t("Выдаётся за {0} добиваний противника заклинанием «Удар» за всё время игры.", [n])
       : id.startsWith('shot:') ? _t("Выдаётся за {0} добиваний противника Выстрелом (боеприпасом) за всё время игры.", [n])
       : _t("Выдаётся за {0} собранных линий из 5 камней за всё время игры.", [n]);
@@ -135,7 +136,7 @@ const Screens = (() => {
     const old = root.querySelector('.medal-pop-back'); if (old) old.remove();
     root.querySelector('.modal').insertAdjacentHTML('beforeend', html);
   }
-  const STAT_NAMES_RU = { power: _t("Сила"), health: _t("Здоровье"), armor: _t("Броня"), magic: _t("Магия"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), rage: _t("Ярость"), fury: _t("Ярость"), defense: _t("Броня"), cunning: _t("Хитрость"), defense: _t("Защита") };
+  const STAT_NAMES_RU = { power: _t("Сила"), health: _t("Здоровье"), armor: _t("Броня"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), rage: _t("Ярость"), fury: _t("Ярость"), defense: _t("Броня"), cunning: _t("Хитрость") };
   const mustChoose = () => cur === 'faction' && st.fac.first;
 
   function mount() {
@@ -324,7 +325,7 @@ const Screens = (() => {
 
   // Примерка: портрет героя в обновке и «было → станет» по итоговым характеристикам (так же, как на экране персонажа), смена бонусов комплектов
   // и лимит очков снаряжения. Ничего не покупает и не меняет в профиле.
-  const TRY_STATS = [['power', '%'], ['health', ''], ['defense', ''], ['magic', ''], ['initiative', '%'], ['ricochet', '%'], ['block', '%'], ['fury', '%'], ['cunning', '%']];
+  const TRY_STATS = [['power', ''], ['health', ''], ['defense', ''], ['initiative', '%'], ['ricochet', '%'], ['block', '%'], ['fury', '%'], ['cunning', '%']];
   const tryBtn = (kind, arg) => `<button type="button" class="tryon-btn" data-tryon="${kind}:${arg}">${_t("Примерить")}</button>`;
   function tryOnSlot(gear, it) {
     if (it.type === 'weapon2') return 'main';
@@ -1156,7 +1157,7 @@ const Screens = (() => {
     const rows = Lessons.LIST.map((l, i) => {
       const done = lp.done[l.id], open = Lessons.open(Profile.data, l.id);
       return `<div class="card quest-card ${done ? 'is-done' : ''}"><div class="card-body"><span class="item-title">${i + 1}. ${_t(l.name)}</span>
-        <span class="item-foot">${done ? _t("Приём освоен") : open ? _t("Ходов: {0} · награда: {1}", [l.limit, money(l.coins)]) : _t("Откроется за поручение Бобра")}</span></div>
+        <span class="item-foot">${done ? _t("Приём освоен") : open ? _t("Ходов: {0} · награда: {1}", [l.limit, money(scaled(l.coins))]) : _t("Откроется за поручение Бобра")}</span></div>
         <div class="card-act">${open ? `<button type="button" class="${done ? '' : 'primary'}" data-lesson="${l.id}">${done ? _t("Повторить") : _t("Учиться")}</button>` : ''}</div></div>`;
     }).join('');
     let play = '';
@@ -1233,7 +1234,7 @@ const Screens = (() => {
   }
   function chessAfter(s, cp) {
     const g = cp.game;
-    if (g && g.over) { const r = Chess.settle(cp); if (r.coins) { Profile.addCoins(r.coins); s.cMsg = _t("Монеты: {0}", [money(r.coins)]); } }
+    if (g && g.over) { const r = Chess.settle(cp); if (r.coins) { r.coins = scaled(r.coins); Profile.addCoins(r.coins); s.cMsg = _t("Монеты: {0}", [money(r.coins)]); } }
   }
   function lhTabs(s) { return tabs([['quests', _t("Поручения")], ['games', _t("Игры")], ['shop', _t("Лавка жетонов")]], s.tab || 'quests'); }
   function lhFrame(inner) {
@@ -1621,7 +1622,7 @@ const Screens = (() => {
           const r = Lessons.move(lp, s.lesson, s.lsSel, i);
           if (r.ok) {
             s.lsSel = null; s.lsMsg = '';
-            if (r.coins) { Profile.addCoins(r.coins); s.lsMsg = _t("Приём освоен! Монеты: {0}", [money(r.coins)]); }
+            if (r.coins) { r.coins = scaled(r.coins); Profile.addCoins(r.coins); s.lsMsg = _t("Приём освоен! Монеты: {0}", [money(r.coins)]); }
             Profile.save();
           } else { s.lsSel = i; s.lsMsg = _t("Так ничего не соберётся — выбери другую пару соседних камней."); }
         }
@@ -1734,7 +1735,7 @@ const Screens = (() => {
       const groupLine = (key) => {
         const g = Medals.GROUPS[key], pr = Medals.groupProgress(key, earned), done = Medals.groupDone(key, earned);
         const bonus = Object.entries(g.bonus).map(([k, v]) => `+${v} ${Gear.STAT_NAMES[k] || k}`).join(', ');
-        return `<p class="hint group-line ${done ? 'done' : ''}">${done ? '✓ ' : ''}${_t("Комплект «{0}»: {1}", [g.name, bonus])} — ${done ? _t("собран") : _t("осталось {0}", [pr.total - pr.done])}</p><p class="hint group-perk ${done ? 'done' : ''}">${_t("Умение «{0}»: {1}. Реликвия: {2}", [Medals.PERKS[key].name, Medals.PERKS[key].desc, Gear.item({ id: Medals.relicId(key), tier: 1 }).name])}</p>`;
+        return `<p class="hint group-line ${done ? 'done' : ''}">${done ? '✓ ' : ''}${_t("Комплект «{0}»: {1}", [g.name, bonus])} — ${done ? _t("собран") : _t("осталось {0}", [pr.total - pr.done])}</p><p class="hint group-perk ${done ? 'done' : ''}">${Medals.PERKS[key] ? _t("Умение «{0}»: {1}. Реликвия: {2}", [Medals.PERKS[key].name, Medals.PERKS[key].desc, Gear.item({ id: Medals.relicId(key), tier: 1 }).name]) : _t("Реликвия: {0}", [Gear.item({ id: Medals.relicId(key), tier: 1 }).name])}</p>`;
       };
       const favLine = Profile.favMedals().length ? `<p class="hint">${_t("Избранные медали (видны рядом с именем героя): {0}", [Profile.favMedals().map((id) => Medals.nameFor(id)).join(', ')])}</p>` : `<p class="hint">${_t("Нажмите на полученную медаль и выберите «В избранное» — до трёх значков будут стоять рядом с именем героя.")}</p>`;
       const styleTiles = Medals.STYLE_ORDER.map((k) => {
@@ -1746,6 +1747,7 @@ const Screens = (() => {
         return `<div class="coll-row ${done ? 'done' : ''}"><b>${c.family}</b> <span>${n} / ${c.species.length}</span> <small>${done ? '✓ ' : ''}${_t("+{0}% урона по семейству", [c.pct])}</small></div>`;
       }).join('');
       const dailyTiles = Medals.DAILY_MILESTONES.map((n) => { const mid = Medals.dailyMedalId(n); return medalTile(mid, earnedFor(mid), level, Math.min(n, Profile.dailyStreak()), n); });
+      const spellTiles = Medals.SPELL_MILESTONES.map((n) => { const mid = Medals.spellMedalId(n); return medalTile(mid, earnedFor(mid), level, Math.min(n, Profile.spellWins()), n); });
       const drunkTiles = Medals.DRUNK_MILESTONES.map((n) => { const mid = Medals.drunkMedalId(n); return medalTile(mid, earnedFor(mid), level, Math.min(n, Profile.elixirsDrunk()), n); });
       const elixirTiles = Medals.ELIXIR_ORDER.map((k) => { const mid = Medals.elixirMedalId(k); return medalTile(mid, earnedFor(mid), level, 0, 1); });
       const secretTiles = Medals.SECRET_ORDER.map((k) => { const mid = Medals.secretMedalId(k); return medalTile(mid, earnedFor(mid), level, 0, 1); });
@@ -1754,7 +1756,7 @@ const Screens = (() => {
         return medalTile(mid, earnedFor(mid), level, k === 'visit' ? Object.keys(w.visited).length : k === 'caches' ? w.caches : k === 'altars' ? w.altars : 0, k === 'visit' ? 12 : k === 'caches' ? 10 : k === 'altars' ? 5 : 4);
       });
       const body = _t("<p class=\"hint\">Все ваши медали — постоянные бонусы характеристик за первую победу над видом,\n          за вехи линий из 5 камней и за добивания заклинанием Удар. Нажмите на значок — увидите, за что дают медаль, и прогресс;\n          цветной тир-бейдж открывается, когда герой достигает нужного уровня.</p>\n        <h3>За первую победу ({0} / {1})</h3>{15}\n        <div class=\"medal-grid\">{2}</div>\n        <h3>За линии из 5 камней ({3} / {4})</h3>{16}\n        <p class=\"hint\">Собрано всего: {5}</p>\n        <div class=\"medal-grid\">{6}</div>\n        <h3>За добивания Ударом ({7} / {8})</h3>{17}\n        <p class=\"hint\">Добито Ударом всего: {9}</p>\n        <div class=\"medal-grid\">{10}</div>\n        <h3>Меткий стрелок ({11} / {12})</h3>{18}\n        <p class=\"hint\">Добито болтом или стрелой всего: {13}</p>\n        <div class=\"medal-grid\">{14}</div>\n        <h3>Стиль боя ({19} / {20})</h3>{21}\n        <p class=\"hint\">Выдаются один раз, за победу над обычным существом.</p>\n        <div class=\"medal-grid\">{22}</div>\n        <h3>Мир ({23} / {24})</h3>{25}\n        <div class=\"medal-grid\">{26}</div>\n        <h3>Испытание дня ({32} / {33})</h3>{34}\n        <p class=\"hint\">Победа в «Испытании дня» каждый день подряд. Серия сейчас: {35}</p>\n        <div class=\"medal-grid\">{36}</div>\n        <h3>Тайны ({28} / {29})</h3>{30}\n        <p class=\"hint\">Скрытые медали: условия не показываются.</p>\n        <div class=\"medal-grid\">{31}</div>\n        <h3>Коллекции семейств</h3>\n        <p class=\"hint\">Победите всех существ семейства — получите бонус к урону по нему.</p>\n        <div class=\"coll-list\">{27}</div>", [killTiles.filter((_, i) => earnedFor(Medals.killMedalId(Bestiary.ORDER[i]))).length, Bestiary.ORDER.length, killTiles.join(''), earned.filter((m) => m.id.startsWith('streak:')).length, Medals.STREAK_MILESTONES.length, Profile.data.medals.fiveStreaks, streakTiles.join(''), earned.filter((m) => m.id.startsWith('strike:')).length, Medals.STRIKE_MILESTONES.length, Profile.strikeKills(), strikeTiles.join(''), earned.filter((m) => m.id.startsWith('shot:')).length, Medals.SHOT_MILESTONES.length, Profile.shotKills(), shotTiles.join(''), groupLine('kill'), groupLine('streak'), groupLine('strike'), groupLine('shot'), earned.filter((m) => m.id.startsWith('style:')).length, Medals.STYLE_ORDER.length, groupLine('style'), styleTiles.join(''), earned.filter((m) => m.id.startsWith('world:')).length, Medals.WORLD_ORDER.length, groupLine('world'), worldTiles.join(''), collRows, earned.filter((m) => m.id.startsWith('secret:')).length, Medals.SECRET_ORDER.length, groupLine('secret'), secretTiles.join(''), earned.filter((m) => m.id.startsWith('daily:')).length, Medals.DAILY_MILESTONES.length, groupLine('daily'), Profile.dailyStreak(), dailyTiles.join('')])
-        + `<h3>${_t("Алхимик ({0} / {1})", [earned.filter((m) => m.id.startsWith('elixir:')).length, Medals.ELIXIR_ORDER.length])}</h3>${groupLine('elixir')}<p class="hint">${_t("Выпейте в бою по одному эликсиру каждого вида.")}</p><div class="medal-grid">${elixirTiles.join('')}</div><h3>${_t("Выпито эликсиров ({0} / {1})", [earned.filter((m) => m.id.startsWith('drunk:')).length, Medals.DRUNK_MILESTONES.length])}</h3><p class="hint">${_t("Выпито в боях всего: {0}", [Profile.elixirsDrunk()])}</p><div class="medal-grid">${drunkTiles.join('')}</div>`;
+        + `<h3>${_t("Алхимик ({0} / {1})", [earned.filter((m) => m.id.startsWith('elixir:')).length, Medals.ELIXIR_ORDER.length])}</h3>${groupLine('elixir')}<p class="hint">${_t("Выпейте в бою по одному эликсиру каждого вида.")}</p><div class="medal-grid">${elixirTiles.join('')}</div><h3>${_t("Чародей: заклинания в победных боях ({0} / {1})", [earned.filter((m) => m.id.startsWith('spell:')).length, Medals.SPELL_MILESTONES.length])}</h3><p class="hint">${_t("Считаются все заклинания, применённые в боях, которые вы выиграли.")}</p><div class="medal-grid">${spellTiles.join('')}</div><h3>${_t("Выпито эликсиров ({0} / {1})", [earned.filter((m) => m.id.startsWith('drunk:')).length, Medals.DRUNK_MILESTONES.length])}</h3><p class="hint">${_t("Выпито в боях всего: {0}", [Profile.elixirsDrunk()])}</p><div class="medal-grid">${drunkTiles.join('')}</div>`;
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Стена доблести\">{0}\n        <div class=\"screen-body tavern-body\">{1}</div></div>", [head(_t("Стена доблести")), favLine + body]);
     },
     click() {},
@@ -2271,9 +2273,9 @@ const credits = {
       if (s.tab === 'shadows') {
         const a = arenaState(), nx = a.next, F = Factions.get(nx.faction), rule = World.arenaRule(Daily.today());
         const rv = a.revenge, revLeft = World.REVENGE_DAILY - (a.revs || 0);
-        const titles = Object.entries(World.RANK_TITLES).map(([r, id]) => `<li class="${a.best >= Number(r) ? 'ok' : ''}">${World.RANKS[r]} — «${Village.TITLES.find((t) => t.id === id).name}»</li>`).join('');
+        const titles = Object.entries(World.RANK_TITLES).map(([r, id]) => `<li class="${a.best >= Number(r) ? 'ok' : ''}">${rankEmblem(Number(r))}${World.RANKS[r]} — «${Village.TITLES.find((t) => t.id === id).name}»</li>`).join('');
         body = `<p class="hint">${_t("Тени — копии героев других народов под управлением ИИ. Победа — звезда, три звезды — новый ранг. Поражение снимает звезду, но ранг не отнимает. Питомцы на арену не ходят.")}</p>
-          <div class="arena-rank"><b>${World.RANKS[a.rank]}</b> <span class="stars">${'★'.repeat(a.stars)}${'☆'.repeat(World.STARS - a.stars)}</span>
+          <div class="arena-rank">${rankEmblem(a.rank)}<b>${World.RANKS[a.rank]}</b> <span class="stars">${'★'.repeat(a.stars)}${'☆'.repeat(World.STARS - a.stars)}</span>
             <small>${_t("Побед {0} · поражений {1} · боёв с наградой сегодня {2}/{3}", [a.wins, a.losses, a.fights, World.ARENA_DAILY])}</small></div>
           <div class="arena-foe"><span class="arena-fig">${Figures.avatar(Factions.heroKind(nx.faction, nx.gender), null)}</span>
             <div><b>${escText(nx.nick)}</b><small>${_t("Тень: {0} · уровень {1} · ум {2}", [F.name, nx.level, nx.ai])}</small></div></div>
@@ -2405,7 +2407,7 @@ const credits = {
       } else {
         const c = challengeState(), ch = World.challengeFor(c.day), m = Bestiary.MONSTERS[ch.species], left = World.CH_TRIES - c.tries;
         const hist = Object.entries(c.history).sort().reverse().slice(0, 7).map(([k, v]) => `<li>${k}: <b>${v}</b></li>`).join('');
-        body = `<p class="hint">${_t("Одно испытание на всех в этот день: то же поле, тот же противник и одинаковый герой 25-го уровня — без вещей, зелий, эликсиров и питомца. Заклинания — те, что вы уже открыли. Очки: победа — 1000, плюс за оставшееся ХП и за скорость.")}</p>
+        body = `<p class="hint">${_t("Одно испытание на всех в этот день: то же поле, тот же противник и одинаковый герой 30-го уровня — без вещей, зелий, эликсиров и питомца. Заклинания — те, что вы уже открыли. Очки: победа — 1000, плюс за оставшееся ХП и за скорость.")}</p>
           <div class="arena-foe"><span class="arena-fig">${MonsterArt.bust(ch.species, ch.tier)}</span>
             <div><b>${m.name}</b> ${tierChip(ch.tier)}<small>${_t("Испытание {0}", [/^\d{4}-\d\d-\d\d$/.test(c.day) ? c.day.split("-").reverse().join(".") : c.day])}</small></div></div>
           <p>${_t("Попыток сегодня: {0} из {1} · лучший результат: {2}", [left, World.CH_TRIES, c.best || '—'])}</p>
@@ -2452,7 +2454,7 @@ const credits = {
         else if (s.pzSel === i) s.pzSel = null;
         else {
           const r = Puzzle.move(pz, pz.day, s.pzSel, i);
-          if (r.ok) { s.pzSel = null; if (r.coins) { r.coins = Math.round(r.coins * Events.mul(evNow().id, 'puzzle')); Profile.addCoins(r.coins); s.msg = _t("Звезда! Монеты: {0}", [money(r.coins)]); } else s.msg = ''; Profile.save(); }
+          if (r.ok) { s.pzSel = null; if (r.coins) { r.coins = Math.round(scaled(r.coins) * Events.mul(evNow().id, 'puzzle')); Profile.addCoins(r.coins); s.msg = _t("Звезда! Монеты: {0}", [money(r.coins)]); } else s.msg = ''; Profile.save(); }
           else s.pzSel = i;
         }
         return render();
@@ -2550,7 +2552,10 @@ const credits = {
   };
 
   /* =============== БАНК (1.8.6: вклад, ставка растёт с серией заходов; логика — js/bank.js) =============== */
-  const bankState = () => { const b = Profile.data.bank = Bank.clean(Profile.data.bank); return b; };
+  // Эмблема ранга Арены (art/ui/rank-1…10); нет картинки — ничего не рисуем, ранг остаётся текстом
+  const rankEmblem = (i) => (typeof Art !== 'undefined' && Art.has('ui/rank-' + (i + 1))) ? `<img class="rank-emblem" src="${Art.url('ui/rank-' + (i + 1))}" alt="">` : '';
+  const bankCap = () => Bank.capFor(Hero.priceScale(Profile.level()));   // потолок вклада растёт с ценами цвета героя
+  const bankState = () => { const b = Profile.data.bank = Bank.clean(Profile.data.bank, bankCap()); return b; };
   // 1.8.8: «Визитка героя» — сводка для показа другим игрокам (пока копируется текстом; на сервере те же данные покажем онлайн)
   const herocard = {
     html() {
@@ -2576,18 +2581,18 @@ const credits = {
   const bank = {
     html() {
       const s = st.bank, b = bankState();
-      const gain = Bank.visit(b, Date.now());
+      const cap = bankCap(), gain = Bank.visit(b, Date.now(), cap);
       if (gain > 0) { Profile.save(); s.msg = _t("Проценты за серию заходов: +{0}.", [gain]); } else if (!s.msg) Profile.save();
       const btn = (act, n, label, can) => `<button type="button" data-bank="${act}" data-n="${n}"${can ? '' : ' disabled'}>${label}</button>`;
-      const coins = Profile.data.coins, dep = b.dep, room = Bank.CAP - dep;
+      const coins = Profile.data.coins, dep = b.dep, room = cap - dep;
       const pct = (x) => (Math.round(x * 1000) / 10).toString().replace('.', ',');
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Банк\">{0}\n        <div class=\"screen-body tavern-body\">\n          <p class=\"hint\">{1}</p>\n          <h3>Вклад</h3>\n          <p>На счёте: <b>{2}</b> · лимит {3}.</p>\n          <p>Серия заходов: <b>{4}</b> дн. · ставка сегодня: <b>{5}%</b> в сутки (потолок {6}%). Завтра, если зайдёте: +{7}.</p>\n          <div class=\"reset\">{8}</div><div class=\"reset\">{9}</div>\n        </div></div>", [head(_t("Банк")), s.msg || _t("Добро пожаловать. Если играете каждый день, ставка медленно растёт. Пропустили день — ставка снова 0."), money(dep), money(Bank.CAP), b.streak, pct(Bank.rate(b.streak)), pct(Bank.RATE_MAX), Bank.tomorrow(b),
-        [100, 1000].map((n) => btn('dep', n, _t("Внести {0}", [n]), coins >= n && room >= n)).join('') + btn('dep', Math.min(coins, room), _t("Внести всё"), Math.min(coins, room) > 0),
-        [100, 1000].map((n) => btn('wd', n, _t("Снять {0}", [n]), dep >= n)).join('') + btn('wd', dep, _t("Снять всё"), dep > 0)]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Банк\">{0}\n        <div class=\"screen-body tavern-body\">\n          <p class=\"hint\">{1}</p>\n          <h3>Вклад</h3>\n          <p>На счёте: <b>{2}</b> · лимит {3}.</p>\n          <p>Серия заходов: <b>{4}</b> дн. · ставка сегодня: <b>{5}%</b> в сутки (потолок {6}%). Завтра, если зайдёте: +{7}.</p>\n          <div class=\"reset\">{8}</div><div class=\"reset\">{9}</div>\n        </div></div>", [head(_t("Банк")), s.msg || _t("Добро пожаловать. Если играете каждый день, ставка медленно растёт. Пропустили день — ставка снова 0."), money(dep), money(Bank.CAP), b.streak, pct(Bank.rate(b.streak)), pct(Bank.RATE_MAX), Bank.tomorrow(b, cap),
+        [10, 50].map((p) => { const n = Math.floor(Math.min(coins, room) * p / 100); return btn('dep', n, _t("Внести {0}%", [p]), n > 0); }).join('') + btn('dep', Math.min(coins, room), _t("Внести всё"), Math.min(coins, room) > 0),
+        [10, 50].map((p) => { const n = Math.floor(dep * p / 100); return btn('wd', n, _t("Снять {0}%", [p]), n > 0); }).join('') + btn('wd', dep, _t("Снять всё"), dep > 0)]);
     },
     click(b) {
       const s = st.bank, bk = bankState(), d = b.dataset, n = Number(d.n) || 0;
-      if (d.bank === 'dep') { if (n > 0 && bk.dep + n <= Bank.CAP && Profile.spend(n)) { Bank.deposit(bk, n); s.msg = _t("Внесено: {0}.", [money(n)]); } }
+      if (d.bank === 'dep') { if (n > 0 && bk.dep + n <= bankCap() && Profile.spend(n)) { Bank.deposit(bk, n, bankCap()); s.msg = _t("Внесено: {0}.", [money(n)]); } }
       else if (d.bank === 'wd') { if (Bank.withdraw(bk, n)) { Profile.addCoins(n); s.msg = _t("Снято: {0}.", [money(n)]); } }
       else return;
       Profile.save();
@@ -2596,7 +2601,10 @@ const credits = {
   };
 
   // Лента заходов (js/streak.js): одна награда в день, пропуск ничего не сбрасывает
-  const loginReward = (r) => [r.coins ? money(r.coins) : '', ...Object.entries(r.cons || {}).map(([k, n]) => `${(typeof Gear !== 'undefined' && Gear.CONSUMABLES[k]) ? Gear.CONSUMABLES[k].name : k}${n > 1 ? ' ×' + n : ''}`)].filter(Boolean).join(' + ');
+  // Награды мини-игр (лента заходов, шахматы, головоломка, уроки) растут с ценами цвета героя, как цена зелья.
+  const rewardK = () => Hero.priceScale(Profile.level());
+  const scaled = (n) => Math.round(n * rewardK());
+  const loginReward = (r) => [r.coins ? money(scaled(r.coins)) : '', ...Object.entries(r.cons || {}).map(([k, n]) => `${(typeof Gear !== 'undefined' && Gear.CONSUMABLES[k]) ? Gear.CONSUMABLES[k].name : k}${n > 1 ? ' ×' + n : ''}`)].filter(Boolean).join(' + ');
   const login = {
     html() {
       const sk = Profile.data.streak = Streak.clean(Profile.data.streak), today = Daily.today(), can = Streak.available(sk, today);
@@ -2617,7 +2625,7 @@ const credits = {
     click(b) {
       if (!b.dataset.loginClaim) return;
       const sk = Profile.data.streak = Streak.clean(Profile.data.streak), r = Streak.claim(sk, Daily.today()); if (!r) return;
-      if (r.coins) Profile.addCoins(r.coins);
+      if (r.coins) Profile.addCoins(scaled(r.coins));
       for (const [k, n] of Object.entries(r.cons || {})) Profile.addConsumable(k, n);
       Profile.save(); st.login.msg = _t("Получено: {0}", [loginReward(r)]);
       changed();

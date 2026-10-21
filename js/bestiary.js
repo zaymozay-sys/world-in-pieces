@@ -89,7 +89,7 @@ const Bestiary = (() => {
     goblin: {
       family: _t("Гоблины"), ability: 'prank', xp: 0.8,
       name: _t("Гоблин"), unlock: 2, hp: 68, ai: 38, coins: 24, gear: 0,
-      stats: { initiative: 15, magic: 1 },
+      stats: { initiative: 15 },
       drops: [['scrap', 0.6, 1, 2], ['bone', 0.5, 1, 2], ['crystal', 0.1, 1, 1]],
       desc: _t("Хитрый и быстрый. Успевает вовремя воспользоваться магией."),
     },
@@ -101,7 +101,7 @@ const Bestiary = (() => {
       desc: _t("Ржавые латы и пустые глазницы. Прочный, но неповоротливый."),
     },
     boar: {
-      family: _t("Звери"), ability: 'charge', xp: 1.0,
+      family: _t("Звери"), ability: 'rage', xp: 1.0,
       name: _t("Кабан-секач"), unlock: 4, hp: 83, ai: 20, coins: 30, gear: 0,
       stats: { power: 47, defense: 6 },
       drops: [['hide', 0.9, 1, 3], ['fang', 0.7, 1, 2]],
@@ -146,7 +146,7 @@ const Bestiary = (() => {
     orcShaman: {
       family: _t("Орки"), ability: 'drum', xp: 1.05,
       name: _t("Орк-шаман"), unlock: 7, hp: 78, ai: 36, coins: 32, gear: 0,
-      stats: { magic: 2, ricochet: 6, initiative: 6 },
+      stats: { ricochet: 6, initiative: 6 },
       drops: [['bone', 0.7, 1, 3], ['crystal', 0.4, 1, 1], ['essence', 0.3, 1, 1]],
       desc: _t("Бьёт в бубен из черепов — и камни на поле начинают жечь."),
     },
@@ -169,7 +169,7 @@ const Bestiary = (() => {
     bolotnik: {
       family: _t("Болотные твари"), ability: 'mire', xp: 1.1,
       name: _t("Болотник"), unlock: 7, hp: 88, ai: 45, coins: 35, gear: 0,
-      stats: { magic: 1, ricochet: 6 },
+      stats: { ricochet: 6 },
       drops: [['hide', 0.5, 1, 2], ['essence', 0.3, 1, 1]],
       desc: _t("Хозяин трясины. Затягивает под ряску всё, что ступит мимо кочки."),
     },
@@ -194,7 +194,7 @@ const Bestiary = (() => {
       // hp — только оригинал: Спороносец выпускает двойника с его текущим ХП (обычно ~1 раз за бой), поэтому
       // ХП вдвое ниже прежних 80 — иначе симулятор давал ~20% побед вместо «Равного» (~64%).
       name: _t("Дикий гриб"), unlock: 10, hp: 40, ai: 44, coins: 46, gear: 0,
-      stats: { defense: 10, magic: 1, initiative: 4 },
+      stats: { defense: 10, initiative: 4 },
       drops: [['splinter', 0.6, 1, 2], ['essence', 0.4, 1, 2]],
       desc: _t("Раздутая шляпка в пятнах плесени. Накопив спор, выдыхает облако — и рядом встаёт двойник с тем же здоровьем, что осталось у гриба."),
     },
@@ -332,7 +332,7 @@ const Bestiary = (() => {
       desc: _t("Долговязая болотная охотница. Первый удар клювом в бою — двойной."),
     },
     elk: {
-      family: _t("Звери"), ability: 'howl', xp: 1.2,
+      family: _t("Звери"), ability: 'rage', xp: 1.2,
       name: _t("Лось"), unlock: 5, hp: 110, ai: 30, coins: 38, gear: 0,
       stats: { power: 40, defense: 5, initiative: 6 },
       drops: [['hide', 0.9, 1, 3], ['fang', 0.6, 1, 2], ['bone', 0.5, 1, 2]],
@@ -360,7 +360,7 @@ const Bestiary = (() => {
       desc: _t("Тяжёлый броневой зверь равнин. Удар тараном оглушает; шкура держит почти всё."),
     },
     leopard: {
-      family: _t("Звери"), ability: 'weaken', xp: 1.2,
+      family: _t("Звери"), ability: 'rage', xp: 1.2,
       name: _t("Снежный барс"), unlock: 6, hp: 84, ai: 32, coins: 38, gear: 0,
       stats: { initiative: 20, power: 46, fury: 8 },
       drops: [['hide', 0.9, 1, 2], ['fang', 0.6, 1, 2]],
@@ -497,7 +497,7 @@ const Bestiary = (() => {
     crystalid: {
       family: _t("Каменные стражи"), ability: 'ward', xp: 1.1,
       name: _t("Кристальник"), unlock: 4, hp: 72, ai: 26, coins: 34, gear: 0,
-      stats: { defense: 12, magic: 1, power: 30 },
+      stats: { defense: 12, power: 30 },
       drops: [['crystal', 0.8, 1, 2], ['ore', 0.5, 1, 2]],
       desc: _t("Каменный коротышка в кристаллах. Кристаллы вспыхивают щитом, об который тупятся удары."),
     },
@@ -586,11 +586,12 @@ const Bestiary = (() => {
   function scaled(id, tier, swarmSize = 1) {
     const m = MONSTERS[id], t = B_T.clamp(tier);
     const stats = B_G.blankStats();
-    for (const k in m.stats) stats[k] = Math.round(m.stats[k] * B_T.statMult(k, t));
     const sw = swarmMult(id, swarmSize);
+    const dmg = B_T.GROWTH[t - 1] * B_B.damage.stone * sw.dmg * B_B.monsters.dmgScale[t - 1];            // рост урона существа (в бою даёт Силу уровня)
+    for (const k in m.stats) stats[k] = Math.round(m.stats[k] * (k === 'power' ? B_T.POWER_MULT[t - 1] * 0.045 * dmg * B_B.monsters.powerMul : B_T.statMult(k, t)));   // Сила существа — число к удару (очко старой шкалы = 0,045 × рост урона)
     return {
-      hp: Math.round(m.hp * B_T.GROWTH[t - 1] * sw.hp),
-      dmg: B_T.GROWTH[t - 1] * B_B.damage.stone * sw.dmg,            // множитель урона камней
+      hp: Math.round(m.hp * B_T.GROWTH[t - 1] * sw.hp * B_B.monsters.hpBoost[t - 1]),
+      dmg,
       stats: B_G.combine(stats, {}),
       ai: Math.max(1, Math.min(100, m.ai + (t - 1) * B_B.monsters.aiPerTier)),
       gearBudget: Math.round(m.gear * B_T.POINT_MULT[t - 1]),

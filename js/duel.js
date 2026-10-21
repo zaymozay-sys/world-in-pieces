@@ -17,6 +17,11 @@ const Duel = (() => {
     for (const s of slots) {
       const e = gear && gear[s];
       out[s] = e && typeof e === 'object' && typeof e.id === 'string' && (!known || known(e)) ? plain(e) : null;
+      if (out[s]) {                                                    // руны (до 2 id) и огранка (цвет 1..10) — единственные вложенные поля, нужные в бою
+        delete out[s].runes; delete out[s].cut;
+        if (Array.isArray(e.runes)) { const rs = e.runes.filter((r) => typeof r === 'string' && /^[a-z0-9-]{1,30}$/.test(r)).slice(0, 2); if (rs.length) out[s].runes = rs; }
+        if (Number.isInteger(e.cut) && e.cut >= 1 && e.cut <= 10) out[s].cut = e.cut;
+      }
     }
     return out;
   };
