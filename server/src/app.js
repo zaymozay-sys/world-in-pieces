@@ -1,5 +1,6 @@
 // HTTP-обработчик без фреймворков. create({ cfg, store, now }) -> { handler }.
 const crypto = require('crypto');
+const path = require('path');
 const { externalId } = require('./verify');
 const cardcheck = require('./cardcheck');
 const rating = require('./rating');
@@ -11,10 +12,11 @@ const { standings } = factionwar;
 const PID_RE = /^p-[0-9a-z]{8}-[0-9a-z]{8}-[0-9a-z]{8}$/; // формат из js/net.js (Net.validPid)
 const FACTIONS = ['human', 'dwarf', 'elf', 'lizard'];
 // Боевая карточка: проверяем форму и размер; содержимое вещей — данные клиента, игра при показе очищает их сама.
-const cleanCard = (c) => {
+const cleanCard = (c, maxLevel) => {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
   const level = c.level;
   if (!Number.isInteger(level) || level < 1 || level > 100) return null;
+  if (maxLevel != null && level > maxLevel) return null;               // уровень выше подтверждённого прогресса
   if (!FACTIONS.includes(c.faction) || (c.gender !== 'm' && c.gender !== 'f')) return null;
   const nick = typeof c.nick === 'string' ? c.nick.replace(/[\u0000-\u001f<>&"]/g, '').trim().slice(0, 24) : '';
   if (!nick) return null;
@@ -29,6 +31,12 @@ const cleanCard = (c) => {
   return body.length <= 12000 ? { out, body } : null;
 };
 const funnel = require('./funnel');
+// Наибольший уровень, который сервер подтверждает игроку: по подтверждённому опыту (savecheck.trust), у нового аккаунта — по стартовому.
+const trustedLevel = async (store, pid) => {
+  const ck = await store.getCheck(pid);
+  const xp = ck ? (ck.tx != null ? ck.tx : ck.xp) : 0;
+  return require(path.join(__dirname, '..', 'rules', 'hero.js')).levelOf(Math.max(0, Number(xp) || 0)).level;
+};
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 const limiter = (limit, windowMs, now) => {
@@ -82,7 +90,8 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
     const origin = req.headers.origin;
     try {
       const url = (req.url || '/').split('?')[0];
-      const ip = (req.socket && req.socket.remoteAddress) || '?';
+      let ip = (req.socket && req.socket.remoteAddress) || '?';
+      if (cfg.trustProxy) { const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(); if (xf) ip = xf; }   // за прокси: адрес клиента, а не шлюза
       if (req.method === 'OPTIONS') return send(res, 204, {}, origin);
       if (url === '/health') return send(res, 200, { ok: true }, origin);
       if (!ipOk(ip)) return send(res, 429, { error: 'rate' }, origin);
@@ -292,7 +301,7 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
               const prev = await store.getCheck(pid), t = now(), c = savecheck.check(parsed, prev, t);
               const keepFlag = prev && prev.flagUntil > t ? prev : null;
               const flagUntil = c.reason ? t + savecheck.FLAG_MS : (keepFlag ? keepFlag.flagUntil : 0), reason = c.reason || (keepFlag ? keepFlag.reason : '');
-              await store.setCheck(pid, { at: t, xp: c.m.xp == null ? (prev ? prev.xp : 0) : c.m.xp, wins: c.m.wins == null ? (prev ? prev.wins : 0) : c.m.wins, floor: c.m.floor == null ? (prev ? prev.floor || 0 : 0) : c.m.floor, flagUntil, reason });
+              await store.setCheck(pid, { at: t, xp: c.m.xp == null ? (prev ? prev.xp : 0) : c.m.xp, wins: c.m.wins == null ? (prev ? prev.wins : 0) : c.m.wins, floor: c.m.floor == null ? (prev ? prev.floor || 0 : 0) : c.m.floor, tx: c.trusted.xp, tw: c.trusted.wins, tf: c.trusted.floor, flagUntil, reason });
               if (c.reason) await store.log('save-flag', pid, c.reason);
             } catch (e) { /* проверка не должна ломать сохранение */ }
           }
@@ -300,7 +309,7 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
         }
         if (url === '/card' && req.method === 'PUT') {
           const b = await readBody(req);
-          const c = b ? cleanCard(b.card) : null;
+          const c = b ? cleanCard(b.card, await trustedLevel(store, pid)) : null;
           if (!c) return send(res, 400, { error: 'card' }, origin);
           await store.putCard(pid, c.out.level, c.body);
           return send(res, 200, { ok: true }, origin);
@@ -326,4 +335,4 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
   };
   return { handler };
 };
-module.exports = { create, PID_RE, cleanCard, sha };
+module.exports = { create, PID_RE, cleanCard, trustedLevel, sha };

@@ -37,7 +37,7 @@ const create = ({ send, now = Date.now, setTimer = setTimeout, clearTimer = clea
     if (room.over) return;
     room.over = true; clearTimer(room.timer); clearTimer(room.resTimer); clearTimer(room.dropTimer);
     for (const r of ['A', 'B']) { const p = room.p[r]; if (p.conn) to(p.conn, { t: 'end', winner, reason }); }
-    onEnd({ room: room.id, winner, reason, A: room.p.A.pid, B: room.p.B.pid, acts: room.n, meta: room.meta || null, levelA: room.p.A.card && room.p.A.card.level, levelB: room.p.B.card && room.p.B.card.level, nickA: room.p.A.card && room.p.A.card.nick, nickB: room.p.B.card && room.p.B.card.nick });
+    onEnd({ room: room.id, winner, reason, A: room.p.A.pid, B: room.p.B.pid, acts: room.n, actsA: room.by.A, actsB: room.by.B, ms: Math.max(0, now() - room.t0), meta: room.meta || null, levelA: room.p.A.card && room.p.A.card.level, levelB: room.p.B.card && room.p.B.card.level, nickA: room.p.A.card && room.p.A.card.nick, nickB: room.p.B.card && room.p.B.card.nick });
     room.dropTimer = setTimer(() => drop(room), 5000);
   };
 
@@ -57,7 +57,7 @@ const create = ({ send, now = Date.now, setTimer = setTimeout, clearTimer = clea
   };
 
   const match = (a, b, meta = null) => {
-    const room = { meta, id: crypto.randomBytes(8).toString('hex'), seed: newSeed(), n: 0, log: [], over: false, strikes: { A: 0, B: 0 }, results: {},
+    const room = { meta, id: crypto.randomBytes(8).toString('hex'), seed: newSeed(), n: 0, by: { A: 0, B: 0 }, t0: now(), log: [], over: false, strikes: { A: 0, B: 0 }, results: {},
       p: { A: { pid: a.pid, conn: a.conn, card: a.card, away: false }, B: { pid: b.pid, conn: b.conn, card: b.card, away: false } } };
     room.first = room.seed % 2 ? 'A' : 'B'; room.owner = room.first;
     rooms.set(room.id, room); byPid.set(a.pid, room.id); byPid.set(b.pid, room.id);
@@ -99,7 +99,7 @@ const create = ({ send, now = Date.now, setTimer = setTimeout, clearTimer = clea
     if (m.n !== room.n + 1 || room.n >= C.maxAct) return to(conn, { t: 'err', e: 'order', n: room.n });
     const msg = { t: 'act', n: m.n, a: m.a, done: !!m.done, by: role };
     if (JSON.stringify(msg).length > 2000) return to(conn, { t: 'err', e: 'big' });
-    room.n = m.n; room.log.push(msg);
+    room.n = m.n; room.by[role]++; room.log.push(msg);
     const o = room.p[other(role)]; if (o.conn) to(o.conn, msg);
     room.strikes[role] = 0;                                  // раз ходит — не пропускает
     if (msg.done) room.owner = other(role);
@@ -141,7 +141,7 @@ const create = ({ send, now = Date.now, setTimer = setTimeout, clearTimer = clea
   };
 
   // --- турнир: бой назначает сервер, игрокам очередь не нужна ---
-  const connOf = (pid) => { for (const [id, c] of conns) if (c.pid === pid) return id; return null; };
+  const connOf = (pid) => { let last = null; for (const [id, c] of conns) if (c.pid === pid) last = id; return last; };   // при переподключении живое соединение — самое свежее
   const online = (pid) => { const id = connOf(pid); return id !== null && !byPid.has(pid); };
   const sendPid = (pid, msg) => { const id = connOf(pid); if (id !== null) to(id, msg); };
   // a, b: { pid, card } — карточки только для показа; meta: { send, ...}, уходит в onEnd
@@ -169,7 +169,7 @@ const create = ({ send, now = Date.now, setTimer = setTimeout, clearTimer = clea
 const attach = ({ server, store, now = Date.now, cfg, live: opts = {}, sha }) => {
   const { WebSocketServer } = require('ws');
   const wss = new WebSocketServer({ server, path: '/live', maxPayload: 4096 });
-  const socks = new Map(); let seq = 0;
+  const socks = new Map(); const pidOf = new Map(); let seq = 0;
   const core = create({ send: (id, msg) => { const s = socks.get(id); if (s && s.readyState === 1) s.send(JSON.stringify(msg)); }, now, cfg: opts.cfg, onEnd: opts.onEnd, cleanCard: opts.cleanCard });
   const iv = setInterval(() => core.tick(), 1000); iv.unref();
   wss.on('connection', (ws, req) => {
@@ -183,12 +183,12 @@ const attach = ({ server, store, now = Date.now, cfg, live: opts = {}, sha }) =>
         if (!m || m.t !== 'hello' || typeof m.token !== 'string' || !/^[0-9a-f]{64}$/.test(m.token)) return ws.close();
         const pid = await store.sessionPid(sha(m.token), now());
         if (!pid) { ws.send(JSON.stringify({ t: 'auth-fail' })); return ws.close(); }
-        core.hello(id, pid); ready = true; clearTimeout(hold); ws.send(JSON.stringify({ t: 'hello-ok' })); return;
+        core.hello(id, pid); pidOf.set(id, pid); ready = true; clearTimeout(hold); ws.send(JSON.stringify({ t: 'hello-ok' })); return;
       }
-      if (m && m.t === 'queue') { const c = opts.cleanCard && opts.cleanCard(m.card); if (!c) return ws.send(JSON.stringify({ t: 'err', e: 'card' })); m = { t: 'queue', card: c.out }; }
+      if (m && m.t === 'queue') { const c = opts.cleanCardFor ? await opts.cleanCardFor(pidOf.get(id), m.card) : (opts.cleanCard && opts.cleanCard(m.card)); if (!c) return ws.send(JSON.stringify({ t: 'err', e: 'card' })); m = { t: 'queue', card: c.out }; }
       core.message(id, m);
     });
-    ws.on('close', () => { clearTimeout(hold); socks.delete(id); core.close(id); });
+    ws.on('close', () => { clearTimeout(hold); socks.delete(id); pidOf.delete(id); core.close(id); });
     ws.on('error', () => {});
   });
   return { wss, core, close: () => { clearInterval(iv); wss.close(); } };

@@ -53,9 +53,9 @@ const create = () => {
     // квитанция за бой: paid — положены ли монеты (не больше PAID_DAILY побед в сутки, считаем по дню UTC)
     // показатели профиля при последней отправке + пометка; flagUntil — до какого времени игрок помечен
     async getCheck(pid) { return checks.get(pid) || null; },
-    async setCheck(pid, c) { if (players.has(pid)) checks.set(pid, { at: c.at, xp: c.xp, wins: c.wins, floor: c.floor || 0, flagUntil: c.flagUntil || 0, reason: c.reason || '' }); },
+    async setCheck(pid, c) { if (players.has(pid)) checks.set(pid, { at: c.at, xp: c.xp, wins: c.wins, floor: c.floor || 0, tx: c.tx == null ? null : c.tx, tw: c.tw == null ? null : c.tw, tf: c.tf == null ? null : c.tf, flagUntil: c.flagUntil || 0, reason: c.reason || '' }); },
     async depthBoard(limit, now) {
-      return [...checks.entries()].filter(([p, c]) => c.floor > 0 && c.flagUntil <= now && cards.has(p) && players.has(p)).map(([p, c]) => { let nick = ''; try { nick = JSON.parse(cards.get(p).body).nick || ''; } catch (e) { /* пусто */ } return { pid: p, nick, floor: c.floor, at: c.at }; })
+      return [...checks.entries()].filter(([p, c]) => (c.tf == null ? c.floor : c.tf) > 0 && c.flagUntil <= now && cards.has(p) && players.has(p)).map(([p, c]) => { let nick = ''; try { nick = JSON.parse(cards.get(p).body).nick || ''; } catch (e) { /* пусто */ } return { pid: p, nick, floor: c.tf == null ? c.floor : c.tf, at: c.at }; })
         .filter((r) => r.nick).sort((a, b) => b.floor - a.floor || a.at - b.at).slice(0, limit);
     },
     async isFlagged(pid, now) { const c = checks.get(pid); return !!c && c.flagUntil > now; },
@@ -124,7 +124,7 @@ const create = () => {
     },
     async deletePlayer(pid) {
       const p = players.get(pid); if (!p) return false;
-      for (const t of tours.values()) if (t.body.includes(pid)) t.body = t.body.split(pid).join('deleted');   // имя игрока из турниров убираем
+      for (const t of tours.values()) if (t.body.includes(pid)) t.body = t.body.split(pid).join('del-' + pid.slice(2, 10));   // имя игрока из турниров убираем
       players.delete(pid); checks.delete(pid); for (let i = vouchers.length - 1; i >= 0; i--) if (vouchers[i].pid === pid) vouchers.splice(i, 1); rats.delete(pid); for (let i = rlog.length - 1; i >= 0; i--) if (rlog[i].pid === pid || rlog[i].opp === pid) { if (rlog[i].pid !== pid) rlog[i].opp = 'deleted'; else rlog.splice(i, 1); } for (const k of [...claims]) if (k.endsWith('|' + pid)) claims.delete(k);
       for (let i = posts.length - 1; i >= 0; i--) if (posts[i].pid === pid) posts.splice(i, 1);
       for (let i = reports.length - 1; i >= 0; i--) if (reports[i].reporter === pid || reports[i].author === pid) reports.splice(i, 1);

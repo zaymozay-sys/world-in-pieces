@@ -1,6 +1,6 @@
 const http = require('http');
 const { load } = require('./config');
-const { create, cleanCard, sha } = require('./app');
+const { create, cleanCard, trustedLevel, sha } = require('./app');
 const live = require('./live');
 const tourWire = require('./tour-wire');
 const ratingMod = require('./rating');
@@ -18,7 +18,7 @@ const ratingMod = require('./rating');
   let lvCore = null;
   const rh = ratingMod.hook(store, Date.now, (pid, m) => { if (lvCore) lvCore.sendPid(pid, m); });
   const srv = http.createServer(handler);
-  const lv = live.attach({ server: srv, store, cfg, sha, live: { cleanCard, cfg: { spread: cfg.arenaSpread }, onEnd: (e) => { tw.onEnd(e); rh(e); } } });
+  const lv = live.attach({ server: srv, store, cfg, sha, live: { cleanCard, cleanCardFor: async (pid, card) => cleanCard(card, await trustedLevel(store, pid)), cfg: { spread: cfg.arenaSpread }, onEnd: (e) => { tw.onEnd(e); rh(e); } } });
   lvCore = lv.core; tw.bind(lv.core);
   srv.listen(cfg.port, () => console.log('сервер слушает порт ' + cfg.port + ', платформы: ' + cfg.platforms.join(',')));
   const stop = () => lv.close() || srv.close(() => store.close().then(() => process.exit(0)));

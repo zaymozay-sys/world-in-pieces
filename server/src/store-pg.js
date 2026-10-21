@@ -56,20 +56,26 @@ const create = async (databaseUrl) => {
       const r = await q('SELECT pid, level, body FROM cards WHERE pid<>$1 AND level BETWEEN $2 AND $3 ORDER BY abs(level-$4), updated_at DESC LIMIT $5', [pid, level - spread, level + spread, level, limit]);
       return r.rows.map((x) => ({ pid: x.pid, level: x.level, body: x.body }));
     },
-    async getCheck(pid) { const r = await q('SELECT at, xp, wins, floor, flag_until, reason FROM player_checks WHERE pid=$1', [pid]); const x = r.rows[0]; return x ? { at: Number(x.at), xp: x.xp, wins: x.wins, floor: x.floor, flagUntil: Number(x.flag_until), reason: x.reason } : null; },
-    async setCheck(pid, c) { await q('INSERT INTO player_checks(pid,at,xp,wins,floor,flag_until,reason) SELECT $1,$2,$3,$4,$7,$5,$6 WHERE EXISTS (SELECT 1 FROM players WHERE pid=$1) ON CONFLICT (pid) DO UPDATE SET at=$2, xp=$3, wins=$4, floor=$7, flag_until=$5, reason=$6', [pid, c.at, c.xp, c.wins, c.flagUntil || 0, c.reason || '', c.floor || 0]); },
+    async getCheck(pid) { const r = await q('SELECT at, xp, wins, floor, tx, tw, tf, flag_until, reason FROM player_checks WHERE pid=$1', [pid]); const x = r.rows[0]; return x ? { at: Number(x.at), xp: x.xp, wins: x.wins, floor: x.floor, tx: x.tx, tw: x.tw, tf: x.tf, flagUntil: Number(x.flag_until), reason: x.reason } : null; },
+    async setCheck(pid, c) { await q('INSERT INTO player_checks(pid,at,xp,wins,floor,flag_until,reason,tx,tw,tf) SELECT $1,$2,$3,$4,$7,$5,$6,$8,$9,$10 WHERE EXISTS (SELECT 1 FROM players WHERE pid=$1) ON CONFLICT (pid) DO UPDATE SET at=$2, xp=$3, wins=$4, floor=$7, flag_until=$5, reason=$6, tx=$8, tw=$9, tf=$10', [pid, c.at, c.xp, c.wins, c.flagUntil || 0, c.reason || '', c.floor || 0, c.tx == null ? null : c.tx, c.tw == null ? null : c.tw, c.tf == null ? null : c.tf]); },
     async depthBoard(limit, now) {
-      const r = await q('SELECT k.pid, k.floor, k.at, c.body FROM player_checks k JOIN cards c USING (pid) WHERE k.floor > 0 AND k.flag_until <= $1 ORDER BY k.floor DESC, k.at LIMIT $2', [now, limit * 2]);
+      const r = await q('SELECT k.pid, COALESCE(k.tf, k.floor) AS floor, k.at, c.body FROM player_checks k JOIN cards c USING (pid) WHERE COALESCE(k.tf, k.floor) > 0 AND k.flag_until <= $1 ORDER BY COALESCE(k.tf, k.floor) DESC, k.at LIMIT $2', [now, limit * 2]);
       const out = []; for (const x of r.rows) { let nick = ''; try { nick = JSON.parse(x.body).nick || ''; } catch (e) { /* пусто */ } if (nick) out.push({ pid: x.pid, nick, floor: x.floor, at: Number(x.at) }); }
       return out.slice(0, limit);
     },
     async isFlagged(pid, now) { const r = await q('SELECT 1 FROM player_checks WHERE pid=$1 AND flag_until > $2', [pid, now]); return r.rowCount > 0; },
     async addVoucher(pid, v) {
       const day = Math.floor(v.at / 86400000);
-      const c = await q('SELECT count(*)::int n FROM vouchers WHERE pid=$1 AND win AND paid AND at >= $2 AND at < $3', [pid, day * 86400000, (day + 1) * 86400000]);
-      const paid = !!v.win && c.rows[0].n < rating.PAID_DAILY;
-      const r = await q('INSERT INTO vouchers(pid,at,win,level,paid) SELECT $1,$2,$3,$4,$5 WHERE EXISTS (SELECT 1 FROM players WHERE pid=$1) RETURNING id', [pid, v.at, !!v.win, v.level, paid]);
-      return r.rows[0] ? Number(r.rows[0].id) : null;
+      const c = await pool.connect();
+      try {
+        await c.query('BEGIN');
+        await c.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['voucher:' + pid]);   // счёт платных боёв и запись — одним действием
+        const n = await c.query('SELECT count(*)::int n FROM vouchers WHERE pid=$1 AND win AND paid AND at >= $2 AND at < $3', [pid, day * 86400000, (day + 1) * 86400000]);
+        const paid = !!v.win && n.rows[0].n < rating.PAID_DAILY;
+        const r = await c.query('INSERT INTO vouchers(pid,at,win,level,paid) SELECT $1,$2,$3,$4,$5 WHERE EXISTS (SELECT 1 FROM players WHERE pid=$1) RETURNING id', [pid, v.at, !!v.win, v.level, paid]);
+        await c.query('COMMIT');
+        return r.rows[0] ? Number(r.rows[0].id) : null;
+      } catch (e) { try { await c.query('ROLLBACK'); } catch (x) { /* уже закрыто */ } throw e; } finally { c.release(); }
     },
     async claimVouchers(pid, now) {
       const r = await q('UPDATE vouchers SET claimed=true WHERE pid=$1 AND NOT claimed AND at >= $2 RETURNING id, at, win, level, paid', [pid, now - rating.VOUCHER_KEEP_MS]);
@@ -124,7 +130,7 @@ const create = async (databaseUrl) => {
       const d = await q("SELECT id, state, body FROM tournaments WHERE state='done' ORDER BY start_at DESC LIMIT 1");
       return [...a.rows, ...d.rows];
     },
-    async deletePlayer(pid) { await q("UPDATE tournaments SET body = replace(body, $1, 'deleted') WHERE position($1 in body) > 0", [pid]); const r = await q('DELETE FROM players WHERE pid=$1', [pid]); return r.rowCount > 0; },
+    async deletePlayer(pid) { await q("UPDATE tournaments SET body = replace(body, $1, 'del-' || substr($1, 3, 8)) WHERE position($1 in body) > 0", [pid]); const r = await q('DELETE FROM players WHERE pid=$1', [pid]); return r.rowCount > 0; },
     async purge(now, auditMaxAgeMs) {
       const a = await q('DELETE FROM sessions WHERE expires_at <= to_timestamp($1/1000.0)', [now]);
       const b = await q('DELETE FROM audit WHERE created_at < to_timestamp($1/1000.0)', [now - auditMaxAgeMs]);

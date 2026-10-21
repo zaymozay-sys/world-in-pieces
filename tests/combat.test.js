@@ -13,11 +13,11 @@ const fighter = (o = {}) => ({ hp: 100, max: 100, dmg: 1, stats: stats(o.stats),
 const never = () => 0.999;           // шансы не срабатывают
 const always = () => 0;              // шансы срабатывают
 
-// урон: номинал × рост урона × (1 + Сила), затем Броня
+// урон: (номинал + Сила, где Сила = вещи + Сила уровня 3·(dmg − 1)) × магия, затем Броня
 let a = fighter({ dmg: 2, stats: { power: 50 } }), t = fighter({ stats: { defense: 20 } });
 let r = Combat.hit(a, t, 10, false, never);
 assert.strictEqual(r.kind, 'hit');
-assert.strictEqual(r.amount, Combat.mitigate(Math.ceil(10 * 2 * 1.5), Combat.armorOf(t)));
+assert.strictEqual(r.amount, Combat.mitigate(Math.ceil(10 + 50 + Combat.levelPower(2)), Combat.armorOf(t)));
 assert.strictEqual(t.hp, 100 - r.amount);
 // урон без модификаторов (яд, штраф)
 t = fighter(); r = Combat.hit(a, t, 7, true, never);
@@ -75,7 +75,7 @@ assert.strictEqual(Combat.hit(a, t, 10, false, never).amount, 20);
 assert.strictEqual(Combat.hit(a, t, 10, false, never).amount, 10);
 // Ярость: раненый бьёт сильнее
 a = fighter({ ability: 'rage', hp: 40 });
-assert.strictEqual(Combat.power(a), B.abilities.rage.power);
+assert.ok(Math.abs(Combat.power(a) - B.abilities.rage.power * 0.045) < 1e-9, 'Ярость орка: очки старой шкалы × 0,045 × рост урона (dmg = 1)');
 a.hp = 80; assert.strictEqual(Combat.power(a), 0);
 // Подлый удар не замечает Брони
 a = fighter({ ability: 'backstab' }); t = fighter({ stats: { defense: 50 } });
@@ -203,12 +203,11 @@ assert.strictEqual(ef.amount, Math.round(100 * B.consumables.honeyjar.hpPct));
 assert.strictEqual(f.max, 100 + ef.amount);
 assert.strictEqual(f.hp, 100 + ef.amount);
 
-// Магия снижает цену заклинаний, но не ниже минимума; у каждого заклинания своя базовая цена (Balance.magic.costs)
+// цена заклинаний не зависит от характеристик; у каждого заклинания своя базовая цена (Balance.magic.costs)
 assert.strictEqual(Combat.spellCost(fighter()), B.magic.costs.lightning);           // по умолчанию — молния
 for (const kind of Object.keys(B.magic.costs)) {
   assert.strictEqual(Combat.spellCost(fighter(), kind), B.magic.costs[kind]);
-  assert.strictEqual(Combat.spellCost(fighter({ stats: { magic: 4 } }), kind), B.magic.costs[kind] - 1);
-  assert.strictEqual(Combat.spellCost(fighter({ stats: { magic: 100 } }), kind), B.magic.minCost);
+  assert.strictEqual(Combat.spellCost(fighter({ stats: { power: 40 } }), kind), B.magic.costs[kind]);
 }
 // Заклинания стоят по-разному, и это относится к их относительной силе (см. docs/balance.md)
 assert.ok(B.magic.costs.lightning >= B.magic.costs.fire, 'Шаровая молния не дешевле Огненного креста');
@@ -226,7 +225,8 @@ assert.strictEqual(Combat.invalidPenalty(fighter({ max: 400 })), 400 * B.invalid
 // ИИ считает в «камнях»: чем сильнее удар, тем меньше камней нужно
 const me = fighter({ dmg: 1 }), foe = fighter({ dmg: 1 });
 const v1 = Combat.aiView(me, foe); me.dmg = 3; const v3 = Combat.aiView(me, foe);
-assert.ok(Math.abs(v1.hpOpp / v3.hpOpp - 3) < 1e-9);
+assert.ok(v3.hpOpp < v1.hpOpp, 'чем больше рост урона (Сила уровня), тем меньше камней нужно');
+assert.ok(Math.abs(v1.hpOpp / v3.hpOpp - (4.5 + Combat.levelPower(3)) / 4.5) < 1e-9);
 
 // оценка опасности: разумный диапазон, растёт с силой героя, пороги по порядку
 const H = { max: 125, dmg: 1.5, stats: stats({ power: 10, defense: 10 }) };

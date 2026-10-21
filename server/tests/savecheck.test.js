@@ -45,7 +45,7 @@ assert.strictEqual(sc.check({}, prev, H).reason, '', 'пустой профил�
   // бой помеченного игрока в рейтинг не идёт и квитанций нет
   await put(1, 1, { coins: 1, xp: 100, wins: 1 });
   const got = [];
-  rating.hook(st, () => T, (pid, m) => got.push(pid))({ winner: 'A', reason: 'played', acts: 10, A: P[0], B: P[1], nickA: 'А', nickB: 'Б' });
+  rating.hook(st, () => T, (pid, m) => got.push(pid))({ winner: 'A', reason: 'played', acts: 10, actsA: 5, actsB: 5, ms: 60000, A: P[0], B: P[1], nickA: 'А', nickB: 'Б' });
   await new Promise((r) => setTimeout(r, 30));
   assert.strictEqual(got.length, 0); assert.deepStrictEqual(await st.leaderboard('all', 5, T), []);
   assert.deepStrictEqual(await st.claimVouchers(P[1], T), []);
@@ -53,7 +53,7 @@ assert.strictEqual(sc.check({}, prev, H).reason, '', 'пустой профил�
   await put(1, 2, { coins: 1, xp: 200, wins: 1 });
   const P2 = 'p-cccccccc-cccccccc-cccccccc'; const t2 = (await call('POST', '/auth', { platform: 'site', guest: 'z'.repeat(40), pid: P2 })).json.token;
   await call('PUT', '/snapshot', { version: 1, snapshot: JSON.stringify({ xp: 10, wins: 0 }) }, t2);
-  rating.hook(st, () => T, (pid) => got.push(pid))({ winner: 'A', reason: 'played', acts: 10, A: P2, B: P[1], nickA: 'В', nickB: 'Б' });
+  rating.hook(st, () => T, (pid) => got.push(pid))({ winner: 'A', reason: 'played', acts: 10, actsA: 5, actsB: 5, ms: 60000, A: P2, B: P[1], nickA: 'В', nickB: 'Б' });
   await new Promise((r) => setTimeout(r, 30));
   assert.strictEqual(got.length, 2, 'бой честных игроков засчитан');
   srv.close(); console.log('savecheck: ок'); process.exit(0);

@@ -92,6 +92,8 @@ const call = (port, method, path, body, token, extra) => new Promise((resolve, r
   const card = (nick, level, extra) => Object.assign({ nick, faction: 'dwarf', gender: 'f', level, rank: 2, gear: { main: { id: WEAPON, tier: 1 }, off: null } }, extra || {});
   const mk = async (g, pid) => (await call(port, 'POST', '/auth', { platform: 'site', guest: g.repeat(40), pid })).json.token;
   const tA = await mk('a', 'p-aaaaaaa1-aaaaaaaa-aaaaaaaa'), tB = await mk('b', 'p-bbbbbbb1-bbbbbbbb-bbbbbbbb'), tC = await mk('c', 'p-ccccccc1-cccccccc-cccccccc'), tD = await mk('d', 'p-ddddddd1-dddddddd-dddddddd');
+  // подтверждённый прогресс задан напрямую: уровень карточки не может превышать подтверждённый (см. savecheck.trust)
+  for (const p of ['p-aaaaaaa1-aaaaaaaa-aaaaaaaa', 'p-bbbbbbb1-bbbbbbbb-bbbbbbbb', 'p-ccccccc1-cccccccc-cccccccc', 'p-ddddddd1-dddddddd-dddddddd']) await store.setCheck(p, { at: Date.now(), xp: 1e5, wins: 50, floor: 0, tx: 1e5, tw: 50, tf: 0 });
   assert.strictEqual((await call(port, 'PUT', '/card', { card: card('Аня', 10) })).code, 401);
   assert.strictEqual((await call(port, 'PUT', '/card', { card: card('Аня', 10) }, tA)).code, 200);
   assert.strictEqual((await call(port, 'PUT', '/card', { card: card('Боря', 12) }, tB)).code, 200);

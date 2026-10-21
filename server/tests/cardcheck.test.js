@@ -30,7 +30,11 @@ const other = Gear.ITEMS.find((i) => i.faction && i.faction !== 'human');
 if (other) assert.strictEqual(check({ level: 100, faction: 'human', gear: { [/^weapon/.test(other.type) ? 'main' : other.type === 'shield' ? 'off' : other.type]: { id: other.id, tier: 1 } } }).error, 'equip', 'вещь чужого народа');
 // лишние поля вещи выбрасываются
 const c = check({ level: 100, faction: 'human', gear: { chest: { id: Gear.ITEMS.find((i) => i.type === 'chest' && !i.faction).id, tier: 1, power: 9999, stats: { power: 9999 }, plus: 99, cut: 50 } } });
-assert.ok(c.gear && !c.gear.chest.stats && !c.gear.chest.power && c.gear.chest.plus <= 5 && !('cut' in c.gear.chest));
+assert.ok(c.gear && !c.gear.chest.stats && !c.gear.chest.power && c.gear.chest.plus <= 5 && c.gear.chest.cut === undefined);   // 50 — не цвет самоцвета
+// руны и огранка сохраняются, если они настоящие
+const cid = Gear.ITEMS.find((i) => i.type === 'chest' && !i.faction).id;
+const c2 = check({ level: 100, faction: 'human', gear: { chest: { id: cid, tier: 1, runes: ['rune-might', 'нет-такой', 'rune-ward', 'rune-might'], cut: 3 } } });
+assert.deepStrictEqual(c2.gear.chest.runes, ['rune-might', 'rune-ward']); assert.strictEqual(c2.gear.chest.cut, 3);
 // сверх лимита очков: полный набор высшего цвета на уровне, где вещи уже можно надеть, но очков не хватает, быть не может
 // через cleanCard
 const card = { nick: 'Лу', faction: 'human', gender: 'f', level: 100, rank: 1, gear: { chest: { id: best.id, tier: 1 } } };

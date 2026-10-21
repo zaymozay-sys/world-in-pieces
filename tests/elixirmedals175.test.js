@@ -18,7 +18,7 @@ for (const k of Medals.ELIXIR_ORDER) if (!earned.some((m) => m.id === 'elixir:' 
 assert.ok(Medals.groupDone('elixir', earned) && Medals.hasPerk(earned, 'elixir'));
 assert.ok(Gear.item({ id: Medals.relicId('elixir'), tier: 1 }).relic, 'реликвия комплекта есть');
 const b = Medals.bonusStats(earned);
-assert.ok(b.health >= 15 + 4 && b.power >= 3 + 1, 'бонус комплекта учтён');
+assert.ok(b.health >= 15 + 4 && b.power >= 2, 'бонус комплекта учтён');
 // число выпитых
 assert.deepStrictEqual(Medals.DRUNK_MILESTONES, [10, 30, 75, 150, 300, 600, 1000, 2000]);
 assert.strictEqual(Medals.checkDrunkMedal(9, []), null);

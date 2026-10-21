@@ -8,6 +8,7 @@ const load = (env = process.env) => ({
   yandexSecret: env.YANDEX_SECRET || '',
   vkSecret: env.VK_SECRET || '',
   vkMaxAgeSec: num(env.VK_MAX_AGE_SEC, 86400),
+  trustProxy: env.TRUST_PROXY === '1',   // за обратным прокси IP клиента берётся из X-Forwarded-For
   allowedOrigins: (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
   maxBody: num(env.MAX_BODY, 300 * 1024),
   sessionDays: num(env.SESSION_DAYS, 30),

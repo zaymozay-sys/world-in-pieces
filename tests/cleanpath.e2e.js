@@ -25,9 +25,9 @@ const ok = (n, c, x) => { if (c) console.log('  ok   ' + n); else { fails++; con
     await p.waitForSelector('[data-coach="skip"]', { timeout: 15000 }).catch(() => {});
     const coach = await p.$('[data-coach="skip"]');
     ok('обучение предлагается новичку', !!coach);
-    if (coach) await coach.click();
+    if (coach) { await coach.click(); await p.waitForTimeout(500); const again = await p.$('[data-coach="skip"]'); if (again) await again.click(); }   // 1.8.x: пропуск просит подтверждение вторым нажатием
     await p.waitForTimeout(1200);
-    await p.click('text=Горные кланы'); await p.click('text=Мужской');
+    await p.click('text=Подгорные кланы'); await p.click('text=Мужской');
     const evil = '<img src=x onerror="window.__xss=1">Лу';
     await p.fill('input', evil);
     await p.click('text=Начать игру!'); await p.waitForTimeout(1500);
@@ -56,6 +56,7 @@ const ok = (n, c, x) => { if (c) console.log('  ok   ' + n); else { fails++; con
     await p.waitForFunction(() => document.body.classList.contains('mode-battle'), null, { timeout: 20000 });
     await p.waitForTimeout(1500);
     const sel = touch && vp.width < 700 ? '#restart' : '#restart';
+    { const cl = await p.$('.modal button:has-text("Закрыть")'); if (cl && await cl.isVisible()) { await cl.click().catch(() => {}); await p.waitForTimeout(400); } }   // «Награда за заход» после перезагрузки закрывает поле
     await p.click(sel); await p.waitForTimeout(300); await p.click(sel);
     await p.waitForFunction(() => document.body.classList.contains('mode-map') || document.querySelector('.overlay'), null, { timeout: 30000 });
     if (await p.$('.overlay .to-map')) await p.click('.overlay .to-map');

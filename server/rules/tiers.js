@@ -29,11 +29,17 @@ const Tiers = (() => {
   /* Рост по уровням-цветам.
      GROWTH — главный множитель: ХП и урон существ, базовое ХП и урон героя (по его уровню), Здоровье вещей.
        ХП и урон растут одинаково, поэтому бой равных соперников одинаково длинный на любом цвете.
-     POWER_MULT — Сила и Магия вещей и существ (растут умеренно).
+     POWER_ABS — Сила вещей (число, прибавляемое к удару).
      PCT_MULT — Броня, Блок, Рикошет, Проворство (шансы и проценты растут медленно, чтобы не упираться в потолки).
      POINT_MULT — цена вещи в очках снаряжения; PRICE_MULT — цена в монетах и монеты с добычи. */
   const GROWTH     = [1, 1.3, 1.7, 2.2, 2.8, 3.5, 4.4, 5.5, 7, 9];
+  // Старая шкала Силы («очки»): относительный рост вещей по цветам. Сила в бою теперь плоская (прибавка к удару),
+  // поэтому очко старой шкалы на цвете t равно POWER_MULT[t] × 0,045 × рост урона героя на этом цвете (см. POWER_ABS).
   const POWER_MULT = [1, 1.15, 1.3, 1.45, 1.6, 1.75, 1.9, 2.05, 2.2, 2.35];
+  // Рост урона героя на середине цвета (Hero.dmgMult((t − 1)·10 + 5)): цвет 1 = ур. 5, цвет 7 = ур. 65.
+  const HERO_DMG = [1.67, 2.17, 2.83, 3.63, 4.59, 5.75, 7.22, 9.09, 11.61, 14.93];
+  // Сила вещей: множитель базового значения вещи на цвете — Сила прибавляется к удару числом (удар = камни + Сила).
+  const POWER_ABS = POWER_MULT.map((m, i) => Math.round(m * 0.045 * HERO_DMG[i] * 1000) / 1000);
   const PCT_MULT   = [1, 1.12, 1.24, 1.36, 1.48, 1.6, 1.72, 1.84, 1.96, 2.1];
   const POINT_MULT = [1, 1.4, 1.9, 2.5, 3.2, 4, 5, 6.2, 7.6, 9.2];
   const PRICE_MULT = [1, 2.5, 6, 15, 35, 80, 180, 400, 900, 2000];
@@ -54,7 +60,7 @@ const Tiers = (() => {
     return table[i] * Math.pow(table[i + 1] / table[i], f);
   }
   // Множитель характеристики stat на уровне-цвете tier.
-  const STAT_TABLE = { health: GROWTH, power: POWER_MULT, magic: POWER_MULT, defense: PCT_MULT, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT };
+  const STAT_TABLE = { health: GROWTH, power: POWER_ABS, defense: PCT_MULT, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT };
   const statMult = (stat, tier) => (STAT_TABLE[stat] || POWER_MULT)[clamp(tier) - 1];
 
   /* ---------- деньги ---------- */
@@ -73,7 +79,7 @@ const Tiers = (() => {
     return parts.join(' ');
   }
 
-  return { LIST, MAX, GROWTH, POWER_MULT, PCT_MULT, POINT_MULT, PRICE_MULT, HP_MULT, SILVER, GOLD, clamp, get, at, statMult, splitMoney, moneyText };
+  return { LIST, MAX, GROWTH, POWER_MULT, POWER_ABS, HERO_DMG, PCT_MULT, POINT_MULT, PRICE_MULT, HP_MULT, SILVER, GOLD, clamp, get, at, statMult, splitMoney, moneyText };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

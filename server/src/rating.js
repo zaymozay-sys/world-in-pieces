@@ -1,6 +1,6 @@
 // Рейтинг Эло для живых боёв. Чистые функции: хранилища (память и PG) берут расчёт отсюда.
 const PAID_DAILY = 10, VOUCHER_KEEP_MS = 14 * 86400000;   // 10 боёв в сутки с монетами — как в игре (World.ARENA_DAILY)
-const START = 1000, K = 32, PAIR_DAILY = 3, MIN_ACTS = 6;
+const START = 1000, K = 32, PAIR_DAILY = 3, MIN_MS = 12000;   // бой короче 12 секунд не бой: людям на настоящую партию нужно больше времени
 const PERIODS = { week: 7 * 86400000, month: 30 * 86400000, year: 365 * 86400000 };
 const expected = (a, b) => 1 / (1 + Math.pow(10, (b - a) / 400));
 // ra, rb — рейтинги до боя; aWon — победил ли первый. Возвращает изменения для обоих.
@@ -8,8 +8,19 @@ const change = (ra, rb, aWon, k = K) => {
   const da = Math.round(k * ((aWon ? 1 : 0) - expected(ra, rb)));
   return { a: da, b: -da };
 };
-// Считается ли бой в рейтинг: итог согласован или решён сервером (сдача/пропуски), бой не пустой
-const counts = (e) => !!e && (e.winner === 'A' || e.winner === 'B') && ['played', 'forfeit', 'timeouts'].includes(e.reason) && !(e.meta && e.meta.tourney) && (e.reason === 'played' || e.acts >= MIN_ACTS);
+// Считается ли бой в рейтинг: итог согласован или решён сервером (сдача/пропуски) и бой действительно состоялся.
+// Признаки настоящей партии, не зависящие от «числа ходов» (честная быстрая победа сильного героя может уложиться в пару ходов):
+//  — прошло не меньше MIN_MS по часам сервера;
+//  — победитель сам делал ходы; в сыгранном бою и при сдаче ходил и проигравший (иначе это «победа» над не игравшим);
+//  — при пропусках хода достаточно, чтобы ходил победитель (проигравший мог просто уйти).
+// Сервер бой не считает, поэтому сговор с выдуманными ходами это не исключает; полная защита — повтор партии на сервере.
+const counts = (e) => {
+  if (!e || (e.winner !== 'A' && e.winner !== 'B') || !['played', 'forfeit', 'timeouts'].includes(e.reason) || (e.meta && e.meta.tourney)) return false;
+  if (!(e.ms >= MIN_MS)) return false;
+  const win = e.winner === 'A' ? e.actsA : e.actsB, lose = e.winner === 'A' ? e.actsB : e.actsA;
+  if (!(win >= 1)) return false;
+  return e.reason === 'timeouts' || lose >= 1;
+};
 // Хук для итога боя: пишет рейтинг в хранилище; сбой хранилища бой не ломает
 const hook = (store, now = Date.now, notify = () => {}) => (e) => {
   if (!counts(e)) return;
@@ -34,4 +45,4 @@ const periodAt = (kind, t) => {
   return { kind: 'week', id: 'w-' + new Date(a).toISOString().slice(0, 10), start: a, end: a + 7 * DAYMS };
 };
 const previous = (kind, now) => periodAt(kind, periodAt(kind, now).start - 1);
-module.exports = { PAID_DAILY, VOUCHER_KEEP_MS, hook, periodAt, previous, TOP, MIN_GAMES, START, K, PAIR_DAILY, MIN_ACTS, PERIODS, expected, change, counts };
+module.exports = { PAID_DAILY, VOUCHER_KEEP_MS, hook, periodAt, previous, TOP, MIN_GAMES, START, K, PAIR_DAILY, MIN_MS, PERIODS, expected, change, counts };

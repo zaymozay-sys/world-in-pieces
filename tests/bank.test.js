@@ -22,3 +22,13 @@ assert.strictEqual(Bank.parseCheque(code.replace('250', '999')), null, 'подд
 const r1 = Bank.redeem(b, code), r2 = Bank.redeem(b, code);
 assert.ok(r1.ok && r1.amount === 250 && !r2.ok && r2.why === 'used', 'чек гасится один раз');
 console.log('bank: все тесты пройдены');
+
+// потолок вклада растёт с ценами цвета героя; по умолчанию — базовый
+{
+  assert.strictEqual(Bank.capFor(), Bank.CAP); assert.strictEqual(Bank.capFor(1), Bank.CAP);
+  assert.strictEqual(Bank.capFor(10), Bank.CAP * 10); assert.strictEqual(Bank.capFor(0.1), Bank.CAP);
+  const big = Bank.capFor(73);
+  assert.strictEqual(Bank.clean({ dep: big * 2 }, big).dep, big);
+  const b = Bank.blank(); assert.ok(Bank.deposit(b, Bank.CAP * 5, big) && !Bank.deposit(b, Bank.CAP * 5, Bank.CAP));
+  console.log('bank: потолок по цвету ок');
+}

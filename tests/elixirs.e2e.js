@@ -31,11 +31,11 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       o.drankPower = useElixir('power', 3);
       o.stillMine = turnSide === 'left' && moves === mv; o.bagPower = count('power', 3);
       o.medalPow = (Profile.medalsBonus().power || 0) - m0;     // 1.7.5: за первый выпитый эликсир вида даётся медаль «Алхимик» (комплект с +3 силы) — вычитаем её вклад
-      o.powerUp = f.stats.power - p0;                           // 3-й цвет: round(12,5×3 + 60×3/5) = 74 (+ медаль)
+      o.powerUp = f.elxPct || 0; o.powerStat = f.stats.power - p0;   // 2.0.4: 3-й цвет = +30% к суммарной Силе (не прибавка к стату)
       o.twice = useElixir('power', 3);                          // тот же вид уже действует
       // 3. Сила переживает бонусный ход (ход героя не меняется), кончается вместе с ходом
-      setTurn('left'); o.keptOnExtra = f.elx.power && f.elx.power.left === 1 && f.stats.power === p0 + o.powerUp;
-      setTurn('right'); o.goneAfterTurn = !f.elx.power && f.stats.power === p0 + o.medalPow;
+      setTurn('left'); o.keptOnExtra = f.elx.power && f.elx.power.left === 1 && f.elxPct === o.powerUp;
+      setTurn('right'); o.goneAfterTurn = !f.elx.power && !f.elxPct && f.stats.power === p0 + o.medalPow;
       setTurn('left');
       // длинный эликсир: брони хватает на 10 ходов
       const d0 = f.stats.defense;
@@ -75,7 +75,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
     });
     ok(r.enemyTurn === false && r.bagAfterRefusal === 2, 'в ход противника эликсир не пьётся и не тратится');
     ok(r.drankPower && r.stillMine && r.bagPower === 1, 'Сила пьётся бесплатно, из сумки убывает: ' + JSON.stringify([r.drankPower, r.stillMine, r.bagPower]));
-    ok(r.powerUp - r.medalPow === 74, 'Сила 3-го цвета +74%: ' + r.powerUp + ' (медаль ' + r.medalPow + ')');
+    ok(r.powerUp === 30, 'Эликсир силы 3-го цвета: +30% к суммарной Силе: ' + r.powerUp);
     ok(r.twice === false, 'действующий вид повторно не пьётся');
     ok(r.keptOnExtra && r.goneAfterTurn, 'Сила живёт до конца хода (в т. ч. бонусного) и снимается при передаче хода');
     ok(r.drankDef && r.defLeft === 10 && r.defLeft3 === 7, 'Броня держится 10 своих ходов: ' + r.defLeft3);
@@ -99,7 +99,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
     await p.click('[data-elx-close]');
     await p.evaluate(() => Inventory.open('left')); await p.waitForTimeout(400);
     const stat = await p.evaluate(() => (document.querySelector('.stat-list') || {}).textContent || '');
-    ok(/из каждого удара/.test(stat) && /урон камня/.test(stat) && /ХП всего/.test(stat), 'у характеристик подписано, во что они превращаются');
+    ok(/из каждого удара/.test(stat) && /к каждому удару/.test(stat) && /ХП всего/.test(stat), 'у характеристик подписано, во что они превращаются');
     await p.evaluate(() => { Inventory.close && Inventory.close(); leaveBattle(); Inventory.open('left'); }); await p.waitForTimeout(400);
     const mapDrink = await p.evaluate(() => [...document.querySelectorAll('[data-drink]')].map((x) => x.disabled));
     ok(mapDrink.length > 0 && mapDrink.every(Boolean), 'вне боя «Выпить» неактивна: ' + mapDrink);

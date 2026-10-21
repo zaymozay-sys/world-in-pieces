@@ -86,8 +86,8 @@ assert.strictEqual(Combat.enemyDefeated(fighter({ hp: 5 })), false);
 assert.strictEqual(Combat.cloneAttackAmount(v.clone), CL.stones);
 const hero = fighter(), cl = Combat.makeClone(fighter({ hp: 50, dmg: 2 }));
 const hr = Combat.hit(cl, hero, Combat.cloneAttackAmount(cl), false, never);
-assert.strictEqual(hr.amount, CL.stones * 2);
-assert.strictEqual(hero.hp, 100 - CL.stones * 2);
+assert.strictEqual(hr.amount, Math.ceil(CL.stones + Combat.levelPower(2)));
+assert.strictEqual(hero.hp, 100 - hr.amount);
 
 // --- порядок ходов: двойник сразу после оригинала; старые вызовы не меняются ---
 assert.deepStrictEqual(Combat.turnOrder(true, false), ['hero', 'monster']);

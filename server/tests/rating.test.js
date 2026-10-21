@@ -59,11 +59,21 @@ const storeChecks = async (store, now) => {
   assert.strictEqual(rating.change(1000, 1000, true).a, 16);
   assert.ok(rating.change(1000, 1400, true).a > 16 && rating.change(1400, 1000, true).a < 16, 'слабого победа ценнее');
   assert.strictEqual(rating.change(1200, 1000, false).a + rating.change(1200, 1000, false).b, 0);
-  const ok = { winner: 'A', reason: 'played', acts: 2 };
+  const ok = { winner: 'A', reason: 'played', acts: 10, actsA: 5, actsB: 5, ms: 60000 };
   assert.ok(rating.counts(ok)); assert.ok(!rating.counts({ ...ok, winner: null }), 'ничья не считается');
   assert.ok(!rating.counts({ ...ok, reason: 'desync' })); assert.ok(!rating.counts({ ...ok, meta: { tourney: 't' } }), 'турнирные бои — не в Эло');
-  assert.ok(!rating.counts({ winner: 'A', reason: 'forfeit', acts: 2 }), 'сдача без игры не считается');
-  assert.ok(rating.counts({ winner: 'A', reason: 'forfeit', acts: 9 }));
+  const ev = (o) => ({ winner: 'A', reason: 'played', acts: 10, actsA: 5, actsB: 5, ms: 60000, ...o });
+  assert.ok(!rating.counts(ev({ reason: 'forfeit', actsA: 0, actsB: 0, acts: 0 })), 'сдача без игры не считается');
+  assert.ok(rating.counts(ev({ reason: 'forfeit' })), 'сдача после настоящей игры считается');
+  // 2.0.2: признаки настоящей партии — время и ходы обеих сторон, а не число ходов
+  assert.ok(!rating.counts(ev({ acts: 0, actsA: 0, actsB: 0 })), 'ноль ходов — не бой');
+  assert.ok(!rating.counts(ev({ actsA: 10, actsB: 0 })), 'проигравший не ходил — не бой');
+  assert.ok(!rating.counts(ev({ actsA: 0, actsB: 10 })), 'победитель не ходил — не бой');
+  assert.ok(!rating.counts(ev({ ms: 3000 })), 'бой короче 12 секунд — не бой');
+  assert.ok(!rating.counts({ winner: 'A', reason: 'played', acts: 10, actsA: 5, actsB: 5 }), 'нет времени боя — не считаем');
+  assert.ok(rating.counts(ev({ acts: 2, actsA: 1, actsB: 1 })), 'честная быстрая победа за пару ходов считается');
+  assert.ok(rating.counts(ev({ reason: 'timeouts', actsA: 4, actsB: 0 })), 'проигравший ушёл (пропуски хода) — победа считается');
+  assert.ok(!rating.counts(ev({ reason: 'timeouts', actsA: 0, actsB: 0 })), 'никто не ходил — не бой');
 
   const memory = require('../src/store-memory');
   await storeChecks(memory.create(), 1e12);
@@ -83,7 +93,7 @@ const storeChecks = async (store, now) => {
   assert.strictEqual((await call('GET', '/rating')).code, 401);
   const t0 = await login('a', P[0]), t1 = await login('h', P[1]), t2 = await login('z', P[2]);
   // хук пишет в хранилище
-  const got = []; rating.hook(st, () => 1e12, (pid, m) => got.push([pid, m.delta]))({ winner: 'B', reason: 'played', acts: 10, A: P[0], B: P[1], nickA: 'Анна', nickB: 'Борис' });
+  const got = []; rating.hook(st, () => 1e12, (pid, m) => got.push([pid, m.delta]))({ winner: 'B', reason: 'played', acts: 10, actsA: 10, actsB: 10, ms: 60000, A: P[0], B: P[1], nickA: 'Анна', nickB: 'Борис' });
   await new Promise((r) => setTimeout(r, 20));
   assert.deepStrictEqual(got.map((x) => x[1]).sort(), [-16, 16], 'игрокам отправлено изменение рейтинга');
   const vA = await st.claimVouchers(P[0], 1e12 + 10), vB = await st.claimVouchers(P[1], 1e12 + 10);

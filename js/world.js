@@ -312,14 +312,14 @@ const World = (() => {
   function arenaLog(a, entry) { a.log = a.log || []; a.log.unshift(entry); a.log.length = Math.min(a.log.length, 10); }
 
   /* ---------- Испытание дня ---------- */
-  // Противники испытания: против стандартного героя 25-го уровня у «среднего» игрока шанс 55–78% (симулятор, combat.js)
+  // Противники испытания: против стандартного героя 30-го уровня у «среднего» игрока шанс около 31% за попытку (симулятор, combat.js)
   const CH_POOL = ['wolf', 'bandit', 'goblin', 'skeleton', 'boar', 'orc', 'ghoul', 'crab', 'bolotnik', 'goat', 'eagle', 'leopard'];
   const CH_TRIES = 3;
   // Одно испытание на всех в этот день: противник, его цвет и зерно поля зависят только от даты.
   function challengeFor(day, known) {
     const pool = known ? CH_POOL.filter(known) : CH_POOL;
     const list = pool.length ? pool : ['wolf'];
-    return { day, species: list[Math.floor(hash('ch', day) * list.length)], tier: 2, seed: Math.floor(hash('seed', day) * 2147483646) + 1 };
+    return { day, species: list[Math.floor(hash('ch', day) * list.length)], tier: 3, seed: Math.floor(hash('seed', day) * 2147483646) + 1 };
   }
   // Очки: победа — 1000 + до 500 за оставшееся ХП + по 20 за каждый ход быстрее 30; поражение — до 500 за урон.
   function challengeScore(win, hpPct, moves, dealtPct) {
@@ -327,8 +327,9 @@ const World = (() => {
     return Math.round(Math.max(0, Math.min(0.99, dealtPct)) * 500);
   }
   const freshChallenge = () => ({ day: '', tries: 0, best: 0, paid: '', history: {} });
-  // Стандартный герой испытания: одинаковый для всех (уровень 25, без вещей, эликсиров, зелий и питомца).
-  const CH_HERO = { level: 25 };
+  // Стандартный герой испытания: одинаковый для всех (уровень 30 — верх третьего цвета, без вещей, эликсиров, зелий и питомца);
+  // противник того же, третьего цвета. Симулятор (без вещей, средний игрок): около 31% за попытку, около 65% хотя бы за одну из трёх.
+  const CH_HERO = { level: 30 };
 
   return {
     pickElites, AFFIXES, AFFIX_IDS, ELITE, GUARDIANS, PACK, ENRAGE, ZONE, ZONE_BOSSES, ZONE_IDS, scaleZone, zoneHp, zonePower, zoneReward, EVENTS, LANDMARKS, LANDMARK_COUNT, LANDMARK_REVEAL, EVENT_RESPAWN, LAIR_COOLDOWN, BLESSINGS, LAIR_TIERS, QUICK, REVIVE_ON, REVIVE_BASE, reviveCost,
