@@ -1349,12 +1349,34 @@ const Screens = (() => {
   }
   function lhAvHtml(g) {
     const a = g.s, cells = [];
-    for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${g.sel === i ? ' sel' : ''}${fallCls(g, i)}" data-lhcell="${i}" ${a.done ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(a.typ[i], a.sp[i])}</button>`);
+    for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${g.sel === i ? ' sel' : ''}${fallCls(g, i)}" data-lhcell="${i}" ${a.done || g.preview ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(lhTyp(g)[i], lhSp(g)[i])}</button>`);
     return `${lhResult(g)}<p class="hint">${_t("Очки: {0} · ходов: {1} · камней в шахте: {2}{3}", [a.score, a.moves, a.reserve.length, a.shuffles < 3 ? ' · ' + _t("перемешиваний: {0}", [a.shuffles]) : ''])}</p>
       <div class="lh-board">${cells.join('')}</div>
       <div class="mc-act"><button type="button" data-lhquit="1">${a.done ? _t("К списку игр") : _t("Закончить раунд")}</button></div>`;
   }
-  const fallCls = (g, i) => (g.fall && g.fall.has(i) ? ` fall" style="--fd:${(Math.floor(i / 6) * 40)}ms` : '');
+  // Анимация хода (как в основной игре): сначала два камня скользят друг к другу, затем собранные исчезают,
+  // а оставшиеся и новые падают сверху. g.preview — кадр после обмена (до сборки), g.fall — камни, которые упали.
+  const lhAnim = (g, i) => {
+    const p = g.preview;
+    if (p) {
+      const w = p.kept[i];
+      return w ? ` swap" style="--dx:${w.dx};--dy:${w.dy}` : '';
+    }
+    if (g.fall && g.fall.has(i)) return ` fall" style="--fd:${Math.floor(i / 6) * 40}ms`;
+    return '';
+  };
+  const fallCls = lhAnim;
+  const lhTyp = (g) => (g.preview ? g.preview.typ : g.s.typ), lhSp = (g) => (g.preview ? g.preview.sp : g.s.sp);
+  function lhAfterMove(g, a, b, before, beforeSp) {
+    const t = g.s.typ, rc = (i) => [Math.floor(i / 6), i % 6], [ra, ca] = rc(a), [rb, cb] = rc(b);
+    const pt = Array.from(before), psp = beforeSp ? Array.from(beforeSp) : null;
+    [pt[a], pt[b]] = [pt[b], pt[a]]; if (psp) [psp[a], psp[b]] = [psp[b], psp[a]];
+    g.preview = { typ: pt, sp: psp || [], kept: { [a]: { dx: cb - ca, dy: rb - ra }, [b]: { dx: ca - cb, dy: ra - rb } } };
+    const f = new Set();
+    for (let i = 0; i < 36; i++) if (t[i] >= 0 && t[i] !== pt[i]) f.add(i);
+    g.fall = f;
+    setTimeout(() => { if (st.lighthouse && st.lighthouse.game === g && g.preview) { g.preview = null; render(); } }, 260);
+  }
   function lhMrHtml(g) {
     const a = g.s, p = a.puz, tr = LHGames.mrTrace(p), cells = [];
     const lamp = (r) => (r === p.lampRow ? '<b class="lh-lamp">☀</b>' : '<b class="lh-lamp off"></b>');
@@ -1373,7 +1395,7 @@ const Screens = (() => {
     const a = g.s, cells = [], dry = 6 - a.water;
     for (let i = 0; i < 36; i++) {
       const flooded = Math.floor(i / 6) >= dry;
-      cells.push(`<button type="button" class="lh-cell${g.sel === i ? ' sel' : ''}${flooded ? ' wet' : ''}${fallCls(g, i)}" data-lhtd="${i}" ${a.done || flooded ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${flooded ? '' : lhStone(a.typ[i], 0)}</button>`);
+      cells.push(`<button type="button" class="lh-cell${g.sel === i ? ' sel' : ''}${flooded ? ' wet' : ''}${fallCls(g, i)}" data-lhtd="${i}" ${a.done || flooded || g.preview ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${flooded ? '' : lhStone(lhTyp(g)[i], 0)}</button>`);
     }
     const left = LHGames.TD_RISE - a.sinceRise;
     return `${lhResult(g)}<p class="hint">${_t("Очки: {0} · вода: {1} из {2} · до прилива ходов: {3}", [a.score, a.water, LHGames.TD_MAX, a.done ? 0 : left])}</p>
@@ -1448,13 +1470,13 @@ const Screens = (() => {
       if (d.lhquit && g) { lhFinish(g); s.game = null; s.msg = ''; return render(); }
       if (d.lhbuy) { const r = LHGames.buy(lhData(), d.lhbuy); s.msg = r.ok ? _t("Готово.") : r.why === 'poor' ? _t("Не хватает жетонов.") : r.why === 'full' ? _t("Билетов уже много.") : _t("Уже есть."); if (r.ok) Profile.save(); return render(); }
       if (!g) return questClick(b, 'lighthouse');
-      const swapFall = (a, before) => { const f = new Set(); for (let i = 0; i < 36; i++) if (a.typ[i] >= 0 && a.typ[i] !== before[i]) f.add(i); return f; };
       if (d.lhcell !== undefined && g.kind === 'av') {
         const i = +d.lhcell;
+        if (g.preview) return;
         g.fall = null;
         if (g.sel === null) g.sel = i;
         else if (g.sel === i) g.sel = null;
-        else { const before = Array.from(g.s.typ), r = LHGames.avMove(g.s, g.sel, i); if (r.ok) g.fall = swapFall(g.s, before); g.sel = r.ok ? null : i; if (g.s.done) lhFinish(g); }
+        else { const before = Array.from(g.s.typ), beforeSp = Array.from(g.s.sp), r = LHGames.avMove(g.s, g.sel, i); if (r.ok) lhAfterMove(g, g.sel, i, before, beforeSp); g.sel = r.ok ? null : i; if (g.s.done) lhFinish(g); }
         return render();
       }
       if (d.lhmr !== undefined && g.kind === 'mr') {
@@ -1464,12 +1486,12 @@ const Screens = (() => {
         return render();
       }
       if (d.lhtd !== undefined && g.kind === 'td') {
-        const i = +d.lhtd; g.fall = null;
+        const i = +d.lhtd; if (g.preview) return; g.fall = null;
         if (g.sel === null) g.sel = i;
         else if (g.sel === i) g.sel = null;
         else {
           const before = Array.from(g.s.typ), r = LHGames.tdMove(g.s, g.sel, i);
-          if (r.ok) { g.fall = swapFall(g.s, before); g.sel = null; s.msg = r.rose ? _t("Вода поднялась!") : r.back ? _t("Вода отступила.") : ''; if (g.s.done) lhFinish(g); } else g.sel = i;
+          if (r.ok) { lhAfterMove(g, g.sel, i, before); g.sel = null; s.msg = r.rose ? _t("Вода поднялась!") : r.back ? _t("Вода отступила.") : ''; if (g.s.done) lhFinish(g); } else g.sel = i;
         }
         return render();
       }
