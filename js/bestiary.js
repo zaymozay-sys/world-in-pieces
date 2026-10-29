@@ -24,7 +24,23 @@ const Bestiary = (() => {
     silk:    { name: _t("Паутина"),      base: 11 },
     feather: { name: _t("Перо"),         base: 7 },
     shell:   { name: _t("Ракушка"),      base: 13 },
+    // 2.0.7 (этап C): новые материалы Кузницы
+    resin:   { name: _t("Смола"),        base: 14 },
+    horn:    { name: _t("Рог"),          base: 18 },
+    chitin:  { name: _t("Хитин"),        base: 16 },
+    // 2.0.7 (подземелье): минералы глубин — падают только с подземных существ (цвета 8–10)
+    selenite:  { name: _t("Селенит"),    base: 24 },
+    nugget:    { name: _t("Самородок"),  base: 20 },
+    fluorite:  { name: _t("Флюорит"),    base: 30 },
+    granite:   { name: _t("Гранит"),     base: 14 },
+    malachite: { name: _t("Малахит"),    base: 26 },
+    mica:      { name: _t("Слюда"),      base: 16 },
+    quartz:    { name: _t("Кварц"),      base: 28 },
+    graphite:  { name: _t("Графит"),     base: 12 },
   };
+  const DEEP_RESOURCES = Object.freeze(['selenite', 'nugget', 'fluorite', 'granite', 'malachite', 'mica', 'quartz', 'graphite']);
+  // 2.0.7: призы лотереи и разведки питомца — все 16 видов (решение владельца: смола, рог и хитин тоже в призах). Список заморожен, новые виды дописываются в конец
+  const PRIZE_RESOURCES = Object.freeze(['hide', 'fang', 'bone', 'scrap', 'ore', 'crystal', 'essence', 'scale', 'splinter', 'honey', 'silk', 'feather', 'shell', 'resin', 'horn', 'chitin']);
   const resPrice = (kind, tier) => Math.round(RESOURCES[kind].base * B_T.PRICE_MULT[B_T.clamp(tier) - 1]);
 
   // Приёмы существ в бою (см. game.js). Делают бои с разными видами непохожими друг на друга.
@@ -45,7 +61,7 @@ const Bestiary = (() => {
     weaken:  { name: _t("Морок"),            desc: _t("Каждый третий ход насылает морок: на ваш следующий ход урон слабее") },
     pinch:   { name: _t("Панцирь"),          desc: _t("Каждый третий ход отращивает новый шип: Блок растёт и остаётся до конца боя") },
     mire:    { name: _t("Трясина"),          desc: _t("Каждый второй ход затягивает поле топью: ошибётесь — штраф ХП будет двойным") },
-    sap:     { name: _t("Смола"),            desc: _t("Каждый третий ход заливает камни смолой: ваше следующее заклинание дороже на камень") },
+    sap:     { name: _t("Липкость"),            desc: _t("Каждый третий ход заливает камни смолой: ваше следующее заклинание дороже на камень") },
     clone:   { name: _t("Спороносец"),       desc: _t("Копит споры из собранных камней; набрав {0}, выпускает двойника с тем же здоровьем, что сейчас у гриба (до {1} за бой). Двойник бьёт вас каждый раунд и прикрывает оригинал", [B_B.abilities.clone.charge, B_B.abilities.clone.max]) },
     wisp:    { name: _t("Блуждающий огонь"), desc: _t("Засчитываются только камни номиналом x3 и x5: камни x1 исчезают с поля, но не дают ни ресурсов, ни урона") },
     evasion:     { name: _t("Изворотливость"), desc: _t("С шансом в начале своего хода уворачивается: на несколько ходов Блок выше обычного, срабатывания подряд складываются") },
@@ -111,7 +127,7 @@ const Bestiary = (() => {
       family: _t("Великаны"), ability: 'regen', xp: 1.4,
       name: _t("Тролль"), unlock: 6, hp: 81, ai: 35, coins: 42, gear: 0,
       stats: { defense: 10, power: 25 },
-      drops: [['hide', 0.9, 2, 4], ['bone', 0.6, 1, 3], ['ore', 0.3, 1, 2]],
+      drops: [['hide', 0.829, 2, 4], ['bone', 0.553, 1, 3], ['ore', 0.276, 1, 2], ['scrap', 0.3, 1, 1]],
       desc: _t("Огромный и живучий. Раны затягиваются на глазах."),
     },
     golem: {
@@ -130,7 +146,7 @@ const Bestiary = (() => {
     },
     dragon: {
       family: _t("Драконы"), ability: 'breath', xp: 2.2,
-      name: _t("Дракон"), unlock: 14, hp: 93, ai: 50, coins: 66, gear: 10,
+      name: _t("Дракон"), unlock: 14, hp: 170, ai: 50, coins: 66, gear: 10,
       stats: { defense: 12, ricochet: 6 },
       drops: [['scale', 0.9, 2, 4], ['essence', 0.5, 1, 2], ['fang', 0.6, 1, 3], ['crystal', 0.4, 1, 2]],
       desc: _t("Хозяин гор. Носит доспехи и оружие, ходит осторожно и бьёт наверняка."),
@@ -161,16 +177,16 @@ const Bestiary = (() => {
     // --- Болотные твари ---
     crab: {
       family: _t("Болотные твари"), ability: 'ward', xp: 1.0,
-      name: _t("Болотный рак"), unlock: 4, hp: 84, ai: 34, coins: 31, gear: 0,
+      name: _t("Болотный рак"), unlock: 4, hp: 84, ai: 34, coins: 29, gear: 0,
       stats: { defense: 10, block: 8 },
-      drops: [['hide', 0.6, 1, 2], ['bone', 0.5, 1, 2]],
+      drops: [['hide', 0.6, 1, 2], ['bone', 0.5, 1, 2], ['chitin', 0.1, 1, 2]],
       desc: _t("Прячется в тине, выставив клешни. Прячется за панцирем: пока он цел, удары вязнут в нём."),
     },
     bolotnik: {
       family: _t("Болотные твари"), ability: 'mire', xp: 1.1,
       name: _t("Болотник"), unlock: 7, hp: 88, ai: 45, coins: 35, gear: 0,
       stats: { ricochet: 6 },
-      drops: [['hide', 0.5, 1, 2], ['essence', 0.3, 1, 1]],
+      drops: [['hide', 0.344, 1, 2], ['essence', 0.206, 1, 1], ['resin', 0.197, 1, 2], ['shell', 0.3, 1, 1]],
       desc: _t("Хозяин трясины. Затягивает под ряску всё, что ступит мимо кочки."),
     },
     // --- Тени ---
@@ -186,16 +202,16 @@ const Bestiary = (() => {
       family: _t("Лесные стражи"), ability: 'sap', xp: 1.6,
       name: _t("Древень"), unlock: 11, hp: 88, ai: 46, coins: 50, gear: 0,
       stats: { defense: 12, power: 15 },
-      drops: [['splinter', 0.9, 2, 4], ['essence', 0.3, 1, 1]],
+      drops: [['splinter', 0.72, 2, 4], ['essence', 0.24, 1, 1], ['resin', 0.4, 1, 2]],
       desc: _t("Старый страж леса, живая кора и смола. Магия вязнет в его коре."),
     },
     mushroom: {
       family: _t("Лесные стражи"), ability: 'clone', xp: 1.5,
       // hp — только оригинал: Спороносец выпускает двойника с его текущим ХП (обычно ~1 раз за бой), поэтому
       // ХП вдвое ниже прежних 80 — иначе симулятор давал ~20% побед вместо «Равного» (~64%).
-      name: _t("Дикий гриб"), unlock: 10, hp: 40, ai: 44, coins: 46, gear: 0,
+      name: _t("Дикий гриб"), unlock: 10, hp: 40, ai: 44, coins: 44, gear: 0,
       stats: { defense: 10, initiative: 4 },
-      drops: [['splinter', 0.6, 1, 2], ['essence', 0.4, 1, 2]],
+      drops: [['splinter', 0.6, 1, 2], ['essence', 0.4, 1, 2], ['resin', 0.1, 1, 2]],
       desc: _t("Раздутая шляпка в пятнах плесени. Накопив спор, выдыхает облако — и рядом встаёт двойник с тем же здоровьем, что осталось у гриба."),
     },
     // --- Лесная мелочь: Изворотливость и Возмездие ---
@@ -271,7 +287,7 @@ const Bestiary = (() => {
       family: _t("Звери"), ability: 'pinch', xp: 1.0,
       name: _t("Краб-отшельник"), unlock: 3, hp: 82, ai: 20, coins: 29, gear: 0,
       stats: { power: 34, block: 10 },
-      drops: [['shell', 0.8, 1, 2], ['scrap', 0.3, 1, 1]],
+      drops: [['shell', 0.64, 1, 2], ['scrap', 0.24, 1, 1], ['chitin', 0.16, 1, 2]],
       desc: _t("Прячется в старой раковине, и с каждым ходом она крепче."),
     },
     smuggler: {
@@ -333,16 +349,16 @@ const Bestiary = (() => {
     },
     elk: {
       family: _t("Звери"), ability: 'rage', xp: 1.2,
-      name: _t("Лось"), unlock: 5, hp: 110, ai: 30, coins: 38, gear: 0,
+      name: _t("Лось"), unlock: 5, hp: 110, ai: 30, coins: 35, gear: 0,
       stats: { power: 40, defense: 5, initiative: 6 },
-      drops: [['hide', 0.9, 1, 3], ['fang', 0.6, 1, 2], ['bone', 0.5, 1, 2]],
+      drops: [['hide', 0.9, 1, 3], ['fang', 0.6, 1, 2], ['bone', 0.5, 1, 2], ['horn', 0.1, 1, 2]],
       desc: _t("Сильный лесной зверь с огромными рогами. Каждый третий ход бьёт рогами на 50% сильнее."),
     },
     goat: {
       family: _t("Звери"), ability: 'retribution', xp: 1.05,
       name: _t("Горный козёл"), unlock: 4, hp: 84, ai: 28, coins: 30, gear: 0,
       stats: { initiative: 14, power: 38, ricochet: 6 },
-      drops: [['hide', 0.8, 1, 2], ['bone', 0.5, 1, 2]],
+      drops: [['hide', 0.64, 1, 2], ['bone', 0.4, 1, 2], ['horn', 0.1, 1, 2]],
       desc: _t("Прыгучий упрямец холмов. Отталкивает удар рогами: чаще отбивает его Рикошетом."),
     },
     eagle: {
@@ -354,9 +370,9 @@ const Bestiary = (() => {
     },
     rhino: {
       family: _t("Звери"), ability: 'stun', xp: 1.4,
-      name: _t("Носорог"), unlock: 5, hp: 100, ai: 32, coins: 40, gear: 0,
+      name: _t("Носорог"), unlock: 5, hp: 100, ai: 32, coins: 37, gear: 0,
       stats: { power: 44, defense: 14, initiative: 4 },
-      drops: [['hide', 1, 1, 3], ['fang', 0.6, 1, 2], ['bone', 0.5, 1, 2]],
+      drops: [['hide', 1, 1, 3], ['fang', 0.6, 1, 2], ['bone', 0.5, 1, 2], ['horn', 0.1, 1, 2]],
       desc: _t("Тяжёлый броневой зверь равнин. Удар тараном оглушает; шкура держит почти всё."),
     },
     leopard: {
@@ -454,9 +470,9 @@ const Bestiary = (() => {
     // --- 1.6.7: новые существа — по одному «родному» ресурсу на каждый цвет (см. js/forge.js) ---
     ironscarab: {
       family: _t("Каменные стражи"), ability: 'retribution', xp: 0.85,
-      name: _t("Железный скарабей"), unlock: 1, hp: 68, ai: 20, coins: 22, gear: 0,
+      name: _t("Железный скарабей"), unlock: 1, hp: 68, ai: 20, coins: 20, gear: 0,
       stats: { defense: 8, power: 34 },
-      drops: [['ore', 0.8, 1, 2], ['scrap', 0.6, 1, 2]],
+      drops: [['ore', 0.8, 1, 2], ['scrap', 0.6, 1, 2], ['chitin', 0.1, 1, 2]],
       desc: _t("Жук в железном панцире: прогрызает штольни и дерётся челюстями-кирками. Ударишь сильнее — ответит."),
     },
     rocklizard: {
@@ -484,7 +500,7 @@ const Bestiary = (() => {
       family: _t("Лесные стражи"), ability: 'sap', xp: 0.9,
       name: _t("Лесовичок"), unlock: 2, hp: 64, ai: 24, coins: 24, gear: 0,
       stats: { defense: 6, block: 4, power: 24 },
-      drops: [['splinter', 0.8, 1, 2], ['bone', 0.4, 1, 1]],
+      drops: [['splinter', 0.64, 1, 2], ['bone', 0.32, 1, 1], ['resin', 0.13, 1, 2]],
       desc: _t("Ворчливый пенёк с мхом на плечах. Не любит, когда ходят по его лесу."),
     },
     barrowman: {
@@ -519,7 +535,7 @@ const Bestiary = (() => {
       family: _t("Твари"), ability: 'pinch', xp: 1.3,
       name: _t("Панцирник"), unlock: 8, hp: 86, ai: 28, coins: 42, gear: 0,
       stats: { defense: 12, block: 6, power: 34 },
-      drops: [['shell', 0.8, 1, 2], ['scale', 0.4, 1, 2]],
+      drops: [['shell', 0.64, 1, 2], ['scale', 0.32, 1, 2], ['chitin', 0.58, 1, 2]],
       desc: _t("Рифовый краб размером с телегу. Панцирь в ракушках выдерживает почти всё, клешня — ещё больше."),
     },
     ironguard: {
@@ -539,9 +555,9 @@ const Bestiary = (() => {
     // --- 1.7.3: новые виды для тонких семей (Великаны, Гоблины, Тени) и новых приёмов ---
     ogre: {
       family: _t("Великаны"), ability: 'stun', xp: 1.5,
-      name: _t("Огр"), unlock: 9, hp: 102, ai: 34, coins: 50, gear: 0,
+      name: _t("Огр"), unlock: 9, hp: 102, ai: 34, coins: 47, gear: 0,
       stats: { power: 42, defense: 10 },
-      drops: [['hide', 0.9, 2, 3], ['bone', 0.6, 1, 2], ['ore', 0.5, 1, 2]],
+      drops: [['hide', 0.9, 2, 3], ['bone', 0.6, 1, 2], ['ore', 0.5, 1, 2], ['horn', 0.1, 1, 2]],
       desc: _t("Людоед с дубиной из целого ствола. Бьёт так, что звенит в ушах и пропадает ход."),
     },
     berserk: {
@@ -557,6 +573,163 @@ const Bestiary = (() => {
       stats: { initiative: 16, power: 40, ricochet: 6 },
       drops: [['essence', 0.6, 1, 2], ['crystal', 0.35, 1, 1], ['silk', 0.3, 1, 1]],
       desc: _t("Тень с чёрным клинком. Порез почти не больно, но яд на лезвии жжёт ещё несколько ходов."),
+    },
+    // --- 2.0.7 (этап C): четыре существа — источники смолы, рога и хитина ---
+    pinestump: {
+      family: _t("Лесные стражи"), ability: 'sap', xp: 0.9,
+      name: _t("Смоляной пень"), unlock: 2, hp: 64, ai: 24, coins: 30, gear: 0,
+      stats: { defense: 6, block: 4, power: 24 },
+      drops: [['resin', 0.78, 1, 3], ['splinter', 0.7, 1, 2]],
+      desc: _t("Старый пень, весь в янтарных потёках: сочится смолой и липнет к рукам. Бьёт корнями, когда подходишь вплотную."),
+    },
+    ramtur: {
+      family: _t("Звери"), ability: 'retribution', xp: 1.05,
+      name: _t("Рамтур"), unlock: 4, hp: 84, ai: 28, coins: 31, gear: 0,
+      stats: { initiative: 14, power: 38, ricochet: 6 },
+      drops: [['horn', 1, 1, 2], ['hide', 0.57, 1, 2]],
+      desc: _t("Горный баран с витыми рогами в обхват. Ударишь сильнее — ответит тем же."),
+    },
+    beetle: {
+      family: _t("Твари"), ability: 'retribution', xp: 0.85,
+      name: _t("Жук-точильщик"), unlock: 1, hp: 68, ai: 20, coins: 30, gear: 0,
+      stats: { defense: 8, power: 34 },
+      drops: [['chitin', 0.85, 1, 3], ['hide', 0.3, 1, 1]],
+      desc: _t("Жук в блестящем хитиновом панцире: точит челюсти о кожу и дерево. Ударишь сильнее — ответит."),
+    },
+    mantis: {
+      family: _t("Твари"), ability: 'sap', xp: 1.3,
+      name: _t("Богомол"), unlock: 7, hp: 72, ai: 32, coins: 40, gear: 0,
+      stats: { initiative: 12, power: 34 },
+      drops: [['chitin', 1, 1, 3], ['fang', 0.49, 1, 2]],
+      desc: _t("Зелёный хищник на длинных ногах, ловит добычу зазубренными лапами и жвалами. Липкой слюной удорожает ваши заклинания."),
+    },
+    // 2.0.7: подземные существа — живые звери и «живые камни» (без нежити); живут только в подземелье (HexMap.TOWER_POOL)
+    selenebat: {
+      family: _t("Твари"), ability: 'evasion', xp: 1.5,
+      name: _t("Селенитовая мышь"), unlock: 10, hp: 66, ai: 30, coins: 46, gear: 0,
+      stats: { initiative: 24, power: 38 },
+      drops: [['selenite', 0.8, 1, 2], ['fang', 0.4, 1, 1]],
+      desc: _t("Летучая мышь с лунными кристаллами в крыльях. Бьёт первой и ловко уходит от ударов."),
+    },
+    nuggetmole: {
+      family: _t("Твари"), ability: 'backstab', xp: 1.5,
+      name: _t("Самородный крот"), unlock: 10, hp: 78, ai: 30, coins: 48, gear: 0,
+      stats: { power: 46, defense: 6 },
+      drops: [['nugget', 0.8, 1, 2], ['hide', 0.4, 1, 1]],
+      desc: _t("Слепой крот с золотыми когтями: роет жилы и бьёт из-под земли, не замечая вашей брони."),
+    },
+    fluoritefly: {
+      family: _t("Твари"), ability: 'veil', xp: 1.5,
+      name: _t("Флюоритовый светляк"), unlock: 10, hp: 60, ai: 32, coins: 44, gear: 0,
+      stats: { initiative: 16, power: 36, ricochet: 6 },
+      drops: [['fluorite', 0.8, 1, 2], ['silk', 0.3, 1, 1]],
+      desc: _t("Жук-светляк, светится холодным зелёным светом. Слепит, и часть камней на поле тонет в темноте."),
+    },
+    granitespirit: {
+      family: _t("Каменные стражи"), ability: 'ward', xp: 1.6,
+      name: _t("Гранитный дух"), unlock: 10, hp: 96, ai: 28, coins: 52, gear: 0,
+      stats: { defense: 20, block: 8, power: 46 },
+      drops: [['granite', 0.85, 1, 3], ['crystal', 0.3, 1, 1]],
+      desc: _t("Живая скала с лицом из трещин. Ставит щит из камня, пробить его можно только упорством."),
+    },
+    malachitelizard: {
+      family: _t("Твари"), ability: 'regen', xp: 1.5,
+      name: _t("Малахитовая ящерица"), unlock: 10, hp: 84, ai: 28, coins: 46, gear: 0,
+      stats: { power: 40, defense: 8 },
+      drops: [['malachite', 0.8, 1, 2], ['scale', 0.3, 1, 1]],
+      desc: _t("Ящерица с зелёной полосатой чешуёй. Раны на ней затягиваются, пока вы думаете над ходом."),
+    },
+    micabeetle: {
+      family: _t("Твари"), ability: 'pinch', xp: 1.5,
+      name: _t("Слюдяной жук"), unlock: 10, hp: 80, ai: 26, coins: 46, gear: 0,
+      stats: { defense: 20, power: 36 },
+      drops: [['mica', 0.85, 1, 3], ['chitin', 0.3, 1, 1]],
+      desc: _t("Жук в слоистом панцире из слюды. Медленный, зато с каждым ходом его защита растёт."),
+    },
+    quartzspider: {
+      family: _t("Твари"), ability: 'toxin', xp: 1.6,
+      name: _t("Кварцевый паук"), unlock: 10, hp: 72, ai: 32, coins: 50, gear: 0,
+      stats: { initiative: 20, power: 46 },
+      drops: [['quartz', 0.8, 1, 2], ['silk', 0.4, 1, 1]],
+      desc: _t("Паук с хрустальными лапами. Плетёт сеть между камнями поля и отравляет укусом."),
+    },
+    graphitegolem: {
+      family: _t("Каменные стражи"), ability: 'rage', xp: 1.7,
+      name: _t("Графитовый голем"), unlock: 10, hp: 100, ai: 30, coins: 56, gear: 0,
+      stats: { power: 58, defense: 14 },
+      drops: [['graphite', 0.85, 1, 3], ['ore', 0.3, 1, 1]],
+      desc: _t("Тёмный маслянистый голем: удары скользят по нему. Раненый, бьёт на сорок процентов сильнее."),
+    },
+    // 2.0.7: скорпионы подземелья — десять цветов, по цвету самоцвета стражей; редкие, очень крепкие. Роняют самоцвет своего цвета с малым шансом (Stones.scorpChance)
+    scorp1: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 1,
+      name: _t("Рубиновый скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: рубин. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp2: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 2,
+      name: _t("Янтарный скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: янтарь. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp3: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 3,
+      name: _t("Цитриновый скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: цитрин. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp4: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 4,
+      name: _t("Изумрудный скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: изумруд. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp5: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 5,
+      name: _t("Бирюзовый скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: бирюза. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp6: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 6,
+      name: _t("Сапфировый скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: сапфир. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp7: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 7,
+      name: _t("Аметистовый скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: аметист. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp8: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 8,
+      name: _t("Скорпион розового кварца"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: розовый кварц. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp9: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 9,
+      name: _t("Хрустальный скорпион"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: горный хрусталь. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
+    },
+    scorp10: {
+      family: _t("Твари"), ability: 'toxin', xp: 3, scorp: 10,
+      name: _t("Скорпион чёрного алмаза"), unlock: 10, hp: 190, ai: 45, coins: 130, gear: 0,
+      stats: { power: 66, defense: 22, initiative: 14 },
+      drops: [['chitin', 1, 1, 3], ['scrap', 0.5, 1, 2]],
+      desc: _t("Скорпион с панцирем из камня: чёрный алмаз. Хвост бьёт ядом, а шкура крепче любой брони. Победить его под силу только сильному бойцу, зато в награду может выпасть самоцвет."),
     },
   };
   const ORDER = Object.keys(MONSTERS);
@@ -583,14 +756,16 @@ const Bestiary = (() => {
   // Характеристики монстра на заданном уровне-цвете: ХП и урон растут по Tiers.GROWTH,
   // Сила — умеренно, шансы (Броня, Блок, Рикошет, Проворство) — медленно.
   // swarmSize — размер роя (см. rollSwarmSize); у обычных видов всегда 1 и ни на что не влияет.
-  function scaled(id, tier, swarmSize = 1) {
+  function scaled(id, tier, swarmSize = 1, heroLevel = 0) {
     const m = MONSTERS[id], t = B_T.clamp(tier);
+    // 2.0.7 (D2): внутри цвета существа растут вместе с героем — +2,5% ХП и урона за каждый уровень героя выше начала цвета (не больше +22,5%)
+    const grow = 1 + 0.025 * Math.max(0, Math.min(9, (heroLevel || 0) - ((t - 1) * 10 + 1)));
     const stats = B_G.blankStats();
     const sw = swarmMult(id, swarmSize);
-    const dmg = B_T.GROWTH[t - 1] * B_B.damage.stone * sw.dmg * B_B.monsters.dmgScale[t - 1];            // рост урона существа (в бою даёт Силу уровня)
+    const dmg = B_T.GROWTH[t - 1] * B_B.damage.stone * sw.dmg * B_B.monsters.dmgScale[t - 1] * grow;            // рост урона существа (в бою даёт Силу уровня)
     for (const k in m.stats) stats[k] = Math.round(m.stats[k] * (k === 'power' ? B_T.POWER_MULT[t - 1] * 0.045 * dmg * B_B.monsters.powerMul : B_T.statMult(k, t)));   // Сила существа — число к удару (очко старой шкалы = 0,045 × рост урона)
     return {
-      hp: Math.round(m.hp * B_T.GROWTH[t - 1] * sw.hp * B_B.monsters.hpBoost[t - 1]),
+      hp: Math.round(m.hp * B_T.GROWTH[t - 1] * sw.hp * B_B.monsters.hpBoost[t - 1] * grow),
       dmg,
       stats: B_G.combine(stats, {}),
       ai: Math.max(1, Math.min(100, m.ai + (t - 1) * B_B.monsters.aiPerTier)),
@@ -617,7 +792,7 @@ const Bestiary = (() => {
       entry = B_G.makeEntry(parts[Math.floor(rand() * parts.length)].id, t);
     } else if (rand() < B_B.rewards.itemChance * boost) {   // boost: ночью шанс вещи выше (1.7.1)
       const pool = [];
-      const items = faction ? B_G.itemsFor(faction) : B_G.ITEMS.filter((i) => !i.faction && i.set !== 'sea');
+      const items = faction ? B_G.itemsFor(faction) : B_G.ITEMS.filter((i) => !i.faction && !B_G.LOCKED_SETS.has(i.set) && !B_G.isForgeOnly(i));
       for (const it of items) for (let k = 0; k < { common: 6, rare: 3, epic: 1 }[it.rarity]; k++) pool.push(it);
       const pick = pool[Math.floor(rand() * pool.length)];
       entry = B_G.makeEntry(pick.id, rand() < 0.3 ? Math.max(1, t - 1) : t);
@@ -632,17 +807,25 @@ const Bestiary = (() => {
   // см. game.js/setupTrainerBeaver — это не настоящий вид бестиария, у него нет приёма).
   const ability = (id) => (MONSTERS[id] ? ABILITIES[MONSTERS[id].ability] : undefined);
 
-  // 1.7.5: обмен ресурсов одного вида между соседними цветами (Кузница): вверх 3 → 1, вниз 1 → 2. Возвращает порядок обмена или null.
-  const EXCHANGE = { up: 3, down: 1, downOut: 2 };
-  function exchangePlan(kind, tier, dir) {
-    if (!RESOURCES[kind]) return null;
-    const to = dir === 'up' ? tier + 1 : tier - 1;
-    if (to < 1 || to > B_T.MAX || tier < 1 || tier > B_T.MAX) return null;
-    return dir === 'up' ? { kind, from: tier, to, take: EXCHANGE.up, give: 1 } : { kind, from: tier, to, take: EXCHANGE.down, give: EXCHANGE.downOut };
+  // 2.0.6: обмен ресурсов одного вида между соседними цветами — по фактическим ценам resPrice (те же, что в Лавке, Рядах и Кузнице).
+  // Потеря не меньше 10%: give = floor(0.9 · take · цена_из / цена_в), целочисленно. Если give < 1 — обмен недоступен (нужно не меньше minTake штук).
+  // Принудительной выдачи одной штуки нет. Возвращает {kind, from, to, minTake, take, give, ok, keepPct} или null для недопустимого вида/цвета.
+  const EXCHANGE = { maxTake: 999 };
+  function exchangeQuote(kind, from, to, take) {
+    if (!RESOURCES[kind] || !Number.isInteger(from) || !Number.isInteger(to) || Math.abs(from - to) !== 1) return null;
+    if (from < 1 || to < 1 || from > B_T.MAX || to > B_T.MAX) return null;
+    const inU = resPrice(kind, from), outU = resPrice(kind, to);
+    const q = { kind, from, to, minTake: Math.ceil((10 * outU) / (9 * inU)), take: 0, give: 0, ok: false, keepPct: 0 };
+    if (!Number.isInteger(take) || take < 1 || take > EXCHANGE.maxTake) return q;
+    q.take = take;
+    q.give = Math.floor((9 * take * inU) / (10 * outU));
+    q.ok = q.give >= 1;
+    q.keepPct = q.give ? Math.round((1000 * q.give * outU) / (take * inU)) / 10 : 0;
+    return q;
   }
   // 1.7.5: «где добыть» — виды существ, у которых выпадает ресурс (по порядку бестиария).
   const sourcesOf = (kind) => ORDER.filter((id) => MONSTERS[id].drops.some((d) => d[0] === kind));
-  return { EXCHANGE, exchangePlan, sourcesOf, RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, rollDrops, resourcesWeak, unlockedSpecies, rollSwarmSize, swarmMult };
+  return { EXCHANGE, exchangeQuote, sourcesOf, RESOURCES, DEEP_RESOURCES, PRIZE_RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, rollDrops, resourcesWeak, unlockedSpecies, rollSwarmSize, swarmMult };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

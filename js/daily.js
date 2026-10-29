@@ -95,7 +95,7 @@ const Daily = (() => {
     const row = pick(rand), L = Profile.level(), tier = D_H.tierFor(L);
     let text; const prize = {};
     if (row.kind === 'res') {
-      const kinds = Object.keys(D_B.RESOURCES), kind = kinds[Math.floor(rand() * kinds.length)];
+      const kinds = D_B.PRIZE_RESOURCES, kind = kinds[Math.floor(rand() * kinds.length)];
       const n = Math.max(1, Math.round(price * row.mult / D_B.resPrice(kind, tier)));
       Profile.addRes(kind, tier, n); prize.res = { kind, tier, n };
       text = `${D_B.RESOURCES[kind].name} × ${n}`;

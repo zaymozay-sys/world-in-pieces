@@ -3781,11 +3781,27 @@ body.no-hint.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p3; }
 .lh-stone .lh-sp { position: absolute; right: -2px; top: -4px; font-size: 14px; line-height: 1; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
 .lh-stone.hit { filter: drop-shadow(0 0 4px #fff); }
 .lh-hole { width: 60%; aspect-ratio: 1; border-radius: 26%; background: rgba(0,0,0,.25); }
-.lh-pyr { display: flex; flex-direction: column; gap: 4px; max-width: 360px; margin: 8px auto; }
-.lh-row { display: flex; align-items: center; gap: 4px; }
-.lh-row > button { flex: 0 0 38px; min-height: 38px; padding: 0; }
-.lh-cells { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
-.lh-cells > i { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; }
+.lh-cell.fall .lh-stone { animation: lh-fall .42s cubic-bezier(.3,.7,.4,1) both; animation-delay: var(--fd, 0ms); }
+@keyframes lh-fall { 0% { transform: translateY(-260%); opacity: 0; } 15% { opacity: 1; } 75% { transform: translateY(8%); } 100% { transform: translateY(0); opacity: 1; } }
+.lh-board.mr { grid-template-columns: 22px repeat(6, 1fr); }
+.lh-lamp { display: flex; align-items: center; justify-content: center; font-size: 16px; color: #f0c14b; text-shadow: 0 0 6px #f0c14b; }
+.lh-lamp.off { visibility: hidden; }
+.lh-cell.mr { position: relative; overflow: hidden; }
+.lh-cell.mr.lit { background: rgba(255,226,120,.28); box-shadow: inset 0 0 8px rgba(255,226,120,.6); }
+.lh-mir { position: absolute; left: 50%; top: 50%; width: 8%; height: 92%; background: linear-gradient(#e8f4ff, #8fb4d4); border-radius: 3px; box-shadow: 0 0 4px rgba(0,0,0,.5); }
+.lh-mir.m1 { transform: translate(-50%, -50%) rotate(45deg); }
+.lh-mir.m2 { transform: translate(-50%, -50%) rotate(-45deg); }
+.lh-cell.wet { background: rgba(40,110,190,.55); border-color: rgba(120,190,255,.5); }
+.lh-cell.rp { background: rgba(255,255,255,.06); position: relative; }
+.lh-cell.rp.on { background: color-mix(in srgb, var(--c) 55%, transparent); }
+.lh-cell.rp.act { border-color: var(--c); }
+.lh-knot { width: 64%; aspect-ratio: 1; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px #fff, 0 0 6px #000; }
+.lh-cell.dg { background: #6b5a3c; }
+.lh-cell.dg.dug { background: rgba(255,255,255,.12); }
+.lh-cell.dg.ghost { opacity: .55; }
+.lh-hint { font-size: 16px; color: #fff; }
+.lh-hint small { font-size: 11px; color: #ff9a8a; }
+.lh-crack { color: #ff6b5a; font-size: 20px; }
 
 /* ---- 1.8.9: условия забега, головоломка дня ---- */
 .arena-mods { display: grid; gap: 6px; margin: 6px 0; }
@@ -3894,3 +3910,90 @@ body.phone.mode-battle .bagbar button.bagitem::after { content: ''; position: ab
 
 /* 2.0.4: знак возрастной категории (ФЗ-436) на заставке */
 .splash-age { margin: 18px auto 0; width: 42px; height: 42px; line-height: 38px; text-align: center; border: 2px solid currentColor; border-radius: 50%; font-weight: 700; font-size: 15px; opacity: .85; }
+
+/* 2.0.5: меню карты — разделы, прокрутка по высоте */
+.map-menu:not([hidden]) { max-height: calc(100dvh - 90px); overflow-y: auto; overscroll-behavior: contain; }
+.map-menu .mm-head { font-weight: 600; color: #f2d88f; }
+.map-menu .mm-head::after { content: ' ▾'; float: right; }
+.map-menu .mm-head[aria-expanded="true"]::after { content: ' ▴'; }
+.map-menu .mm-sub { display: grid; gap: 4px; padding-left: 4px; border-left: 2px solid #3a3d44; }
+.map-menu .mm-sub[hidden] { display: none; }
+
+/* 2.0.6: обмен ресурсов — выбор количества */
+.swap-dir { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 6px; }
+.swap-dir .qty-picker { display: flex; align-items: center; gap: 4px; }
+.swap-dir .qty-picker button, .swap-dir > button { min-height: 44px; min-width: 44px; }
+.swap-dir .swap-n { min-width: 2.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.card-body:has(.swap-dir) { min-width: 0; }
+.swap-dir .qty-picker { flex-wrap: wrap; max-width: 100%; }
+.swap-dir .qty-picker button { padding-left: 8px; padding-right: 8px; }
+.swap-dir > button { max-width: 100%; white-space: normal; text-align: left; }
+
+/* 2.0.6: нижний ряд карточки героя — четыре ячейки (рука, дальний бой, щит, пояс) ровно под фигурой; пояс больше не «выпадает» вправо за рамку.
+   Нарисованные ниши панели (3 шт.) закрываются тёмной деревянной подложкой ряда, чтобы четыре ячейки стояли с равными промежутками. */
+.home-modal .doll-frame.p5 .df-hands { left: 6.2%; right: 6.2%; top: 78.4%; height: 17.4%; display: flex; justify-content: space-between; align-items: center; gap: 0; padding: 0 3%; box-sizing: border-box;
+  background: linear-gradient(180deg, #2b1c10, #1c120a); border-radius: 8px; box-shadow: inset 0 0 0 2px rgba(150, 105, 55, .55), inset 0 0 14px rgba(0, 0, 0, .7); }
+.home-modal .doll-frame.p5 .df-hands .dslot, .home-modal .doll-frame.p5 .df-hands .dslot.beltslot { position: relative; left: auto; top: auto; width: auto; height: 86%; aspect-ratio: 1; flex: none; }
+
+/* 2.0.7: карточка ресурса по размеру содержимого (без пустого места); названия зелий — ссылки с подсказкой */
+.item-info-back:has(.res-card) { align-items: center; }
+.res-card.icard-modal { width: min(380px, calc(100% - 24px)); height: auto; min-height: 0; max-height: calc(100% - 24px); padding: 12px 16px; overflow-y: auto; }
+.res-card .loot-card { margin-bottom: 4px; }
+.res-card .reset { margin-top: 8px; }
+.res-link { color: #6b3d0b; font-weight: 700; text-decoration: underline dotted; cursor: pointer; }
+.res-link:hover, .res-link:focus { color: #3b1f00; text-decoration: underline; }
+.res-tip { background: rgba(60,38,12,.10); border-left: 3px solid #7a5a2c; padding: 6px 8px; border-radius: 4px; font-size: 13px; }
+
+/* 2.0.7: номер боя и окно «Журналы боёв» */
+.battle-no { display: block; margin: -4px 0 6px; color: var(--muted); font-size: 12px; letter-spacing: .04em; }
+.battlelog-card { width: min(560px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; padding: 14px 18px; }
+.bl-row { border-bottom: 1px solid rgba(255,255,255,.1); } .bl-row .bl-open { width: 100%; text-align: left; background: none; border: 0; color: inherit; padding: 8px 4px; cursor: pointer; }
+.bl-body ol { margin: 6px 0; padding-left: 22px; font-size: 13px; max-height: 40vh; overflow-y: auto; } .bl-body li.left { color: #9fd0ff; } .bl-body li.right { color: #f0b3a8; }
+.res-card a.res-link, .res-card a.res-link:visited { color: #6b3d0b; }
+.res-card a.res-link:hover, .res-card a.res-link:focus { color: #3b1f00; }
+
+/* 2.0.7: Кузница — позиция рецепта с двумя вариантами материала (Forge.plan); кнопки не меньше 44 px */
+.vgroup { display: inline-flex; flex-wrap: wrap; gap: 4px; margin: 3px 8px 3px 0; padding: 2px; border-radius: 16px; background: #15161a; border: 1px solid #3a3c44; }
+.vopt { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 2px 12px 2px 4px; font-size: 12px; border-radius: 14px; border: 1px solid transparent; background: #1d1e22; color: #cfd2da; cursor: pointer; }
+.vopt .res-icon { width: 24px; height: 24px; }
+.vopt.ok { color: #cfe8d0; }
+.vopt.no { color: #ff9a9a; }
+.vopt.on { background: #2c3a2c; border-color: #6fae78; box-shadow: inset 0 0 0 1px #6fae78; }
+.vopt:not(.on) { opacity: .8; }
+
+/* 2.0.7: витрины с корзиной заказа (Алхимик, Бобёр, Лавка) */
+.sh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 10px; margin: 8px 0 14px; }
+.sh-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; min-width: 0; box-sizing: border-box; border-radius: 10px; background: rgba(30, 24, 16, .72); border: 1px solid color-mix(in srgb, var(--t, #c9b48a) 55%, #000); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .35); }
+.sh-card.in-basket { border-color: #8fd08a; box-shadow: 0 0 0 1px #8fd08a, inset 0 -3px 0 rgba(0, 0, 0, .35); }
+.sh-card.locked { opacity: .78; filter: saturate(.55); border-style: dashed; }
+.sh-ico { display: flex; justify-content: center; } .sh-ico .item-icon { width: 54px; height: 54px; }
+.sh-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; overflow-wrap: anywhere; } .sh-have { color: #9fc79a; }
+.sh-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.sh-qty { display: inline-flex; align-items: center; gap: 6px; }
+.sh-btn { min-width: 40px; min-height: 40px; border-radius: 8px; font-weight: 700; }
+.sh-btn.del, .sh-btn.clr, .sh-btn.pay { min-width: 0; padding: 0 12px; font-weight: 600; }
+.sh-n { min-width: 24px; text-align: center; }
+.sh-lock { width: 15px; height: 15px; vertical-align: -2px; margin-right: 5px; }
+.sh-lockline { font-size: 12px; color: #d9c38a; line-height: 1.3; }
+.sh-strip { display: flex; flex-wrap: wrap; gap: 4px; } .sh-mini .item-icon { width: 30px; height: 30px; }
+.sh-basket { position: sticky; bottom: 0; z-index: 5; margin: 10px 0; padding: 10px 12px; box-sizing: border-box; max-width: 100%; border-radius: 10px; background: rgba(24, 38, 24, .97); border: 1px solid #5fbf78; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 -4px 14px rgba(0, 0, 0, .45); }
+.sh-basket.empty { background: rgba(30, 24, 16, .6); border-color: rgba(255, 255, 255, .15); position: static; box-shadow: none; }
+.sh-lines { display: flex; flex-direction: column; gap: 4px; max-height: 28vh; overflow-y: auto; }
+.sh-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; font-size: 13px; }
+.sh-lname { overflow-wrap: anywhere; }
+.sh-total { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .sh-total > span { flex: 1 1 100%; font-weight: 700; }
+.sh-total .sh-btn { flex: 1 1 auto; }
+.sh-problem { color: #e0a060; margin: 0; }
+@media (min-width: 520px) { .sh-total > span { flex: 1 1 0; } .sh-total .sh-btn { flex: 0 0 auto; } }
+@media (max-width: 420px) { .sh-grid { grid-template-columns: minmax(0, 1fr); } .sh-card { padding: 8px; } }
+@media (max-height: 520px) { .sh-basket { position: static; } .sh-lines { max-height: 90px; } }
+@media (max-width: 400px) {
+  .card:has(.sh-qty) { flex-wrap: wrap; }
+  .card:has(.sh-qty) > .card-body { flex: 1 1 140px; min-width: 0; }
+  .card:has(.sh-qty) > .card-act { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; margin-right: 0; }
+  .card:has(.sh-qty) > .card-act .sh-btn { min-width: 40px; }
+}
+@media (max-width: 520px) { .sh-lines { max-height: 17vh; } .sh-basket { padding: 8px 10px; } }
+.cat-sets { flex-wrap: wrap; }
+.cat-sets button { max-width: 100%; }
+.modal .tabs.cat-sets { flex-wrap: wrap; overflow-x: visible; }

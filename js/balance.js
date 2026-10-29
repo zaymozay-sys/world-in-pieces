@@ -36,7 +36,7 @@ const Balance = {
   // Существа: насколько растёт уровень ИИ с каждым цветом.
   monsters: { aiPerTier: 1,
     // множители здоровья и урона существ по цветам 1–10: на цветах 7–10 бои при полной силе героя были короче 5 ходов
-    hpBoost: [1, 1, 1, 1, 1.1, 1.15, 2.8, 3.1, 3.5, 3.5], dmgScale: [1, 1, 1, 1, 1, 1, 0.8, 0.75, 0.7, 0.7], powerMul: 2 },   // powerMul — поправка Силы существ (плоская Сила режет сумму больших ударов; подобрано симулятором)
+    hpBoost: [1.6, 1.5, 1.4, 1.1, 1.05, 1.0, 1.1, 1.0, 1.15, 1.15], dmgScale: [1, 1, 1, 1, 1, 1, 0.8, 0.75, 0.7, 0.7], powerMul: 2 },   // powerMul — поправка Силы существ (плоская Сила режет сумму больших ударов; подобрано симулятором)
 
   /* Магия: цена — столько камней каждого вида (сапфиры, рубины, изумруды) за заклинание; характеристики на цену не влияют
      costs подобраны симулятором по относительной силе/разрушительности:
@@ -68,8 +68,8 @@ const Balance = {
        Шаровая молния (самое сильное заклинание): каждый собранный камень любого цвета бьёт с множителем mult —
        и в обычном сборе, и в камнях, собранных Крестом/Квадратом, если молния включена ДО них (комбо). */
     // Огненный крест и Захват: (камни в зоне + Сила) × mult; fixed — малая добавка к камням, чтобы удар был и без обсидианов
-    cross: { fixed: 1, mult: 2.5 },
-    square: { fixed: 1, mult: 2 },
+    cross: { fixed: 1, mult: 2 },
+    square: { fixed: 1, mult: 1.5 },
     lightning: { mult: 1.5 },
     chaos: { perEmpty: 0.5 },      // Хаос перемешивает всё поле и бьёт на perEmpty камня за каждую пустую клетку
     minCost: 2,
@@ -176,7 +176,7 @@ const Balance = {
     // (прежний комментарий:)                    // 1.6.0: множитель монет с монстров — вещь стоит ≈ 10–14 побед, а не 5–6
     itemChance: 0.2 / GAME_LENGTH,
     consumableChance: 0.25 / GAME_LENGTH,
-    minMoves: 3,                                // меньше ходов — «слишком лёгкий бой», награды нет
+    minMoves: 1,                                // меньше ходов — «слишком лёгкий бой», награды нет
   },
 
   /* Оценка опасности существа (карточка на карте): модель шанса победы «среднего» игрока,
@@ -192,7 +192,7 @@ const Balance = {
     // (см. эффективные ХП/урон в Bestiary.scaled и отчёт tools/sim.js — карточка на карте всегда
     // показывает оценку «в среднем», разброс по размеру роя — на игроке).
     // offset = прежний (Balance.danger HEAD 2.0.3) + сдвиг симулятора при переходе на плоскую Силу (tools/fit-danger.js: разница offset по старому и новому расчёту)
-    offset: { rat: 0.88, wolf: 0.1, bandit: 0.4, goblin: 0.42, skeleton: -0.1, boar: 0.28, troll: -0.47, golem: 0.59, wraith: -0.63, dragon: -0.67, orc: -0.2, orcShaman: -1.0, ghoul: -0.2, crab: 0.41, bolotnik: 0.72, shadow: -1.03, treant: 0.38, mushroom: -1.79, lynx: 0.88, hedgehog: 0.89, wildbees: -0.03, viper: 2.03, spider: 2.08, vulture: 1.71, wisp: -0.05, gull: 2.35, hermit: 2.59, smuggler: 1.76, captain: 0.81, pike: 1.16, fox: 0.68, badger: 0.75, owl: 1.19, otter: 0.89, heron: 0.63, elk: 0.58, goat: 1.21, eagle: 0.5, rhino: 0.77, leopard: 0.83, leech: 0.84, glowmaw: 0.67, coralhulk: 0.88, stormray: 0.72, tidecaller: 0.6, thornback: 1.15, mimic: 1.0, salamander: 1.37, bear: 1.13, griffin: 0.91, wyvern: 1.29, basilisk: 0.61, ironscarab: 0.93, rocklizard: 0.94, moonmoth: 1.07, bumblebee: 0.72, forestling: 1.18, barrowman: 0.5, crystalid: 1.07, firetail: 0.73, weaver: 0.86, carapace: 1.15, ironguard: 0.84, boneknight: 0.84, ogre: 0.65, berserk: 1.17, assassin: 0.52 },
+    offset: { scorp1: -0.06, scorp2: -0.06, scorp3: -0.06, scorp4: -0.06, scorp5: -0.06, scorp6: -0.06, scorp7: -0.06, scorp8: -0.06, scorp9: -0.06, scorp10: -0.06, selenebat: -0.98, nuggetmole: 0.01, fluoritefly: -1.35, granitespirit: 0.04, malachitelizard: -0.82, micabeetle: 0.32, quartzspider: -0.85, graphitegolem: 0.55, rat: 0.88, wolf: 0.1, bandit: 0.4, goblin: 0.42, skeleton: -0.1, boar: 0.28, troll: -0.47, golem: 0.59, wraith: -0.63, dragon: -0.67, orc: -0.2, orcShaman: -1.0, ghoul: -0.2, crab: 0.41, bolotnik: 0.72, shadow: -1.03, treant: 0.38, mushroom: -1.79, lynx: 0.88, hedgehog: 0.89, wildbees: -0.03, viper: 2.03, spider: 2.08, vulture: 1.71, wisp: -0.05, gull: 2.35, hermit: 2.59, smuggler: 1.76, captain: 0.81, pike: 1.16, fox: 0.68, badger: 0.75, owl: 1.19, otter: 0.89, heron: 0.63, elk: 0.58, goat: 1.21, eagle: 0.5, rhino: 0.77, leopard: 0.83, leech: 0.84, glowmaw: 0.67, coralhulk: 0.88, stormray: 0.72, tidecaller: 0.6, thornback: 1.15, mimic: 1.0, salamander: 1.37, bear: 1.13, griffin: 0.91, wyvern: 1.29, basilisk: 0.61, ironscarab: 0.93, rocklizard: 0.94, moonmoth: 1.07, bumblebee: 0.72, forestling: 1.18, barrowman: 0.5, crystalid: 1.07, firetail: 0.73, weaver: 0.86, carapace: 1.15, ironguard: 0.84, boneknight: 0.84, ogre: 0.65, berserk: 1.17, assassin: 0.52, pinestump: 0.81, ramtur: 0.88, beetle: 1.18, mantis: 1.04 },
     bands: { easy: 0.8, even: 0.55, hard: 0.35 },
   },
 

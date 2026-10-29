@@ -41,23 +41,34 @@
         <button id="m-lang" type="button" class="icon-btn" title="Language / Язык">EN</button>
         <button id="m-help" type="button" class="icon-btn" title="Как играть">?</button>
         <button id="m-credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
+        <button id="m-battlelogs" type="button" hidden>Журналы боёв</button>
         <button id="m-more" type="button" title="Меню" aria-haspopup="true">☰</button>
         <div class="map-menu" id="map-menu" hidden>
           <button type="button" id="mm-mute" data-mdo="m-mute">Звук</button>
           <button type="button" data-mdo="m-fs">Полный экран</button>
           <button type="button" id="mm-lang" data-mdo="m-lang">English</button>
-          <button type="button" id="mm-anim" data-mdo="m-anim">Анимации: обычные</button>
-          <button type="button" id="mm-lite" data-mdo="m-lite">Графика карты: высокая</button>
-          <button type="button" id="mm-fx-clouds" data-mdo="m-fx-clouds"></button>
-          <button type="button" id="mm-fx-weather" data-mdo="m-fx-weather"></button>
-          <button type="button" id="mm-fx-amb" data-mdo="m-fx-amb"></button>
-          <button type="button" id="mm-fx-bob" data-mdo="m-fx-bob"></button>
-          <button type="button" id="mm-night" data-mdo="m-night">Время суток: выкл</button>
-          <button type="button" id="mm-wx" data-mdo="m-wx">Погода: выкл</button>
-          <button type="button" id="mm-skywin" data-mdo="m-skywin">Окошко погоды: вкл</button>
-          <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
-          <button type="button" data-mdo="m-help">Как играть</button>
-          <button type="button" data-mdo="m-credits">О разработчиках</button>
+          <button type="button" class="mm-head" aria-expanded="false">Графика и эффекты</button>
+          <div class="mm-sub" hidden>
+            <button type="button" id="mm-anim" data-mdo="m-anim">Анимации: обычные</button>
+            <button type="button" id="mm-lite" data-mdo="m-lite">Графика карты: высокая</button>
+            <button type="button" id="mm-fx-clouds" data-mdo="m-fx-clouds"></button>
+            <button type="button" id="mm-fx-weather" data-mdo="m-fx-weather"></button>
+            <button type="button" id="mm-fx-amb" data-mdo="m-fx-amb"></button>
+            <button type="button" id="mm-fx-bob" data-mdo="m-fx-bob"></button>
+          </div>
+          <button type="button" class="mm-head" aria-expanded="false">Время и погода</button>
+          <div class="mm-sub" hidden>
+            <button type="button" id="mm-night" data-mdo="m-night">Время суток: выкл</button>
+            <button type="button" id="mm-wx" data-mdo="m-wx">Погода: выкл</button>
+            <button type="button" id="mm-skywin" data-mdo="m-skywin">Окошко погоды: вкл</button>
+          </div>
+          <button type="button" class="mm-head" aria-expanded="false">Игра и справка</button>
+          <div class="mm-sub" hidden>
+            <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
+            <button type="button" data-mdo="m-battlelogs">Журналы боёв</button>
+            <button type="button" data-mdo="m-help">Как играть</button>
+            <button type="button" data-mdo="m-credits">О разработчиках</button>
+          </div>
           <div class="map-ver" id="map-ver" aria-hidden="false"></div>
         </div>
       </div>
@@ -150,7 +161,6 @@
         <li>Цвета-уровни (по возрастанию): Красный, Оранжевый, Жёлтый, Зелёный, Голубой, Синий, Фиолетовый, Серебро, Золото, Обсидиановый. Цвет есть у вещей, монстров и ресурсов: чем выше, тем сильнее. Оценка опасности существа (Лёгкий, Равный, Опасный, Смертельный) показывает примерный шанс победы.</li>
         <li>Деньги: медные, серебряные и золотые монеты (100 медных = 1 серебряная, 100 серебряных = 1 золотая). С существ падают монеты, ресурсы их цвета и иногда вещи.</li>
         <li>Карта: сражения начинаются, когда вы нападаете на существо на карте. Чем дальше от деревни, тем выше цвет существ; в средних и дальних зонах встречаются орки и нежить. Лавка, Кузница, Охотничий дом (бестиарий) и Ваш дом (экипировка) — здания деревни. После поражения вы возвращаетесь в деревню, побеждённое существо возвращается через 4 минуты. «Отступить» — уйти из боя без награды.</li>
-        <li>Для проверки ХП бойцов и уровень ИИ противника (1–100) можно подправить в панелях боя; награды за такой бой нет.</li>
       </ul>
     </details>
   </main>
@@ -181,6 +191,7 @@
   <script src="js/figures.js"></script>
   <script src="js/story.js"></script>
   <script src="js/hexmap.js"></script>
+  <script src="js/forge-data.js"></script>
   <script src="js/forge.js"></script>
   <script src="js/world.js"></script>
   <script src="js/siege.js"></script>
@@ -229,6 +240,7 @@
   <script src="js/mapview.js"></script>
   <script src="js/tutorial.js"></script>
   <script src="js/splashfx.js"></script>
+  <script src="js/battlelog.js"></script>
   <script src="js/game.js"></script>
   <script src="js/devjump.js"></script>
 </body>

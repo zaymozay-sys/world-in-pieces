@@ -29,7 +29,7 @@ const Factions = (() => {
       name: _t("Гномы"), people: _t("Подгорные кланы"), hero: _t("Старый боевой гном"), heroF: _t("Боевая гномка"), figure: 'dwarf',
       color: '#d08a3a', gem: 'onyx',
       desc: _t("Рунные кузнецы и воины гор. Крепкие, как камень, из которого вырублены их залы."),
-      stats: { defense: 4, block: 4 },
+      stats: { defense: 8, block: 8, power: 3 },
       perks: { forge: 0.85 },
       perkText: _t("Работа кузницы дешевле на 15%"),
       ability: { id: 'hammer', name: _t("Рунный молот"), desc: _t("Три случайных камня становятся обсидианом x3") },
@@ -65,7 +65,7 @@ const Factions = (() => {
   function statsAt(id, tf = 1) {
     const f = LIST[id], out = {};
     if (!f || typeof Tiers === 'undefined') return f ? { ...f.stats } : {};
-    const T = { health: Tiers.GROWTH, power: Tiers.POWER_ABS };
+    const T = { health: Tiers.GROWTH, power: Tiers.POWER_ABS, defense: Tiers.ARMOR_ABS };
     for (const [k, v] of Object.entries(f.stats)) out[k] = Math.round(v * Tiers.at(T[k] || Tiers.PCT_MULT, tf));
     return out;
   }
