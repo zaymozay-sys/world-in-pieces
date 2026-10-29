@@ -57,12 +57,12 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
     ok('Лавка: эпических вещей нет, кнопки всех цветов до вашего', s.n > 0 && s.epic === 0 && s.tiers === s.top, JSON.stringify(s));
     await p.evaluate(async () => { Screens.close(); Screens.openLibrary(); await new Promise((x) => setTimeout(x, 350)); });
     await p.click('[data-tab="scrolls"]'); await p.waitForTimeout(250);
-    const sc = await p.evaluate(() => { Profile.addRes('feather', Hero.tierFor(Profile.level()), 4); return document.querySelectorAll('[data-scroll-brew]').length; });
+    const sc = await p.evaluate(() => { Profile.addRes('feather', Hero.tierFor(Profile.level()), 4); return document.querySelectorAll('.sh-card').length; });
     ok('Библиотека: вкладка «Свитки» с двумя свитками', sc === 2, String(sc));
     await p.evaluate(() => { const t = Hero.tierFor(Profile.level()); Profile.addRes('feather', t, 4); Screens.refresh(); });
     await p.waitForTimeout(150);
     const before = await p.evaluate(() => Profile.data.backpack.scroll || 0);
-    await p.evaluate(() => document.querySelector('[data-scroll-brew="scroll"]').click()); await p.waitForTimeout(200);
+    await p.locator('[data-sh=inc]').first().click(); await p.waitForTimeout(150); await p.locator('[data-sh=pay]').click(); await p.waitForTimeout(300);
     const after = await p.evaluate(() => Profile.data.backpack.scroll || 0);
     ok('свиток спешки пишется из пера', after === before + 1, before + '→' + after);
     ok('страница без ошибок', p.__errs.length === 0, p.__errs.join(' // '));

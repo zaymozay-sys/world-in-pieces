@@ -40,9 +40,14 @@ const Tiers = (() => {
   const HERO_DMG = [1.67, 2.17, 2.83, 3.63, 4.59, 5.75, 7.22, 9.09, 11.61, 14.93];
   // Сила вещей: множитель базового значения вещи на цвете — Сила прибавляется к удару числом (удар = камни + Сила).
   const POWER_ABS = POWER_MULT.map((m, i) => Math.round(m * 0.045 * HERO_DMG[i] * 1000) / 1000);
-  const PCT_MULT   = [1, 1.12, 1.24, 1.36, 1.48, 1.6, 1.72, 1.84, 1.96, 2.1];
+  // 2.0.5: шансы и Броня идут от ≈25% потолка на цвете 1 к ≈90% на цвете 10 (+7 п.п. за цвет); раньше стартовали у потолка и почти не росли
+  const PCT_MULT   = [0.35, 0.455, 0.56, 0.665, 0.77, 0.875, 0.98, 1.085, 1.19, 1.295];
+  // 2.0.7: плоская Броня — число вычитается из удара как есть. Множитель базового значения вещи (и существа) на цвете:
+  // «старое очко» Брони × 0,045 × рост урона цвета. ARMOR_UNIT — во что превращается одно старое очко на цвете t.
+  const ARMOR_UNIT = HERO_DMG.map((d) => 0.045 * d);
+  const ARMOR_ABS = PCT_MULT.map((m, i) => Math.round(m * ARMOR_UNIT[i] * 1000) / 1000);
   const POINT_MULT = [1, 1.4, 1.9, 2.5, 3.2, 4, 5, 6.2, 7.6, 9.2];
-  const PRICE_MULT = [1, 2.5, 6, 15, 35, 80, 180, 400, 900, 2000];
+  const PRICE_MULT = [1, 2.5, 6, 15, 35, 80, 150, 280, 480, 780];
   const HP_MULT = GROWTH;                                                        // старое имя
 
   const clamp = (t) => Math.max(1, Math.min(MAX, Math.round(t) || 1));
@@ -60,7 +65,7 @@ const Tiers = (() => {
     return table[i] * Math.pow(table[i + 1] / table[i], f);
   }
   // Множитель характеристики stat на уровне-цвете tier.
-  const STAT_TABLE = { health: GROWTH, power: POWER_ABS, defense: PCT_MULT, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT };
+  const STAT_TABLE = { health: GROWTH, power: POWER_ABS, defense: ARMOR_ABS, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT };
   const statMult = (stat, tier) => (STAT_TABLE[stat] || POWER_MULT)[clamp(tier) - 1];
 
   /* ---------- деньги ---------- */
@@ -79,7 +84,7 @@ const Tiers = (() => {
     return parts.join(' ');
   }
 
-  return { LIST, MAX, GROWTH, POWER_MULT, POWER_ABS, HERO_DMG, PCT_MULT, POINT_MULT, PRICE_MULT, HP_MULT, SILVER, GOLD, clamp, get, at, statMult, splitMoney, moneyText };
+  return { LIST, MAX, GROWTH, POWER_MULT, POWER_ABS, HERO_DMG, PCT_MULT, ARMOR_ABS, ARMOR_UNIT, POINT_MULT, PRICE_MULT, HP_MULT, SILVER, GOLD, clamp, get, at, statMult, splitMoney, moneyText };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

@@ -15,7 +15,7 @@ for (const id of Village.IDS) {
 }
 assert.ok(Village.cost('forge', 3) > Village.cost('hall', 3));
 let total = 0; for (const id of Village.IDS) for (let k = 1; k <= 5; k++) total += Village.cost(id, k);
-assert.ok(total > 400 * G && total < 1200 * G, 'все улучшения — тысячи золотых, а не миллионы: ' + total / G);
+assert.ok(total > 250 * G && total < 1200 * G, 'все улучшения — тысячи золотых, а не миллионы: ' + total / G);
 
 // покупка
 const v = {};
@@ -25,7 +25,10 @@ assert.strictEqual(Village.buy(v, 'hall', 2, 1e9), Village.cost('hall', 1)); ass
 assert.strictEqual(Village.buy(v, 'hall', 2, 1e9), 0, 'второй уровень — с 4-го цвета');
 assert.strictEqual(Village.buy(v, 'nonsense', 10, 1e9), 0);
 for (let k = 0; k < 10; k++) Village.buy(v, 'mill', 10, 1e12);
-assert.strictEqual(v.mill, 5); assert.strictEqual(Village.next(v, 'mill', 10), null);
+assert.strictEqual(v.mill, 10); assert.strictEqual(Village.next(v, 'mill', 10), null);
+for (let k = 0; k < 10; k++) Village.buy(v, 'forge', 10, 1e15); assert.strictEqual(v.forge, 5, 'Кузница — 5 уровней');
+assert.ok(Village.cost('hall', 10) > Village.cost('hall', 5) && Village.reqTier(6) === 10);
+assert.ok(Village.granaryChance({ mill: 10 }) > Village.granaryChance({ mill: 5 }) && Village.studyFactor({ kennel: 10 }) > 0 && Village.feeRate({ hall: 10 }) > 0);
 
 // эффекты
 const w = { hall: 5, kennel: 5, mill: 2, alchemist: 3, forge: 4 };

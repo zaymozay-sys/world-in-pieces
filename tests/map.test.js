@@ -290,10 +290,21 @@ for (const seed of [1, 42, 777, 2024]) {
     assert.ok(m.buildings.some((b) => b.id === 'towerDoor') && m.buildings.some((b) => b.id === 'towerStairs'));
     assert.ok(m.spawns.every((s) => m.reachable.has(s.idx) && s.tower), 'мобы достижимы');
     assert.strictEqual(m.spawns.filter((s) => s.guard).length, f % 5 === 0 ? 1 : 0, 'страж на каждом 5-м этаже');
-    assert.ok(m.cells.length === 127 && m.spawns.every((s) => s.tier >= 8 && s.tier <= 10));
+    assert.ok(m.cells.length === 271 && m.spawns.every((s) => s.tier >= 8 && s.tier <= 10));
     assert.deepStrictEqual(HexMap.generate(777, 'tower', f).spawns, m.spawns, 'этаж детерминирован');
   }
   assert.notDeepStrictEqual(HexMap.generate(777, 'tower', 1).spawns, HexMap.generate(777, 'tower', 2).spawns, 'этажи разные');
+  // 2.0.7: лабиринт — лестница всегда достижима от двери, стены есть, существа стоят только в проходах, глубже 8-го этажа растёт крепость
+  const HM = HexMap;
+  for (let seed = 1; seed <= 60; seed++) for (const f of [1, 3, 8, 9, 20, 150]) {
+    const m = HM.generate(seed * 7919, 'tower', f), open = m.cells.filter((c) => c.terrain !== 'mountain').length;
+    const stairs = m.buildings.find((b) => b.id === 'towerStairs'), door = m.buildings.find((b) => b.id === 'towerDoor');
+    assert.ok(HM.neighbors(m, stairs.idx).some((n) => m.reachable.has(n)), `лестница недостижима: зерно ${seed}, этаж ${f}`);
+    assert.ok(HM.neighbors(m, door.idx).some((n) => m.reachable.has(n)) || m.reachable.has(m.start));
+    assert.ok(open > 45 && open < 160, 'проходов: ' + open);
+    assert.ok(m.spawns.every((x) => m.cells[x.idx].terrain !== 'mountain' && x.depth === HM.towerDepth(f)));
+  }
+  assert.strictEqual(HM.towerDepth(8), 1); assert.ok(HM.towerDepth(9) > 1 && HM.towerDepth(100) > HM.towerDepth(50), 'глубже — крепче без предела');
   console.log('map: Башня — все тесты пройдены');
 }
 

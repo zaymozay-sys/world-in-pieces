@@ -36,7 +36,7 @@ const MapView = (() => {
     const near = HexMap.area(map, a.idx, 2).filter((i) => !map.cells[i].building && HexMap.passable(map, i)).sort((x, y) => HexMap.dist(map.cells[a.idx], map.cells[x]) - HexMap.dist(map.cells[a.idx], map.cells[y]) || x - y)[0];
     return near === undefined ? home : near;
   }
-  const MAP_VER = 7;                 // версия раскладки карты: при смене номера сот сбрасывается исследование (1.7.2: радиус 30)
+  const MAP_VER = 8;                 // версия раскладки карты: при смене номера сот сбрасывается исследование (1.7.2: радиус 30; 2.0.7: изменён состав спавна — этап C)
   const el = {};
   const cam = { x: 0, y: 0, s: 1 };
   let walking = null, stepping = false, battleSpawn = null, hoverIdx = -1, toastTimer = null;
@@ -963,11 +963,12 @@ const MapView = (() => {
     return out;
   };
   const spawnScaled = (sp) => {
-    let sc = Bestiary.scaled(sp.species, sp.tier);
+    let sc = Bestiary.scaled(sp.species, sp.tier, 1, Profile.level());
     if (sp.boss) sc = Story.scaleBoss(sc, sp.boss, Story.cycle(Profile.data.story));
     if (sp.zone) sc = World.scaleZone(sc, sp.zone);                                                              // 1.7.3: хозяин зоны
     if (eliteOf(sp)) sc = { ...sc, hp: Math.round(sc.hp * World.ELITE.hp), dmg: sc.dmg * World.ELITE.dmg };   // 1.5.4
     if (sp.siegeV > 0) sc = { ...sc, hp: Math.max(1, Math.round(sc.hp * (1 - sp.siegeV))) };                    // 1.7.0: башни уже обстреляли
+    if (sp.depth > 1) sc = { ...sc, hp: Math.round(sc.hp * sp.depth), dmg: sc.dmg * sp.depth };                      // 2.0.7: глубже в подземелье существа крепче
     const gr = Growth.steps(st, sp); if (gr > 0) sc = { ...sc, hp: Math.round(sc.hp * Growth.mul(gr)), dmg: sc.dmg * Growth.mul(gr) };   // 2.0.0: существо окрепло после побед над героем
     const loot = st.loot && st.loot[sp.id] && Trophy.eligible(sp) ? st.loot[sp.id] : null;
     if (loot) sc = withLoot(sc, loot);
@@ -1060,7 +1061,7 @@ const MapView = (() => {
     battleSpawn = sp;
     st.swarm = st.swarm || {};
     if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
-    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
+    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), depth: sp.depth > 1 ? sp.depth : 0, loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -1368,6 +1369,7 @@ const MapView = (() => {
     c.addEventListener('pointerup', (e) => finish(e, false));
     c.addEventListener('pointercancel', (e) => finish(e, true));
     window.addEventListener('resize', miniPlace);
+    window.addEventListener('medal', (e) => { const ids = (e.detail || []).map((id) => Medals.nameFor(id)); if (ids.length) setTimeout(() => toast(_t("Новая медаль: {0}", [ids.join(', ')]), 4200), 900); });   // 2.0.7: мастерские медали
     window.addEventListener('orientationchange', miniPlace);
   }
   function applyMiniVisible() {
@@ -1612,6 +1614,7 @@ const MapView = (() => {
       st.defeated[sp.id] = sp.rare ? sp.endsAt : Date.now() + (sp.guest ? GUEST_REST_MS : RESPAWN_MS);
       if (st.swarm) delete st.swarm[sp.id];
       if (sp.guard && sp.gc) guardDrop(sp.gc);
+      if (sp.scorp && Math.random() < Stones.scorpChance(st.floor || 1)) scorpDrop(sp.scorp);   // 2.0.7: скорпион подземелья
       if (sp.deep) deepWon(st.floor || 1);
       if (sp.rare) rareWon(sp); else toast(sp.guest ? _t("{0} повержен. Ночной гость больше не вернётся этой ночью.", [Bestiary.MONSTERS[sp.species].name]) : _t("{0} повержен. Существо вернётся через {1} мин.", [Bestiary.MONSTERS[sp.species].name, RESPAWN_MS / 60000]));
     } else if (result === 'win' && sel.siege) {
@@ -1783,6 +1786,7 @@ const MapView = (() => {
     on('m-mute', () => { Sound.setMuted(!Sound.muted); renderMute(); muteLabel(); });
     on('m-fs', () => toggleFullscreen());
     on('m-help', () => Screens.open('help'));
+    on('m-battlelogs', () => BattleLog.open());
     on('m-lang', () => I18N.setLang(I18N.lang === 'ru' ? 'en' : 'ru'));
     document.getElementById('m-lang').textContent = I18N.lang === 'ru' ? 'EN' : 'RU';   // кнопка показывает язык, на который переключит
     on('m-credits', () => Screens.openCredits());
@@ -1812,6 +1816,8 @@ const MapView = (() => {
     mbtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
     document.addEventListener('click', (e) => { if (e.isTrusted && !menu.hidden && !menu.contains(e.target)) menu.hidden = true; });
     menu.addEventListener('click', (e) => {
+      const hd = e.target.closest('.mm-head');   // 2.0.5: разделы меню сворачиваются, открыт один
+      if (hd) { const sub = hd.nextElementSibling, open = sub.hidden; menu.querySelectorAll('.mm-sub').forEach((x) => { x.hidden = true; x.previousElementSibling.setAttribute('aria-expanded', 'false'); }); sub.hidden = !open; hd.setAttribute('aria-expanded', open ? 'true' : 'false'); return; }
       const b = e.target.closest('button[data-mdo]'); if (!b) return;
       if (b.dataset.mdo === 'm-timer') { TurnTimerSetting.toggle(); return; }     // 1.6.5: таймер хода (по умолчанию выкл), меню остаётся открытым
       if (b.dataset.mdo === 'm-night' || b.dataset.mdo === 'm-wx') {       // 1.7.1: время суток и погоду можно выключить, меню остаётся открытым
@@ -2101,7 +2107,7 @@ const MapView = (() => {
   }
   // 1.8.6: Замок — отдельная карта. Вход на северной границе деревни (для героев от 8 уровня), выход — в конце главной улицы.
   const CASTLE_LEVEL = 8;
-  const LOCS = { castle: { level: CASTLE_LEVEL, reveal: 4 }, island: { level: 1, reveal: 6 }, tower: { level: 10, reveal: 5 } };      // реестр локаций: остров и Башня добавляются сюда
+  const LOCS = { castle: { level: CASTLE_LEVEL, reveal: 4 }, island: { level: 1, reveal: 6 }, tower: { level: 10, reveal: 3 } };      // реестр локаций: остров и Башня добавляются сюда
   function swapMap(onCastle, to) {
     const loc = onCastle ? (to || 'castle') : null;
     Profile.data.loc = loc; Profile.data.castleOn = loc === 'castle';
@@ -2110,7 +2116,7 @@ const MapView = (() => {
     save();
     closeCard();
     load();
-    toast(loc === 'tower' ? _t("Вы вошли в подземелье. Уровень {0}: ищите лестницу на востоке.", [st.floor || 1]) : loc === 'island' ? _t("Вы высадились на Затерянном острове. Бригантина ждёт у западного берега.") : loc ? _t("Вы вошли в Замок: здесь бродят духи воинов. Выход — на западе, в конце главной улицы.") : _t("Вы вернулись на материк"), 4200);
+    toast(loc === 'tower' ? _t("Вы вошли в подземелье. Уровень {0}: ищите лестницу вниз на востоке.", [st.floor || 1]) : loc === 'island' ? _t("Вы высадились на Затерянном острове. Бригантина ждёт у западного берега.") : loc ? _t("Вы вошли в Замок: здесь бродят духи воинов. Выход — на западе, в конце главной улицы.") : _t("Вы вернулись на материк"), 4200);
   }
   function enterCastle() {
     if (map.kind === 'castle') return;
@@ -2138,6 +2144,11 @@ const MapView = (() => {
     Stones.add(S, c, n); Profile.save();
     setTimeout(() => toast(_t("Страж рассыпался. Самоцвет: {0} × {1}", [Stones.name(c), n]), 4500), 900);
   }
+  // 2.0.7: скорпион подземелья роняет один самоцвет своего цвета (шанс малый, от уровня героя не зависит)
+  function scorpDrop(c) {
+    const S = Profile.stones(); Stones.add(S, c, 1); Profile.save();
+    setTimeout(() => toast(_t("Из панциря скорпиона выпал самоцвет: {0}!", [Stones.name(c)]), 5000), 900);
+  }
   // 1.9.4: Хранитель глубин повержен — награда Dungeon.deepReward
   function deepWon(f) {
     const r = Dungeon.deepReward(f), T = Math.max(1, Hero.tierFor(Profile.level()));
@@ -2145,6 +2156,9 @@ const MapView = (() => {
     for (const [k, n] of r.res) Profile.addRes(k, T, n);
     for (const k of Object.keys(r.cons)) if (r.cons[k]) Profile.addConsumable(k, r.cons[k]);
     Profile.chron('floor', f); Profile.save();
+    const bd = Profile.lockedDrop('bastion', T, 0.3, 4);                            // 2.0.7: Бастион — трофей Хранителя глубин
+    if (bd) setTimeout(() => toast(_t("Трофей Хранителя: {0} (комплект «Бастион»)", [Gear.item(bd).name]), 5000), 3400);
+    if (T >= 6 && Profile.grantEndure('deep' + T)) setTimeout(() => toast(_t("Награда стража: эликсир «Стойкость»!"), 5000), 2600);   // 2.0.7: первый Хранитель на каждом цвете 6–10
     setTimeout(() => toast(_t("Хранитель глубин повержен! Добыча: {0} монет, ресурсы и расходники.", [r.coins]), 5000), 1800);
   }
   function enterTower() {
@@ -2172,7 +2186,9 @@ const MapView = (() => {
     t.pos = null; t.revealed = []; t.defeated = {}; t.found = {}; t.pins = [];
     if (t.floor >= 5 && t.floor % 5 === 0) Profile.chron('floor', t.floor);
     save(); closeCard(); load();
+    Profile.noteMaster('depth', t.best, false);
     toast(Dungeon.levelText(t.floor), 2500);
+    for (const e of Profile.legendAward(t.best, Math.max(1, Hero.tierFor(Profile.level())))) setTimeout(() => toast(_t("Награда за глубину: {0} (комплект «Легенда подземелий»)", [Gear.item(e).name]), 5000), 2700);
   }
   // 1.8.8: награда за новый уровень подземелья (Dungeon.reward): монеты, на каждом 5-м уровне — сундук с ресурсами и расходниками
   function towerReward(f) {
@@ -2424,6 +2440,7 @@ const MapView = (() => {
   return {
     init, reset, returnFromBattle, focusSpecies, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
+    devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = (Math.random() * 2147483646 + 1) | 0; t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
     devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland,
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack, fightLord,

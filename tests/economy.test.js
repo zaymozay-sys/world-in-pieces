@@ -50,8 +50,10 @@ const up5 = Gear.upgradeCost({ id: 'sword-novice', tier: 5 });
 assert.ok(up5.res.every((r) => r.tier === 5) && up5.res[0].n > up1.res[0].n);
 assert.strictEqual(Gear.upgradeCost({ id: 'sword-novice', tier: 10 }), null);
 // ресурсы зависят от типа вещи
-assert.deepStrictEqual(up1.res.map((r) => r.kind), ['ore', 'fang']);
-assert.deepStrictEqual(Gear.upgradeCost({ id: 'amulet-copper', tier: 1 }).res.map((r) => r.kind), ['crystal', 'essence']);
+// 2.0.7: улучшение считает Forge.plan (роли типа вещи, до двух материалов в позиции); прежний расчёт — upgradeCostLegacy
+assert.deepStrictEqual(Gear.upgradeCostLegacy({ id: 'sword-novice', tier: 1 }).res.map((r) => r.kind), ['ore', 'fang']);
+assert.deepStrictEqual(Gear.upgradeCostLegacy({ id: 'amulet-copper', tier: 1 }).res.map((r) => r.kind), ['crystal', 'essence']);
+assert.strictEqual(up1.res.length, 2); assert.ok(up1.total > 0 && up1.spent === up1.total);
 // создание вещи нужного цвета: ресурсы того же цвета, цена растёт с цветом
 const c3 = Gear.craftCost('leather-head', 3);
 assert.ok(c3.res.every((r) => r.tier === 3) && c3.coins > Gear.craftCost('leather-head', 1).coins);
@@ -61,7 +63,7 @@ assert.ok(nRes(Gear.craftCost('berserk-amulet', 5)) > nRes(Gear.craftCost('leath
 assert.ok(Gear.craftCost('berserk-amulet', 5).res.length > Gear.craftCost('leather-head', 5).res.length, 'у редкой больше видов ресурсов');
 
 // бестиарий: 29 видов (в 1.2.0 добавлены звери нижних уровней, существа побережья и боссы), характеристики и ХП растут с цветом; у каждого вида есть семейство и приём
-assert.strictEqual(Bestiary.ORDER.length, 67);      // 1.6.7: +12 существ; 1.7.3: +3 (огр, гоблин-берсерк, тень-убийца)
+assert.strictEqual(Bestiary.ORDER.length, 89);      // 1.6.7: +12 существ; 1.7.3: +3 (огр, гоблин-берсерк, тень-убийца); 2.0.7: +8 подземных, +4 (смоляной пень, рамтур, жук-точильщик, богомол)
 for (const id of ['orc', 'orcShaman', 'ghoul', 'crab', 'bolotnik', 'shadow', 'treant', 'mushroom', 'wildbees', 'lynx', 'hedgehog', 'viper', 'spider', 'vulture', 'wisp', 'gull', 'hermit', 'smuggler', 'captain']) assert.ok(Bestiary.ORDER.includes(id), id);
 for (const id of Bestiary.ORDER) {
   const m = Bestiary.MONSTERS[id];
@@ -78,7 +80,7 @@ for (const id of Bestiary.ORDER) {
   for (const [kind] of Bestiary.MONSTERS[id].drops) assert.ok(Bestiary.RESOURCES[kind], kind);
 }
 assert.deepStrictEqual(Bestiary.unlockedSpecies(0), ['rat', 'wolf']);
-assert.strictEqual(Bestiary.unlockedSpecies(999).length, 67);
+assert.strictEqual(Bestiary.unlockedSpecies(999).length, 89);
 // снаряжение только у дракона
 assert.ok(Bestiary.scaled('dragon', 3).gearBudget > 0 && Bestiary.scaled('wolf', 3).gearBudget === 0);
 

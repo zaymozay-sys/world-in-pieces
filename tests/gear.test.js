@@ -28,8 +28,8 @@ let s = Gear.emptyLoadout();
 s = Gear.equip(s, 'sword-novice', 'main');       // Сила 6
 s = Gear.equip(s, 'shield-wood', 'off');         // Защита 5
 let st = Gear.stats(s);
-assert.strictEqual(st.power, Math.round(6 * require('../js/tiers.js').POWER_ABS[0] * 10) / 10);
-assert.strictEqual(st.defense, 5);
+assert.strictEqual(st.power, Math.max(1, Math.round(6 * require('../js/tiers.js').POWER_ABS[0])));
+assert.strictEqual(st.defense, Math.max(1, Math.round(5 * require('../js/tiers.js').ARMOR_ABS[0])));
 
 // бонусы набора включаются по числу предметов (2 шт. Стража: +10 здоровья)
 let a = Gear.emptyLoadout();
@@ -44,7 +44,7 @@ assert.strictEqual(prog.active.length, 1);
 // защита ограничена
 let d = Gear.emptyLoadout();
 for (const [slot, id] of [['off', 'guard-shield'], ['head', 'guard-head'], ['chest', 'guard-chest'], ['arms', 'guard-arms'], ['legs', 'guard-legs']]) d = Gear.equip(d, id, slot);
-assert.ok(Gear.stats(d).defense <= Gear.MAX_DEFENSE);
+assert.ok(Gear.stats(d).defense >= 0);   // 2.0.7: потолка Брони нет
 
 // цена заклинаний не зависит от характеристик, но не ниже 2
 assert.strictEqual(Gear.spellCost(5), 5);
@@ -70,7 +70,7 @@ assert.strictEqual(new Set(sigs).size, sigs.length, 'наборы характе
 let x = Gear.emptyLoadout();
 for (const [slot, id] of [['off', 'guard-shield'], ['head', 'guard-head'], ['arms', 'guard-arms'], ['main', 'sword-novice']]) x = Gear.equip(x, id, slot);
 const xs = Gear.stats(x);
-assert.strictEqual(xs.block, 2 + 3 + 10 + 0 + 3);     // шлем + наручи + щит + бонус набора (3 шт.: +3 блока)
+assert.strictEqual(xs.block, ['guard-head', 'guard-arms', 'guard-shield', 'sword-novice'].reduce((a, id) => a + (Gear.item(id).stats.block || 0), 0) + 3);     // шлем + наручи + щит + бонус набора (3 шт.: +3 блока); 2.0.5: значения по цвету 1
 assert.ok(xs.initiative >= 0 && xs.ricochet >= 0);
 for (const k of Object.keys(Gear.CAPS)) assert.ok(xs[k] <= Gear.CAPS[k]);
 // потолок блока
@@ -91,3 +91,18 @@ assert.ok(fox.cost > Gear.item('amulet-spark').cost, 'Хитрость учит�
 assert.ok(Object.values(Gear.SETS.wanderer.bonuses).some((b) => b.cunning > 0), 'Странник даёт Хитрость бонусом набора');
 
 console.log('gear: все тесты пройдены');
+
+// 2.0.7: новые комплекты
+{
+  const N = ['swift', 'archer', 'ancient', 'tracker', 'hammer', 'bastion', 'legend'];
+  for (const id of N) assert.strictEqual(Gear.ITEMS.filter((i) => i.set === id).length, 5, id + ': 5 вещей');
+  for (const id of ['hammer', 'bastion', 'legend']) assert.ok(!Gear.itemsFor('human').some((i) => i.set === id), id + ' не выпадает обычной добычей');
+  assert.ok(Gear.itemsFor('human').some((i) => i.set === 'swift'));
+  assert.ok(Gear.ITEMS.filter((i) => i.set === 'bastion').every((i) => !i.stats.power), 'Бастион без Силы');
+  assert.ok(Gear.ITEMS.filter((i) => i.set === 'ancient').every((i) => !i.stats.block && !i.stats.ricochet), 'Древний панцирь без Блока и Рикошета');
+  const tr = Gear.ITEMS.filter((i) => i.set === 'tracker');
+  let g = Gear.emptyLoadout();
+  for (const it of tr) { const slot = it.type === 'weapon1' ? 'main' : it.type; g = Gear.equip(g, Gear.makeEntry(it.id, 1), slot); }
+  assert.strictEqual(Gear.petBonus(g), 1, 'Следопыт ×5 усиливает питомца');
+  assert.ok(Number.isFinite(Gear.stats(g).power), 'бонус питомца не ломает характеристики');
+}

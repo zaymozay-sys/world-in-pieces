@@ -99,13 +99,12 @@ const Medals = (() => {
   const elixirKey = (id) => (id.startsWith('elixir:') ? id.slice(7) : null);
   // Медаль за выпитый эликсир вида kind: id, если положена и ещё не получена, иначе null.
   function checkElixirMedal(kind, earned = []) {
-    if (!ELIXIR_ORDER.includes(kind)) return null;
-    const id = elixirMedalId(kind);
-    return earned.some((m) => m.id === id) ? null : id;
+    return null;   // 2.0.7: медали за первый глоток каждого вида отменены — вместо них 10-уровневая цепочка «Выпито»
   }
 
   // 1.7.5: «Выпито эликсиров» — вехи по числу выпитых в боях эликсиров любого вида (счётчик Profile.data.medals.drunk).
-  const DRUNK_MILESTONES = [10, 30, 75, 150, 300, 600, 1000, 2000];
+  const ENDURE_AT = [400, 3000, 9000];   // 2.0.7: на этих вехах «Выпито эликсиров» выдаётся эликсир «Стойкость»
+  const DRUNK_MILESTONES = [50, 150, 400, 900, 1800, 3000, 4500, 6500, 9000, 12000];   // 2.0.7: 10 уровней, «выпито должно быть много»; первая веха — 50
   const drunkMedalId = (n) => 'drunk:' + n;
   function checkDrunkMedal(total, earned = []) {
     for (const n of DRUNK_MILESTONES) { const id = drunkMedalId(n); if (total >= n && !earned.some((m) => m.id === id)) return id; }
@@ -146,6 +145,7 @@ const Medals = (() => {
       return idx % 3 === 2 ? { health: 3 * (1 + idx), cunning: (idx + 1) / 3 } : { health: 3 * (1 + idx) };
     }
     if (elixirKey(id)) return { ...(ELIXIR_BONUS[elixirKey(id)] || {}) };
+    if (id.startsWith('m:')) { const mm = masterOf(id); return mm ? MASTER[mm.s].bonus(mm.idx) : {}; }
     if (id.startsWith('daily:')) { const idx = Math.max(0, DAILY_MILESTONES.indexOf(Number(id.slice(6)))); return { power: P(1 + idx), health: 3 * (1 + idx) }; }
     if (secretKey(id)) return { ...(SECRET[secretKey(id)] ? SECRET[secretKey(id)].bonus : {}) };
     if (worldKey(id)) return { ...(WORLD[worldKey(id)] ? WORLD[worldKey(id)].bonus : {}) };
@@ -165,6 +165,7 @@ const Medals = (() => {
      открытие вещей по цвету (Hero.itemLevel — один цвет на каждые 10 уровней героя). */
   function tierUnlockLevel(id) {
     if (killSpecies(id)) return 1;                              // медали за первую победу видны с самого начала
+    if (id.startsWith('m:')) { const mm = masterOf(id); return mm ? 1 + mm.idx * 10 : 1; }
     const list = id.startsWith('spell:') ? SPELL_MILESTONES : id.startsWith('drunk:') ? DRUNK_MILESTONES : id.startsWith('streak:') ? STREAK_MILESTONES : id.startsWith('strike:') ? STRIKE_MILESTONES : id.startsWith('shot:') ? SHOT_MILESTONES : null;
     if (!list) return 1;
     const idx = Math.max(0, list.indexOf(Number(id.slice(id.indexOf(':') + 1))));
@@ -182,7 +183,7 @@ const Medals = (() => {
     secret: { name: _t("Тайны"),             ids: () => SECRET_ORDER.map(secretMedalId),       bonus: { cunning: 4 } },
     daily:  { name: _t("Верный испытанию"),  ids: () => DAILY_MILESTONES.map(dailyMedalId),   bonus: { power: P(4), health: 15 } },
     shot:   { name: _t("Меткий стрелок"),  ids: () => SHOT_MILESTONES.map(shotMedalId),        bonus: { health: 20, ricochet: 2 } },
-    elixir: { name: _t("Алхимик"),          ids: () => ELIXIR_ORDER.map(elixirMedalId),         bonus: { health: 15, power: P(3), defense: 3 } },
+    elixir: { name: _t("Алхимик"),          ids: () => DRUNK_MILESTONES.map(drunkMedalId),         bonus: { health: 15, power: P(3), defense: 3 } },
   };
   /* 1.6.3: за каждый собранный комплект — особое умение (действует в обычных боях, не в Испытании дня) и реликвия-амулет
      (id вещи — 'relic-<раздел>', выдаётся один раз, см. Profile.grantMedal). */
@@ -280,11 +281,39 @@ const Medals = (() => {
     return null;
   }
 
+  /* 2.0.7: «мастерские» серии — по счётчику, 10 вех. Счётчики в Profile.data.medals.cnt[серия]:
+     craft — изделий создано и закалено в Кузнице; depth — рекордный этаж подземелья (не сумма, а максимум);
+     cut — огранок и вставленных самоцветов; rune — рун нанесено и обновлено. Бонусы небольшие, в единицах. */
+  const MASTER = {
+    craft: { name: _t("Кузнец"),      ms: [3, 8, 15, 25, 40, 60, 85, 115, 150, 200], bonus: (i) => ({ power: 1 + Math.floor(i / 2) }),                          group: { health: 20 } },
+    depth: { name: _t("Глубина"),     ms: [2, 4, 6, 8, 10, 13, 16, 20, 25, 30],            bonus: (i) => ({ health: 4 * (1 + i) }),                                  group: { defense: 4, block: 2 } },
+    cut:   { name: _t("Огранщик"),    ms: [1, 3, 6, 10, 16, 24, 34, 46, 60, 80],           bonus: (i) => ({ cunning: 1 + Math.floor(i / 3), health: 2 * (1 + i) }),  group: { cunning: 4 } },
+    rune:  { name: _t("Рунописец"),   ms: [2, 6, 12, 22, 36, 54, 76, 100, 130, 170],       bonus: (i) => ({ initiative: 1 + Math.floor(i / 2) }),                   group: { power: P(4) } },
+  };
+  const MASTER_ORDER = ['craft', 'depth', 'cut', 'rune'];
+  const masterMedalId = (s, n) => 'm:' + s + ':' + n;
+  function masterOf(id) {
+    const m = /^m:(\w+):(\d+)$/.exec(id || ''), d = m && MASTER[m[1]];
+    if (!d) return null;
+    const n = Number(m[2]), idx = d.ms.indexOf(n);
+    return idx < 0 ? null : { s: m[1], n, idx };
+  }
+  // Новые медали серии s при счётчике total (все ещё не полученные пороги).
+  const checkMaster = (s, total, earned = []) => (MASTER[s] ? MASTER[s].ms.filter((n) => total >= n && !earned.some((m) => m.id === masterMedalId(s, n))).map((n) => masterMedalId(s, n)) : []);
+  const masterDone = (s, earned = []) => MASTER[s].ms.every((n) => earned.some((m) => m.id === masterMedalId(s, n)));
+  function masterText(s, n) {
+    return s === 'craft' ? _t("{0} изделий в Кузнице (создано и закалено)", [n]) : s === 'depth' ? _t("Этаж подземелья: {0}", [n])
+      : s === 'cut' ? _t("{0} огранок и вставленных самоцветов", [n]) : _t("{0} рун нанесено и обновлено", [n]);
+  }
+
+  const MEDAL_CAPS = { block: 10 };   // суммарно по всем медалям
   // Суммарный бонус всех полученных медалей — combine-совместимый объект характеристик (см. Gear.combine).
   function bonusStats(earned = [], bestiary) {
     let s = ME_G.blankStats();
     for (const m of earned.filter((e, i, a) => a.findIndex((x) => x.id === e.id) === i)) s = ME_G.combine(s, bonusFor(m.id, bestiary));
     for (const k of GROUP_ORDER) if (groupDone(k, earned)) s = ME_G.combine(s, GROUPS[k].bonus);
+    for (const k of MASTER_ORDER) if (masterDone(k, earned)) s = ME_G.combine(s, { ...ME_G.blankStats(), ...MASTER[k].group });
+    for (const k in MEDAL_CAPS) if (s[k] > MEDAL_CAPS[k]) s[k] = MEDAL_CAPS[k];   // 2.0.7 (D2): потолок вещей остаётся вещам
     return s;
   }
 
@@ -301,11 +330,12 @@ const Medals = (() => {
     if (id.startsWith('spell:')) return _t("{0} заклинаний в победных боях", [id.slice(6)]);
     if (id.startsWith('drunk:')) return _t("{0} выпитых эликсиров", [id.slice(6)]);
     if (elixirKey(id)) return _t("Выпит: {0}", [ME_X().KINDS[elixirKey(id)].name]);
+    if (id.startsWith('m:')) { const mm = masterOf(id); return mm ? masterText(mm.s, mm.n) : id; }
     if (id.startsWith('daily:')) return _t("{0} дней подряд в Испытании дня", [id.slice(6)]);
     return id;
   }
 
-  return { SPELL_MILESTONES, spellMedalId, checkSpellMedal, DRUNK_MILESTONES, drunkMedalId, checkDrunkMedal, ELIXIR_ORDER, ELIXIR_BONUS, elixirMedalId, elixirKey, checkElixirMedal, PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_NAMES, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
+  return { MASTER, MASTER_ORDER, masterMedalId, masterOf, checkMaster, masterDone, SPELL_MILESTONES, spellMedalId, checkSpellMedal, DRUNK_MILESTONES, ENDURE_AT, drunkMedalId, checkDrunkMedal, ELIXIR_ORDER, ELIXIR_BONUS, elixirMedalId, elixirKey, checkElixirMedal, PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_NAMES, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
     strikeMedalId, checkKillMedal, checkFiveStreakMedal, checkStrikeMedal, bonusFor, bonusStats, nameFor, tierUnlockLevel };
 })();
 

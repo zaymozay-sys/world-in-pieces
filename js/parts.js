@@ -67,6 +67,15 @@ const Parts = (() => {
     rune:     { metal: 'darksteel', trim: 'copper', cloth: '#8a4a1e', leather: '#4b3021' },
     grove:    { metal: 'silver',    trim: 'bronze', cloth: '#2f7a42', leather: '#5a4428' },
     scale:    { metal: 'bronze',    trim: 'bone',   cloth: '#9a3a2a', leather: '#5a4a28' },
+    swift:    { metal: 'silver',    trim: 'silver', cloth: '#5fb4e6', leather: '#2c4a78' },
+    archer:   { metal: 'steel',     trim: 'bronze', cloth: '#4f8f3c', leather: '#5a4428' },
+    moon:     { metal: 'silver',    trim: 'silver', cloth: '#aab4e8', leather: '#3a4270' },
+    granite:  { metal: 'darksteel',      trim: 'silver', cloth: '#7c7a76', leather: '#4a4742' },
+    ancient:  { metal: 'bone',      trim: 'bone',   cloth: '#8a9a5a', leather: '#6b4a2b' },
+    tracker:  { metal: 'steel',     trim: 'bronze', cloth: '#3b5a2e', leather: '#6b4a2b' },
+    hammer:   { metal: 'darksteel', trim: 'copper', cloth: '#3a2a26', leather: '#2c2420' },
+    bastion:  { metal: 'steel',     trim: 'silver', cloth: '#3a4a6a', leather: '#2c3038' },
+    legend:   { metal: 'darksteel', trim: 'gold',   cloth: '#5a3a9a', leather: '#2c2438' },
     none:     { metal: 'steel',     trim: 'bronze', cloth: '#7a6a52', leather: '#7a5638' },
   };
   const pal = (it) => PAL[it.set] || PAL.none;

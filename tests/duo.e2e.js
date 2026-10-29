@@ -94,7 +94,9 @@ const attack = (p) => p.evaluate(() => {
     assert.ok(!r.stuck, 'бой завис: ' + r.stuck); console.log(JSON.stringify(r));
     assert.ok(/Победа!|Поражение/.test(r.text), 'есть итоговый экран');
     assert.ok(r.xp > r.xp0, 'питомец получил опыт');
-    assert.strictEqual(r.wins - r.wins0, r.kills, 'награда за каждого убитого противника');
+    // 2.0.8: награда только при победе (выжил герой); поражение не платит даже за убитого питомцем врага
+    if (/Победа!/.test(r.text)) assert.strictEqual(r.wins - r.wins0, r.kills, 'награда за каждого убитого противника');
+    else assert.strictEqual(r.wins - r.wins0, 0, 'поражение наград не даёт');
     assert.ok(/опыт \+\d+, ум \d+ → \d+/.test(r.text), 'в итоге — рост питомца');
     if (r.kills === 2) assert.ok(/Победа!/.test(r.text), 'оба убиты — победа');
     assert.deepStrictEqual(errs, []);

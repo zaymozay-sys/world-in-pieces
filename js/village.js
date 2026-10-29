@@ -9,25 +9,32 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 const VG_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
 
 const Village = (() => {
-  const MAX = 5;
+  const MAX = 10;                                                       // 2.0.7: до 10 уровней (Кузница — 5: предел закалки задан вещами)
+  const MAXES = { forge: 5, hall: 10, mill: 10, kennel: 10, alchemist: 10 };
+  const maxOf = (id) => MAXES[id] || MAX;
+  // Первые пять уровней — прежние числа; 6–10 прибавляют понемногу (накопительные таблицы по уровню 0…10)
+  const MILL = [0, 10, 20, 30, 40, 50, 52, 54, 56, 58, 60];
+  const KENNEL = [0, 12, 24, 36, 48, 60, 63, 66, 69, 72, 75];
+  const ALCH = [0, 5, 10, 15, 20, 25, 30, 30, 30, 35, 35];
+  const FEE = [5, 4.2, 3.4, 2.6, 1.8, 1, 0.9, 0.8, 0.7, 0.6, 0.5];
   const IDS = ['forge', 'hall', 'mill', 'kennel', 'alchemist'];
   const INFO = {
     forge:     { name: _t("Кузница"),  perk: (n) => _t("закалка вещей до +{0}", [n]),                    unit: _t("Мастер Ковач учит закалять вещи: каждый шаг закалки усиливает вещь на 4%.") },
     hall:      { name: _t("Ратуша"),   perk: (n) => _t("Торговые ряды: {0} лотов, сбор {1}%", [lots(n), feePct(n)]), unit: _t("Староста расширяет прилавки и договаривается со сборщиками.") },
-    mill:      { name: _t("Мельница"), perk: (n) => _t("находка ресурса удваивается с шансом {0}%", [10 * n]), unit: _t("Добрый мышь строит амбар: часть добычи со зверей не пропадает.") },
-    kennel:    { name: _t("Питомник"), perk: (n) => _t("занятия питомца быстрее на {0}%", [12 * n]),  unit: _t("Смотрительница Ласка строит площадку для тренировок.") },
-    alchemist: { name: _t("Алхимик"),  perk: (n) => _t("сила эликсиров +{0}%", [5 * n]),  unit: _t("Тётушка Жабка варит эликсиры в выдержанных бочках.") },
+    mill:      { name: _t("Мельница"), perk: (n) => _t("находка ресурса удваивается с шансом {0}%", [MILL[n]]), unit: _t("Добрый мышь строит амбар: часть добычи со зверей не пропадает.") },
+    kennel:    { name: _t("Питомник"), perk: (n) => _t("занятия питомца быстрее на {0}%", [KENNEL[n]]),  unit: _t("Смотрительница Ласка строит площадку для тренировок.") },
+    alchemist: { name: _t("Алхимик"),  perk: (n) => _t("сила эликсиров +{0}%", [ALCH[n]]),  unit: _t("Тётушка Жабка варит эликсиры в выдержанных бочках.") },
   };
   // уровни и числа
-  const lvl = (v, id) => Math.max(0, Math.min(MAX, Math.floor((v && v[id]) || 0)));
-  const lots = (n) => 8 + n;
-  const feePct = (n) => Math.round((5 - 0.8 * n) * 10) / 10;
-  const reqTier = (k) => 2 * k;                                         // цвет героя, с которого открыт уровень k
-  const cost = (id, k) => Math.round(1200 * ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinBase * VG_T.PRICE_MULT[2 * k - 1] * (id === 'forge' ? 1.5 : 1));   // в медных монетах
+  const lvl = (v, id) => Math.max(0, Math.min(maxOf(id), Math.floor((v && v[id]) || 0)));
+  const lots = (n) => (n <= 5 ? 8 + n : 13 + Math.floor((n - 5) / 2));
+  const feePct = (n) => FEE[Math.max(0, Math.min(10, n))];
+  const reqTier = (k) => (k <= 5 ? 2 * k : 10);                                         // цвет героя, с которого открыт уровень k
+  const cost = (id, k) => Math.round(1200 * ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinBase * VG_T.PRICE_MULT[Math.min(9, 2 * Math.min(k, 5) - 1)] * (id === 'forge' ? 1.5 : 1) * (k > 5 ? Math.pow(1.5, k - 5) : 1));   // в медных монетах
   // Что можно купить сейчас: { level (следующий), cost, reqTier, ok: цвет героя достаточен }
   function next(v, id, heroTier) {
     const n = lvl(v, id);
-    if (n >= MAX) return null;
+    if (n >= maxOf(id)) return null;
     return { level: n + 1, cost: cost(id, n + 1), reqTier: reqTier(n + 1), ok: heroTier >= reqTier(n + 1) };
   }
   // Покупка: меняет v и возвращает цену (0 — нельзя). Монеты списывает вызывающий.
@@ -41,9 +48,9 @@ const Village = (() => {
   const temperCap = (v) => lvl(v, 'forge');
   const maxLots = (v) => lots(lvl(v, 'hall'));
   const feeRate = (v) => feePct(lvl(v, 'hall')) / 100;
-  const granaryChance = (v) => 0.1 * lvl(v, 'mill');
-  const studyFactor = (v) => 1 - 0.12 * lvl(v, 'kennel');
-  const elixirExtra = (v) => lvl(v, 'alchemist');
+  const granaryChance = (v) => MILL[lvl(v, 'mill')] / 100;
+  const studyFactor = (v) => 1 - KENNEL[lvl(v, 'kennel')] / 100;
+  const elixirExtra = (v) => ALCH[lvl(v, 'alchemist')] / 5;   // шаги по 5%
 
   // ---------- косметика ----------
   const G = 10000;                                                      // золотая монета в медных
@@ -85,7 +92,7 @@ const Village = (() => {
     { id: 'tGrWorld',  name: _t("Бывалый путник"),    price: 0, earn: { group: 'world' },  how: _t("собрать все медали раздела «Путешественник»") },
     { id: 'tGrSecret', name: _t("Хранитель тайн"),    price: 0, earn: { group: 'secret' }, how: _t("собрать все медали раздела «Тайны»") },
     { id: 'tGrDaily',  name: _t("Верный испытанию"),  price: 0, earn: { group: 'daily' },  how: _t("собрать все медали раздела «Верный испытанию»") },
-    { id: 'tGrElixir', name: _t("Алхимик"),           price: 0, earn: { group: 'elixir' }, how: _t("собрать все медали раздела «Алхимик»") },
+    { id: 'tGrElixir', name: _t("Алхимик"),           price: 0, earn: { group: 'elixir' }, how: _t("пройти все 10 уровней медали «Выпито эликсиров»") },
     // — за мир
     { id: 'tWVisit',   name: _t("Свой человек"),      price: 0, earn: { medal: 'world:visit' },  how: _t("побывать в 12 разных зданиях") },
     { id: 'tWChests',  name: _t("Хранитель ключей"),  price: 0, earn: { medal: 'world:chests' }, how: _t("открыть все четыре сундука побережья") },
@@ -167,7 +174,7 @@ const Village = (() => {
   const frameColor = (c) => { const f = c && find(FRAMES, c.frame); return f ? f.color : null; };
   const fullName = (name, c) => { const t = titleName(c); return t ? `${t} ${name}` : name; };
 
-  return { MAX, IDS, INFO, lvl, lots, feePct, reqTier, cost, next, buy, temperCap, maxLots, feeRate, granaryChance, studyFactor, elixirExtra,
+  return { MAX, maxOf, IDS, INFO, lvl, lots, feePct, reqTier, cost, next, buy, temperCap, maxLots, feeRate, granaryChance, studyFactor, elixirExtra,
     TITLES, FRAMES, earnedTitleIds, syncTitles, fresh, owns, buyCosmetic, equip, titleName, frameColor, fullName };
 })();
 

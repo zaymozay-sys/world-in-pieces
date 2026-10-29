@@ -10,6 +10,7 @@ const F_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
 const F_G = (typeof Gear !== 'undefined') ? Gear : require('./items.js');
 const F_B = (typeof Bestiary !== 'undefined') ? Bestiary : require('./bestiary.js');
 const F_H = (typeof HexMap !== 'undefined') ? HexMap : require('./hexmap.js');
+const F_D = (typeof ForgeData !== 'undefined') ? ForgeData : require('./forge-data.js');   // 2.0.7: таблица рецептов этапа B+C
 
 const Forge = (() => {
   const MINYIELD = 0.89;                      // минимум ожидаемых штук за бой с лучшим видом, чтобы источник считался «есть»
@@ -43,7 +44,7 @@ const Forge = (() => {
       for (let t = 1; t <= F_T.MAX; t++) {
         let b = null;
         for (const [id, m] of Object.entries(F_B.MONSTERS)) {
-          const sp = F_H.SPAWN[id]; if (!sp || sp.fixed || t < sp.tiers[0] || t > sp.tiers[1]) continue;
+          const sp = F_H.SPAWN[id]; if (!sp || (sp.fixed && !sp.tower) || t < sp.tiers[0] || t > sp.tiers[1]) continue;
           const d = m.drops.find((x) => x[0] === k); if (!d) continue;
           const y = d[1] * (d[2] + d[3]) / 2;
           if (!b || y > b.y) b = { id, y };
@@ -60,8 +61,8 @@ const Forge = (() => {
   // Какой ресурс берёт роль на этом цвете (не повторяя уже занятые)
   const pick = (role, tier, used) => ROLE[role].find((k) => !used.includes(k) && yieldOf(k, tier) >= MINYIELD) || null;
 
-  // Рецепт: { coins, res: [{kind, tier, n}] } для вещи baseId цвета tier (того же вида, что и F_G.craftCost)
-  function recipe(baseId, tier = 1) {
+  // Прежний (2.0.5) рецепт — остаётся для вещей вне таблицы этапа B+C (легендарные)
+  function recipeLegacy(baseId, tier = 1) {
     const t = F_T.clamp(tier), base = F_G.ITEMS.find((i) => i.id === baseId);
     const roles = TYPE_ROLES[base.type];
     const price = F_G.item(F_G.makeEntry(baseId, t)).price;
@@ -83,11 +84,61 @@ const Forge = (() => {
     return { coins, res };
   }
 
+
+  /* ---------- 2.0.7: единый расчёт Кузницы (этап B+C) ----------
+     plan(ref, choice) — ОДНА чистая функция для изготовления и улучшения:
+       ref    = { mode:'craft', itemId, tier }  или  { mode:'upgrade', entry }   (цель — следующий цвет)
+       choice = массив индексов вариантов по позициям (целые числа в диапазоне); не задан — берётся значение по умолчанию
+     Бюджет total — целое число, зависит только от ref. Монеты = total − Σ(штук × цена материала) для выбранных вариантов,
+     поэтому полная стоимость (материалы + монеты) равна бюджету ровно. Клиент передаёт только индексы. */
+  const MINCOIN = 0.05;                       // минимум монет — доля бюджета (если в таблице не задан свой минимум)
+  const entryOf = (ref) => {
+    if (ref && ref.mode === 'craft') return F_D.craft[ref.itemId] && F_D.craft[ref.itemId][F_T.clamp(ref.tier)] ? { rec: F_D.craft[ref.itemId][F_T.clamp(ref.tier)], tier: F_T.clamp(ref.tier) } : null;
+    if (ref && ref.mode === 'upgrade' && ref.entry) {
+      const id = ref.entry.id, t = F_T.clamp(ref.entry.tier || 1);
+      return F_D.upgrade[id] && F_D.upgrade[id][t] ? { rec: F_D.upgrade[id][t], tier: t } : null;
+    }
+    return null;
+  };
+  const hasPlan = (ref) => !!entryOf(ref);
+  // Значение по умолчанию для экрана (в правила не входит): первый вариант позиции, который игрок может оплатить; иначе первый
+  function autopick(ref, have) {
+    const e = entryOf(ref); if (!e) return null;
+    return e.rec.slots.map((s) => {
+      const opts = s[2]; if (typeof have !== 'function') return s[1] < opts.length ? s[1] : 0;
+      const k = opts.findIndex((o) => have(o[0], e.tier) >= o[1]);
+      return k >= 0 ? k : (s[1] < opts.length ? s[1] : 0);
+    });
+  }
+  function plan(ref, choice) {
+    const e = entryOf(ref); if (!e) return { ok: false, err: 'no-recipe' };
+    const S = e.rec.slots, ch = choice === undefined || choice === null ? S.map((s) => (s[1] < s[2].length ? s[1] : 0)) : choice;
+    if (!Array.isArray(ch) || ch.length !== S.length) return { ok: false, err: 'bad-choice' };
+    let sum = 0; const res = [], slots = [];
+    for (let i = 0; i < S.length; i++) {
+      const k = ch[i];
+      if (!Number.isInteger(k) || k < 0 || k >= S[i][2].length) return { ok: false, err: 'bad-choice' };     // индекс вне диапазона — ошибка
+      const o = S[i][2][k], price = F_B.resPrice(o[0], e.tier);
+      const dup = res.find((r) => r.kind === o[0]);       // один вид в двух позициях — одна строка расхода (нужно суммарное количество)
+      if (dup) dup.n += o[1]; else res.push({ kind: o[0], tier: e.tier, n: o[1] });
+      sum += o[1] * price;
+      slots.push({ role: S[i][0], chosen: k, opts: S[i][2].map((x) => ({ kind: x[0], n: x[1] })) });
+    }
+    const total = e.rec.total, coins = total - sum, min = Math.max(1, e.rec.min != null && e.rec.min !== 0 ? e.rec.min : Math.ceil(MINCOIN * total));
+    return { ok: coins >= min, err: coins >= min ? undefined : 'coins', total, coins, res, spent: sum + coins, slots, choice: ch.slice(), tier: e.tier };
+  }
+  // Совместимый вид { coins, res } (+ поля плана) для изготовления вещи baseId цвета tier
+  function recipe(baseId, tier = 1, choice) {
+    const ref = { mode: 'craft', itemId: baseId, tier: F_T.clamp(tier) };
+    return hasPlan(ref) ? plan(ref, choice) : recipeLegacy(baseId, tier);
+  }
+
   /* ---------- Алхимик и Библиотекарь: «свой» ресурс эликсира/расходника ---------- */
   // Порядок: первый, у которого на цвете есть источник
   const OWN = {
     power: ['fang'], fury: ['ore', 'scrap', 'fang'], defense: ['scale', 'ore', 'scrap', 'hide'], block: ['splinter', 'bone', 'hide'],
     ricochet: ['feather'], cunning: ['silk', 'feather'], health: ['honey', 'shell', 'hide'], stones: ['crystal', 'ore', 'scrap'], swap: ['essence', 'shell'],
+    road: ['hide', 'shell', 'honey'], speed: ['feather', 'silk'], wit: ['silk', 'feather'], food: ['honey', 'fang'],
     potion: ['honey', 'shell', 'hide'], elixir: ['fang'], dust: ['crystal', 'ore', 'scrap'], scroll: ['feather'], luck: ['shell', 'honey', 'feather'],
     storm: ['essence', 'shell'], stoneskin: ['scale', 'ore', 'scrap', 'hide'], honeyjar: ['honey', 'shell'],
   };
@@ -97,6 +148,6 @@ const Forge = (() => {
     const list = OWN[key]; if (!list) return null;
     return list.find((k) => yieldOf(k, tier) >= MINYIELD) || list[list.length - 1];
   }
-  return { MINYIELD, COIN_SHARE, PRICE_SHARE, SHARES, ROLE, TYPE_ROLES, OWN, SCROLLS, yieldOf, sourceOf, pick, recipe, ownRes, ownList, reset: () => { SRC = null; } };
+  return { MINYIELD, COIN_SHARE, PRICE_SHARE, SHARES, ROLE, TYPE_ROLES, OWN, SCROLLS, yieldOf, sourceOf, pick, recipe, recipeLegacy, plan, autopick, hasPlan, ownRes, ownList, reset: () => { SRC = null; } };
 })();
 if (typeof module !== 'undefined') module.exports = Forge;

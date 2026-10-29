@@ -67,8 +67,8 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       f.stats.block = 0; f.stats.ricochet = 0; f.hp = f.max; f.buffs = []; f.shield = 0;
       const mon = fighters.right; mon.buffs = []; mon.stats.fury = 0; mon.stats.cunning = 0; mon.ability = null; mon.charged = false; mon.weaponPerk = null;
       const lose = (amount, def) => { f.stats.defense = def; f.hp = f.max; dealDamage('left', amount); return f.max - f.hp; };
-      f.stats.defense = 30; o.armor = Combat.armorOf(f);
-      o.loss0 = lose(10, 0); o.loss30 = lose(10, 30);                 // разница = число брони
+      f.stats.defense = 10; o.armor = Combat.armorOf(f);
+      o.loss0 = lose(10, 0); o.loss30 = lose(10, 10);                 // разница = число брони
       o.small0 = lose(1, 0); o.small60 = lose(1, 60);                  // слабый удар: пол 20% и не меньше 1
       o.mit = [Combat.mitigate(3, 1), Combat.mitigate(10, 100), Combat.mitigate(2, 50)];
       return o;

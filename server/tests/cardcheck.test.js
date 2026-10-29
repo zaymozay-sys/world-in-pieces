@@ -5,7 +5,7 @@ const { cleanCard } = require('../src/app');
 const Gear = require('../rules/items.js'), Hero = require('../rules/hero.js');
 
 // копии правил не отстают от клиента
-for (const f of ['i18n.js', 'tiers.js', 'balance.js', 'items.js', 'hero.js', 'forge.js'])
+for (const f of ['i18n.js', 'tiers.js', 'balance.js', 'items.js', 'hero.js', 'forge-data.js', 'forge.js'])
   assert.strictEqual(fs.readFileSync(path.join(__dirname, '..', 'rules', f), 'utf8'), fs.readFileSync(path.join(__dirname, '..', '..', 'js', f), 'utf8'), f + ': выполните node tools/sync-rules.js');
 
 // честный набор по правилам игры проходит на нескольких уровнях и у всех народов
@@ -33,7 +33,7 @@ const c = check({ level: 100, faction: 'human', gear: { chest: { id: Gear.ITEMS.
 assert.ok(c.gear && !c.gear.chest.stats && !c.gear.chest.power && c.gear.chest.plus <= 5 && c.gear.chest.cut === undefined);   // 50 — не цвет самоцвета
 // руны и огранка сохраняются, если они настоящие
 const cid = Gear.ITEMS.find((i) => i.type === 'chest' && !i.faction).id;
-const c2 = check({ level: 100, faction: 'human', gear: { chest: { id: cid, tier: 1, runes: ['rune-might', 'нет-такой', 'rune-ward', 'rune-might'], cut: 3 } } });
+const c2 = check({ level: 100, faction: 'human', gear: { chest: { id: cid, tier: 6, runes: ['rune-might', 'нет-такой', 'rune-ward', 'rune-might'], cut: 3 } } });
 assert.deepStrictEqual(c2.gear.chest.runes, ['rune-might', 'rune-ward']); assert.strictEqual(c2.gear.chest.cut, 3);
 // сверх лимита очков: полный набор высшего цвета на уровне, где вещи уже можно надеть, но очков не хватает, быть не может
 // через cleanCard

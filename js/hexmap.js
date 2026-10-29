@@ -38,6 +38,7 @@ const HexMap = (() => {
   const FORD_COST = 3;               // брод: дорого по ходам, зато без моста
   const ROAD_COST = 0.6;
 
+  // 2.0.5: расстановка «два кольца вокруг ратуши» (вариант B): 6 домов во внутреннем кольце и 12 во внешнем, проходы 3+ соты.
   // Здания деревни (1.2.7): зеркально-симметричный город. Главная улица идёт с запада на восток через площадь
   // (ворота только на западе и востоке). Ратуша — «цветок» из 7 сот в центре, вокруг пустое кольцо-площадь;
   // 12 усадеб по 3 соты (треугольник): 6 над улицей и 6 под ней, каждая половина симметрична слева-направо,
@@ -46,26 +47,26 @@ const HexMap = (() => {
   const HALL_CELLS = [[0, 0], ...DIRS];
   const BUILDINGS = {
     hall: { name: _t("Ратуша"), cells: HALL_CELLS, scale: 3.9, desc: _t("Центр деревни.") },
-    artistWorkshop: { name: _t("Мастерская художника"), label: _t("Мастерская"), desc: _t("Журавль-художник продаёт и вставляет руны — теперь в каждой вещи по 2 гнезда."), cells: [[0, -4], [1, -4], [1, -5]] },
-    junker: { name: _t("Хижина старьёвщика"), label: _t("Старьёвщик"), desc: _t("Скупает ненужные вещи не глядя — дешевле Лавки, зато сразу и все разом, без лишней возни."), cells: [[4, -4], [3, -4], [4, -5]] },
-    forge: { name: _t("Кузница"), desc: _t("Улучшение цвета вещей и создание новых из ресурсов."), cells: [[-2, -2], [-1, -2], [-2, -1]] },
-    shop: { name: _t("Лавка"), desc: _t("Покупка и продажа вещей, расходников и ресурсов."), cells: [[4, -2], [3, -2], [3, -1]] },
-    hunter: { name: _t("Охотничий дом"), label: _t("Охотники"), desc: _t("Бестиарий: всё о встреченных существах."), cells: [[-5, -1], [-4, -1], [-4, -2]] },
-    tavern: { name: _t("Таверна"), desc: _t("Трактирщик даёт задания новичкам и рассказывает слухи."), cells: [[6, -1], [5, -1], [6, -2]] },
-    library: { name: _t("Библиотека"), desc: _t("Бобёр-хранитель держит бестиарий и знает всё о вещах. Каждый день — новое поручение."), cells: [[-4, 2], [-3, 2], [-3, 1]] },
-    home: { name: _t("Ваш дом"), desc: _t("Оружейная: сундук с вещами, кладовая, смена снаряжения."), cells: [[2, 2], [1, 2], [2, 1]] },
-    mill: { name: _t("Мельница"), desc: _t("Добрый мышь даёт задания и делится мышиной мудростью."), cells: [[-4, 4], [-3, 4], [-4, 5]] },
-    kennel: { name: _t("Питомник"), desc: _t("Смотрительница Ласка лечит, кормит и обучает прирученных питомцев."), cells: [[0, 4], [-1, 4], [-1, 5]] },
-    arena: { name: _t("Арена"), desc: _t("Арена теней: бои с тенями героев, ранги и титулы. И Испытание дня — одно поле на всех."), cells: [[-6, 1], [-5, 1], [-6, 2]] },
+    artistWorkshop: { name: _t("Мастерская художника"), label: _t("Мастерская"), desc: _t("Журавль-художник рисует руны под ваш уровень, наносит их на вещи и продаёт пробойник для гнёзд под самоцветы."), cells: [[5, -7], [5, -6], [6, -7]] },
+    junker: { name: _t("Хижина старьёвщика"), label: _t("Старьёвщик"), desc: _t("Скупает ненужные вещи не глядя — дешевле Лавки, зато сразу и все разом, без лишней возни."), cells: [[-7, 5], [-7, 6], [-6, 5]] },
+    forge: { name: _t("Кузница"), desc: _t("Улучшение цвета вещей и создание новых из ресурсов."), cells: [[-3, -2], [-2, -3], [-2, -2]] },
+    shop: { name: _t("Лавка"), desc: _t("Покупка и продажа вещей, расходников и ресурсов."), cells: [[4, -2], [5, -3], [5, -2]] },
+    hunter: { name: _t("Охотничий дом"), label: _t("Охотники"), desc: _t("Бестиарий: всё о встреченных существах."), cells: [[-6, -1], [-5, -2], [-5, -1]] },
+    tavern: { name: _t("Таверна"), desc: _t("Трактирщик даёт задания новичкам и рассказывает слухи."), cells: [[6, -1], [7, -2], [7, -1]] },
+    library: { name: _t("Библиотека"), desc: _t("Бобёр-хранитель держит бестиарий и знает всё о вещах. Каждый день — новое поручение."), cells: [[-2, -5], [-1, -6], [-1, -5]] },
+    home: { name: _t("Ваш дом"), desc: _t("Оружейная: сундук с вещами, кладовая, смена снаряжения."), cells: [[-5, 2], [-5, 3], [-4, 2]] },
+    mill: { name: _t("Мельница"), desc: _t("Добрый мышь даёт задания и делится мышиной мудростью."), cells: [[5, 1], [5, 2], [6, 1]] },
+    kennel: { name: _t("Питомник"), desc: _t("Смотрительница Ласка лечит, кормит и обучает прирученных питомцев."), cells: [[-3, 5], [-2, 4], [-2, 5]] },
+    arena: { name: _t("Арена"), desc: _t("Арена теней: бои с тенями героев, ранги и титулы. И Испытание дня — одно поле на всех."), cells: [[-7, 1], [-7, 2], [-6, 1]] },
     // 1.8.6: деревня стала шире (радиус 9): ещё шесть усадеб, зеркально — две строки сверху и снизу и пара на оси.
     // Алтарь воскрешения — наверху по центру; сторожка, банк и почта пока «строятся» (soon), для симметрии рядом две стройки.
-    altar: { name: _t("Алтарь воскрешения"), label: _t("Алтарь"), desc: _t("Сюда вы возвращаетесь после поражения: древний алтарь возвращает героя к жизни."), cells: [[3, -7], [3, -6], [4, -7]] },
-    guardhouse: { name: _t("Сторожка городской стражи"), label: _t("Сторожка"), desc: _t("Во время набега стража за плату отобьёт врагов, пока вы заняты своими делами."), cells: [[-4, 7], [-3, 6], [-3, 7]] },
-    bank: { name: _t("Банк"), desc: _t("Вклад: пока играете каждый день, ставка медленно растёт; пропустили день — ставка 0."), cells: [[-1, -6], [-1, -5], [0, -6]] },
-    mail: { name: _t("Почта"), soon: true, desc: _t("Скоро: письма от жителей и награды по почте. Здание строится."), cells: [[7, -6], [6, -5], [6, -6]] },
-    jeweler: { name: _t("Ювелирная лавка"), label: _t("Ювелир"), desc: _t("Сорока-ювелир гранит самоцветы стражей, сплавляет печати и скупает камни."), cells: [[0, 6], [1, 5], [1, 6]] },   // 1.8.9: занял бывшую стройку site1
-    site2: { name: _t("Стройка"), soon: true, desc: _t("Здесь скоро поднимется новое здание."), cells: [[-7, 6], [-6, 5], [-6, 6]] },
-    alchemist: { name: _t("Алхимик"), desc: _t("Тётушка Жабка варит зелья и эликсиры из добытых ресурсов."), cells: [[5, 1], [4, 1], [4, 2]] },
+    altar: { name: _t("Алтарь воскрешения"), label: _t("Алтарь"), desc: _t("Сюда вы возвращаетесь после поражения: древний алтарь возвращает героя к жизни."), cells: [[1, -7], [1, -6], [2, -7]] },
+    guardhouse: { name: _t("Сторожка городской стражи"), label: _t("Сторожка"), desc: _t("Во время набега стража за плату отобьёт врагов, пока вы заняты своими делами."), cells: [[-2, 7], [-1, 6], [-1, 7]] },
+    bank: { name: _t("Банк"), desc: _t("Вклад: пока играете каждый день, ставка медленно растёт; пропустили день — ставка 0."), cells: [[2, -5], [2, -4], [3, -5]] },
+    mail: { name: _t("Почта"), soon: true, desc: _t("Скоро: письма от жителей и награды по почте. Здание строится."), cells: [[6, -5], [7, -6], [7, -5]] },
+    jeweler: { name: _t("Ювелирная лавка"), label: _t("Ювелир"), desc: _t("Сорока-ювелир гранит самоцветы стражей, сплавляет печати и скупает камни."), cells: [[1, 5], [1, 6], [2, 5]] },   // 1.8.9: занял бывшую стройку site1
+    site2: { name: _t("Стройка"), soon: true, desc: _t("Здесь скоро поднимется новое здание."), cells: [[-6, 7], [-5, 6], [-5, 7]] },
+    alchemist: { name: _t("Алхимик"), desc: _t("Тётушка Жабка варит зелья и эликсиры из добытых ресурсов."), cells: [[2, 2], [2, 3], [3, 2]] },
   };
   for (const b of Object.values(BUILDINGS)) { b.at = b.cells[0]; if (!b.scale) b.scale = 3.0; }
   // Достопримечательности побережья (версия 1.1.10): стоят на пляже у моря, дороги к ним ведут от ворот.
@@ -97,8 +98,8 @@ const HexMap = (() => {
   BUILDINGS.islandPier = { name: _t("Бригантина у причала"), label: _t("Бригантина"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Ваша бригантина стоит у острова. Отсюда можно вернуться на материк.") };
   BUILDINGS.islandChest = { name: _t("Сундук пирата"), label: _t("Сундук"), castleOnly: true, at: [0, 0], scale: 2.0, desc: _t("Закопанный сундук старого капитана. Его стережёт тварь, что живёт на острове.") };
   // 1.8.7: Башня — бесконечное подземелье из малых этажей (радиус 6), вход — «Врата подземелья» на северных холмах
-  BUILDINGS.towerDoor = { name: _t("Дверь подземелья"), label: _t("Дверь"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Тяжёлая дверь: на первом уровне она ведёт наружу, выше — вниз на уровень.") };
-  BUILDINGS.towerStairs = { name: _t("Лестница вверх"), label: _t("Лестница"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Каменная лестница на следующий уровень.") };
+  BUILDINGS.towerDoor = { name: _t("Дверь подземелья"), label: _t("Дверь"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Тяжёлая дверь: на первом уровне она ведёт наружу, глубже — назад вверх на уровень.") };
+  BUILDINGS.towerStairs = { name: _t("Лестница вниз"), label: _t("Лестница"), castleOnly: true, at: [0, 0], scale: 2.4, desc: _t("Каменная лестница вниз, на следующий уровень.") };
   const GATE_DIRS = [0, 3];          // 1.2.7: ворота и главная улица — восток и запад (симметрия города); от каждых ворот 3 дороги
 
   // Где водятся существа: диапазон цветов и любимая местность.
@@ -136,6 +137,10 @@ const HexMap = (() => {
     hermit:   { tiers: [2, 6],  terrain: { beach: 4 } },
     smuggler: { tiers: [3, 7],  terrain: { beach: 3, meadow: 1 }, nearRoad: 2 },
     // 1.6.7: новые существа — «родной» источник каждого ресурса на каждом цвете (проверка — tests/forge166.test.js)
+    pinestump:  { tiers: [1, 6],  terrain: { forest: 8, swamp: 3, hills: 3, meadow: 3 } },   // 2.0.7 (этап C)
+    ramtur:     { tiers: [1, 7],  terrain: { hills: 4, meadow: 4, forest: 2, swamp: 1 } },
+    beetle:     { tiers: [1, 5],  terrain: { meadow: 3, hills: 2, swamp: 1 } },
+    mantis:     { tiers: [6, 10], terrain: { meadow: 2, forest: 2, hills: 1 } },
     ironscarab: { tiers: [1, 5],  terrain: { hills: 3, meadow: 2 } },
     rocklizard: { tiers: [1, 4],  terrain: { hills: 3, meadow: 2 } },
     moonmoth:   { tiers: [1, 5],  terrain: { forest: 3, meadow: 2, swamp: 1 } },
@@ -170,6 +175,12 @@ const HexMap = (() => {
     wyvern: { tiers: [8, 10], terrain: { hills: 2, swamp: 2 }, rare: 0.3 },
     basilisk: { tiers: [8, 10], terrain: { swamp: 4, forest: 1 }, rare: 0.3 },
     // 1.7.3: новые виды — Огр (Великаны), Гоблин-берсерк, Тень-убийца
+    // 2.0.7: существа подземелья — на карте мира не ставятся (fixed), живут в HexMap.TOWER_POOL; tower:true — учитываются как источник ресурсов Кузницы
+    selenebat: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, nuggetmole: { tiers: [8, 10], terrain: {}, fixed: true, tower: true },
+    fluoritefly: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, granitespirit: { tiers: [8, 10], terrain: {}, fixed: true, tower: true },
+    malachitelizard: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, micabeetle: { tiers: [8, 10], terrain: {}, fixed: true, tower: true },
+    quartzspider: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, graphitegolem: { tiers: [8, 10], terrain: {}, fixed: true, tower: true },
+    scorp1: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp2: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp3: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp4: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp5: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp6: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp7: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp8: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp9: { tiers: [8, 10], terrain: {}, fixed: true, tower: true }, scorp10: { tiers: [8, 10], terrain: {}, fixed: true, tower: true },
     ogre:     { tiers: [7, 10], terrain: { hills: 3, forest: 1, meadow: 1 } },
     berserk:  { tiers: [4, 8],  terrain: { hills: 3, forest: 2, swamp: 1 } },
     assassin: { tiers: [8, 10], terrain: { forest: 2, hills: 2, swamp: 1 }, rare: 0.5 },
@@ -307,17 +318,64 @@ const HexMap = (() => {
     return map;
   }
 
-  const TOWER_R = 6, TOWER_DOOR = [-5, 0], TOWER_STAIRS = [5, 0];
-  const TOWER_MOBS = ['skeleton', 'wraith', 'ghoul', 'troll', 'golem', 'shadow', 'orc'], TOWER_GUARDS = ['troll', 'golem', 'dragon', 'shadow'];
+  const TOWER_R = 9, TOWER_DOOR = [-7, 0], TOWER_STAIRS = [7, 0];
+  // 2.0.7: пул подземелья — данные: [вид, с какого уровня подземелья, вес]. Новое существо = одна строка здесь + запись в Bestiary.MONSTERS и SPAWN (fixed, tower)
+  const TOWER_POOL = [['skeleton', 1, 1], ['wraith', 1, 1], ['ghoul', 1, 1], ['troll', 1, 1], ['golem', 1, 1], ['shadow', 1, 1], ['orc', 1, 1],
+    ['selenebat', 1, 1], ['nuggetmole', 1, 1], ['fluoritefly', 2, 1], ['micabeetle', 2, 1], ['malachitelizard', 3, 1], ['quartzspider', 4, 1], ['granitespirit', 5, 1], ['graphitegolem', 6, 1]];
+  // 2.0.7: цвета кончаются на 10-м (с 8-го этажа), глубже растут ХП и урон существ: +30% за каждый этаж после 8-го
+  const towerDepth = (f) => 1 + 0.3 * Math.max(0, Math.floor(f) - 8);
+  const TOWER_SCORP_SPAWN = 0.7;          // 2.0.7: шанс, что на этаже стоит скорпион (один; цвет случайный, 1…10)
+  const towerPool = (f) => TOWER_POOL.filter((e) => f >= e[1]);
+  const pickTower = (pool, r) => { let x = r * pool.reduce((a, e) => a + e[2], 0); for (const e of pool) { x -= e[2]; if (x < 0) return e[0]; } return pool[pool.length - 1][0]; };
+  const TOWER_GUARDS = ['troll', 'golem', 'dragon', 'shadow'];
   // этаж f: seed — зерно башни; сильнее с этажом: цвет мобов 8→10, гуще, каждый 5-й этаж — страж у лестницы
   function generateTower(seed, f) {
     const R = TOWER_R, cells = [], index = new Map(), fs = (seed + f * 7919) >>> 0;
     for (let q = -R; q <= R; q++) {
       for (let r = Math.max(-R, -q - R); r <= Math.min(R, -q + R); r++) {
         const idx = cells.length, d = dist({ q, r }, { q: 0, r: 0 });
-        cells.push({ idx, q, r, d, terrain: d >= R ? 'mountain' : (hash2(fs + 5, q, r) > 0.7 ? 'badlands' : 'ash'), road: false, bridge: false, building: null, deco: hash2(fs + 9, q, r) });
+        cells.push({ idx, q, r, d, terrain: 'mountain', road: false, bridge: false, building: null, deco: hash2(fs + 9, q, r) });
         index.set(key(q, r), idx);
       }
+    }
+    // 2.0.7: лабиринт — по умолчанию всё стена (горы); вырезаем комнаты-пещеры и соединяем их коридорами
+    const mrand = rng((fs ^ 0x3a91c) >>> 0 || 7);
+    const at = (q, r) => index.get(key(q, r));
+    const open = (i) => { if (i !== undefined && cells[i].d < R) cells[i].terrain = hash2(fs + 5, cells[i].q, cells[i].r) > 0.7 ? 'badlands' : 'ash'; };
+    const rooms = [{ q: TOWER_DOOR[0], r: 0, rad: 1 }, { q: TOWER_STAIRS[0], r: 0, rad: 2 }];
+    for (let tries = 0; tries < 80 && rooms.length < 9; tries++) {
+      const q = Math.floor(mrand() * (2 * R - 3)) - (R - 2), r = Math.floor(mrand() * (2 * R - 3)) - (R - 2), c = { q, r };
+      if (dist(c, { q: 0, r: 0 }) > R - 3 || rooms.some((o) => dist(o, c) < 5)) continue;
+      rooms.push({ q, r, rad: mrand() < 0.45 ? 2 : 1 });
+    }
+    for (const rm of rooms) for (const c of cells) if (dist(c, rm) <= rm.rad && c.d < R - 1) open(c.idx);
+    const line = (a, b) => {                                    // соты вдоль отрезка a–b (кубические координаты)
+      const n = Math.max(1, dist(a, b)), out = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, x = a.q + (b.q - a.q) * t, z = a.r + (b.r - a.r) * t, y = -x - z;
+        let rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+        const dx = Math.abs(rx - x), dy = Math.abs(ry - y), dz = Math.abs(rz - z);
+        if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+        out.push([rx, rz]);
+      }
+      return out;
+    };
+    const dig = (a, b) => {
+      const mid = { q: Math.round((a.q + b.q) / 2) + Math.floor(mrand() * 5) - 2, r: Math.round((a.r + b.r) / 2) + Math.floor(mrand() * 5) - 2 };
+      const m = dist(mid, { q: 0, r: 0 }) <= R - 2 && at(mid.q, mid.r) !== undefined ? mid : { q: Math.round((a.q + b.q) / 2), r: Math.round((a.r + b.r) / 2) };
+      for (const seg of [line(a, m), line(m, b)]) for (const [q, r] of seg) { const i = at(q, r); if (i !== undefined && cells[i].d < R - 1) open(i); }
+    };
+    const inTree = new Set([0]);                                // Прим: ближайшая комната к уже соединённым
+    while (inTree.size < rooms.length) {
+      let best = null;
+      for (const i of inTree) for (let j = 0; j < rooms.length; j++) if (!inTree.has(j)) { const d = dist(rooms[i], rooms[j]); if (!best || d < best[0]) best = [d, i, j]; }
+      dig(rooms[best[1]], rooms[best[2]]); inTree.add(best[2]);
+    }
+    for (let k = 0; k < 2 && rooms.length > 3; k++) { const a = rooms[Math.floor(mrand() * rooms.length)], b = rooms[Math.floor(mrand() * rooms.length)]; if (a !== b && dist(a, b) <= 9) dig(a, b); }   // петли
+    for (let k = 0; k < 4; k++) {                               // тупички: короткий отросток из случайной комнаты
+      const a = rooms[Math.floor(mrand() * rooms.length)], ang = mrand() * 6, len = 2 + Math.floor(mrand() * 3);
+      const b = { q: Math.round(a.q + Math.cos(ang * 1.047) * len * 1.4), r: Math.round(a.r + Math.sin(ang * 1.047) * len) };
+      if (dist(b, { q: 0, r: 0 }) <= R - 2) for (const [q, r] of line(a, b)) { const i = at(q, r); if (i !== undefined && cells[i].d < R - 1) open(i); }
     }
     const map = { seed: fs, kind: 'tower', floor: f, radius: R, cells, index, buildings: [], spawns: [], gates: [], rivers: [], decorated: true };
     const put = (id, c) => { const i = index.get(key(c[0], c[1])); cells[i].building = id; map.buildings.push({ id, idx: i, cells: [i] }); return i; };
@@ -327,16 +385,24 @@ const HexMap = (() => {
     while (st.length) { const c = st.pop(); for (const n of neighbors(map, c)) if (!reach.has(n) && passable(map, n) && !cells[n].building) { reach.add(n); st.push(n); } }
     map.reachable = reach; map.start = start;
     const rand = rng((fs ^ 0x70e3) >>> 0 || 9), taken = new Set([start, stairs]);
-    const tier = Math.min(10, 8 + Math.floor(f / 4)), dens = Math.min(0.4, 0.2 + f * 0.01);
+    const pool = towerPool(f), tier = Math.min(10, 8 + Math.floor(f / 4)), dens = Math.min(0.45, 0.25 + f * 0.01);
     const guard = f % 5 === 0 ? neighbors(map, stairs).filter((n) => reach.has(n)).sort((a, b) => a - b)[0] : undefined;
     for (const c of cells) {
       if (c.d >= R || !reach.has(c.idx) || taken.has(c.idx) || c.idx === guard) continue;
       if (rand() > dens || neighbors(map, c.idx).some((n) => taken.has(n) || n === guard)) continue;
-      map.spawns.push({ id: map.spawns.length, idx: c.idx, species: TOWER_MOBS[Math.floor(rand() * TOWER_MOBS.length)], tier, tower: true });
+      map.spawns.push({ id: map.spawns.length, idx: c.idx, species: pickTower(pool, rand()), tier, tower: true, depth: towerDepth(f) });
       taken.add(c.idx);
     }
+    // 2.0.7: скорпион подземелья (цвет = цвет самоцвета), дальше от двери
+    { const sr = rng((fs ^ 0x5c07) >>> 0 || 11);
+      if (sr() < TOWER_SCORP_SPAWN) {
+        const c = 1 + Math.floor(sr() * 10), doorC = cells[index.get(key(TOWER_DOOR[0], TOWER_DOOR[1]))];
+        const cand = cells.filter((x) => reach.has(x.idx) && !taken.has(x.idx) && x.idx !== guard && dist(x, doorC) >= 6 && !neighbors(map, x.idx).some((n) => taken.has(n) || n === guard));
+        if (cand.length) { const x = cand[Math.floor(sr() * cand.length)]; map.spawns.push({ id: map.spawns.length, idx: x.idx, species: 'scorp' + c, tier, tower: true, depth: towerDepth(f), scorp: c }); taken.add(x.idx); }
+      }
+    }
     if (guard !== undefined) {
-      const sp = { id: map.spawns.length, idx: guard, species: 'golem', tier: 10, tower: true, guard: true, gc: Math.min(10, f / 5) };
+      const sp = { id: map.spawns.length, idx: guard, species: 'golem', tier: 10, tower: true, depth: towerDepth(f), guard: true, gc: Math.min(10, f / 5) };
       // 1.9.4: каждый 10-й этаж — Хранитель глубин: другой зверь (по кругу) и свой приём (щит / отрава / оглушение), награда больше
       if (f % 10 === 0) { const n = f / 10 - 1; sp.species = TOWER_GUARDS[n % TOWER_GUARDS.length]; sp.trait = ['ward', 'toxin', 'stun'][n % 3]; sp.deep = true; }
       map.spawns.push(sp);
@@ -764,7 +830,7 @@ const HexMap = (() => {
   };
 
   return {
-    RADIUS, VILLAGE_R, CASTLE_R, ISLAND_R, TOWER_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
+    TOWER_POOL, towerPool, towerDepth, TOWER_SCORP_SPAWN, RADIUS, VILLAGE_R, CASTLE_R, ISLAND_R, TOWER_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
     key, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
   };
 })();

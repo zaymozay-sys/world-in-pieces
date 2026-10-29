@@ -351,6 +351,10 @@ const MonsterArt = (() => {
     weaver: ['#6a5a4a', 'ushi'], carapace: ['#3f8a8a', 'cheshuya'], ironguard: ['#7e8590', 'cheshuya'], boneknight: ['#cfcab8', 'cheshuya'],
     // 1.7.3: заглушки новых видов, пока нет картинок art/monsters/<id>.webp (промты — промты 1.7.3 (удалены: графика в игре))
     glowmaw: ['#2f6f86', 'cheshuya'], coralhulk: ['#d9778a', 'rog'], stormray: ['#5a6fa8', 'ushi'], tidecaller: ['#3f9b8a', 'cheshuya'], thornback: ['#8a6a4a', 'rog'],
+    // 2.0.7: подземные существа — заглушки, пока нет картинок art/monsters/<id>.webp
+    selenebat: ['#9aa6d4', 'ushi'], nuggetmole: ['#8a6a3a', 'ushi'], fluoritefly: ['#4fbf8a', 'cheshuya'], granitespirit: ['#8f8c88', 'rog'],
+    malachitelizard: ['#2f9d6a', 'cheshuya'], micabeetle: ['#b9a98a', 'rog'], quartzspider: ['#cfe0ee', 'cheshuya'], graphitegolem: ['#3c3f46', 'rog'],
+    scorp1: ['#d9453b', 'cheshuya'], scorp2: ['#e08a2c', 'cheshuya'], scorp3: ['#e8cf3a', 'cheshuya'], scorp4: ['#4fbf6b', 'cheshuya'], scorp5: ['#35bfb3', 'cheshuya'], scorp6: ['#4a86e0', 'cheshuya'], scorp7: ['#8a5fe0', 'cheshuya'], scorp8: ['#e07ab8', 'cheshuya'], scorp9: ['#dfe8ee', 'cheshuya'], scorp10: ['#2b2b36', 'cheshuya'],
     ogre: ['#9a8a62', 'rog'], berserk: ['#8aa85a', 'ushi'], assassin: ['#3b3552', 'cheshuya'],
   };
   const fallbackArt = (id) => {
@@ -390,6 +394,15 @@ const MonsterArt = (() => {
 
     silk: () => `<path d="M32 6 V58 M6 32 H58 M12 12 L52 52 M52 12 L12 52" stroke="#e8e8f0" stroke-width="2" fill="none"/><path d="M32 16 Q42 22 48 32 Q42 42 32 48 Q22 42 16 32 Q22 22 32 16Z" stroke="#c8c8d8" stroke-width="1.6" fill="none"/>`,
     feather: () => `<path d="M12 56 Q10 18 46 8 Q52 34 36 48 Q26 56 12 56Z" fill="#c9b79a" stroke="${O}" stroke-width="2"/><path d="M12 56 L42 14" stroke="#8a7a60" stroke-width="2"/><path d="M22 46 L36 40 M26 36 L40 28" stroke="#8a7a60" stroke-width="1.4"/>`,
+    // 2.0.7: минералы глубин — заглушки, пока нет картинок art/resources/<вид>.webp
+    selenite: () => `<path d="M32 6 L44 20 L40 52 L32 58 L24 52 L20 20Z" fill="#e8ecff" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#ffffff" opacity=".7"/>`,
+    nugget: () => `<path d="M10 42 L18 20 L38 12 L54 28 L48 50 L24 54Z" fill="#e0b030" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#fff3a6" opacity=".7"/>`,
+    fluorite: () => `<path d="M32 6 L52 24 L44 54 L20 54 L12 24Z" fill="#58d6a4" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#d8fff0" opacity=".7"/>`,
+    granite: () => `<path d="M8 46 L18 20 L40 12 L56 30 L50 52 L22 54Z" fill="#8d8a86" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#c9c6c0" opacity=".7"/>`,
+    malachite: () => `<path d="M12 40 Q10 16 32 10 Q54 16 52 40 Q44 54 32 54 Q20 54 12 40Z" fill="#2f9d6a" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#8fe0b8" opacity=".7"/>`,
+    mica: () => `<path d="M10 22 L40 8 L56 22 L50 50 L22 56 L8 44Z" fill="#cdbf9c" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#f4ecd6" opacity=".7"/>`,
+    quartz: () => `<path d="M32 4 L46 18 L44 54 L32 60 L20 54 L18 18Z" fill="#e6eef6" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#ffffff" opacity=".7"/>`,
+    graphite: () => `<path d="M10 44 L16 20 L38 10 L54 26 L50 50 L24 56Z" fill="#4a4d55" stroke="${O}" stroke-width="2"/><path d="M32 10 L44 24 L32 34Z" fill="#8a8e99" opacity=".7"/>`,
     shell: () => `<path d="M10 40 Q8 14 32 8 Q56 14 54 40 Q44 54 32 54 Q20 54 10 40Z" fill="#f2d7cc" stroke="${O}" stroke-width="2"/><path d="M32 8 V54 M20 12 L22 52 M44 12 L42 52" stroke="#c79c8c" stroke-width="1.6"/>`,
   };
   // 1.5.2: в углу значка ресурса — номер цвета (красный/оранжевый, жёлтый/золотой легко спутать по одному цвету)

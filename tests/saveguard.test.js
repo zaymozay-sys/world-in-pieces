@@ -169,13 +169,21 @@ for (let i = 0; i < N; i++) {
   assert.deepStrictEqual(g.battle, { moved: true }, 'флаг боя сохраняется');
   const h = GOOD(); h.battle = 'junk'; SaveGuard.normalize(h); assert.strictEqual(h.battle, null, 'мусорный флаг боя сброшен');
 }
+// 2.0.8: руна мощи вне оружия возвращается в запас
+{
+  const g = GOOD(); g.items.push({ uid: 'uRM', id: 'leather-chest', tier: 6, runes: ['rune-might', 'rune-vitality'], rr: [4, 4] }); g.runeBag = { 'rune-might': 1 };
+  SaveGuard.normalize(g);
+  const c = g.items.find((x) => x.uid === 'uRM');
+  assert.ok(!(c.runes || []).includes('rune-might') && (c.runes || []).includes('rune-vitality'), 'руна мощи снята с нагрудника, остальные остались');
+  assert.strictEqual(g.runeBag['rune-might'], 2, 'руна мощи вернулась в запас');
+}
 // руны, огранка и разделы новых систем
 {
   const g = GOOD(); const it = g.items[0];
   it.runes = ['nope', 'rune-insight', 'rune-insight', 'rune-insight']; it.cut = 99;
   g.bank = { dep: 5e6, streak: 3 }; g.streak = 'junk'; g.lessons = { done: 5 };
   SaveGuard.normalize(g);
-  assert.ok(!('cut' in g.items[0]) && g.items[0].runes.length <= 2 && g.items[0].runes.every((r) => r !== 'nope'), 'руны и огранка очищены');
+  assert.ok(!('cut' in g.items[0]) && (g.items[0].runes || []).length <= 2 && (g.items[0].runes || []).every((r) => r !== 'nope'), 'руны и огранка очищены');
   assert.strictEqual(g.bank.dep, 5e6, 'крупный вклад не обрезается');
   assert.ok(g.streak && typeof g.streak === 'object', 'раздел streak приведён к виду');
   const h = GOOD(); SaveGuard.normalize(h); assert.ok(!('bank' in h) || h.bank === GOOD().bank, 'отсутствующие разделы не создаются');

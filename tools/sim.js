@@ -28,6 +28,7 @@ global.Bestiary = require(J('bestiary.js'));
 global.Factions = require(J('factions.js'));
 global.Combat = require(J('combat.js'));
 global.Elixirs = require(J('elixirs.js'));
+const Pets = require(J('pets.js'));
 global.Medals = require(J('medals.js'));
 let Hero = null;
 try { Hero = require(J('hero.js')); global.Hero = Hero; } catch (e) { /* уровни героя ещё не подключены */ }
@@ -73,7 +74,7 @@ function makeHero(o) {
 }
 function makeMonster(id, tier, o = {}) {
   const m = Bestiary.MONSTERS[id];
-  let sc = Bestiary.scaled(id, tier, o.swarm || 1);
+  let sc = Bestiary.scaled(id, tier, o.swarm || 1, o.level);
   // 1.7.3: хозяин зоны — крупнее и злее (World.scaleZone) и с добавочными приёмами; o.affixes — любые свойства для опытов
   let affixes = o.affixes || [];
   if (o.zone) {
@@ -93,6 +94,7 @@ function makeMonster(id, tier, o = {}) {
 /* ---------- бой ---------- */
 function Battle(hero, mon, player) {
   const S = {
+    petF: hero.petF || null,
     typ: new Array(36).fill(-1), val: new Array(36).fill(0),
     f: { left: hero, right: mon }, over: false, winner: null,
     locks: { cols: new Set(), forSide: null }, veiled: new Set(),
@@ -110,7 +112,7 @@ function Battle(hero, mon, player) {
   const canAfford = (side, kind = 'lightning') => { const f = S.f[side], c = Combat.spellCost(f, kind); return MAGIC_NAMES.every((t) => f.counts[t] >= c); };
   const spend = (side, kind = 'lightning') => { const f = S.f[side], c = Combat.spellCost(f, kind); for (const t of MAGIC_NAMES) f.counts[t] -= c; };
   const afford = (side) => ({ lightning: canAfford(side, 'lightning'), fire: canAfford(side, 'fire'), square: canAfford(side, 'square'), transmute: canAfford(side, 'transmute'), heal: canAfford(side, 'heal'), chaos: canAfford(side, 'chaos') });
-  const aimOnly = (side) => ({ fire: canAfford(side, 'fire'), square: canAfford(side, 'square') });   // под Молнией ИИ может добавить Крест или Захват
+  const aimOnly = () => ({});   // под Молнией ИИ может добавить Крест или Захват
   const anyAfford = (side) => Object.values(afford(side)).some(Boolean);
   const hit = (side, amount, raw = false, mult = 1) => {
     // Удары героя сначала принимает живой двойник Дикого гриба (см. Combat.enemyTarget); у прочих — сам противник.
@@ -221,7 +223,7 @@ function Battle(hero, mon, player) {
     }
     if (shape !== 'row') {
       const fl = S.f[side];
-      dmg = (shape === 'square' ? B.magic.square : B.magic.cross).fixed + (fl.magic ? Math.round(all * B.magic.lightning.mult) : obs);
+      dmg = (shape === 'square' ? B.magic.square : B.magic.cross).fixed + obs;
       spellMul = (shape === 'square' ? B.magic.square : B.magic.cross).mult * mult;
     }
     hit(side, dmg, false, spellMul);
@@ -334,7 +336,7 @@ function Battle(hero, mon, player) {
     for (let guard = 0; guard < 20; guard++) {
       for (const k of Combat.enemyItemPlan(f, anyAfford('right'), rand)) useItem('right', k);
       const v = Combat.aiView(f, h);
-      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, f.level, f.magic ? aimOnly('right') : afford('right'),
+      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, f.level, f.magic ? aimOnly() : afford('right'),
         { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: f.magic ? B.magic.lightning.mult : 0 });
       if (!mv) break;
       S.stats.monActions++;
@@ -372,6 +374,15 @@ function Battle(hero, mon, player) {
     checkEnd();
   }
 
+  // Питомец (как в game.js petTurn): после хода героя бьёт противника автоатакой, пока жив; монстр бьёт только героя.
+  function petTurn() {
+    const pf = S.petF;
+    if (!pf || pf.hp <= 0 || S.over) return;
+    const r = Combat.hit(pf, Combat.enemyTarget(S.f.right), Pets.petAttackAmount(pf), false, rand);
+    if (r.kind === 'hit') S.stats.petDmg = (S.stats.petDmg || 0) + r.amount;
+    checkEnd();
+  }
+
   /* ---------- ход героя ---------- */
   // 1.6.0: эликсиры по правилам игры: длинные — в первом ходе; Сила — в первом ходе, где есть крупный ход (или в 6-м);
   // Жизнь — при ХП ниже половины; Камни — со 2-го хода; Жизнь, Камни и Превращение делят «раз в 3 хода»
@@ -388,14 +399,18 @@ function Battle(hero, mon, player) {
       } else for (const m of MAGIC_NAMES) h.counts[m] += Elixirs.stonesGain(t);
       return;
     }
+    if (kind === 'endure') { h.endure = true; return; }              // 2.0.7: «Стойкость»; «Вкусный корм» в симуляторе без питомца не действует
+    if (kind === 'food') return;
     Elixirs.drink(h.elx, kind, t, 0); h.elxUsed[kind] = false;
+    if (K.haste) h.haste = true;                                       // 2.0.7: «Тоник скорости» — дополнительный ход
+    if (K.road) { const m = Math.round(h.max * Elixirs.ROAD_HP); h.max += m; h.hp += m; }   // «Тоник дороги»: +10% к максимуму ХП
     h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx)); h.elxPct = Elixirs.activePct(h.elx);
   }
   function elxStep() {
     const h = S.f.left, plan = h.elxPlan;
     for (const kind of Object.keys(plan)) {
       const K = Elixirs.KINDS[kind];
-      if (K.mode === 'long') drinkElixir(kind);
+      if (K.mode === 'long' || kind === 'endure') drinkElixir(kind);
       else if (kind === 'power') {
         const mv = heroMoves(S, null, false, -1);
         if ((mv.length && mv[0].dmg >= (S.bigHit || 6)) || h.turnNo >= 6) drinkElixir(kind);
@@ -490,7 +505,7 @@ function Battle(hero, mon, player) {
     let side = first;
     S.first = first;
     while (!S.over && S.stats.rounds < maxRounds) {
-      if (side === 'left') { heroTurn(); elxEndTurn(); } else { monsterTurn(); S.stats.rounds++; }
+      if (side === 'left') { heroTurn(); elxEndTurn(); petTurn(); } else { monsterTurn(); S.stats.rounds++; }
       // как в игре (setTurn): при передаче хода гаснут баффы «до конца хода» и Шаровая молния
       Combat.clearTurnEndBuffs(S.f[side]); S.f[side].magic = false;
       side = other(side);
@@ -550,6 +565,19 @@ function bestFire(S) {
   return best;
 }
 
+// 2.0.4: лучший Квадрат 3×3 (сумма номиналов под ним) — для игрока симулятора (раньше Квадрат им не применялся вовсе)
+function bestSquare(S) {
+  let best = null;
+  for (let idx = 0; idx < 36; idx++) {
+    if (S.typ[idx] < 0) continue;
+    const r0 = Math.floor(idx / N), c0 = idx % N;
+    let d = 0;
+    for (let i = 0; i < 36; i++) if (S.typ[i] >= 0 && Math.abs(Math.floor(i / N) - r0) <= 1 && Math.abs(i % N - c0) <= 1) d += S.val[i];
+    if (!best || d > best.dmg) best = { idx, dmg: d };
+  }
+  return best;
+}
+
 // skill: вероятность выбрать лучший ход; top — из скольких лучших выбирает в остальных случаях.
 function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false } = {}) {
   return {
@@ -557,7 +585,7 @@ function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false } =
       // afford: { lightning, fire, transmute, heal, chaos } — хватает ли камней на каждое заклинание отдельно
       // (true/false тоже допустимо — «хватает на всё»/«ни на что»).
       const A = typeof afford === 'boolean' ? { lightning: afford, fire: afford, transmute: afford, heal: afford, chaos: afford } : afford;
-      const canMagic = A.lightning || A.fire || A.transmute || A.heal || A.chaos;
+      const canMagic = A.lightning || A.fire || A.square || A.transmute || A.heal || A.chaos;
       const homeT = TYPES.indexOf(h.fac.gem);
       const pick = (list) => (rand() < skill ? list[0] : list[ri(Math.min(top, list.length))]);
       const normal = heroMoves(S, locked, false, homeT);
@@ -572,6 +600,9 @@ function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false } =
         const fire = A.fire ? bestFire(S) : null;
         const lightDmg = mg.length ? mg[0].dmg : 0;
         const normDmg = normal.length ? normal[0].dmg : 0;
+        const sq = A.square ? bestSquare(S) : null;
+        const fireV = fire ? fire.dmg * B.magic.cross.mult : -1, sqV = sq ? sq.dmg * B.magic.square.mult : -1;
+        if (sq && sqV > fireV && sqV >= lightDmg && sq.dmg * B.magic.square.mult > normDmg + 3) return { kind: 'square', idx: sq.idx };
         if (fire && fire.dmg >= lightDmg && fire.dmg > normDmg + 3) return { kind: 'fire', idx: fire.idx };
         if (A.lightning && lightDmg > normDmg + 3) { const m = pick(mg); return { kind: 'lightning', a: m.a, b: m.b }; }
       }
@@ -604,10 +635,10 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune } = {}) {
+function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
-  let wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
+  let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
   const key = `${elite ? 'E' : ''}${zone ? 'Z' + zone : ''}${seedBase}|${faction}|${level}|${monster}|${tier}|${typeof player === 'string' ? player : 'p'}`;
@@ -617,10 +648,15 @@ function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n
     seed((h ^ Math.imul(k + 1, 2654435761)) >>> 0);
     const g = typeof gear === 'function' ? gear() : gear;
     const hero = makeHero({ faction, level, gear: g, baseHp, extra, bag, elixirs, elxFx });
+    if (pet) { hero.petF = Pets.petFighter(Pets.makePet(pet.species, pet.tier)); hero.petF.fedBonus = (pet.fed ? (Pets.FEED_BONUS || 1.25) : 1) * (pet.scale || 1); }
     if (BOOST) { if (BOOST.style) hero.shield = 1; if (BOOST.daily) hero.secondWind = true; if (BOOST.streak) hero.charge = Math.floor(B.faction.charge / 2); }
-    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes });
+    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes, level });
     const pl = typeof player === 'string' ? PLAYERS[player]() : typeof player === 'function' ? player() : player;
-    const S = Battle(hero, mon, pl).run();
+    let S;
+    if (duo) {
+      const D = duoBattle(hero, mon, pl, { monster, tier, aiLevel, swarm, elite, level, duo });
+      S = D.S; if (D.strict) strictWins++; duoKills += D.kills;
+    } else S = Battle(hero, mon, pl).run();
     if (S.winner === 'left') { wins++; hpLeft += hero.hp / hero.max; actWin.push(S.stats.heroActions); }
     if (S.winner === 'draw') draws++;
     actions += S.stats.heroActions; rounds += S.stats.rounds; spells += S.stats.spells; abil += S.stats.abilities;
@@ -628,10 +664,44 @@ function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n
   }
   actWin.sort((a, b) => a - b);
   return {
-    win: wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
+    win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
     hpLeft: wins ? hpLeft / wins : 0, heroDmgPerAct: heroDmg / Math.max(1, actions), monDmgPerAct: monDmg / Math.max(1, monActs),
     medianActionsWin: actWin.length ? actWin[Math.floor(actWin.length / 2)] : 0,
   };
+}
+
+/* ---------- бой вдвоём (Duo в game.js): герой и питомец играют каждый свою доску против своей копии врага ----------
+   Победа боя — если выжил хоть один из двоих и добил оставшегося врага (правило кода); strict — если выжил именно герой.
+   Питомец на своей доске: ХП ×boardHp, урон ×boardDmg, без вещей, играет ИИ с умом duo.int (по умолчанию 50). Выживший добивает
+   врага павшего с тем здоровьем, что у того осталось; своё здоровье выживший не восстанавливает. */
+function petAsHero(spec, level) {
+  const mk = Pets.makePet(spec.species, spec.tier), pf = Pets.petFighter(mk);
+  const intl = spec.int != null ? spec.int : 50;
+  const dmgM = Pets.BOARD_DMG * (Pets.isRare ? (Pets.isRare(mk) ? 1.2 : 1) : 1);
+  const h = makeHero({ faction: 'none', level, gear: Gear.emptyLoadout(), baseHp: Math.round(pf.max * (intl < 10 ? 1.9 : 1.6) * (Pets.isRare(mk) ? 1.35 : 1)), dmg: (pf.dmg || 1) * dmgM });
+  h.stats = h.stats0 = pf.stats;
+  h.max = h.hp = Math.round(pf.max * (intl < 10 ? 1.9 : 1.6) * (Pets.isRare(mk) ? 1.35 : 1));
+  h.name = 'pet'; h.petBoard = true;
+  return { h, intl };
+}
+function duoBattle(hero, monA, plHero, o) {
+  const spec = o.duo, { h: pet, intl } = petAsHero(spec, o.level);
+  const monB = makeMonster(o.monster, o.tier, { aiLevel: o.aiLevel, swarm: o.swarm, elite: o.elite, level: o.level });
+  const A = Battle(hero, monA, plHero).run();
+  const Bt = Battle(pet, monB, aiPlayer(intl)).run();
+  const heroWon = A.winner === 'left', petWon = Bt.winner === 'left';
+  const res = (S, win) => { S.winner = win ? 'left' : 'right'; return S; };
+  const rev = (f) => { f.buffs = []; f.haste = false; f.magic = false; f.stunned = false; f.charge = 0; };
+  if (heroWon && petWon) return { S: res(A, true), strict: true, kills: 2 };
+  if (heroWon) {                                    // герой добивает врага питомца
+    rev(hero); rev(monB); const C = Battle(hero, monB, plHero).run();
+    return { S: res(A, C.winner === 'left'), strict: C.winner === 'left', kills: C.winner === 'left' ? 2 : 1 };
+  }
+  if (petWon) {                                     // питомец добивает врага героя: по правилу кода это тоже победа боя
+    rev(pet); rev(monA); const C = Battle(pet, monA, aiPlayer(intl)).run();
+    return { S: res(A, C.winner === 'left'), strict: false, kills: 1 };
+  }
+  return { S: res(A, false), strict: false, kills: 0 };
 }
 
 // Снаряжение «типичного» героя уровня L: случайные вещи его цвета примерно на share от лимита очков.

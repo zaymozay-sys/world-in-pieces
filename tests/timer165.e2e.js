@@ -76,6 +76,8 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
   for (const [w, h, touch] of [[1280, 800, false], [390, 844, true]]) {
     const { p, ctx, errs } = await open(w, h, '#dev-map-village', 'ru', null, touch);
     await p.click('#m-more'); await p.waitForTimeout(300);
+    await p.evaluate(() => { const h = [...document.querySelectorAll('#map-menu .mm-head')].find((x) => /Игра и справка/.test(x.textContent)); if (h && h.getAttribute('aria-expanded') !== 'true') h.click(); });   // пункты меню собраны в сворачиваемые группы
+    await p.waitForTimeout(200);
     const t0 = await p.evaluate(() => document.getElementById('mm-timer').textContent);
     ok(`${w}×${h}: в меню «${t0}» (по умолчанию выкл)`, /выкл/.test(t0));
     await p.click('#mm-timer'); await p.waitForTimeout(300);

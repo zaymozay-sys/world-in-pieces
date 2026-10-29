@@ -62,6 +62,7 @@ const INIT = () => {
     await p.click('#m-more'); await p.waitForTimeout(150);
     const ver = await p.evaluate(() => { const e = document.getElementById('map-ver'), r = e.getBoundingClientRect(); return { t: e.textContent, ok: r.width > 20 && r.bottom <= innerHeight && r.right <= innerWidth && r.left >= 0 }; });
     ok('в меню карты есть надпись о версии и она внутри экрана: ' + ver.t, /^Версия: \d+\.\d+\.\d+ \(Обновлено: \d{2}\.\d{2}\.\d{4}\)$/.test(ver.t) && ver.ok, JSON.stringify(ver));
+    await p.click('.mm-head >> nth=0'); await p.waitForTimeout(150);   // группа «Графика и эффекты» свёрнута по умолчанию
     await p.click('#mm-anim'); await p.waitForTimeout(200);
     const f = await st();
     ok('нажатие → «быстрые» (swap 120, --anim 0.6, сохранено, меню открыто)', f.mode === 'fast' && f.swap === 120 && f.anim === '0.6' && f.ls === 'fast' && /быстр/.test(f.label) && await p.evaluate(() => !document.getElementById('map-menu').hidden), JSON.stringify(f));

@@ -203,7 +203,7 @@ const Pets = (() => {
     else if (kind === 'drill') { pet.drill = 2; res = { kind }; }
     else if (kind === 'rest') { const g = Math.min(1, pet.maxDurability - pet.durability); pet.durability += g; res = { kind, gain: g }; }
     else if (kind === 'scout') {
-      const kinds = Object.keys(PT_B.RESOURCES), k = kinds[Math.floor(rng() * kinds.length)];
+      const kinds = PT_B.PRIZE_RESOURCES, k = kinds[Math.floor(rng() * kinds.length)];
       res = { kind, res: { kind: k, tier: Math.max(1, Math.min(pet.tier, heroTier)), n: 1 + Math.floor(rng() * 2) } };
     } else { const up = addXp(pet, STUDY_XP, heroTier); res = { kind, up }; }
     res.before = before; res.after = intellect(pet);

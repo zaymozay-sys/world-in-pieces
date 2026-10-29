@@ -24,9 +24,9 @@ const Hero = (() => {
   const growth = (L) => H_T.at(H_T.GROWTH, tierFloat(L));
 
   const baseHp = (L) => Math.round(C.baseHp * growth(L));
-  // 2.0.4: Сила уровня — линейно: 2,5 на 1-м уровне, +0,4 за уровень до 50-го, дальше +1,5 за уровень (100-й даёт ≈97).
+  // 2.0.7 (D2): Сила уровня — кусочно-линейно: 2,5 на 1-м уровне, +0,4 за уровень до 30-го, +0,8 на 31–60, дальше +1,5 (100-й даёт ≈98; нет излома на стыке цветов 5–6).
   // dmgMult — тот же рост в виде множителя (его читает Combat.levelPower, он же масштабирует усиления боя).
-  const levelPower = (L) => 2.5 + 0.4 * (Math.min(L, 50) - 1) + 1.5 * Math.max(0, L - 50);
+  const levelPower = (L) => Math.round(2.5 + 0.4 * (Math.min(L, 30) - 1) + 0.8 * (Math.min(Math.max(L, 30), 60) - 30) + 1.5 * Math.max(0, L - 60));   // 2.0.5: целое
   const dmgMult = (L) => Math.round((1 + levelPower(L) / (3 * H_B.damage.stone * (H_B.damage.levelMul || 1))) * 100) / 100;
   const budget = (L) => Math.round(C.budget * H_T.at(H_T.POINT_MULT, tierFloat(L)));
   // С какого уровня можно надеть вещь цвета tier.

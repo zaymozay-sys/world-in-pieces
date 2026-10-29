@@ -276,6 +276,17 @@ const Profile = (() => {
       save();
       return true;
     },
+    // 2.0.6: обмен цветов ресурса — проверка и пересчёт здесь, одно сохранение (всё или ничего). Возвращает котировку или null.
+    exchange(kind, from, to, take) {
+      const q = Bestiary.exchangeQuote(kind, from, to, take);
+      if (stale) return null;   // профиль записала другая вкладка: из этой писать нельзя, обмен не выполняется
+      if (!q || !q.ok || (data.resources[resKey(kind, from)] || 0) < take) return null;
+      data.resources[resKey(kind, from)] -= take;
+      if (!data.resources[resKey(kind, from)]) delete data.resources[resKey(kind, from)];
+      data.resources[resKey(kind, to)] = (data.resources[resKey(kind, to)] || 0) + q.give;
+      save();
+      return q;
+    },
     resList() {
       return Object.entries(data.resources).map(([k, n]) => { const [kind, tier] = k.split(':'); return { kind, tier: Number(tier), n }; })
         .sort((a, b) => a.tier - b.tier || a.kind.localeCompare(b.kind));
@@ -315,6 +326,14 @@ const Profile = (() => {
 
     // Руны (см. runes.js): хранятся в запасе, пока не вставлены в вещь (см. ItemInfo в этом файле).
     rune: (id) => (data.runeBag || {})[id] || 0,
+    // 2.0.8: Журавль сплавляет две руны мощи в двойную (в двуручное оружие) за монеты
+    fuseRunes(fee) {
+      const bag = data.runeBag || (data.runeBag = {});
+      if ((bag['rune-might'] || 0) < 2 || !Number.isFinite(fee) || fee < 0 || data.coins < fee) return false;
+      data.coins -= fee; bag['rune-might'] -= 2; if (!bag['rune-might']) delete bag['rune-might'];
+      bag['rune-might2'] = (bag['rune-might2'] || 0) + 1;
+      save(); return true;
+    },
     addRune(id, n = 1) { if (!Number.isFinite(n) || n <= 0) return; data.runeBag = data.runeBag || {}; data.runeBag[id] = (data.runeBag[id] || 0) + n; save(); },
 
     // Бестиарий: вид попадает в него, когда вы встретили его на карте (или уже побеждали).
@@ -334,7 +353,35 @@ const Profile = (() => {
       return { wins, species: sp };
     },
     // 1.8.6: «Пояс охотника» — 5 побед подряд с ним на поясе заряжают пояс: следующий бой +25% урона и добычи.
-    stones() { return (data.stones = Stones.clean(data.stones)); },   // 1.8.9: самоцветы стражей
+    stones() { return (data.stones = Stones.clean(data.stones)); },
+    // 2.0.7: гнездо самоцвета — сверление (пробойник + смола), вставка и извлечение самоцвета, покупка пробойника
+    gemStack(tier) { const dc = Stones.fixCost(tier); return Profile.resList().filter((r) => r.kind === 'resin' && r.tier >= dc.resinTier && r.n >= dc.resin).sort((a, b) => a.tier - b.tier)[0] || null; },
+    buyPunch(heroTier) { const S = Profile.stones(), price = Stones.punchPrice(heroTier); if (!Profile.spend(price)) return false; S.punch += 1; save(); return true; },
+    drillItem(uid) {
+      const e = data.items.find((i) => i.uid === uid), S = Profile.stones();
+      if (!e) return { ok: false, err: 'bad' };
+      const g = e.gems = Stones.gemList(e).slice(); delete e.hole; delete e.gem;
+      if (g.length >= Stones.maxHoles(data.thirdGem)) { if (!g.length) delete e.gems; return { ok: false, err: 'max' }; }
+      const dc = Stones.drillCost(e.tier || 1);
+      if (S.punch < dc.punch) return { ok: false, err: 'punch' };
+      S.punch -= dc.punch; g.push(0); save(); return { ok: true };
+    },
+    insertGem(uid, c, slot) {
+      const e = data.items.find((i) => i.uid === uid), S = Profile.stones();
+      if (!e || !Stones.valid(c) || (S.bag[c] || 0) < 1) return false;
+      const g = Stones.gemList(e).slice(), k = slot === undefined ? g.findIndex((v) => !v) : slot;
+      if (k < 0 || k >= g.length || g[k]) return false;
+      const fc = Stones.fixCost(e.tier || 1), r = Profile.gemStack(e.tier || 1);
+      if (!r || !Profile.takeRes('resin', r.tier, fc.resin)) return false;      // самоцвет крепится смолой
+      Stones.take(S, c, 1); g[k] = c; e.gems = g; delete e.hole; delete e.gem; save(); api.noteMaster('cut', 1); return true;
+    },
+    removeGem(uid, slot = 0) {
+      const e = data.items.find((i) => i.uid === uid), S = Profile.stones();
+      const g = Stones.gemList(e).slice();
+      if (!e || !Stones.valid(g[slot])) return false;
+      Stones.add(S, g[slot], 1); g[slot] = 0; e.gems = g; delete e.hole; delete e.gem; save(); return true;
+    },
+   // 1.8.9: самоцветы стражей
     beltTier() { const u = data.loadout && data.loadout.belt, e = u && data.items.find((i) => i.uid === u); return e ? Math.max(1, (e.tier | 0) + (typeof Stones !== 'undefined' ? Stones.beltCap(e.cut) : 0)) : 0; },   // 1.8.9: цвет надетого пояса (0 — пояса нет); нужен стрелкам компаса
     huntBelt() { const u = data.loadout && data.loadout.belt, e = u && data.items.find((i) => i.uid === u); return !!(e && e.id === 'belt-hunter'); },
     huntWin() {
@@ -384,6 +431,16 @@ const Profile = (() => {
       save();
       return m;
     },
+    // 2.0.7: «мастерские» медали (js/medals.js MASTER): add — прибавить к счётчику, иначе взять максимум (рекордный этаж)
+    noteMaster(series, value, add = true) {
+      const c = data.medals.cnt = data.medals.cnt || {}, t = Hero.tierFor(api.level());
+      c[series] = add ? (c[series] || 0) + value : Math.max(c[series] || 0, value);
+      const out = Medals.checkMaster(series, c[series], data.medals.earned).map((id) => api.grantMedal(id, t)).filter(Boolean);
+      save();
+      if (out.length && typeof window !== 'undefined' && typeof CustomEvent === 'function') window.dispatchEvent(new CustomEvent('medal', { detail: out.map((m) => m.id) }));
+      return out;
+    },
+    masterCount: (series) => (data.medals.cnt || {})[series] || 0,
     // 1.7.5: выпит эликсир вида kind (в бою) → медаль «Алхимик». Возвращает медаль или null.
     noteElixir(kind, tier) {
       const t = Hero.tierFor(api.level()), out = [];
@@ -391,10 +448,36 @@ const Profile = (() => {
       const kid = Medals.checkElixirMedal(kind, data.medals.earned);
       if (kid) out.push(api.grantMedal(kid, t));
       const did = Medals.checkDrunkMedal(data.medals.drunk, data.medals.earned);
-      if (did) out.push(api.grantMedal(did, t));
+      if (did) { out.push(api.grantMedal(did, t)); if (Medals.ENDURE_AT && Medals.ENDURE_AT.includes(Number(did.slice(6)))) api.addElixir('endure', 1, 1); }   // 2.0.7: «Стойкость» за 3-ю, 6-ю и 9-ю веху
       save();
       return out.filter(Boolean);
     },
+    // 2.0.7: «Стойкость» выдаётся за заслуги, каждая причина — один раз (ключ записывается в профиль)
+    // 2.0.7: добыча закрытых комплектов. Шанс за победу, гарантия на n-й попытке; возвращает выпавшую вещь или null
+    lockedDrop(setId, tier, chance, pity) {
+      const pc = data.lockedPity = data.lockedPity || {};
+      pc[setId] = (pc[setId] || 0) + 1;
+      if (pc[setId] < pity && Math.random() >= chance) { save(); return null; }
+      pc[setId] = 0;
+      const pieces = Gear.ITEMS.filter((i) => i.set === setId);
+      if (!pieces.length) return null;
+      const e = Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, Math.max(1, tier));
+      data.items.push(e); save(); return e;
+    },
+    // 2.0.7: «Легенда подземелий» — по вещи за рекордные этажи 10, 15, 20, 25, 30; возвращает список новых вещей
+    legendAward(best, tier) {
+      const got = data.legendGiven = data.legendGiven || {}, out = [];
+      const ids = ['legend-blade', 'legend-crown', 'legend-robe', 'legend-gloves', 'legend-amulet'];
+      [10, 15, 20, 25, 30].forEach((f, i) => {
+        if (best >= f && !got[f]) { got[f] = true; const e = Gear.makeEntry(ids[i], Math.max(1, tier)); data.items.push(e); out.push(e); }
+      });
+      if (out.length) save();
+      return out;
+    },
+    grantEndure(key) { data.endureGiven = data.endureGiven || {}; if (data.endureGiven[key]) return false; data.endureGiven[key] = true; api.addElixir('endure', 1, 1); save(); return true; },
+    // 2.0.7: «Тоник дороги» держится ещё несколько боёв (счётчик в профиле; поле только добавляется)
+    setRoad(tier, fights) { data.elixirs.road = { tier, fights }; save(); },
+    takeRoad() { const r = data.elixirs.road; if (!r || !(r.fights > 0)) return null; r.fights--; save(); return { tier: r.tier }; },
     elixirsDrunk: () => data.medals.drunk || 0,
     // После победы: если это первая победа над видом, выдаёт медаль. Возвращает медаль или null.
     checkKillMedal(id, tier) {
@@ -488,7 +571,7 @@ const Profile = (() => {
     perk: (k) => Medals.hasPerk(data.medals.earned, k),
     sandbox: (on) => { sandboxed = !!on; },
     isSandbox: () => sandboxed,
-    medalsBonus: () => Medals.bonusStats(data.medals.earned, data.bestiary),
+    medalsBonus: () => { const s = Medals.bonusStats(data.medals.earned, data.bestiary); if (s.defense) s.defense = Math.max(1, Math.round(s.defense * Combat.armorUnit(Hero.dmgMult(Profile.level())))); return s; },   // 2.0.7: Броня медалей — плоская, растёт с уровнем героя
 
     // Приручение и питомец (см. pets.js). Только один активный питомец за раз.
     canTame: (id) => I_PT.canTame(data.bestiary, id),
@@ -615,7 +698,7 @@ const tierColor = (t) => Tiers.get(t).edge;
 // Сила вещей бывает дробной (десятые): запятая в русском, точка в английском
 const num1 = (x) => String(Math.round(x * 10) / 10).replace('.', (typeof I18N !== 'undefined' && I18N.lang === 'en') ? '.' : ',');
 const fmtStat = (k, v) => ({
-  power: _t("+{0} Сила", [num1(v)]), health: _t("+{0} Здоровье", [v]), defense: _t("+{0} Броня", [v]),
+  power: _t("+{0} Сила", [Math.round(v)]), health: _t("+{0} Здоровье", [v]), defense: _t("+{0} Броня", [v]),
   initiative: _t("+{0}% Проворство", [v]), ricochet: _t("+{0}% Рикошет", [v]), block: _t("+{0}% Блок", [v]), fury: _t("+{0}% Ярость", [v]),
   cunning: _t("+{0}% Хитрость", [v]),
 }[k]);
@@ -652,31 +735,20 @@ const resLabel = (kind, tier) => `${Bestiary.RESOURCES[kind].name} · ${Tiers.ge
 
 /* 1.6.0: карточка ресурса — с кого падает, для чего нужен. Открывается из добычи боя, приза билета и ячеек сумки. */
 const ResInfo = (() => {
-  let pop = null;
+  let pop = null, curTier = 1;
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nameOf = (k) => (typeof Elixirs !== 'undefined' && Elixirs.KINDS[k]) ? Elixirs.KINDS[k].name : ((Gear.CONSUMABLES[k] || {}).name || k);
   function open(kind, tier) {
     const R = Bestiary.RESOURCES[kind]; if (!R) return;
-    tier = Number(tier) || 1;
-    const known = Profile.species();
-    const src = Bestiary.ORDER.filter((id) => Bestiary.MONSTERS[id] && (Bestiary.MONSTERS[id].drops || []).some((d) => d[0] === kind));
-    const kn = src.filter((id) => known.includes(id)), unk = src.length - kn.length;
-    const from = src.length ? kn.map((id) => esc(Bestiary.MONSTERS[id].name)).join(', ') + (unk ? (kn.length ? ' ' : '') + _t("и ещё не открытые: {0}", [unk]) : '') : _t("только награды и находки");
-    const uses = Object.keys(Gear.FORGE_KINDS).filter((t) => Gear.FORGE_KINDS[t].includes(kind)).map((t) => Gear.TYPE_NAMES[t]);
-    // 1.6.9: ещё и Алхимик (зелья, эликсиры) и Библиотекарь (свитки) варят из ресурсов — раньше карточка про это молчала
-    const nameOf = (k) => (typeof Elixirs !== 'undefined' && Elixirs.KINDS[k]) ? Elixirs.KINDS[k].name : ((Gear.CONSUMABLES[k] || {}).name || k);
-    const own = Forge.OWN || {}, scrolls = Forge.SCROLLS || [];
-    const alch = Object.keys(own).filter((k) => own[k].includes(kind) && !scrolls.includes(k)).map(nameOf);
-    const lib = Object.keys(own).filter((k) => own[k].includes(kind) && scrolls.includes(k)).map(nameOf);
-    const parts = [];
-    if (uses.length) parts.push(_t("Кузница: улучшение и создание — {0}.", [uses.join(', ').toLowerCase()]));
-    if (alch.length) parts.push(_t("Алхимик варит из него: {0}.", [alch.join(', ')]));
-    if (lib.length) parts.push(_t("Библиотекарь пишет из него: {0}.", [lib.join(', ')]));
-    if (!parts.length) parts.push(_t("Для создания вещей и зелий не нужен."));
-    const useTxt = parts.join(' ') + ' ' + _t("Можно продать в Лавке.");
-    if (!pop) { pop = document.createElement('div'); pop.className = 'modal-back item-info-back'; pop.addEventListener('click', (e) => { if (e.target === pop || e.target.closest('[data-rc]')) close(); }); document.body.appendChild(pop); }
+    tier = Number(tier) || 1; curTier = tier;
+    // 2.0.7: по решению владельца карточка ресурса не рассказывает, с кого он падает и для чего нужен — только название и цена
+    if (!pop) { pop = document.createElement('div'); pop.className = 'modal-back item-info-back'; pop.addEventListener('click', (e) => { if (e.target === pop || e.target.closest('[data-rc]')) { close(); return; }
+      const lk = e.target.closest('[data-lk]');
+      if (lk) { e.preventDefault(); const k = lk.dataset.lk, box = pop.querySelector('.res-tip'); if (!box) return;
+        const same = box.dataset.k === k && !box.hidden; box.dataset.k = k; box.hidden = same;
+        if (!same) { const K = typeof Elixirs !== 'undefined' && Elixirs.KINDS[k]; box.innerHTML = `<b>${esc(nameOf(k))}</b><br>${esc(K ? Elixirs.describe(k, curTier) : ((Gear.CONSUMABLES[k] || {}).desc || ''))}`; } } }); document.body.appendChild(pop); }
     pop.innerHTML = `<div class="modal icard-modal res-card" role="dialog" aria-label="${esc(R.name)}" style="--t:${Tiers.get(tier).color};${typeof Art !== 'undefined' && Art.has('ui/parchment') ? `--parch:url('${new URL(Art.url('ui/parchment'), location.href).href}')` : ''}"><div class="loot-card"><span class="lc-ico">${MonsterArt.resIcon(kind, tier)}</span><b>${esc(R.name)} (${esc(Tiers.get(tier).name)})</b>
-      <p><span class="hint">${_t("Падает с:")}</span> ${from}</p><p><span class="hint">${_t("Для чего:")}</span> ${useTxt}</p>
-      <p><span class="hint">${_t("Цена в Лавке:")}</span> ${MonsterArt.moneyHtml(Bestiary.resPrice(kind, tier))}</p></div>
+      <p><span class="hint">${_t("Цена в Лавке:")}</span> ${MonsterArt.moneyHtml(Bestiary.resPrice(kind, tier))}</p><p class="res-tip" hidden></p></div>
       <div class="reset"><button type="button" class="primary" data-rc="1">${_t("Закрыть")}</button></div></div>`;
   }
   function close() { if (pop) { pop.remove(); pop = null; } }
@@ -704,7 +776,7 @@ const ItemInfo = (() => {
   // руны, цена и действия (в оружейной — надеть / снять). Открывается значком «i» на любой карточке вещи:
   // у вещей игрока и противника — по uid, у образцов Лавки, Кузницы и Библиотеки — по «id:цвет» (base).
   const STAT_HELP = {
-    power: _t("прибавляется к каждому удару"), health: _t("к максимуму здоровья"), defense: _t("вычитается из каждого удара (потолок 60 очков)"),
+    power: _t("прибавляется к каждому удару"), health: _t("к максимуму здоровья"), defense: _t("вычитается из каждого удара (потолка нет)"),
  initiative: _t("шанс ходить первым (потолок 50%)"),
     ricochet: _t("шанс отразить удар в нападающего (потолок 40%)"), block: _t("шанс полностью отбить удар (потолок 50%)"),
     fury: _t("шанс нанести двойной урон (потолок 35%)"), cunning: _t("шанс забрать половину магических камней врага (потолок 30%)"),
@@ -716,6 +788,11 @@ const ItemInfo = (() => {
     grove: _t("Кора, листья и серебряная нить Лесных домов — лёгкое, как утро."), scale: _t("Панцири, кости и болотный яд племён Чешуи."),
     guard: _t("Тяжёлая броня городской стражи: держать удар и стоять до конца."), berserk: _t("Для тех, кто бьёт первым и не считает ран."),
     mage: _t("Ткань и камни, послушные магии Грани."), wanderer: _t("Дорожное снаряжение: всего понемногу, ничего лишнего."),
+    swift: _t("Лёгкая крылатая броня: быстрый защитник, который уходит от ударов."), archer: _t("Зелёная кожа и перья: хитрость, меткость и быстрые руки."),
+    moon: _t("Лёгкий комплект из лунного камня: инициатива и хитрость. Делается только в Кузнице из селенита и флюорита глубин."), granite: _t("Тяжёлый комплект из гранита и слюды: броня, блок и жизнь. Делается только в Кузнице из минералов подземелья."),
+    ancient: _t("Панцирь и рога древнего зверя: толстая шкура, много жизни и брони."), tracker: _t("Снаряжение охотника: чутьё, выносливость и верный питомец."),
+    hammer: _t("Грубая кованая сталь: весь бонус в урон и ярость."), bastion: _t("Тяжёлые шипастые плиты: непробиваемый блок и отражение ударов."),
+    legend: _t("Тёмное золото и руны, выдаётся стражами подземелий."),
     sea: _t("Редкий набор побережья: его носили команды пропавших кораблей."),
   };
   const slotFor = (it) => (it.type === 'weapon1' || it.type === 'weapon2' ? 'main' : it.type === 'shield' ? 'off' : it.type);
@@ -753,7 +830,7 @@ const ItemInfo = (() => {
       const delta = cur && d ? `<span class="ic-d ${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲ +' : '▼ −'}${Math.abs(d)}</span>` : '';
       const pct = Math.min(100, Math.round(v / STAT_SCALE[k] * 100));
       return `<li class="ic-stat s-${k} ${v ? '' : 'zero'}"><span class="ic-sv">${v ? fmtStat(k, v) : _t("{0}: нет", [Gear.STAT_NAMES[k]])}</span>${delta}
-        <i class="ic-bar"><b style="width:${pct}%"></b></i><small>${k === 'defense' && v ? _t("вычитается из каждого удара: −{0} у вашего героя", [Combat.armorAt(v, Hero.dmgMult(Profile.level()))]) : STAT_HELP[k]}</small></li>`;
+        <i class="ic-bar"><b style="width:${pct}%"></b></i><small>${k === 'defense' && v ? _t("вычитается из каждого удара: −{0} у вашего героя", [Combat.armorAt(v)]) : STAT_HELP[k]}</small></li>`;
     }).join('');
 
     // Набор: сколько надето у героя и какие бонусы горят.
@@ -767,20 +844,50 @@ const ItemInfo = (() => {
     }
 
     let runeBlock = '';
-    if (mine) {
+    if (mine && Runes.socketsFor(it) === 0) {
+      runeBlock = `<section class="ic-runes"><h3>${_t("Руны")}</h3><p class="hint">${_t("Руны наносятся на вещи с 3-го цвета (жёлтого): одна руна, с 6-го цвета — две.")}</p></section>`;   // 2.0.5
+    } else if (mine) {
       const sockets = Runes.socketsFor(it);
       const bag = Profile.data.runeBag || {};
-      const owned = Runes.ORDER.filter((id) => bag[id] > 0);
+      const owned = Runes.ORDER.filter((id) => bag[id] > 0 && Runes.allows(entry, id)), mightHeld = ['rune-might', 'rune-might2'].some((id) => !Runes.allows(entry, id) && bag[id] > 0);
+      const heroRank = Runes.clampRank(Hero.tierFor(Profile.level()));
+      const upPrice = (rk) => Math.round(140 * Tiers.PRICE_MULT[heroRank - 1] * Factions.perk(Profile.data.faction, 'shop'));
       const slots = Array.from({ length: sockets }, (_, k) => {
         const runeId = entry.runes && entry.runes[k];
         const r = runeId && Runes.CATALOG[runeId];
-        if (r) return _t("<div class=\"ic-socket full\" style=\"--r:{0}\">{1}<span><b>{2}</b><small>{3}</small></span>\n            <button type=\"button\" data-rune-remove=\"{4}\" {5}>Извлечь</button></div>", [r.color, Runes.icon(runeId, 'rune-badge'), r.name, r.desc, k, locked ? 'disabled' : '']);
-        return _t("<div class=\"ic-socket\"><i class=\"ic-hole\"></i><span><b>Гнездо {0} пустое</b>{1}</span></div>", [k + 1, owned.length ? `<small>${owned.map((id) => `<button type="button" class="itembtn-inline" data-rune-insert="${id}" data-rune-slot="${k}" ${locked ? 'disabled' : ''}>${Runes.CATALOG[id].name} × ${bag[id]}</button>`).join(' ')}</small>` : _t("<small>Руны продаются в Мастерской художника.</small>")]);
+        if (r) {
+          const rk = Runes.rankOf(entry, k), old = rk < heroRank;
+          return `<div class="ic-socket full" style="--r:${r.color}">${Runes.icon(runeId, 'rune-badge')}<span><b>${r.name}</b><small>${Runes.descAt(runeId, rk)}${old ? ` · ${_t("можно обновить до вашего уровня: {0}", [Runes.descAt(runeId, heroRank)])}` : ''}</small></span>`
+            + (old ? `<button type="button" data-rune-up="${k}" ${locked || Profile.data.coins < upPrice() ? 'disabled' : ''}>${_t("Обновить")} · ${MonsterArt.moneyHtml(upPrice())}</button>` : '')
+            + `<button type="button" data-rune-remove="${k}" ${locked ? 'disabled' : ''}>${_t("Извлечь")}</button></div>`;
+        }
+        return `<div class="ic-socket"><i class="ic-hole"></i><span><b>${_t("Место для руны свободно")}</b>${owned.length ? `<small>${owned.map((id) => `<button type="button" class="itembtn-inline" data-rune-insert="${id}" data-rune-slot="${k}" ${locked ? 'disabled' : ''}>${Runes.CATALOG[id].name} × ${bag[id]} (${Runes.descAt(id, heroRank)})</button>`).join(' ')}</small>` : `<small>${_t("Руны продаются в Мастерской художника.")}</small>`}</span></div>`;
       }).join('');
-      runeBlock = _t("<section class=\"ic-runes\"><h3>Руны · {0}</h3>{1}{2}</section>", [_nn(sockets, 'гнездо', 'гнезда', 'гнёзд'), slots, locked ? _t("<p class=\"hint warn\">Руну можно менять до первого хода боя или после его окончания.</p>") : '']);
+      runeBlock = `<section class="ic-runes"><h3>${_t("Руны")} · ${Runes.ORDER.length ? sockets + '/' + Runes.socketsFor({ tier: 10 }) : ''}</h3>${slots}${mightHeld ? `<p class="hint">${_t("Руна мощи — только в одноручное оружие, двойная руна мощи — только в двуручное.")}</p>` : ''}${locked ? `<p class="hint warn">${_t("Руну можно менять до первого хода боя или после его окончания.")}</p>` : ''}</section>`;
     } else if (entry.runes && entry.runes.length) {
-      runeBlock = _t("<section class=\"ic-runes\"><h3>Руны</h3>{0}</section>", [entry.runes.filter((id) => Runes.CATALOG[id]).map((id) => `<div class="ic-socket full">${Runes.icon(id, 'rune-badge')}<span><b>${Runes.CATALOG[id].name}</b><small>${Runes.CATALOG[id].desc}</small></span></div>`).join('')]);
+      runeBlock = _t("<section class=\"ic-runes\"><h3>Руны</h3>{0}</section>", [entry.runes.filter((id) => Runes.CATALOG[id]).map((id) => `<div class="ic-socket full">${Runes.icon(id, 'rune-badge')}<span><b>${Runes.CATALOG[id].name}</b><small>${Runes.descAt(id, Runes.rankOf(entry, (entry.runes || []).indexOf(id)))}</small></span></div>`).join('')]);
     }
+
+    // 2.0.7: гнёзда самоцветов (отдельно от рун и огранки): гнездо появляется после «Пробить гнездо», на вещи их 2 (третье — за заслуги)
+    {
+      const gl = Stones.gemList(entry), maxH = Stones.maxHoles(Profile.data.thirdGem);
+      const dot = (c) => `<i class="gem-dot" style="background:${Stones.HEX[c - 1]}"></i>`;
+      const bon = (c) => fmtBonus(Stones.gemBonus(c));
+      if (mine) {
+        const S = Profile.stones(), dc = Stones.drillCost(it.tier || 1), fc = Stones.fixCost(it.tier || 1), rs = Profile.gemStack(it.tier || 1);
+        const own = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((c) => S.bag[c] > 0);
+        const rows = gl.map((c, k) => c
+          ? `<div class="ic-socket full">${dot(c)}<span><b>${Stones.name(c)}</b><small>${bon(c)}</small></span><button type="button" data-gem="remove" data-gem-slot="${k}" ${locked ? 'disabled' : ''}>${_t("Извлечь")}</button></div>`
+          : `<div class="ic-socket"><i class="ic-hole"></i><span><b>${_t("Гнездо пустое")}</b>${own.length ? `<small>${_t("Крепление смолой: {0} × {1}{2}", [Bestiary.RESOURCES.resin.name.toLowerCase(), fc.resin, rs ? '' : _t(" — смолы не хватает")])}<br>${own.map((g) => `<button type="button" class="itembtn-inline" data-gem-insert="${g}" data-gem-slot="${k}" ${locked || !rs ? 'disabled' : ''}>${dot(g)} ${Stones.name(g)}: ${bon(g)}</button>`).join(' ')}</small>` : `<small>${_t("Нет самоцветов: их роняют стражи подземелья и скорпионы.")}</small>`}</span></div>`).join('');
+        const drill = gl.length < maxH
+          ? _t("<p class=\"hint\">Пробейте в вещи гнездо: нужен пробойник × {0} (есть {1}). Самоцвет в гнезде крепится смолой. Пробойник продаёт Журавль-художник.</p><div class=\"reset\"><button type=\"button\" data-gem=\"drill\" {2}>Пробить гнездо</button></div>", [dc.punch, S.punch, S.punch >= dc.punch && !locked ? '' : 'disabled'])
+          : `<p class="hint">${Profile.data.thirdGem ? _t("Все три гнезда пробиты.") : _t("Два гнезда пробиты. Третье открывается за особые заслуги.")}</p>`;
+        runeBlock += `<section class="ic-runes ic-gem"><h3>${_t("Гнёзда самоцветов")} · ${gl.length}/${maxH}</h3>${rows}${drill}${locked ? `<p class="hint warn">${_t("Снаряжение можно менять до первого хода в бою.")}</p>` : ''}</section>`;
+      } else if (gl.length) {
+        runeBlock += `<section class="ic-runes ic-gem"><h3>${_t("Гнёзда самоцветов")}</h3>${gl.map((c) => `<div class="ic-socket ${c ? 'full' : ''}">${c ? `${dot(c)}<span><b>${Stones.name(c)}</b><small>${bon(c)}</small></span>` : `<i class="ic-hole"></i><span><b>${_t("Гнездо пустое")}</b></span>`}</div>`).join('')}</section>`;
+      }
+    }
+
 
     const reqs = [
       _t("<li class=\"{0}\">{1} Уровень героя {2}+</li>", [lowLv ? 'bad' : 'ok', lowLv ? '🔒' : '✓', Hero.itemLevel(it.wt)]),
@@ -819,6 +926,9 @@ const ItemInfo = (() => {
     if (b.dataset.act === 'close') return close();
     if (b.dataset.ic === 'equip') { const err = Inventory.equipUid(uid); if (err) { b.textContent = err; b.disabled = true; return; } return render(); }
     if (b.dataset.ic === 'unequip') { Inventory.unequipSlot(b.dataset.slotName); return render(); }
+    if (b.dataset.gem === 'drill') { const r = Profile.drillItem(uid); if (r.ok && typeof onGearChanged === 'function') onGearChanged(); return render(); }
+    if (b.dataset.gem === 'remove') { if (Profile.removeGem(uid, Number(b.dataset.gemSlot) || 0) && typeof onGearChanged === 'function') onGearChanged(); return render(); }
+    if (b.dataset.gemInsert) { if (Profile.insertGem(uid, Number(b.dataset.gemInsert), Number(b.dataset.gemSlot)) && typeof onGearChanged === 'function') onGearChanged(); return render(); }
     if (b.dataset.runeInsert) {
       const entry = Profile.item(uid);
       if (!entry) return;
@@ -826,11 +936,20 @@ const ItemInfo = (() => {
       const id = b.dataset.runeInsert, slot = Number(b.dataset.runeSlot) || 0;
       if (!(bag[id] > 0)) return;
       const prev = entry.runes && entry.runes[slot];
-      if (prev && Runes.CATALOG[prev]) { bag[prev] = (bag[prev] || 0) + 1; }   // старая руна в этом гнезде — обратно в запас
-      Runes.insert(entry, id, slot);
+      if (prev && Runes.CATALOG[prev]) { bag[prev] = (bag[prev] || 0) + 1; }   // прежняя руна на этом месте — обратно в запас
+      Runes.insert(entry, id, slot, Hero.tierFor(Profile.level()));
       bag[id]--;
       if (!bag[id]) delete bag[id];
-      Profile.save();
+      Profile.save(); Profile.noteMaster('rune', 1);
+      if (typeof onGearChanged === 'function') onGearChanged();
+      return render();
+    }
+    if (b.dataset.runeUp !== undefined) {
+      const entry = Profile.item(uid), slot = Number(b.dataset.runeUp) || 0, rk = Runes.clampRank(Hero.tierFor(Profile.level()));
+      if (!entry || !entry.runes || !entry.runes[slot] || Runes.rankOf(entry, slot) >= rk) return;
+      const price = Math.round(140 * Tiers.PRICE_MULT[rk - 1] * Factions.perk(Profile.data.faction, 'shop'));
+      if (!Profile.spend(price)) return;
+      Runes.upgrade(entry, slot, rk); Profile.save(); Profile.noteMaster('rune', 1);
       if (typeof onGearChanged === 'function') onGearChanged();
       return render();
     }
@@ -915,16 +1034,16 @@ const Inventory = (() => {
     const dmg = who ? who.dmg : Hero.dmgMult(Profile.level()), base = who ? who.base : Hero.baseHp(Profile.level());
     const stone = dmg * Balance.damage.stone, N = Gear.STAT_NAMES;
     const nth = (p) => Math.max(1, Math.round(100 / p));
-    const fmt1 = (x) => (x >= 10 ? String(Math.round(x)) : String(Math.round(x * 10) / 10).replace('.', I18N.lang === 'en' ? '.' : ','));
+    const fmt1 = (x) => String(Math.round(x));   // 2.0.5: Сила — целая
     // 1.8.4: что изменилось с момента открытия карточки — плюс зелёным, минус красным (пока карточка не закрыта)
     if (!who && !statBase) statBase = { ...stats };
     const delta = (k) => (who || !statBase) ? 0 : (stats[k] || 0) - (statBase[k] || 0);
     const row = (name, big, small, k) => { const d = k ? delta(k) : 0; const cls = d > 0 ? ' class="stat-up"' : d < 0 ? ' class="stat-down"' : ''; return `<div><span>${name}</span><b${cls}>${big}${d ? ` <i>(${d > 0 ? '+' : '−'}${Math.abs(d)})</i>` : ''}</b><small>${small}</small></div>`; };
-    const arm = Combat.armorAt(stats.defense, dmg), cap = stats.defense >= Gear.CAPS.defense ? _t(" (максимум)") : '';
+    const arm = Combat.armorAt(stats.defense), cap = '';
     return `<div class="stat-list">${[
-      row(N.power, `+${num1(stats.power)}`, _t("к каждому удару: +{0} (с Силой уровня +{1})", [fmt1(stats.power + Combat.levelPower(dmg)), fmt1(Combat.levelPower(dmg))]), 'power'),
+      row(N.power, `+${Math.round(stats.power)}`, _t("к каждому удару: +{0} (с Силой уровня +{1})", [fmt1(stats.power + Combat.levelPower(dmg)), fmt1(Combat.levelPower(dmg))]), 'power'),
       row(N.health, `+${stats.health}`, _t("ХП всего: {0} (без вещей {1})", [base + stats.health, base]), 'health'),
-      row(N.defense, `−${arm}`, _t("вычитается из каждого удара ({0} очк.{1}); не меньше 20% удара", [stats.defense, cap]), 'defense'),
+      row(N.defense, `−${arm}`, _t("вычитается из каждого удара; не меньше 20% удара"), 'defense'),
       row(N.initiative, `+${stats.initiative}%`, _t("шанс первого хода"), 'initiative'),
       row(N.ricochet, `${stats.ricochet}%`, stats.ricochet > 0 ? _t("≈ каждый {0}-й удар по вам отлетает в нападающего", [nth(stats.ricochet)]) : _t("удар по вам отлетает в нападающего: пока нет"), 'ricochet'),
       row(N.block, `${stats.block}%`, stats.block > 0 ? _t("≈ каждый {0}-й удар по вам блокируется полностью", [nth(stats.block)]) : _t("полный блок удара: пока нет"), 'block'),
@@ -936,7 +1055,7 @@ const Inventory = (() => {
   // Уровень, опыт, ХП и урон героя.
   function heroLine(lv, stats) {
     const pct = lv.need === Infinity ? 100 : Math.round(lv.into / lv.need * 100);
-    return _t("<div class=\"hero-level\"><b>Уровень {0}</b><span>{1}</span>\n      <div class=\"xpbar\"><i style=\"width:{2}%\"></i></div>\n      <small>ХП {3} · урон камня ×{4} · вещи до цвета «{5}»</small></div>", [lv.level, lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need]), pct, Hero.baseHp(lv.level) + stats.health, Hero.dmgMult(lv.level), Tiers.get(Hero.tierFor(lv.level)).name]);
+    return _t("<div class=\"hero-level\"><b>Уровень {0}</b><span>{1}</span>\n      <div class=\"xpbar\"><i style=\"width:{2}%\"></i></div>\n      <small>ХП {3} · Сила уровня +{4} · вещи до цвета «{5}»</small></div>", [lv.level, lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need]), pct, Hero.baseHp(lv.level) + stats.health, Math.round(Hero.levelPower(lv.level) * 10) / 10, Tiers.get(Hero.tierFor(lv.level)).name]);
   }
 
   function render() {

@@ -9,7 +9,7 @@ const D = Balance.danger, off0 = { ...D.offset };
 const clampP = (p) => Math.max(0.03, Math.min(0.97, p));
 const logit = (p) => Math.log(clampP(p) / (1 - clampP(p)));
 const res = {};
-for (const id of Object.keys(Bestiary.MONSTERS)) {
+for (const id of (args.only ? String(args.only).split(',') : Object.keys(Bestiary.MONSTERS))) {
   const diffs = [];
   for (const T of TIERS) {
     const L = Hero.itemLevel(T);

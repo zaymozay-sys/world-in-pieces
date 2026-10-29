@@ -34,12 +34,14 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   await p.tap('#m-more'); await p.waitForTimeout(150);
   ok(await vis(p, '#map-menu'), 'меню открылось');
   const items = await p.evaluate(() => [...document.querySelectorAll('#map-menu button')].map((e) => { const r = e.getBoundingClientRect(); return [e.textContent.trim(), Math.round(r.height), Math.round(r.right), Math.round(r.bottom)]; }));
-  ok(items.length >= 7 && items.every((i) => i[1] >= 40 && i[2] <= 390 && i[3] <= 844), 'семь пунктов (с «Анимации» и «Таймер хода», 1.6.5) ≥ 40 px внутри экрана: ' + JSON.stringify(items));
+  const vis6 = items.filter((i) => i[1] > 0);
+  ok(vis6.length >= 6 && vis6.every((i) => i[1] >= 40 && i[2] <= 390 && i[3] <= 844), '2.0.5: три пункта и три раздела ≥ 40 px внутри экрана: ' + JSON.stringify(items));
   const m0 = await p.evaluate(() => Sound.muted);
   await p.tap('#mm-mute'); await p.waitForTimeout(150);
   ok(await p.evaluate((m) => Sound.muted !== m && !document.getElementById('map-menu').hidden, m0), 'звук переключился, меню осталось');
   ok(await p.evaluate(() => document.getElementById('mm-mute').textContent === document.getElementById('m-mute').textContent), 'подпись звука одинакова в меню и в скрытой кнопке');
   await p.tap('#mm-mute'); // вернуть как было
+  await p.tap('#map-menu .mm-head >> nth=2'); await p.waitForTimeout(200);
   await p.tap('#map-menu button[data-mdo=m-help]'); await p.waitForTimeout(300);
   ok(await p.evaluate(() => document.getElementById('map-menu').hidden), 'меню закрылось после выбора');
   ok(await p.evaluate(() => !!document.querySelector('.modal, #screen:not([hidden]), .overlay:not([hidden])')), 'экран «Как играть» открылся');
@@ -77,6 +79,7 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   for (const id of ['m-mute', 'm-fs', 'm-lang', 'm-help', 'm-credits']) ok(!(await vis(p, '#' + id)), id + ' на компьютере убран в меню');
   await p.click('#m-more'); await p.waitForTimeout(150);
   ok(await vis(p, '#map-menu'), 'меню ☰ открывается на компьютере');
+  await p.click('#map-menu .mm-head >> nth=2'); await p.waitForTimeout(200);
   await p.click('#map-menu button[data-mdo=m-help]'); await p.waitForTimeout(300);
   ok(await p.evaluate(() => !!document.querySelector('.modal')), '«Как играть» из меню открывается');
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);

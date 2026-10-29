@@ -1,9 +1,9 @@
 // Тесты эликсиров (js/elixirs.js). Запуск: node tests/elixirs.test.js
 const assert = require('assert');
 const E = require('../js/elixirs.js');
-assert.strictEqual(E.ORDER.length, 9);
+assert.strictEqual(E.ORDER.length, 14);   // 2.0.7: + тоники дороги, скорости, хитрости, корм и «Стойкость»
 assert.strictEqual(E.bonus(1, 'fury'), 19);   // 3,6 + добавка низких цветов 15 assert.strictEqual(E.bonus(10, 'health'), 0, 'Жизнь и Камни — мгновенные, без прибавки к характеристике');
-assert.strictEqual(E.bonus(10, 'power'), 100); assert.strictEqual(E.bonus(10, 'block'), 16); assert.strictEqual(E.bonus(3, 'ricochet'), 5); assert.strictEqual(E.bonus(10, 'ricochet'), 9); assert.strictEqual(E.bonus(10, 'defense'), 34); assert.strictEqual(E.bonus(10, 'cunning'), 30);
+assert.strictEqual(E.bonus(10, 'power'), 100); assert.strictEqual(E.bonus(10, 'block'), 16); assert.strictEqual(E.bonus(3, 'ricochet'), 5); assert.strictEqual(E.bonus(10, 'ricochet'), 9); assert.strictEqual(E.bonus(10, 'defense'), 23); assert.strictEqual(E.bonus(10, 'cunning'), 30);
 // Лечение — цифрой ХП, кратной 10: 1-й цвет 30, 10-й 350, растёт с цветом
 const H = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(E.heal);
 assert.strictEqual(H[0], 30); assert.strictEqual(H[9], 350);
@@ -29,7 +29,7 @@ assert.ok(!E.KINDS.initiative && E.KINDS.cunning, 'вместо Инициати
 assert.deepStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(E.price), [6, 16, 43, 120, 300, 740, 1800, 6400, 14000, 36000].map((x) => Math.max(1, Math.round(x * require("../js/balance.js").rewards.coinK))));
 for (let i = 2; i <= 10; i++) assert.ok(E.price(i) > E.price(i - 1));
 for (const k of E.ORDER) assert.strictEqual(E.price(5, k), E.price(5), 'цена не зависит от вида: ' + k);
-for (const k of E.ORDER) { assert.ok(E.KINDS[k].name && E.describe(k, 3), 'описание: ' + k); assert.ok(['turn', 'long', 'instant'].includes(E.KINDS[k].mode)); }
+for (const k of E.ORDER) { assert.ok(E.KINDS[k].name && E.describe(k, 3), 'описание: ' + k); assert.ok(['turn', 'long', 'instant', 'pet'].includes(E.KINDS[k].mode)); }
 // Сила — до конца хода (1), остальные длинные виды — 10 своих ходов, мгновенные не «пьются» через drink()
 assert.strictEqual(E.turns('power'), 1); assert.strictEqual(E.turns('defense'), 10); assert.strictEqual(E.turns('health'), 0); assert.strictEqual(E.turns('swap'), 0);
 const a = {};
@@ -46,3 +46,17 @@ assert.ok(!a.power, 'Сила кончилась вместе с ходом'); a
 for (let i = 0; i < 9; i++) E.tick(a);
 assert.deepStrictEqual(E.bonusStats(a), {}, 'срок вышел — бонуса нет');
 console.log('elixirs: все тесты пройдены');
+
+// 2.0.7: новые эликсиры (тоники, корм, «Стойкость»)
+{
+  const A = require('assert'), E = require('../js/elixirs.js'), Combat = require('../js/combat.js');
+  for (const k of ['road', 'speed', 'wit', 'food', 'endure']) A.ok(E.KINDS[k] && E.describe(k, 3), k);
+  A.ok(E.KINDS.endure.noBrew && !E.KINDS.wit.noBrew, 'Стойкость не варится');
+  const act = {}; A.ok(E.drink(act, 'wit', 4) && act.wit.left === 10, 'тоник хитрости — 10 ходов');
+  A.ok(E.bonusStats(act).cunning > 0 && E.bonusStats({ speed: { tier: 6, left: 5 } }).initiative > 0, 'бонусы тоников');
+  A.strictEqual(E.drink({}, 'endure', 1), false, 'Стойкость действует через флаг бойца');
+  A.ok(E.FOOD_MULT(10) > E.FOOD_MULT(1));
+  const f = { hp: 10, max: 100, endure: true, stats: {} };
+  A.strictEqual(Combat.loseHp(f, 50), true); A.strictEqual(f.hp, 1, 'Стойкость оставляет 1 ХП'); A.strictEqual(f.endure, false);
+  Combat.loseHp(f, 50); A.strictEqual(f.hp, 0, 'второй смертельный удар убивает');
+}

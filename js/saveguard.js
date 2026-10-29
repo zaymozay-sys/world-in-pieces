@@ -48,7 +48,7 @@ const SaveGuard = (() => {
     if (!Number.isInteger(d.wins) || d.wins < 0) { fix('wins'); d.wins = Math.max(0, Math.floor(nonNeg(d.wins))); }
 
     // --- вещи: только настоящие, цвет 1..10, uid уникальны ---
-    const items = [], seen = new Set();
+    const items = [], seen = new Set(), refundRunes = {};
     for (const e of Array.isArray(d.items) ? d.items : []) {
       if (!validEntry(e)) { fix('вещь убрана: ' + (isObj(e) ? e.id : String(e))); continue; }
       let c = e;
@@ -64,7 +64,24 @@ const SaveGuard = (() => {
         const rs = Array.isArray(c.runes) ? c.runes.filter((r) => typeof r === 'string' && SG_R.CATALOG[r]).slice(0, SG_R.socketsFor(c)) : [];
         if (!Array.isArray(c.runes) || rs.length !== c.runes.length) { c = { ...c }; fix('руны вещи ' + e.id); if (rs.length) c.runes = rs; else delete c.runes; }
       }
+      if (Array.isArray(c.runes) && c.runes.some((r) => r && !SG_R.allows(c, r))) {   // 2.0.8: руна мощи не в оружии — возвращается в запас
+        const rs = c.runes.map((r) => { if (r && !SG_R.allows(c, r)) { refundRunes[r] = (refundRunes[r] || 0) + 1; return undefined; } return r; });
+        c = { ...c }; fix('руна мощи вне оружия: ' + e.id);
+        if (rs.some(Boolean)) c.runes = rs; else { delete c.runes; delete c.rr; }
+      }
+      if (c.rr !== undefined) {                                        // ранги рун: целые 1–10, по числу мест
+        const n = SG_R.socketsFor(c), rr = Array.isArray(c.rr) ? c.rr.slice(0, n).map((v) => (Number.isInteger(v) && v >= 1 && v <= 10 ? v : undefined)) : [];
+        if (!c.runes || !rr.some(Boolean)) { c = { ...c }; delete c.rr; }
+        else if (JSON.stringify(rr) !== JSON.stringify(c.rr)) { c = { ...c, rr }; fix('ранги рун вещи ' + e.id); }
+      }
       if (c.cut !== undefined && !(SG_S && SG_S.valid(c.cut))) { c = { ...c }; delete c.cut; fix('огранка вещи ' + e.id); }
+      if (c.hole !== undefined || c.gem !== undefined || c.gems !== undefined) {                 // гнёзда самоцветов: приводим к массиву gems
+        const lim = SG_S && SG_S.maxHoles ? SG_S.maxHoles(d.thirdGem) : 2;
+        let g = Array.isArray(c.gems) ? c.gems : (c.hole === true ? [c.gem] : []);
+        g = g.slice(0, lim).map((v) => (SG_S && SG_S.valid(v) ? v : 0));
+        const same = Array.isArray(c.gems) && c.gems.length === g.length && c.gems.every((v, i) => v === g[i]);
+        if (!same || c.hole !== undefined || c.gem !== undefined) { c = { ...c }; delete c.hole; delete c.gem; if (g.length) c.gems = g; else delete c.gems; fix('гнёзда самоцветов вещи ' + e.id); }
+      }
       seen.add(c.uid); items.push(c);
     }
     d.items = items;
@@ -86,6 +103,7 @@ const SaveGuard = (() => {
     if (!isObj(d.elixirs)) d.elixirs = { active: {}, bag: {} };
     d.elixirs.bag = counters(d.elixirs.bag, elixKeyOk, 'эликсиры');
     d.ammo = counters(d.ammo, (k) => !!SG_A.CATALOG[k], 'боеприпасы');
+    if (Object.keys(refundRunes).length) { d.runeBag = isObj(d.runeBag) ? d.runeBag : {}; for (const k in refundRunes) d.runeBag[k] = (Number(d.runeBag[k]) || 0) + refundRunes[k]; }
     d.runeBag = counters(d.runeBag, (k) => !!SG_R.CATALOG[k], 'руны');
     if (d.eggs !== undefined) d.eggs = counters(d.eggs, (k) => !!SG_P.EGGS[k], 'яйца');
 
@@ -128,6 +146,11 @@ const SaveGuard = (() => {
     if (!isObj(d.medals)) { fix('медали'); d.medals = { earned: [], fiveStreaks: 0, strikeKills: 0 }; }
     if (isObj(d.medals)) {
       d.medals.earned = (Array.isArray(d.medals.earned) ? d.medals.earned : []).filter((m, i, a) => isObj(m) && typeof m.id === 'string' && m.id && a.findIndex((x) => isObj(x) && x.id === m.id) === i).map((m) => (tierOk(m.tier) ? m : { ...m, tier: clampTier(m.tier) }));
+      if (d.medals.cnt !== undefined) {                          // 2.0.7: счётчики мастерских серий
+        const cnt = {}; let bad = !isObj(d.medals.cnt);
+        for (const k of Object.keys(isObj(d.medals.cnt) ? d.medals.cnt : {})) { const v = d.medals.cnt[k]; if (Number.isInteger(v) && v >= 0 && v < 1e9) cnt[k] = v; else bad = true; }
+        if (bad) { fix('медали.cnt'); d.medals.cnt = cnt; }
+      }
       for (const k of ['fiveStreaks', 'strikeKills', 'shotKills', 'drunk', 'spellWins']) if (d.medals[k] !== undefined && (!Number.isInteger(d.medals[k]) || d.medals[k] < 0)) { fix('медали.' + k); d.medals[k] = Math.max(0, Math.floor(nonNeg(d.medals[k]))); }
     }
 

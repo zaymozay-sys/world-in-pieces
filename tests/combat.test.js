@@ -28,9 +28,9 @@ assert.strictEqual(r.kind, 'block'); assert.strictEqual(t.hp, 100);
 // рикошет: удар отлетает в нападающего, цель ничего не теряет
 a = fighter(); t = fighter({ stats: { ricochet: 100 } }); r = Combat.hit(a, t, 10, false, always);
 assert.strictEqual(r.kind, 'reflect'); assert.strictEqual(t.hp, 100); assert.strictEqual(a.hp, 90);
-// Броня ограничена потолком
+// 2.0.7: потолка Брони нет — вычитается ровно набранное
 t = fighter({ stats: { defense: 95 } }); r = Combat.hit(fighter(), t, 100, false, never);
-assert.strictEqual(r.amount, 100 - Combat.armorAt(Gear.MAX_DEFENSE, 1));
+assert.strictEqual(r.amount, Math.max(20, 100 - Combat.armorAt(95)));   // пол — 20% удара
 // 1.6.0: Броня вычитается цифрой (удар 3, Броня 1 → 2), пол урона — 20% удара, но не меньше 1
 assert.strictEqual(Combat.mitigate(3, 1), 2); assert.strictEqual(Combat.mitigate(10, 100), 2); assert.strictEqual(Combat.mitigate(2, 50), 1); assert.strictEqual(Combat.mitigate(30, 0), 30);
 
@@ -75,7 +75,7 @@ assert.strictEqual(Combat.hit(a, t, 10, false, never).amount, 20);
 assert.strictEqual(Combat.hit(a, t, 10, false, never).amount, 10);
 // Ярость: раненый бьёт сильнее
 a = fighter({ ability: 'rage', hp: 40 });
-assert.ok(Math.abs(Combat.power(a) - B.abilities.rage.power * 0.045) < 1e-9, 'Ярость орка: очки старой шкалы × 0,045 × рост урона (dmg = 1)');
+assert.strictEqual(Combat.power(a), Math.round(B.abilities.rage.power * 0.045), 'Ярость орка: очки старой шкалы × 0,045 × рост урона (dmg = 1)');
 a.hp = 80; assert.strictEqual(Combat.power(a), 0);
 // Подлый удар не замечает Брони
 a = fighter({ ability: 'backstab' }); t = fighter({ stats: { defense: 50 } });
@@ -229,7 +229,7 @@ assert.ok(v3.hpOpp < v1.hpOpp, 'чем больше рост урона (Сил�
 assert.ok(Math.abs(v1.hpOpp / v3.hpOpp - (4.5 + Combat.levelPower(3)) / 4.5) < 1e-9);
 
 // оценка опасности: разумный диапазон, растёт с силой героя, пороги по порядку
-const H = { max: 125, dmg: 1.5, stats: stats({ power: 10, defense: 10 }) };
+const H = { max: 125, dmg: 1.5, stats: stats({ power: 10, defense: 1 }) };
 const mon = { max: 80, dmg: 1.5, stats: stats({ power: 25 }), ai: 30 };
 const p0 = Combat.winChance(H, mon, 'orc');
 assert.ok(p0 > 0.05 && p0 < 0.95);

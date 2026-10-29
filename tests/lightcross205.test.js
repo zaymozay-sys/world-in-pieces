@@ -1,0 +1,10 @@
+const fs = require('fs');
+const g = fs.readFileSync(__dirname + '/../js/game.js', 'utf8');
+const assert = require('assert');
+assert(/aimOnly = \(\) => \(\{\}\)/.test(g), 'ИИ под Молнией не добавляет Крест/Захват');
+assert(/\(kind === 'fire' \|\| kind === 'square'\) && f\.magic\) return true/.test(g), 'кнопки Креста/Захвата блокируются при Молнии');
+assert(/const stones = obs;/.test(g), 'множитель Молнии не идёт в Крест');
+const sim = require('../tools/sim.js');
+const r = sim.simulate({ faction: 'forest', level: 5, monster: 'wolf', tier: 3, n: 4, seedBase: 1 });
+assert(r, 'симулятор работает');
+console.log('lightcross 2.0.5 ok');
