@@ -1375,7 +1375,7 @@ const Screens = (() => {
     const f = new Set();
     for (let i = 0; i < 36; i++) if (t[i] >= 0 && t[i] !== pt[i]) f.add(i);
     g.fall = f;
-    setTimeout(() => { if (st.lighthouse && st.lighthouse.game === g && g.preview) { g.preview = null; render(); } }, 260);
+    setTimeout(() => { if (st.lighthouse && st.lighthouse.game === g && g.preview) { g.preview = null; render(); } }, 650);
   }
   function lhMrHtml(g) {
     const a = g.s, p = a.puz, tr = LHGames.mrTrace(p), cells = [];
