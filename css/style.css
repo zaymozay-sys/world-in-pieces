@@ -3782,7 +3782,7 @@ body.no-hint.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p3; }
 .lh-stone.hit { filter: drop-shadow(0 0 4px #fff); }
 .lh-hole { width: 60%; aspect-ratio: 1; border-radius: 26%; background: rgba(0,0,0,.25); }
 .lh-cell.swap { position: relative; z-index: 2; }
-.lh-cell.swap .lh-stone { animation: lh-swap .22s ease-out both; }
+.lh-cell.swap .lh-stone { animation: lh-swap .4s ease-in-out both; }
 @keyframes lh-swap { from { transform: translate(calc(var(--dx) * 114%), calc(var(--dy) * 114%)); } to { transform: translate(0, 0); } }
 .lh-cell.fall .lh-stone { animation: lh-fall .42s cubic-bezier(.3,.7,.4,1) both; animation-delay: var(--fd, 0ms); }
 @keyframes lh-fall { 0% { transform: translateY(-260%); opacity: 0; } 15% { opacity: 1; } 75% { transform: translateY(8%); } 100% { transform: translateY(0); opacity: 1; } }
