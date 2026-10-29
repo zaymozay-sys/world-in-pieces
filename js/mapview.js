@@ -1061,7 +1061,7 @@ const MapView = (() => {
     battleSpawn = sp;
     st.swarm = st.swarm || {};
     if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
-    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: Math.min(sp.tier, Hero.tierFor(Profile.level()) + 1), swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), depth: sp.depth > 1 ? sp.depth : 0, loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
+    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: sp.tier, swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), depth: sp.depth > 1 ? sp.depth : 0, loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -1127,7 +1127,7 @@ const MapView = (() => {
     return pool.length ? pool[Math.floor(rand() * pool.length)] : 'wolf';
   }
   const randomAffix = () => World.AFFIX_IDS[Math.floor(Math.random() * World.AFFIX_IDS.length)];
-  const evTier = (tier) => Math.min(tier, Hero.tierFor(Profile.level()) + 1);
+  const evTier = (tier) => tier;   // 2.0.8: цвет события, логова и осады не занижается до цвета героя + 1
   function useEvent(e) { st.evUsed[e.id] = Date.now() + World.EVENT_RESPAWN; renderEvents(); save(); }
 
   function showEvent(e) {
@@ -2058,7 +2058,7 @@ const MapView = (() => {
       if (!st.siege) return;
       zoomIn(r.idx, () => {
         walking = null;
-        startSpecial({ id: r.species, tier: Math.min(r.tier, Hero.tierFor(Profile.level()) + 1), siege: r.id, siegeKind: kind, volley: kind === 'raider' ? Siege.defense(hallLevel()).volley : 0 });
+        startSpecial({ id: r.species, tier: r.tier, siege: r.id, siegeKind: kind, volley: kind === 'raider' ? Siege.defense(hallLevel()).volley : 0 });
       });
     });
   }
