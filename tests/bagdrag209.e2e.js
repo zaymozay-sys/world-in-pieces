@@ -1,0 +1,31 @@
+// 2.0.9: перетаскивание эликсиров и расходников в сумке (браузер; в `npm test` не входит)
+const { launch } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
+const path = require('path'); const URL = 'file://' + path.join(__dirname, '..', 'index.html#dev-map');
+let bad = 0; const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } else console.log('ok  :', m); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const b = await launch();
+  const ctx = await b.newContext({ viewport: { width: 1000, height: 800 } });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  await p.goto(URL); await sleep(1200);
+  await p.evaluate(() => { Profile.addElixir('power', 1, 2); Profile.addElixir('defense', 1, 3); Profile.addElixir('block', 1, 1); Inventory.open('left'); });
+  await sleep(300);
+  const keys = () => p.evaluate(() => [...document.querySelectorAll('.bag-grid .drag-cell')].map((c) => c.dataset.bcell));
+  const before = await keys();
+  ok(before.length >= 3, 'в сумке не меньше трёх перетаскиваемых ячеек: ' + before.join(','));
+  const box = (i) => p.evaluate((i) => { const r = document.querySelectorAll('.bag-grid .drag-cell')[i].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, i);
+  const a = await box(0), c = await box(2);
+  await p.mouse.move(a[0], a[1]); await p.mouse.down(); await p.mouse.move(a[0] + 20, a[1] + 5, { steps: 4 }); await p.mouse.move(c[0], c[1], { steps: 6 });
+  ok(await p.evaluate(() => !!document.querySelector('.drag-ghost')), 'при перетаскивании виден «призрак» ячейки');
+  await p.mouse.up(); await sleep(250);
+  const after = await keys();
+  ok(after[2] === before[0] && after[0] === before[1], 'порядок изменился: ' + after.join(','));
+  ok(await p.evaluate(() => !document.querySelector('.drag-ghost')), 'призрак убран');
+  const saved = await p.evaluate(() => Profile.bagOrder());
+  ok(saved.join() === after.join(), 'порядок записан в профиль');
+  const el = await p.evaluate(() => Profile.elixirBag().map((e) => e.kind + ':' + e.tier));
+  ok(el.join() === after.filter((k) => !k.startsWith('c:')).join(), 'порядок эликсиров в бою совпадает: ' + el.join());
+  ok(!errs.length, 'без ошибок ' + errs.join('; '));
+  await ctx.close(); await b.close();
+  console.log(bad ? 'bagdrag209.e2e: ПРОВАЛ (' + bad + ')' : 'bagdrag209.e2e: всё в порядке'); process.exit(bad ? 1 : 0);
+})();

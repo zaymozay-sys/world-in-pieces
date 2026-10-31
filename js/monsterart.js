@@ -427,7 +427,7 @@ const MonsterArt = (() => {
     if (m.gold) parts.push(`<span class="coin">${m.gold}${coinIcon('gold')}</span>`);
     if (m.silver) parts.push(`<span class="coin">${m.silver}${coinIcon('silver')}</span>`);
     if (m.copper || !parts.length) parts.push(`<span class="coin">${m.copper}${coinIcon('copper')}</span>`);
-    return `<span class="money" title="${Tiers.moneyText(n)}">${parts.join('')}</span>`;
+    return `<span class="money" data-n="${Math.round(n)}" title="${Tiers.moneyText(n)}">${parts.join('')}</span>`;
   }
 
   return { bust, resIcon, coinIcon, moneyHtml, has: (id) => !!ART[id] || !!FALLBACK[id] || (typeof Art !== 'undefined' && Art.hasMonster(id)) };   // 1.6.7: и когда есть только картинка из art/ (Дракон в списке бестиария рисовался старым значком)

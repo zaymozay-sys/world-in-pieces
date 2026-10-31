@@ -27,6 +27,18 @@ const AnimSpeed = (() => {
   return { label, cycle, apply, get mode() { return cur; } };
 })();
 
+// 2.0.9: размер текста в окнах и подсказках — настройка устройства: обычный / крупный (поле боя и карта не меняются)
+const TextSize = (() => {
+  const KEY = 'wip-text';
+  let large = false;
+  try { large = localStorage.getItem(KEY) === 'large'; } catch (e) { /* без хранилища — обычный */ }
+  const apply = () => { try { document.documentElement.classList.toggle('text-large', large); } catch (e) { /* нет страницы */ } };
+  const label = () => large ? _t("Текст: крупный") : _t("Текст: обычный");
+  const toggle = () => { large = !large; try { localStorage.setItem(KEY, large ? 'large' : 'normal'); } catch (e) { /* не страшно */ } apply(); return large; };
+  apply();
+  return { label, toggle, apply };
+})();
+
 // 1.6.5: таймер хода — настройка устройства (не профиль). По умолчанию ВЫКЛ: в боях с существами можно думать сколько угодно.
 // Включённый таймер — Combat.TURN_TIMER.seconds (30 с) на ход, три пропуска подряд — поражение; пока открыто окно (ранец, справка,
 // карточки), время стоит. Бой против живого игрока (PvP, позже) вёл бы таймер всегда и без пауз: host.pvp === true (на сервере).
@@ -541,6 +553,12 @@ function renderFighters() {
     const el = fEl(side);
     if (!el.querySelector('.hpbar')) continue;             // панели ещё не построены (игрок на карте)
     el.querySelector('.hpbar i').style.width = (f.hp / f.max) * 100 + '%';
+    { // 2.0.9: бледный «след» потерянного ХП догоняет полосу с задержкой; лечение — без следа
+      const bar = el.querySelector('.hpbar'); let tr = bar.querySelector('.trail');
+      if (!tr) { tr = document.createElement('b'); tr.className = 'trail'; tr.style.width = '100%'; bar.insertBefore(tr, bar.firstChild); }
+      const w = Math.max(0, (f.hp / f.max) * 100), cur = parseFloat(tr.style.width) || 0;
+      if (w >= cur) { tr.style.transition = 'none'; tr.style.width = w + '%'; void tr.offsetWidth; tr.style.transition = ''; } else tr.style.width = w + '%';
+    }
     el.querySelector('.hptext').textContent = `${f.hp} / ${f.max}`;
     el.classList.toggle('dead', f.hp <= 0);
   }
@@ -671,7 +689,7 @@ function renderBag() {
   const ammoBtn = _t("<button type=\"button\" class=\"bagitem ammo {0}\" data-ammo=\"{1}\" title=\"{2} (выстрел хода не тратит, один за ход): {3}\" {4}>\n       {5}<b>{6}</b></button>", [aiming && aimKind === 'bomb' ? 'on' : '', ak, A.name, A.desc, ammoDisabled() ? 'disabled' : '', Ammo.icon(ak), an]);
   const nElx = Profile.elixirBag().reduce((a, e) => a + e.n, 0);
   const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || cardFight() || !!LIVE || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
-  bagEl.innerHTML = ammoBtn + elxBtn + Object.entries(Gear.CONSUMABLES).map(([k, c]) =>
+  bagEl.innerHTML = ammoBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).map(([k, c]) =>
     `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? (bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
        ${itemIcon(k)}<b>${bag[k] || 0}</b></button>`).join('');
   for (const bt of bagEl.querySelectorAll('button.bagitem.ammo, button.bagitem.elxmenu')) {      // 1.6.4: остальные два тоже получают состояние и подпись
@@ -994,7 +1012,7 @@ function renderMagic() {
       const fs = furyState();
       if (!fs.ok) btn.title += _t("\nНужно, чтобы камней вашего цвета ({0}) на поле было больше, чем любого другого, с учётом номиналов (сейчас: {1} против {2})", [GEM_NAMES[GEM_TYPES[fs.home]], fs.mine, fs.other]);
     }
-    btn.innerHTML = spellIconHtml(kind, 'bar-' + kind);
+    btn.innerHTML = spellIconHtml(kind, 'bar-' + kind) + (!locked && cost ? `<i class="sp-cost" aria-hidden="true">${cost}</i>` : '');
     btn.classList.toggle('locked', !!locked);
     btn.classList.toggle('new-spell', !!(needLvl && !locked && Profile.data.spellSeen && !Profile.data.spellSeen[kind]));
     btn.disabled = spellDisabled(kind, on, ready);
@@ -1054,7 +1072,7 @@ function renderAbilityLine() {
   // Узкий экран: строка приёма и значки скрыты, поэтому та же подпись — в хвосте строки хода (#status::after, см. CSS).
   const ab = enemyAbility(fighters.right);
   const show = turnSide === 'left' && !over && !!t && !!ab;
-  statusEl.dataset.next = show ? ` · ${ab.name}: ${t}` : '';
+  statusEl.dataset.next = show ? ` · ⚠ ${ab.name} ${t.replace(/^(?:шанс|chance)\s+(\d+)%.*$/i, '$1%')}` : '';
   statusEl.toggleAttribute('data-soon', show && soon);
 }
 
@@ -1319,6 +1337,10 @@ function showDamage(side, amount) {
   const s = document.createElement('div');
   s.className = 'dmg';
   s.textContent = '-' + amount;
+  const mx = fighters && fighters[side] && fighters[side].max;
+  const share = mx ? amount / mx : 0;                      // 2.0.9: крупный удар — крупная цифра; лёгкий разброс по горизонтали, чтобы подряд идущие числа не слипались
+  if (share >= 0.25) s.classList.add('huge'); else if (share >= 0.12) s.classList.add('big');
+  s.style.setProperty('--dx', ((amount * 7 + (Date.now() % 31)) % 31 - 15) + 'px');
   fEl(side).appendChild(s);
   setTimeout(() => s.remove(), 900);
   const av = fEl(side).querySelector('.avatar');           // 1.8.3: «живой» моб — при ударе портрет вздрагивает и наклоняется (CSS .hurt)
@@ -1487,7 +1509,7 @@ function renderElxMenu() {
   elxMenuEl.querySelector('.elx-menu-list').innerHTML = list.length ? list.map((e) => {
     const why = elxWhy(e.kind, e.tier);
     return `<div class="bag-row">${Elixirs.icon(e.kind, e.tier)}<span><b>${Elixirs.KINDS[e.kind].name}</b> · ${_t("цвет «{0}» × {1}", [Tiers.get(e.tier).name, e.n])}<br><small>${Elixirs.describe(e.kind, e.tier)}</small>${why ? `<br><small class="elx-why">${why}</small>` : ''}</span><button type="button" data-elx="${e.kind}:${e.tier}" ${why ? 'disabled' : ''}>${_t("Выпить")}</button></div>`;
-  }).join('') : `<p class="hint">${_t("Эликсиров в сумке нет. Их варит Тётушка Жабка у Алхимика.")}</p>`;
+  }).join('') : EmptyArt.html('flask', _t("Эликсиров в сумке нет"), _t("Их варит Тётушка Жабка у Алхимика."));
 }
 function openElxMenu() {
   if (!elxMenuEl) {
@@ -1562,6 +1584,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.pierce) showFloat(attackerSide, _t("Подлый удар!"), 'buff');
   if (r.shred > 0) showFloat(target, _t("Броня трещит!"), 'debuff');
   if (r.critExtra) elxMark('fury');                        // эликсир ярости: первый крит бил сильнее
+  if (r.venom) { showFloat(target, _t("Яд!"), 'venom'); logEvent(attackerSide, _t("{0}: Отрава — {1} урона в начале каждого из {2} ходов противника", [attacker.name, r.venom.dmg, r.venom.turns])); }
   if (r.crit) { showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
   if (r.kind === 'reflect') {
     showFloat(target, _t("Рикошет!"), 'ricochet');
@@ -1899,6 +1922,26 @@ function battleAnalysis(result) {
   return `<ul>${li.map((x) => `<li>${x}</li>`).join('')}</ul><p class="an-verdict">${verdict}</p>`;
 }
 
+// 2.0.9: сумма монет в окне награды «набегает» от нуля (0,6 с; учитывает скорость анимаций и «уменьшить движение»)
+function countUpMoney(box) {
+  try {
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const els = [...box.querySelectorAll('.money[data-n]')].filter((e) => Number(e.dataset.n) > 1);
+    if (!els.length) return;
+    const dur = 600 * (AnimSpeed.mode === 'fast' ? 0.6 : AnimSpeed.mode === 'slow' ? 1.5 : 1), t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      for (const el of els) {
+        if (!el.isConnected) continue;
+        const n = Math.round(Number(el.dataset.n) * e), tmp = document.createElement('span');
+        tmp.innerHTML = MonsterArt.moneyHtml(n);
+        const nm = tmp.firstElementChild; el.innerHTML = nm.innerHTML;
+      }
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  } catch (e) { /* не страшно: останется итоговая сумма */ }
+}
 function showOverlay(text, sub = '') {
   stopTurnTimer();
   if (LIVE && !LIVE.reported) { LIVE.reported = true; LIVE.net.result(text === _t("Победа!") ? LIVE.role : (LIVE.role === 'A' ? 'B' : 'A')); }
@@ -1921,13 +1964,17 @@ function showOverlay(text, sub = '') {
     b.addEventListener('click', () => { if (Profile.spend(cost)) MapView.returnFromBattle('revive'); });
     o.querySelector('.to-map').insertAdjacentElement('beforebegin', b);
   }
+  // 2.0.9: технические кнопки (анализ, журнал, копирование) — под «Подробнее»; главная кнопка «На карту» остаётся одна на виду
+  const more = document.createElement('div'); more.className = 'rw-more'; more.hidden = true;
+  const moreBtn = document.createElement('button'); moreBtn.type = 'button'; moreBtn.className = 'rw-more-btn'; moreBtn.textContent = _t("Подробнее"); moreBtn.setAttribute('aria-expanded', 'false');
+  moreBtn.addEventListener('click', () => { more.hidden = !more.hidden; moreBtn.setAttribute('aria-expanded', String(!more.hidden)); });
   if (host.main && !TUT()) {                                    // 1.7.3: «Анализ боя»
     const an = document.createElement('div'), ab = document.createElement('button');
     an.className = 'analysis'; an.hidden = true;
     ab.type = 'button'; ab.className = 'an-btn'; ab.textContent = _t("Анализ боя");
     ab.addEventListener('click', () => { if (an.hidden) an.innerHTML = battleAnalysis(result); an.hidden = !an.hidden; ab.setAttribute('aria-expanded', String(!an.hidden)); });
-    o.querySelector('.to-map').insertAdjacentElement('beforebegin', an);
-    o.querySelector('.to-map').insertAdjacentElement('beforebegin', ab);
+    more.appendChild(an);
+    more.appendChild(ab);
   }
   if (host.main && !TUT()) {                                    // 2.0.0: «Журнал боя» — весь ход боя по порядку
     const lg = document.createElement('ol'), lb = document.createElement('button');
@@ -1937,12 +1984,13 @@ function showOverlay(text, sub = '') {
       if (lg.hidden) { lg.textContent = ''; for (const r of battleLog) { const li = document.createElement('li'); li.className = r.side; li.textContent = r.text; lg.appendChild(li); } lg.scrollTop = lg.scrollHeight; }
       lg.hidden = !lg.hidden; lb.setAttribute('aria-expanded', String(!lg.hidden));
     });
-    o.querySelector('.to-map').insertAdjacentElement('beforebegin', lb);
+    more.appendChild(lb);
     if (battleNo) { const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'an-btn'; cb.textContent = _t("Копировать журнал");
       cb.addEventListener('click', () => { const e = BattleLog.get(battleNo); if (e) navigator.clipboard && navigator.clipboard.writeText(BattleLog.text(e)).then(() => { cb.textContent = _t("Скопировано"); }, () => {}); });
-      o.querySelector('.to-map').insertAdjacentElement('beforebegin', cb); }
-    o.querySelector('.to-map').insertAdjacentElement('beforebegin', lg);
+      more.appendChild(cb); }
+    more.appendChild(lg);
   }
+  if (more.children.length) { o.querySelector('.to-map').insertAdjacentElement('beforebegin', moreBtn); o.querySelector('.to-map').insertAdjacentElement('beforebegin', more); }
   // 1.6.6: итог боя в сохранении: победа снимает отметку «бой идёт», поражение изнашивает надетые вещи на 1 пункт
   const wear = host.main ? Profile.battleEnd(result, { noWear: tourneyFight() }) : null;
   if (wear && wear.worn) {
@@ -1951,6 +1999,7 @@ function showOverlay(text, sub = '') {
     o.querySelector('.to-map').insertAdjacentElement('beforebegin', w);
   }
   (root.nodeType === 1 ? root : boardEl).appendChild(o);
+  countUpMoney(o);
   o.addEventListener('click', (e) => {                       // 1.5.0: добыча — картинки, по нажатию подробности
     const c = e.target.closest('.loot-chip'); if (!c) return;
     if (c.dataset.uid && Profile.item(c.dataset.uid)) return ItemInfo.open(c.dataset.uid);
@@ -2332,7 +2381,7 @@ function grantDuoRewards(foes, extra) {
   if (!foes.length) return '';
   if (!heroActed() || fighters.left.hpEdited || fighters.right.hpEdited) return _t("Награда не выдана: проверочный бой (ХП изменено вручную) или слишком лёгкий бой");
   const deep = !!(Profile.data.monster && Profile.data.monster.deep);
-  const txt = foes.map((f, i) => rewardFor(f, i === 0)).join('<br>');
+  const txt = foes.map((f, i) => rewardFor(f, i === 0, foes.length > 1 ? { label: _t("Противник: {0}", [f.name]) } : {})).join('');
   return deep && extra ? `${txt}<br>${Screens.deepReward()}` : txt;
 }
 function grantRewardsBase() {
@@ -2359,6 +2408,7 @@ function rewardFor(f, first = true, opts = {}) {
   drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm * Growth.xpMul(selNow().grow));
   if (lm !== 1) for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * lm));
   if (opts.quick) drops.item = null;
+  if (selNow().stale) drops.item = null;                 // 2.0.9: подземелье — в уже зачищенной комнате вещей нет (ресурсы и монеты как обычно)
   // 1.2.9: в режиме «×10» награда выдаётся как обычно (так удобно проверять добычу и ошибки сильным героем).
   drops.coins = Math.round(drops.coins * Factions.perk(Profile.data.faction, 'coins'));   // люди: +10% монет
   const luckPct = fighters.left.luck || 0;                    // Свиток удачи: +% к монетам и ресурсам с этой победы
@@ -2405,7 +2455,7 @@ function rewardFor(f, first = true, opts = {}) {
     const e = Profile.medals().find((x) => x.id === m.id), cap = Screens.medalCaption(m.id);
     chips.push(`<button type="button" class="loot-chip medal-chip" data-cap="${cap.replace(/"/g, '&quot;')}" title="${cap.replace(/"/g, '&quot;')}">${Screens.medalTile(m.id, e || { id: m.id, tier: 1 }, Profile.level(), 1, 1).replace(/ data-medal="[^"]*"| data-tip="[^"]*"| tabindex="0"| role="button"/g, '')}</button>`);
   }
-  if (drops.weak) lines.push(`<span class="hint">${_t("Существо слабее вашего цвета: ресурсов нет")}</span>`);   // 1.6.6
+  if (drops.weak) lines.push(`<span class="hint">${_t("Существо слабее вас на 2 цвета и больше: ресурсов нет")}</span>`);   // 1.6.6
   for (const r of drops.resources) {
     if (Math.random() < Village.granaryChance(Profile.data.village)) r.n *= 2;      // 1.5.1: амбар Мельницы — находка удваивается
     Profile.addRes(r.kind, r.tier, r.n);
@@ -2482,7 +2532,8 @@ function rewardFor(f, first = true, opts = {}) {
   }
   Profile.save();
   onEconomyChanged();
-  return lines.join('<br>') + (chips.length ? `<div class="loot">${chips.join('')}</div>` : '');
+  // 2.0.9: награда одним блоком: строки с отдельными рядами, у каждого противника (бой вдвоём) — своя подпись
+  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line">${l}</div>`).join('')}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
 }
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
@@ -4610,10 +4661,10 @@ const Duo = (() => {
     const up = Pets.addXp(pd, gain, heroTier);
     Profile.save();
     const name = Pets.petDisplayName(pd.speciesId), after = Pets.intellect(pd);
-    let line = _t("<br>{0}: опыт +{1}, ум {2} → {3}", [name, gain, before, after]);
+    let line = _t("<br>{0}: опыт +{1}, ум {2} → {3}", [name, gain, before, after]).replace(/^<br>/, '');
     if (up) line += _t(". <b class=\"lvlup\">Новый цвет: {0}!</b>", [Tiers.get(pd.tier).name]);
     if (!pd.firstWin && st.petOutcomes.some((o) => o.won)) { pd.firstWin = true; line += `<br><i>${Story.PET_LINES.firstWin}</i>`; Profile.save(); }
-    return line;
+    return `<div class="rw-pet">${line}</div>`;
   }
   // Отступление: награда за уже убитых противников.
   function flee() {
@@ -4873,4 +4924,41 @@ MapView.marketNews();           // Торговые ряды: что купил�
       const t0 = setInterval(() => { ensure(); if (w.TourneyClient) clearInterval(t0); }, 1000);
     }
   } catch (e) { /* связь с площадкой не критична */ }
+})();
+
+// 2.0.9: имя бойца обрезано — полное имя в подсказке и по нажатию
+document.addEventListener('click', (e) => {
+  const n = e.target.closest && e.target.closest('.fighter .fname');
+  if (!n || n.scrollWidth <= n.clientWidth) return;
+  n.title = n.textContent;
+  let t = document.getElementById('name-pop');
+  if (!t) { t = document.createElement('div'); t.id = 'name-pop'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = n.textContent; t.hidden = false;
+  const r = n.getBoundingClientRect();
+  t.style.left = Math.max(8, Math.min(window.innerWidth - t.offsetWidth - 8, r.left)) + 'px'; t.style.top = (r.bottom + 6) + 'px';
+  clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 2500);
+});
+
+// 2.0.9: отклик интерфейса — недоступная кнопка «качается», кошелёк подпрыгивает при изменении суммы
+document.addEventListener('pointerdown', (e) => {
+  const b = e.target.closest && e.target.closest('button:disabled');
+  if (!b || b.classList.contains('nope')) return;
+  b.classList.add('nope'); setTimeout(() => b.classList.remove('nope'), 320);
+}, true);
+(() => {
+  if (typeof MutationObserver !== 'function' || typeof document === 'undefined') return;
+  let lastW;
+  const mo = new MutationObserver((ms) => {
+    if (!document.querySelector('.modal-back .wallet-head')) { lastW = undefined; return; }
+    for (const m of ms) {
+      const n = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+      const w = n && n.closest && (n.closest('.wallet-head') || (n.querySelector && n.querySelector('.wallet-head')));
+      if (!w) continue;
+      const t = w.textContent;
+      if (lastW !== undefined && lastW !== t) { w.classList.remove('bump'); void w.offsetWidth; w.classList.add('bump'); }
+      lastW = t;
+    }
+  });
+  const start = () => mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();

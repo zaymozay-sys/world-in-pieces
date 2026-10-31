@@ -8,8 +8,8 @@ const LHGames = (() => {
   const DAILY_PLAYS = 3;                       // раундов каждой игры в сутки, за которые платят жетоны
   const num = (x) => (Number.isFinite(x) && x > 0 ? Math.floor(x) : 0);
   const GAMES = ['av', 'mr', 'td', 'rp', 'dg'];
-  // пороги очков → жетоны: score ≥ T[i] даёт i+1 жетонов (1..5); подобраны симуляцией (tests/lhgames.test.js)
-  const TIERS = { av: [110, 135, 160, 190, 225], mr: [30, 42, 54, 64, 74], td: [100, 170, 260, 380, 520], rp: [10, 18, 28, 38, 48], dg: [20, 35, 50, 65, 80] };
+  // пороги очков → жетоны: score ≥ T[i] даёт i+1 жетонов (1..5); подобраны симуляцией (tools/lh-sim.js)
+  const TIERS = { av: [115, 135, 155, 180, 210], mr: [44, 56, 66, 76, 86], td: [130, 240, 380, 560, 800], rp: [12, 18, 24, 40, 50], dg: [20, 35, 50, 65, 80] };   // 2.0.9: пересчитаны ботами (tools/lh-sim.js): случайный игрок — 0–1 жетон, небрежный — около 2, толковый — 3–4, 5 — только почти безупречный раунд
   const GAME_NAME = { av: () => _t("Обвал"), mr: () => _t("Зеркала маяка"), td: () => _t("Прилив"), rp: () => _t("Канаты"), dg: () => _t("Кладоискатель") };
 
   // ---------- профиль ----------
@@ -185,7 +185,7 @@ const LHGames = (() => {
       const m = s.mir[i]; if (m === 1) d ^= 3; else if (m === 2) d ^= 1;
       r += DIRS[d][0]; c += DIRS[d][1];
     }
-    return { lit, path };
+    return { lit, path, end: [r, c], dir: d };
   }
   const mrSolved = (s) => { const t = mrTrace(s).lit; return s.gems.every((g, i) => g < 0 || t[i]); };
   function mrPuzzle(rand) {

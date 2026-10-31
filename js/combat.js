@@ -163,6 +163,12 @@ const Combat = (() => {
       if (amount <= 0) return out;
     }
     out.revived = loseHp(target, amount);
+    // 2.0.9: Отрава (бонус комплекта): с шансом venom% удар отравляет цель — в начале каждого из её ходов она теряет урон яда
+    if (target.hp > 0 && attacker.stats && attacker.stats.venom > 0 && chance(attacker.stats.venom, rand)) {
+      const V = C_B.faction.setVenom, dmg = Math.max(1, Math.round(venomTick(power(attacker), attacker.dmg) * V.mult));
+      target.poison = { turns: V.turns, dmg: Math.max(dmg, (target.poison && target.poison.turns > 0 && target.poison.dmg) || 0) };
+      out.venom = { dmg, turns: V.turns };
+    }
     if (attacker.ability === 'vampire' && attacker.hp > 0) {
       out.heal = Math.min(attacker.max - attacker.hp, Math.ceil(amount * A.vampire.share));
       attacker.hp += out.heal;

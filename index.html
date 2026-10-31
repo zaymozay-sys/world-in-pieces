@@ -42,6 +42,8 @@
         <button id="m-help" type="button" class="icon-btn" title="Как играть">?</button>
         <button id="m-credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
         <button id="m-battlelogs" type="button" hidden>Журналы боёв</button>
+        <button id="m-wiki" type="button" hidden>База знаний</button>
+        <button id="m-whatsnew" type="button" hidden>Что нового</button>
         <button id="m-more" type="button" title="Меню" aria-haspopup="true">☰</button>
         <div class="map-menu" id="map-menu" hidden>
           <button type="button" id="mm-mute" data-mdo="m-mute">Звук</button>
@@ -50,6 +52,7 @@
           <button type="button" class="mm-head" aria-expanded="false">Графика и эффекты</button>
           <div class="mm-sub" hidden>
             <button type="button" id="mm-anim" data-mdo="m-anim">Анимации: обычные</button>
+            <button type="button" id="mm-text" data-mdo="m-text">Текст: обычный</button>
             <button type="button" id="mm-lite" data-mdo="m-lite">Графика карты: высокая</button>
             <button type="button" id="mm-fx-clouds" data-mdo="m-fx-clouds"></button>
             <button type="button" id="mm-fx-weather" data-mdo="m-fx-weather"></button>
@@ -67,13 +70,15 @@
             <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
             <button type="button" data-mdo="m-battlelogs">Журналы боёв</button>
             <button type="button" data-mdo="m-help">Как играть</button>
+            <button type="button" data-mdo="m-wiki">База знаний</button>
+            <button type="button" data-mdo="m-whatsnew">Что нового</button>
             <button type="button" data-mdo="m-credits">О разработчиках</button>
           </div>
           <div class="map-ver" id="map-ver" aria-hidden="false"></div>
         </div>
       </div>
     </div>
-    <div class="map-tools"><button id="m-pin" type="button" title="Поставить метку: нажмите, затем на соту (правая кнопка мыши тоже ставит метку)">Метка</button><button id="m-log" type="button" title="Журнал исследователя (J)">Журнал</button><button id="m-mini" type="button" title="Мини-карта (M)">Мини-карта</button></div>
+    <div class="map-tools closed" id="map-tools"><button id="m-tools" type="button" class="mt-head" aria-expanded="false" title="Метка, журнал, мини-карта">Инструменты ▾</button><button id="m-pin" type="button" title="Поставить метку: нажмите, затем на соту (правая кнопка мыши тоже ставит метку)">Метка</button><button id="m-log" type="button" title="Журнал исследователя (J)">Журнал</button><button id="m-mini" type="button" title="Мини-карта (M)">Мини-карта</button></div>
     <div class="map-toast" id="map-toast" role="status"></div>
     <div class="map-card-wrap" id="map-card"></div>
     <div class="map-bottom">
@@ -236,6 +241,8 @@
   <script src="js/unlocks.js"></script>
   <script src="js/daily.js"></script>
   <script src="js/focus.js"></script>
+  <script src="js/wiki.js"></script>
+  <script src="js/whatsnew.js"></script>
   <script src="js/screens.js"></script>
   <script src="js/mapview.js"></script>
   <script src="js/tutorial.js"></script>

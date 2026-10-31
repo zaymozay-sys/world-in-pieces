@@ -31,7 +31,7 @@ for (const [id, byTier] of Object.entries(D.craft)) {
     });
   }
 }
-assert.strictEqual(recipes, 1470); assert.ok(combos >= 1700, 'комбинаций ' + combos);
+assert.strictEqual(recipes, 1650); assert.ok(combos >= 1700, 'комбинаций ' + combos);
 assert.ok(worstCoin <= COINMAX + 1e-9, 'доля монет в худшей комбинации ' + worstCoin.toFixed(2));
 // --- улучшение: бюджет = стоимость 2.0.5 (материалы + монеты), та же функция plan ---
 let ups = 0;
@@ -43,7 +43,7 @@ for (const [id, byTier] of Object.entries(D.upgrade)) for (let t = 1; t <= 9; t+
   eachCombo(rec.slots, (ch) => { const p = Forge.plan({ mode: 'upgrade', entry: e }, ch); assert.ok(p.ok, `${id} ${t}: ${p.err}`); assert.strictEqual(p.spent, p.total); });
   assert.deepStrictEqual(Gear.upgradeCost(e).total, rec.total);
 }
-assert.strictEqual(ups, 1323);
+assert.strictEqual(ups, 1485);
 // --- проверка входа: клиент передаёт только индексы ---
 const ref = { mode: 'craft', itemId: 'guard-chest', tier: 3 };
 for (const bad of [[9, 0], [-1, 0], [0.5, 0], ['0', 0], [NaN, 0], [null, 0], [0], [0, 0, 0], 'x', {}]) assert.strictEqual(Forge.plan(ref, bad).ok, false, JSON.stringify(bad));

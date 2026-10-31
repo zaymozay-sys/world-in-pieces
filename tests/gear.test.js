@@ -95,7 +95,7 @@ console.log('gear: все тесты пройдены');
 // 2.0.7: новые комплекты
 {
   const N = ['swift', 'archer', 'ancient', 'tracker', 'hammer', 'bastion', 'legend'];
-  for (const id of N) assert.strictEqual(Gear.ITEMS.filter((i) => i.set === id).length, 5, id + ': 5 вещей');
+  for (const id of N) assert.strictEqual(Gear.ITEMS.filter((i) => i.set === id).length, 7, id + ': 7 вещей');   // 2.0.9: комплекты доведены до 7 вещей
   for (const id of ['hammer', 'bastion', 'legend']) assert.ok(!Gear.itemsFor('human').some((i) => i.set === id), id + ' не выпадает обычной добычей');
   assert.ok(Gear.itemsFor('human').some((i) => i.set === 'swift'));
   assert.ok(Gear.ITEMS.filter((i) => i.set === 'bastion').every((i) => !i.stats.power), 'Бастион без Силы');
@@ -103,6 +103,6 @@ console.log('gear: все тесты пройдены');
   const tr = Gear.ITEMS.filter((i) => i.set === 'tracker');
   let g = Gear.emptyLoadout();
   for (const it of tr) { const slot = it.type === 'weapon1' ? 'main' : it.type; g = Gear.equip(g, Gear.makeEntry(it.id, 1), slot); }
-  assert.strictEqual(Gear.petBonus(g), 1, 'Следопыт ×5 усиливает питомца');
+  assert.strictEqual(Gear.petBonus(g), 1, 'Следопыт ×7 усиливает питомца');
   assert.ok(Number.isFinite(Gear.stats(g).power), 'бонус питомца не ломает характеристики');
 }

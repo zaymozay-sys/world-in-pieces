@@ -1,0 +1,10 @@
+const W = require('../js/whatsnew.js'); let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } };
+ok(W.cmp('2.0.10', '2.0.9') > 0 && W.cmp('2.0.8', '2.0.8') === 0, 'сравнение версий');
+ok(W.forVersion('2.0.8') === '2.0.8' && W.forVersion('2.0.9') === '2.0.9', 'записи есть');
+ok(W.forVersion('2.1.0') === '2.0.9' && W.forVersion('1.0.0') === null, 'ближайшая меньшая');
+const nov = { wins: 0 }; ok(W.check(nov, '2.0.8') === false && nov.seenVersion === '2.0.8', 'новичку не показываем, версию запоминаем');
+const old = { wins: 12, seenVersion: '2.0.7' }; ok(W.check(old, '2.0.8') === true && old.seenVersion === '2.0.8', 'после обновления — показываем');
+ok(W.check(old, '2.0.8') === false, 'один раз');
+const legacy = { wins: 5 }; ok(W.check(legacy, '2.0.8') === true, 'старый герой без метки — показываем');
+ok(Object.keys(W.NOTES).every((v) => W.NOTES[v]().length >= 2), 'в каждой записи есть пункты');
+console.log(fails ? 'whatsnew: ' + fails + ' ошибок' : 'whatsnew: все тесты пройдены'); process.exit(fails ? 1 : 0);

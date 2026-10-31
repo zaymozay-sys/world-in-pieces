@@ -293,7 +293,11 @@ const Profile = (() => {
     },
 
     // Эликсиры (1.3.6)
-    elixirBag() { return Object.entries(data.elixirs.bag).filter(([, n]) => n > 0).map(([k, n]) => ({ ...Elixirs.split(k), n })); },
+    // 2.0.9: свой порядок эликсиров и расходников (перетаскивание в сумке): список ключей «вид:цвет» и «c:расходник»
+    bagOrder() { return Array.isArray(data.elixirs.order) ? data.elixirs.order : []; },
+    setBagOrder(keys) { data.elixirs.order = keys.filter((k) => typeof k === 'string').slice(0, 200); save(); },
+    sortByBagOrder(list, keyOf) { const o = Array.isArray(data.elixirs.order) ? data.elixirs.order : [], pos = (x) => { const i = o.indexOf(keyOf(x)); return i < 0 ? 1e6 : i; }; return list.map((x, i) => [x, i]).sort((u, v) => pos(u[0]) - pos(v[0]) || u[1] - v[1]).map((u) => u[0]); },
+    elixirBag() { return Profile.sortByBagOrder(Object.entries(data.elixirs.bag).filter(([, n]) => n > 0).map(([k, n]) => ({ ...Elixirs.split(k), n })), (e) => `${e.kind}:${e.tier}`); },
     addElixir(kind, tier, n = 1) { if (!Number.isFinite(n) || n <= 0) return; const k = Elixirs.key(kind, tier); data.elixirs.bag[k] = (data.elixirs.bag[k] || 0) + n; save(); },
     // 1.6.0: эликсиры пьются только в бою (game.js: useElixir) и действуют до его конца — в профиле не хранятся
     takeElixir(kind, tier) {
@@ -455,6 +459,7 @@ const Profile = (() => {
     // 2.0.7: «Стойкость» выдаётся за заслуги, каждая причина — один раз (ключ записывается в профиль)
     // 2.0.7: добыча закрытых комплектов. Шанс за победу, гарантия на n-й попытке; возвращает выпавшую вещь или null
     lockedDrop(setId, tier, chance, pity) {
+      if (tier < Gear.LATE_MIN_TIER && ['hammer', 'bastion', 'legend'].includes(setId)) return null;   // 2.0.10: особые комплекты — с 8-го цвета
       const pc = data.lockedPity = data.lockedPity || {};
       pc[setId] = (pc[setId] || 0) + 1;
       if (pc[setId] < pity && Math.random() >= chance) { save(); return null; }
@@ -464,9 +469,10 @@ const Profile = (() => {
       const e = Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, Math.max(1, tier));
       data.items.push(e); save(); return e;
     },
-    // 2.0.7: «Легенда подземелий» — по вещи за рекордные этажи 10, 15, 20, 25, 30; возвращает список новых вещей
+    // 2.0.7: «Легенда Подземелий» — по вещи за рекордные этажи 10, 15, 20, 25, 30; возвращает список новых вещей
     legendAward(best, tier) {
       const got = data.legendGiven = data.legendGiven || {}, out = [];
+      if (tier < Gear.LATE_MIN_TIER) return out;
       const ids = ['legend-blade', 'legend-crown', 'legend-robe', 'legend-gloves', 'legend-amulet'];
       [10, 15, 20, 25, 30].forEach((f, i) => {
         if (best >= f && !got[f]) { got[f] = true; const e = Gear.makeEntry(ids[i], Math.max(1, tier)); data.items.push(e); out.push(e); }
@@ -700,7 +706,7 @@ const num1 = (x) => String(Math.round(x * 10) / 10).replace('.', (typeof I18N !=
 const fmtStat = (k, v) => ({
   power: _t("+{0} Сила", [Math.round(v)]), health: _t("+{0} Здоровье", [v]), defense: _t("+{0} Броня", [v]),
   initiative: _t("+{0}% Проворство", [v]), ricochet: _t("+{0}% Рикошет", [v]), block: _t("+{0}% Блок", [v]), fury: _t("+{0}% Ярость", [v]),
-  cunning: _t("+{0}% Хитрость", [v]),
+  cunning: _t("+{0}% Хитрость", [v]), venom: _t("+{0}% Отрава", [v]),
 }[k]);
 const fmtBonus = (b) => Object.entries(b).map(([k, v]) => fmtStat(k, v)).join(', ');
 const statChips = (stats) => Object.entries(stats).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
@@ -779,10 +785,10 @@ const ItemInfo = (() => {
     power: _t("прибавляется к каждому удару"), health: _t("к максимуму здоровья"), defense: _t("вычитается из каждого удара (потолка нет)"),
  initiative: _t("шанс ходить первым (потолок 50%)"),
     ricochet: _t("шанс отразить удар в нападающего (потолок 40%)"), block: _t("шанс полностью отбить удар (потолок 50%)"),
-    fury: _t("шанс нанести двойной урон (потолок 35%)"), cunning: _t("шанс забрать половину магических камней врага (потолок 30%)"),
+    fury: _t("шанс нанести двойной урон (потолок 35%)"), cunning: _t("шанс забрать половину магических камней врага (потолок 30%)"), venom: _t("шанс, что удар отравит врага: он теряет ХП несколько ходов (потолок 30%)"),
   };
-  const STAT_SCALE = { power: 30, health: 30, defense: 20, initiative: 15, ricochet: 12, block: 15, fury: 15, cunning: 12 };
-  const STAT_ORDER = ['power', 'health', 'defense', 'block', 'initiative', 'ricochet', 'fury', 'cunning'];
+  const STAT_SCALE = { power: 30, health: 30, defense: 20, initiative: 15, ricochet: 12, block: 15, fury: 15, cunning: 12, venom: 12 };
+  const STAT_ORDER = ['power', 'health', 'defense', 'block', 'initiative', 'ricochet', 'fury', 'cunning', 'venom'];
   const SET_LORE = {
     crown: _t("Знамёна Вольных городов: сталь, позолота и синяя эмаль."), rune: _t("Кованое железо подгорных кланов; руны тлеют, как угли горна."),
     grove: _t("Кора, листья и серебряная нить Лесных домов — лёгкое, как утро."), scale: _t("Панцири, кости и болотный яд племён Чешуи."),
@@ -1014,6 +1020,7 @@ const Inventory = (() => {
       root = document.createElement('div');
       root.className = 'modal-back';
       root.addEventListener('click', onClick);
+      BagDrag.attach(root, () => render());
       document.body.appendChild(root);
       document.addEventListener('keydown', onKey);
       ModalFocus.open(root);
@@ -1049,7 +1056,7 @@ const Inventory = (() => {
       row(N.block, `${stats.block}%`, stats.block > 0 ? _t("≈ каждый {0}-й удар по вам блокируется полностью", [nth(stats.block)]) : _t("полный блок удара: пока нет"), 'block'),
       row(N.fury, `${stats.fury}%`, stats.fury > 0 ? _t("≈ каждый {0}-й ваш удар двойной", [nth(stats.fury)]) : _t("двойной урон: пока нет"), 'fury'),
       row(N.cunning, `${stats.cunning || 0}%`, stats.cunning > 0 ? _t("≈ раз в {0} отнимает половину магических камней противника", [_nn(nth(stats.cunning), 'ход', 'хода', 'ходов')]) : _t("кража магических камней противника: пока нет"), 'cunning'),
-    ].join('')}</div>`;
+    ].concat(stats.venom > 0 ? [row(N.venom, `${stats.venom}%`, _t("≈ каждый {0}-й ваш удар отравляет противника", [nth(stats.venom)]), 'venom')] : []).join('')}</div>`;
   }
 
   // Уровень, опыт, ХП и урон героя.
@@ -1264,14 +1271,14 @@ const Inventory = (() => {
       let h = '';
       for (let i = 0; i < total; i++) {
         const c = cells[i];
-        h += c ? `<button type="button" class="stash-cell btile bag-cell" data-bcell="${c.key}" style="--c:${c.color}" title="${c.title}">${c.icon}<b class="bc-n">${c.n}</b></button>` : '<div class="stash-cell empty" aria-hidden="true"></div>';
+        h += c ? `<button type="button" class="stash-cell btile bag-cell${c.key.startsWith('r:') ? '' : ' drag-cell'}" data-bcell="${c.key}" style="--c:${c.color}" title="${c.title}">${c.icon}<b class="bc-n">${c.n}</b></button>` : '<div class="stash-cell empty" aria-hidden="true"></div>';
       }
       return `<div class="stash-grid bag-grid">${h}</div>`;
     };
-    const elixCells = [
+    const elixCells = Profile.sortByBagOrder([
       ...Profile.elixirBag().map((e) => ({ key: `${e.kind}:${e.tier}`, icon: Elixirs.icon(e.kind, e.tier), n: e.n, color: tierColor(e.tier), title: _t("{0} · цвет «{1}» × {2}", [Elixirs.KINDS[e.kind].name, Tiers.get(e.tier).name, e.n]) })),
       ...Object.entries(Gear.CONSUMABLES).filter(([k]) => bag[k] > 0).map(([k, c]) => ({ key: 'c:' + k, icon: itemIcon(k), n: bag[k], color: '#c9b48a', title: `${c.name} × ${bag[k]}` })),
-    ];
+    ], (c) => c.key);
     const resCells = Profile.resList().map((r) => ({ key: `r:${r.kind}:${r.tier}`, icon: MonsterArt.resIcon(r.kind, r.tier), n: r.n, color: tierColor(r.tier), title: `${resLabel(r.kind, r.tier)} × ${r.n}` }));
     const bagTabsHtml = `<div class="tabs bag-tabs">${[['elix', _t("Эликсиры")], ['res', _t("Ресурсы")]].map(([k, l]) => `<button type="button" class="${bagTab === k ? 'on' : ''}" data-btab="${k}">${l}</button>`).join('')}</div>`;
     const paneElix = `<div class="bp-pane" data-p="elix">${exActive ? _t("<h3>Действуют эликсиры</h3>") + exActive : ''}${bagGrid(elixCells)}${exBag ? _t("<h3>Сумка: эликсиры (варит Тётушка Жабка)</h3>") + exBag : ''}${_t("<h3>Сумка: расходники</h3>")}${cons}${_t("<h3>Сумка: боеприпасы</h3>")}${ammoRow}${keyItemsHtml()}</div>`;
@@ -1413,4 +1420,69 @@ const Inventory = (() => {
   }
 
   return { open, close, equipUid, unequipSlot, refresh: () => render(), get isOpen() { return !!root; }, get inArmory() { return !!root && armory; } };
+})();
+
+
+// 2.0.9: перетаскивание ячеек сумки (эликсиры и расходники): мышью — сразу, пальцем — после короткого удержания.
+// Порядок хранится в профиле (Profile.setBagOrder) и действует и в сумке, и в бою.
+const BagDrag = (() => {
+  const HOLD = 320, MOVE = 8;
+  function attach(root, rerender) {
+    let st = null, swallow = false;
+    const cells = () => [...root.querySelectorAll('.bag-grid .drag-cell')];
+    const cleanup = () => { if (!st) return; clearTimeout(st.timer); if (st.ghost) st.ghost.remove(); root.querySelectorAll('.drag-over,.dragging').forEach((x) => x.classList.remove('drag-over', 'dragging')); st = null; };
+    const start = () => {
+      if (!st || st.on) return;
+      st.on = true;
+      st.src.classList.add('dragging');
+      const g = st.src.cloneNode(true); g.classList.add('drag-ghost'); g.removeAttribute('data-bcell'); document.body.appendChild(g); st.ghost = g;
+      move(st.x, st.y);
+      if (navigator.vibrate) { try { navigator.vibrate(12); } catch (er) { /* не страшно */ } }
+    };
+    const targetAt = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.closest ? el.closest('.bag-grid .stash-cell') : null; };
+    function move(x, y) {
+      if (!st || !st.on) return;
+      st.ghost.style.left = (x - 24) + 'px'; st.ghost.style.top = (y - 24) + 'px';
+      root.querySelectorAll('.drag-over').forEach((c) => c.classList.remove('drag-over'));
+      const t = targetAt(x, y); if (t && t !== st.src) t.classList.add('drag-over');
+    }
+    root.addEventListener('pointerdown', (e) => {
+      if (e.button > 0) return;
+      const c = e.target.closest && e.target.closest('.bag-grid .drag-cell');
+      if (!c) return;
+      st = { src: c, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, on: false, touch: e.pointerType !== 'mouse', id: e.pointerId };
+      if (st.touch) st.timer = setTimeout(start, HOLD);
+    });
+    root.addEventListener('pointermove', (e) => {
+      if (!st) return;
+      st.x = e.clientX; st.y = e.clientY;
+      if (!st.on) {
+        if (Math.hypot(st.x - st.sx, st.y - st.sy) > MOVE) { if (st.touch) cleanup(); else start(); }
+        return;
+      }
+      move(st.x, st.y);
+    });
+    // пока тащим пальцем — страница не прокручивается
+    root.addEventListener('touchmove', (e) => { if (st && st.on) e.preventDefault(); }, { passive: false });
+    const finish = (e) => {
+      if (!st) return;
+      const was = st.on;
+      if (was) {
+        const t = targetAt(e.clientX, e.clientY), keys = cells().map((c) => c.dataset.bcell), from = keys.indexOf(st.src.dataset.bcell);
+        const to = t ? keys.indexOf(t.dataset.bcell) : -1;
+        if (from >= 0 && to >= 0 && from !== to) {
+          const k = keys.splice(from, 1)[0]; keys.splice(to, 0, k);
+          Profile.setBagOrder(keys);
+        }
+        swallow = true; setTimeout(() => { swallow = false; }, 0);
+      }
+      cleanup();
+      if (was) rerender();
+    };
+    root.addEventListener('pointerup', finish);
+    root.addEventListener('pointercancel', () => cleanup());
+    root.addEventListener('click', (e) => { if (swallow) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    root.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.drag-cell')) e.preventDefault(); });
+  }
+  return { attach };
 })();

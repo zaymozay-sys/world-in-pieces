@@ -102,6 +102,7 @@ const MapView = (() => {
     setMode('map');
     // 1.5.4: новичок без народа сначала идёт в учебный бой (Tutorial.boot); народ выбирается после него.
     if (!Profile.data.faction && ((Profile.data.tutorial && Profile.data.tutorial.done) || Profile.data.wins > 0)) Screens.openFactions(true);
+    if (Profile.data.faction && typeof Whatsnew !== 'undefined' && Whatsnew.check(Profile.data, GAME_VERSION)) { Profile.save(); setTimeout(() => Screens.open('whatsnew'), 900); }   // 2.0.9: «Что нового» один раз после обновления
     siegeReadyAt = Date.now() + 20000;                 // 1.7.0: осада не начинается в первые секунды после запуска
     setInterval(tick, 5000);
   }
@@ -219,12 +220,13 @@ const MapView = (() => {
 
   function renderStatic() {
     const terr = new Map(), deco = new Map(), roads = [], vil = [], labels = [];
+    const caves = map.kind === 'tower' && typeof Art !== 'undefined' && Art.has('map/tex-cave-floor') && Art.has('map/tex-cave-wall');   // 2.0.9: плитки подземелья (art/map/tex-cave-floor, tex-cave-wall)
     for (const c of map.cells) {
       const p = px(c.idx);
       // 1.3.0: маленький город — земля деревни, а главная улица и площадь вокруг Ратуши вымощены
       const paved = (c.terrain === 'village' || c.terrain === 'castle') && (c.street || c.d <= 2);
-      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${c.terrain === 'castle' && hasArt('map/tex-castle') ? (paved || !hasArt('map/tex-castle-grass') ? 'castle' : 'castle-grass') : paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
-      const d = lite ? '' : MapArt.deco(c, HexMap.rng((st.seed ^ Math.imul(c.idx + 1, 2654435761)) >>> 0));
+      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${caves ? (c.terrain === 'mountain' ? 'cave-wall' : 'cave-floor') : c.terrain === 'castle' && hasArt('map/tex-castle') ? (paved || !hasArt('map/tex-castle-grass') ? 'castle' : 'castle-grass') : paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
+      const d = lite || (caves && c.terrain === 'mountain') ? '' : MapArt.deco(c, HexMap.rng((st.seed ^ Math.imul(c.idx + 1, 2654435761)) >>> 0));
       if (d) bucketPush(deco, p, `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
     }
 
@@ -310,7 +312,7 @@ const MapView = (() => {
       const info = HexMap.BUILDINGS[b.id], p = bCenter(b), k = (info.scale || 1.35) / 1.35;
       if ((b.cells || []).length > 1) for (const c of b.cells) { const q = px(c); vil.push(`<polygon points="${hexPts(q.x, q.y, 0.97)}" class="yard"/>`); }
       vil.push(`<g class="bldg" data-b="${b.id}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) scale(${k.toFixed(3)})">${MapArt.building(b.id, info.soon)}</g>`);
-      labels.push(MapArt.label(info.label || info.name, p.x, p.y + 21 * (k - 1)));
+      labels.push(MapArt.label(info.label || info.name, p.x, p.y + 21 * (k - 1)).replace('class="map-label-g"', `class="map-label-g" data-lb="${b.id}"`));
     }
 
     el['l-terrain'].innerHTML = bucketHtml(terr) + riverHtml;
@@ -346,6 +348,8 @@ const MapView = (() => {
     setTimeout(() => f.remove(), 1000 + d * 110);
   }
 
+  function syncToolsHead() { const h = document.getElementById('m-tools'); if (h) h.classList.toggle('on', !!document.querySelector('#m-pin.on, #m-mini.on')); }
+
   // Фигурки боссов (1.7.7): art/map/boss-<b1..b5|z1..z9>. Нет картинки — старый круглый жетон с бюстом.
   const hasArt = (k) => typeof Art !== 'undefined' && Art.has(k);
   function bossFigure(sp) {
@@ -356,8 +360,10 @@ const MapView = (() => {
   }
   function figureToken(key, sp, col) {
     const ring = sp.zone ? '#c9d3e6' : '#f2c94c';
+    const big = /^scorp/.test(sp.species || '') && !sp.zone && !sp.boss;   // скорпионы подземелья крупнее обычных существ
+    const w = big ? 88 : 62, ox = -w / 2, oy = 14 - w;
     return `<ellipse cy="12" rx="22" ry="7" fill="none" stroke="${ring}" stroke-width="2.4" stroke-dasharray="5 3" opacity=".9"/><ellipse cy="12" rx="17" ry="5" fill="none" stroke="${col}" stroke-width="2.2"/>` +
-      `<image href="${Art.url(key)}" x="-31" y="-48" width="62" height="62" preserveAspectRatio="xMidYMid meet" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))"/>`;
+      `<image href="${Art.url(key)}" x="${ox}" y="${oy}" width="${w}" height="${w}" preserveAspectRatio="xMidYMid meet" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))"/>`;
   }
   function monsterArt(sp) {
     const art = sp.species === 'dragon' ? Figures.avatar('dragon', null) : MonsterArt.bust(sp.species, sp.tier);
@@ -995,7 +1001,7 @@ const MapView = (() => {
     const xp = Math.round(Hero.xpReward(m, sp.tier, Profile.level()) * (elite ? World.ELITE.xp : 1));
     const abil = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
     const weakRes = Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level()));   // 1.6.6: слабее вашего цвета — ресурсов нет
-    const drops = weakRes ? `<span class="hint">${_t("ресурсов нет: существо слабее вашего цвета")}</span>` : m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
+    const drops = weakRes ? `<span class="hint">${_t("ресурсов нет: существо слабее на 2 цвета и больше")}</span>` : m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
     const near = HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1;
     const art = sp.species === 'dragon' ? `<div class="dragon-art sm" style="--t:${col}">${Figures.avatar('dragon', null)}</div>` : MonsterArt.bust(sp.species, sp.tier);
     el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : ZB ? ZB.title : m.name, tierChip(sp.tier, Growth.steps(st, sp)), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss || ZB ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + zoneNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
@@ -1061,7 +1067,7 @@ const MapView = (() => {
     battleSpawn = sp;
     st.swarm = st.swarm || {};
     if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
-    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: sp.tier, swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), depth: sp.depth > 1 ? sp.depth : 0, loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp) }, Sky.battleFx());   // рой не перебрасывается отступлением
+    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: sp.tier, swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), depth: sp.depth > 1 ? sp.depth : 0, loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp), stale: Profile.data.loc === 'tower' && !!(st.won && st.won[(st.floor || 1) + ':' + sp.id]) }, Sky.battleFx());   // 2.0.9: в подземелье вещи падают только в комнатах, где вы ещё не побеждали   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -1280,7 +1286,7 @@ const MapView = (() => {
   const PIN_MAX = 5;
   function setPinMode(on) {
     pinMode = !!on;
-    document.getElementById('m-pin').classList.toggle('on', pinMode);
+    document.getElementById('m-pin').classList.toggle('on', pinMode); syncToolsHead();
     el['map-svg'].classList.toggle('pin-mode', pinMode);
     if (pinMode) el['map-tip'].textContent = _t("Нажмите на соту, чтобы поставить или снять метку.");
   }
@@ -1377,7 +1383,7 @@ const MapView = (() => {
     const wide = view().width >= 700;
     const on = st.mini === undefined ? wide : !!st.mini;
     mini.canvas.hidden = !on;
-    document.getElementById('m-mini').classList.toggle('on', on);
+    document.getElementById('m-mini').classList.toggle('on', on); syncToolsHead();
     if (on) { miniPlace(); mini.dirty = true; drawMini(); }
   }
   function drawMini() {
@@ -1613,6 +1619,7 @@ const MapView = (() => {
     if (result === 'win' && sp) {
       st.defeated[sp.id] = sp.rare ? sp.endsAt : Date.now() + (sp.guest ? GUEST_REST_MS : RESPAWN_MS);
       if (st.swarm) delete st.swarm[sp.id];
+      if (Profile.data.loc === 'tower') { st.won = st.won || {}; st.won[(st.floor || 1) + ':' + sp.id] = 1; }   // 2.0.9: комната больше не «новая»
       if (sp.guard && sp.gc) guardDrop(sp.gc);
       if (sp.scorp && Math.random() < Stones.scorpChance(st.floor || 1)) scorpDrop(sp.scorp);   // 2.0.7: скорпион подземелья
       if (sp.deep) deepWon(st.floor || 1);
@@ -1718,9 +1725,13 @@ const MapView = (() => {
     d.unlockSeen = d.unlockSeen || [];
     const fresh = open.filter((id) => !d.unlockSeen.includes(id));
     if (fresh.length) { d.unlockSeen.push(...fresh); if (!first) toast(_t("Открыто: ") + fresh.map((id) => Unlocks.hint(id)).join('; ')); save(); }
-    for (const id of Object.keys(Unlocks.NEED)) { const g = el['l-village'] && el['l-village'].querySelector(`.bldg[data-b="${id}"]`); if (g) g.classList.toggle('locked', !Unlocks.isOpen(d, id)); }
+    for (const id of Object.keys(Unlocks.NEED)) { const g = el['l-village'] && el['l-village'].querySelector(`.bldg[data-b="${id}"]`); const open2 = Unlocks.isOpen(d, id); if (g) { g.classList.toggle('locked', !open2); if (open2 && fresh.includes(id) && !first) { g.classList.remove('unlock-flash'); void g.getBoundingClientRect(); g.classList.add('unlock-flash'); } } const lg = el['l-village'] && el['l-village'].querySelector(`.map-label-g[data-lb="${id}"]`); if (lg) { lg.classList.toggle('locked', !open2); const tx = lg.querySelector('text'); if (tx) { const base = tx.textContent.replace(/^🔒 /, ''); tx.textContent = open2 ? base : '🔒 ' + base; } } }
     const gs = document.getElementById('goal-strip');
-    if (gs) gs.textContent = Unlocks.goal(d, Quests.list(d));
+    if (gs) {
+      const gt = Unlocks.goal(d, Quests.list(d));
+      if (gs.dataset.t !== gt) { gs.dataset.t = gt; gs.classList.remove('flash'); void gs.offsetWidth; gs.classList.add('flash'); }
+      gs.textContent = gt;
+    }
     markNext(d);
   }
   // 1.8.3: «один явный следующий шаг» — мягкое свечение на том, что строка цели просит сделать: ближайший зверь (до первой победы) или здание с готовой / новой наградой-заданием
@@ -1786,6 +1797,8 @@ const MapView = (() => {
     on('m-mute', () => { Sound.setMuted(!Sound.muted); renderMute(); muteLabel(); });
     on('m-fs', () => toggleFullscreen());
     on('m-help', () => Screens.open('help'));
+    on('m-wiki', () => Screens.open('wiki'));
+    on('m-whatsnew', () => Screens.open('whatsnew'));
     on('m-battlelogs', () => BattleLog.open());
     on('m-lang', () => I18N.setLang(I18N.lang === 'ru' ? 'en' : 'ru'));
     document.getElementById('m-lang').textContent = I18N.lang === 'ru' ? 'EN' : 'RU';   // кнопка показывает язык, на который переключит
@@ -1794,6 +1807,7 @@ const MapView = (() => {
     const menu = document.getElementById('map-menu'), mbtn = document.getElementById('m-more');
     document.getElementById('mm-lang').textContent = I18N.lang === 'ru' ? 'English' : 'Русский';
     document.getElementById('mm-anim').textContent = AnimSpeed.label();
+    document.getElementById('mm-text').textContent = TextSize.label();
     document.body.classList.toggle('map-lite', lite); document.getElementById('mm-lite').textContent = liteLabel();   // 1.7.2
     // Эффекты карты по блокам: облака, осадки, дым/флаги, покачивание существ (сохраняется в браузере)
     const FX = { clouds: _t("Облака"), weather: _t("Осадки и туман"), amb: _t("Дым и флаги"), bob: _t("Покачивание существ") };
@@ -1835,6 +1849,7 @@ const MapView = (() => {
         toast(lite ? _t("Упрощённая графика: без украшений, дыма, облаков и осадков") : _t("Обычная графика карты"));
         return;
       }
+      if (b.dataset.mdo === 'm-text') { TextSize.toggle(); b.textContent = TextSize.label(); return; }
       if (b.dataset.mdo === 'm-anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); return; }     // 1.6.4: скорость анимаций, меню остаётся открытым
       if (b.dataset.mdo !== 'm-mute') menu.hidden = true;     // звук переключается, не закрывая меню
       document.getElementById(b.dataset.mdo).click();
@@ -1850,6 +1865,7 @@ const MapView = (() => {
     on('m-zin', () => { const v = view(); zoomAt(v.width / 2, v.height / 2, 1.25); });
     on('m-zout', () => { const v = view(); zoomAt(v.width / 2, v.height / 2, 1 / 1.25); });
     on('m-me', () => centerOn(st.pos));
+    on('m-tools', () => { const box = document.getElementById('map-tools'), closed = box.classList.toggle('closed'); document.getElementById('m-tools').setAttribute('aria-expanded', String(!closed)); });
     on('m-pin', () => setPinMode(!pinMode));
     on('m-log', () => { closeCard(); showJournal(); });
     on('m-mini', () => { const on2 = mini.canvas.hidden; st.mini = on2; applyMiniVisible(); save(); });
@@ -2188,7 +2204,7 @@ const MapView = (() => {
     save(); closeCard(); load();
     Profile.noteMaster('depth', t.best, false);
     toast(Dungeon.levelText(t.floor), 2500);
-    for (const e of Profile.legendAward(t.best, Math.max(1, Hero.tierFor(Profile.level())))) setTimeout(() => toast(_t("Награда за глубину: {0} (комплект «Легенда подземелий»)", [Gear.item(e).name]), 5000), 2700);
+    for (const e of Profile.legendAward(t.best, Math.max(1, Hero.tierFor(Profile.level())))) setTimeout(() => toast(_t("Награда за глубину: {0} (комплект «Легенда Подземелий»)", [Gear.item(e).name]), 5000), 2700);
   }
   // 1.8.8: награда за новый уровень подземелья (Dungeon.reward): монеты, на каждом 5-м уровне — сундук с ресурсами и расходниками
   function towerReward(f) {

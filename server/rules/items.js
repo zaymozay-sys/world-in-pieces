@@ -9,6 +9,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
      ricochet   — Рикошет: шанс (максимум 40%), что удар отлетит в нападающего; отлетает урон за вычетом брони цели
      block      — Блок: шанс (максимум 50%) полностью заблокировать удар
      fury       — Ярость: шанс (максимум 35%) нанести двойной урон одним ударом (считается до Брони цели)
+     venom      — Отрава (только бонусы комплектов): шанс (максимум 30%), что удар отравит цель — несколько ходов подряд она теряет ХП
      cunning    — Хитрость: шанс (максимум 30%), что после сбора камней противником заберёшь половину
                   собранных им магических камней (сапфир/рубин/изумруд) — см. Combat.cunningSteal
 
@@ -24,7 +25,7 @@ const Gear = (() => {
     main: _t("Правая рука"), off: _t("Левая рука"), head: _t("Шлем"), chest: _t("Нагрудник"),
     arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"), shoulders: _t("Наплечники"), gloves: _t("Перчатки"), bag: _t("Сумка"), leash: _t("Поводок"), compass: _t("Компас"), ranged: _t("Метательное"), belt: _t("Пояс"),
   };
-  const STAT_NAMES = { power: _t("Сила"), health: _t("Здоровье"), defense: _t("Броня"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), fury: _t("Ярость"), cunning: _t("Хитрость") };
+  const STAT_NAMES = { power: _t("Сила"), health: _t("Здоровье"), defense: _t("Броня"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), fury: _t("Ярость"), cunning: _t("Хитрость"), venom: _t("Отрава") };
   const TYPE_NAMES = {
     weapon1: _t("Одноручное оружие"), weapon2: _t("Двуручное оружие"), shield: _t("Щит"),
     head: _t("Шлем"), chest: _t("Нагрудник"), arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"),
@@ -32,32 +33,41 @@ const Gear = (() => {
   };
   const RARITY_NAMES = { common: _t("Обычный"), rare: _t("Редкий"), epic: _t("Эпический") };
   // Потолки характеристик (не «ломают» бой)
-  const CAPS = { initiative: 50, ricochet: 40, block: 50, fury: 35, cunning: 30 };
+  const CAPS = { initiative: 50, ricochet: 40, block: 50, fury: 35, cunning: 30, venom: 30 };
 
   // Комплекты: бонус действует, когда надето не меньше указанного числа предметов набора.
   // Бонусы комплектов: Сила — число, прибавляемое к удару (старые очки × 0,22, не меньше 1).
   const SETS = {
     guard:    { name: _t("Страж"),    color: '#6aa8e8', bonuses: { 2: { health: 10 }, 3: { defense: 6, block: 3 }, 4: { health: 20, defense: 6 }, 5: { power: 2, block: 5 } } },
-    berserk:  { name: _t("Берсерк"),  color: '#e0605a', bonuses: { 2: { power: 1 }, 3: { power: 1, health: 5 }, 4: { power: 2, initiative: 4 }, 5: { health: 10, power: 1 }, 6: { power: 3, ricochet: 4, fury: 8 } } },
-    mage:     { name: _t("Чародей"),  color: '#b58cff', bonuses: { 2: { power: 1 }, 3: { power: 1, ricochet: 3 }, 4: { power: 2 }, 5: { power: 1, defense: 4 }, 6: { power: 3, ricochet: 4 } } },
+    berserk:  { name: _t("Берсерк"),  color: '#e0605a', bonuses: { 2: { power: 1 }, 3: { power: 1, health: 5 }, 4: { power: 2, initiative: 4 }, 5: { health: 10, power: 1 }, 6: { power: 3, ricochet: 4, fury: 8 }, 7: { health: 10 } } },
+    mage:     { name: _t("Чародей"),  color: '#b58cff', bonuses: { 2: { power: 1 }, 3: { power: 1, ricochet: 3 }, 4: { power: 2 }, 5: { power: 1, defense: 4 }, 6: { power: 3, ricochet: 4 }, 7: { power: 1 } } },
     // Наборы фракций: надеть может только своя фракция.
-    crown:    { name: _t("Корона"),   color: '#4a7fe0', faction: 'human',  bonuses: { 2: { initiative: 4 }, 3: { power: 1, block: 3 }, 4: { health: 15 }, 5: { power: 2, initiative: 4 } } },
-    rune:     { name: _t("Руна"),     color: '#d08a3a', faction: 'dwarf',  bonuses: { 2: { defense: 4 }, 3: { block: 4, health: 8 }, 4: { defense: 5, power: 1 }, 5: { block: 6, health: 12 } } },
-    grove:    { name: _t("Роща"),     color: '#3fae63', faction: 'elf',    bonuses: { 2: { initiative: 5 }, 3: { ricochet: 4, power: 1 }, 4: { initiative: 5, power: 1 }, 5: { ricochet: 5, power: 1 } } },
-    scale:    { name: _t("Чешуя"),    color: '#c9573c', faction: 'lizard', bonuses: { 2: { health: 10 }, 3: { power: 1, ricochet: 3 }, 4: { health: 15, block: 3 }, 5: { power: 2, health: 10 } } },
-    sea:      { name: _t("Морской волк"), color: '#3aa6c4', rare: true, bonuses: { 2: { initiative: 4 }, 3: { power: 1, defense: 3 }, 4: { health: 15, block: 4 }, 5: { power: 2, ricochet: 4 }, 6: { power: 2, initiative: 5, fury: 4 }, 7: { health: 15, defense: 5 }, 8: { power: 3, health: 20, cunning: 8 } } },
-    wanderer: { name: _t("Странник"), color: '#5fc98a', bonuses: { 2: { health: 6, initiative: 3 }, 3: { defense: 3, power: 1 }, 4: { health: 10, power: 1, initiative: 4, cunning: 6 }, 5: { power: 1, block: 3 }, 6: { health: 12, power: 1, defense: 4 } } },
+    crown:    { name: _t("Корона"),   color: '#4a7fe0', faction: 'human',  bonuses: { 2: { initiative: 4 }, 3: { power: 1, block: 3 }, 4: { health: 20 }, 5: { power: 2, initiative: 6, block: 3 }, 6: { health: 10 }, 7: { initiative: 4 }, 8: { power: 1, health: 10 } } },   // 2.0.9: бонусы подтянуты к общим комплектам, добавлены ступени 6–8
+    rune:     { name: _t("Руна"),     color: '#d08a3a', faction: 'dwarf',  bonuses: { 2: { defense: 4 }, 3: { block: 4, health: 8 }, 4: { defense: 5, power: 1 }, 5: { block: 6, health: 12 }, 6: { health: 6 }, 7: { block: 2 }, 8: { power: 1, health: 8 } } },
+    grove:    { name: _t("Роща"),     color: '#3fae63', faction: 'elf',    bonuses: { 2: { initiative: 3 }, 3: { ricochet: 3, power: 1 }, 4: { initiative: 3, power: 1 }, 5: { ricochet: 3, power: 1 }, 6: { initiative: 2 }, 7: { ricochet: 1 }, 8: { power: 1, initiative: 2 } } },
+    scale:    { name: _t("Чешуя"),    color: '#c9573c', faction: 'lizard', bonuses: { 2: { health: 10 }, 3: { power: 1, ricochet: 3 }, 4: { health: 15, block: 3 }, 5: { power: 2, health: 10 }, 6: { health: 10 }, 7: { ricochet: 2 }, 8: { power: 1, health: 10 } } },
+    sea:      { name: _t("Морской волк"), color: '#3aa6c4', rare: true, bonuses: { 2: { initiative: 3 }, 3: { defense: 3 }, 4: { health: 10 }, 5: { power: 1 }, 6: { initiative: 3 }, 7: { health: 10, defense: 2 }, 8: { power: 1, health: 10, cunning: 3 } } },   // 2.0.9: слабее уникальных (Молот, Бастион, Легенда)
+    wanderer: { name: _t("Странник"), color: '#5fc98a', bonuses: { 2: { health: 6, initiative: 3 }, 3: { defense: 3, power: 1 }, 4: { health: 10, power: 1, initiative: 4, cunning: 6 }, 5: { power: 1, block: 3 }, 6: { health: 12, power: 1, defense: 4 }, 7: { health: 6 } } },   // 2.0.9: обе одноручные вещи (кинжал и клинок) носятся вместе — седьмая ступень
     // 2.0.7: семь новых комплектов (Стриж, Стрелок, Древний панцирь, Следопыт — обычные; Молот, Бастион, Легенда — уникальные, только особая добыча)
-    swift:    { name: _t("Стриж"),    color: '#6cc3f0', bonuses: { 2: { initiative: 5 }, 3: { defense: 4 }, 4: { initiative: 5, defense: 3 }, 5: { power: 1, initiative: 6 } } },
-    archer:   { name: _t("Стрелок"),  color: '#6fae52', bonuses: { 2: { initiative: 4 }, 3: { cunning: 4 }, 4: { power: 1, fury: 4 }, 5: { ricochet: 4, initiative: 4 } } },
-    ancient:  { name: _t("Древний панцирь"), color: '#d8c9a0', bonuses: { 2: { health: 14 }, 3: { defense: 5 }, 4: { health: 22 }, 5: { defense: 6, health: 20 } } },
-    tracker:  { name: _t("Следопыт"), color: '#7a8f4a', bonuses: { 2: { health: 8 }, 3: { cunning: 4 }, 4: { power: 1, initiative: 4 }, 5: { pet: 1 } } },
-    hammer:   { name: _t("Молот"),    color: '#d2562c', unique: true, bonuses: { 2: { power: 2 }, 3: { fury: 5 }, 4: { power: 3 }, 5: { fury: 8, power: 3 } } },
-    bastion:  { name: _t("Бастион"),  color: '#6a86b8', unique: true, bonuses: { 2: { block: 5 }, 3: { ricochet: 4 }, 4: { block: 6 }, 5: { ricochet: 6 } } },
-    legend:   { name: _t("Легенда подземелий"), color: '#a77be8', unique: true, bonuses: { 2: { health: 15 }, 3: { power: 2 }, 4: { defense: 6, block: 4 }, 5: { power: 3, cunning: 6, health: 20 } } },
+    swift:    { name: _t("Стриж"),    color: '#6cc3f0', bonuses: { 2: { initiative: 5 }, 3: { defense: 4, health: 12 }, 4: { initiative: 5, defense: 3, health: 10 }, 5: { power: 1, initiative: 6, health: 24 }, 6: { initiative: 4, health: 22 }, 7: { power: 1, defense: 3, health: 45 } } },
+    archer:   { name: _t("Стрелок"),  color: '#6fae52', bonuses: { 2: { initiative: 5, health: 6 }, 3: { cunning: 4, health: 10 }, 4: { power: 1, fury: 5, health: 15 }, 5: { ricochet: 5, initiative: 5, health: 20 }, 6: { initiative: 5, health: 15 }, 7: { power: 3, ricochet: 4, health: 30 } } },
+    ancient:  { name: _t("Древний панцирь"), color: '#d8c9a0', bonuses: { 2: { health: 14 }, 3: { defense: 5 }, 4: { health: 22 }, 5: { defense: 6, health: 20}, 6: { health: 12 }, 7: { defense: 4, health: 10 } } },
+    tracker:  { name: _t("Следопыт"), color: '#7a8f4a', bonuses: { 2: { health: 18 }, 3: { cunning: 6, health: 8 }, 4: { power: 1, initiative: 6, health: 16 }, 5: { pet: 1, cunning: 4, power: 2, defense: 4, health: 18}, 6: { power: 2, defense: 3, health: 20 }, 7: { power: 4, cunning: 5, defense: 6, health: 30 } } },   // 2.0.9: усилен
+    hammer:   { name: _t("Молот"),    color: '#d2562c', unique: true, bonuses: { 2: { power: 4, health: 18 }, 3: { fury: 11, power: 2 }, 4: { power: 5, health: 27 }, 5: { fury: 18, power: 7, health: 27}, 6: { power: 10, fury: 8, health: 30 }, 7: { fury: 25, power: 20, block: 12, health: 200 } } },   // 2.0.9: уникальные комплекты (Молот, Бастион, Легенда) намного сильнее остальных; Молот — сильнейший
+    bastion:  { name: _t("Бастион"),  color: '#6a86b8', unique: true, bonuses: { 2: { block: 10, health: 19 }, 3: { ricochet: 10 }, 4: { block: 11, health: 23 }, 5: { ricochet: 13, block: 8, defense: 6}, 6: { block: 8, health: 14 }, 7: { ricochet: 10, block: 8, defense: 6 } } },   // 2.0.9: усилен
+    legend:   { name: _t("Легенда Подземелий"), color: '#a77be8', unique: true, bonuses: { 2: { health: 25 }, 3: { power: 3, venom: 10 }, 4: { defense: 9, block: 7 }, 5: { power: 5, cunning: 10, health: 35, venom: 10}, 6: { power: 3, health: 20 }, 7: { power: 4, cunning: 8, health: 25, venom: 8 } } },
     // 2.0.7: глубинные комплекты — делаются только в Кузнице (с цвета 8) из минералов подземелья; не продаются, не выпадают
-    moon:     { name: _t("Лунный"),   color: '#b9c4f0', forge: true, minTier: 8, bonuses: { 2: { initiative: 6 }, 3: { cunning: 4 }, 4: { initiative: 6, defense: 3 }, 5: { initiative: 8, cunning: 5 } } },
-    granite:  { name: _t("Гранитный"), color: '#9a9690', forge: true, minTier: 8, bonuses: { 2: { health: 16 }, 3: { defense: 6 }, 4: { block: 4, health: 20 }, 5: { defense: 8, block: 5 } } },
+    moon:     { name: _t("Лунный"),   color: '#b9c4f0', forge: true, minTier: 8, bonuses: { 2: { initiative: 6 }, 3: { cunning: 4, health: 12 }, 4: { initiative: 6, defense: 3, health: 10 }, 5: { initiative: 8, cunning: 5, health: 24 }, 6: { initiative: 6, health: 22 }, 7: { initiative: 6, cunning: 4, defense: 3, health: 45 } } },
+    granite:  { name: _t("Гранитный"), color: '#9a9690', forge: true, minTier: 8, bonuses: { 2: { health: 12 }, 3: { defense: 4 }, 4: { block: 3, health: 14 }, 5: { defense: 5, block: 3}, 6: { health: 10 }, 7: { defense: 3, block: 2 } } },
+  };
+  // 2.0.10: «окно силы» комплекта — цвета, на которых он в полной силе. Раньше окна бонус слабеет на 8 п. за цвет (не ниже 70), позже — на 12 п. (не ниже 60).
+  const SET_WINDOWS = { guard: [1, 4], swift: [1, 4], archer: [1, 6], wanderer: [1, 4], ancient: [4, 7], crown: [4, 7], grove: [4, 7], mage: [4, 7], berserk: [4, 7], rune: [6, 9], scale: [6, 9], tracker: [6, 9], sea: [8, 9], moon: [8, 9], granite: [8, 9], hammer: [8, 9], bastion: [8, 9], legend: [8, 9] };
+  const LATE_MIN_TIER = 8;   // 2.0.10: Молот, Бастион и Легенда не достаются раньше 8-го цвета
+  const windowMult = (id, top) => {
+    const w = SET_WINDOWS[id]; if (!w) return 1;
+    if (top < w[0]) return Math.max(0.7, 1 - 0.08 * (w[0] - top));
+    if (top > w[1]) return Math.max(0.6, 1 - 0.12 * (top - w[1]));
+    return 1;
   };
   const LOCKED_SETS = new Set(['sea', 'hammer', 'bastion', 'legend']);   // только особая добыча
   const NEUTRAL_COLOR = '#a9adb8';
@@ -172,11 +182,11 @@ const Gear = (() => {
     ['wand-belt',    _t("Пояс странника"),     'belt',    'wanderer', 'common', { health: 7, initiative: 3, defense: 1 }],
     ['sea-belt',     _t("Канатный пояс"),      'belt',    'sea',      'rare',   { health: 8, block: 3, initiative: 2 }],
     // --- 2.0.7: новые комплекты ---
-    ['swift-head',  _t("Шлем стрижа"),   'head',   'swift', 'common', { initiative: 4, defense: 2 }],
-    ['swift-chest', _t("Куртка стрижа"), 'chest',  'swift', 'rare', { initiative: 4, defense: 4, health: 7 }],
-    ['swift-arms',  _t("Наручи стрижа"), 'arms',   'swift', 'common', { defense: 3, initiative: 4 }],
-    ['swift-legs',  _t("Поножи стрижа"), 'legs',   'swift', 'rare',   { initiative: 6, defense: 3 }],
-    ['swift-feather',_t("Перо стрижа"),  'amulet', 'swift', 'rare',   { initiative: 8, defense: 2 }],
+    ['swift-head',  _t("Шлем стрижа"),   'head',   'swift', 'common', { initiative: 4, defense: 2, health: 8 }],
+    ['swift-chest', _t("Куртка стрижа"), 'chest',  'swift', 'rare', { initiative: 4, defense: 4, health: 14 }],
+    ['swift-arms',  _t("Наручи стрижа"), 'arms',   'swift', 'common', { defense: 3, initiative: 4, health: 8 }],
+    ['swift-legs',  _t("Поножи стрижа"), 'legs',   'swift', 'rare',   { initiative: 6, defense: 3, health: 12 }],
+    ['swift-feather',_t("Перо стрижа"),  'amulet', 'swift', 'rare',   { initiative: 8, defense: 2, health: 12 }],
     ['archer-bow',    _t("Короткий лук"),     'weapon1', 'archer', 'rare',   { power: 10, initiative: 4 }],
     ['archer-hood',   _t("Капюшон стрелка"),  'head',    'archer', 'common', { cunning: 3, initiative: 2 }],
     ['archer-jacket', _t("Куртка стрелка"),   'chest',   'archer', 'rare', { health: 12, initiative: 4, ricochet: 2 }],
@@ -192,11 +202,11 @@ const Gear = (() => {
     ['tracker-cloak',   _t("Плащ следопыта"),    'chest',   'tracker', 'rare',   { health: 12, initiative: 4, cunning: 2 }],
     ['tracker-leash',   _t("Поводок следопыта"), 'leash',   'tracker', 'rare',   { health: 11, power: 5 }],
     ['tracker-compass', _t("Компас следопыта"),  'compass', 'tracker', 'epic',   { initiative: 3, cunning: 3, health: 5 }],
-    ['moon-head',   _t("Лунный шлем"),      'head',   'moon', 'common', { initiative: 3, cunning: 2, defense: 1 }],
-    ['moon-chest',  _t("Лунная кираса"),    'chest',  'moon', 'rare',   { initiative: 4, cunning: 2, defense: 2, health: 5 }],
-    ['moon-arms',   _t("Лунные наручи"),    'arms',   'moon', 'common', { initiative: 3, cunning: 1, defense: 2 }],
-    ['moon-legs',   _t("Лунные поножи"),    'legs',   'moon', 'rare',   { initiative: 5, cunning: 2, defense: 1 }],
-    ['moon-amulet', _t("Слеза селенита"),   'amulet', 'moon', 'epic',   { initiative: 5, cunning: 3, health: 5 }],
+    ['moon-head',   _t("Лунный шлем"),      'head',   'moon', 'common', { initiative: 3, cunning: 2, defense: 1, health: 8 }],
+    ['moon-chest',  _t("Лунная кираса"),    'chest',  'moon', 'rare',   { initiative: 4, cunning: 2, defense: 2, health: 14 }],
+    ['moon-arms',   _t("Лунные наручи"),    'arms',   'moon', 'common', { initiative: 3, cunning: 1, defense: 2, health: 8 }],
+    ['moon-legs',   _t("Лунные поножи"),    'legs',   'moon', 'rare',   { initiative: 5, cunning: 2, defense: 1, health: 12 }],
+    ['moon-amulet', _t("Слеза селенита"),   'amulet', 'moon', 'epic',   { initiative: 5, cunning: 3, health: 14 }],
     ['granite-shield',   _t("Гранитный щит"),      'shield',    'granite', 'epic',   { defense: 10, block: 5, health: 5 }],
     ['granite-head',     _t("Гранитный шлем"),     'head',      'granite', 'common', { defense: 5, block: 1, health: 5 }],
     ['granite-chest',    _t("Гранитная кираса"),   'chest',     'granite', 'rare',   { defense: 8, block: 2, health: 6 }],
@@ -207,7 +217,7 @@ const Gear = (() => {
     ['hammer-chest',  _t("Кираса разрушителя"),  'chest',   'hammer', 'rare', { power: 15, health: 14 }],
     ['hammer-arms',   _t("Наручи разрушителя"),  'arms',    'hammer', 'rare', { power: 6, fury: 3, health: 2 }],
     ['hammer-legs',   _t("Сапоги разрушителя"),  'legs',    'hammer', 'rare', { power: 7, initiative: 4, fury: 2 }],
-    ['bastion-shield',_t("Башенный щит"),        'shield',  'bastion', 'epic', { block: 10, ricochet: 5 }],
+    ['bastion-shield',_t("Башенный щит: левая створка"),        'shield',  'bastion', 'epic', { block: 10, ricochet: 5 }],
     ['bastion-head',  _t("Шлем бастиона"),       'head',    'bastion', 'rare', { block: 5, ricochet: 2 }],
     ['bastion-chest', _t("Кираса бастиона"),     'chest',   'bastion', 'rare', { block: 7, ricochet: 3 }],
     ['bastion-arms',  _t("Наручи бастиона"),     'arms',    'bastion', 'rare', { block: 4, ricochet: 3 }],
@@ -217,6 +227,25 @@ const Gear = (() => {
     ['legend-robe',   _t("Мантия легенды"),      'chest',   'legend', 'epic', { health: 24, defense: 5, block: 3 }],
     ['legend-gloves', _t("Перчатки легенды"),    'gloves',  'legend', 'epic', { power: 5, initiative: 5 }],
     ['legend-amulet', _t("Амулет легенды"),      'amulet',  'legend', 'epic', { power: 5, health: 8, ricochet: 3, fury: 3 }],
+    // --- 2.0.9: комплекты доведены до 7 вещей (оружие и недостающие ячейки) ---
+    ['swift-dagger',   _t("Кинжал стрижа"),       'weapon1', 'swift', 'rare',   { power: 9, initiative: 5, health: 8 }],
+    ['swift-gloves',   _t("Перчатки стрижа"),     'gloves',  'swift', 'common', { initiative: 4, defense: 1, health: 9 }],
+    ['archer-shoulders',_t("Наплечники стрелка"), 'shoulders','archer','common', { initiative: 3, cunning: 2 }],
+    ['archer-legs',    _t("Поножи стрелка"),      'legs',    'archer', 'common', { health: 8, initiative: 3 }],
+    ['ancient-mace',   _t("Булава из рога"),      'weapon1', 'ancient','rare',   { power: 8, health: 8, defense: 2 }],
+    ['ancient-arms',   _t("Наручи-панцирь"),      'arms',    'ancient','common', { defense: 4, health: 9 }],
+    ['tracker-legs',   _t("Поножи следопыта"),    'legs',    'tracker','common', { health: 9, cunning: 3 }],
+    ['tracker-gloves', _t("Перчатки следопыта"),  'gloves',  'tracker','rare',   { power: 3, cunning: 3, initiative: 2 }],
+    ['hammer-gloves',  _t("Рукавицы разрушителя"),'gloves',  'hammer', 'rare',   { power: 7, fury: 3 }],
+    ['hammer-shoulders',_t("Наплечники разрушителя"),'shoulders','hammer','rare',{ power: 6, health: 12, fury: 2 }],
+    ['bastion-shield-r',_t("Башенный щит: правая створка"),'weapon1','bastion','epic',  { block: 8, ricochet: 4, health: 6 }],   // составной ростовой щит: левая створка — в левую руку (щит), правая — в правую (занимает ячейку одноручного)
+    ['bastion-shoulders',_t("Наплечники бастиона"),'shoulders','bastion','rare', { block: 6, ricochet: 3, health: 8 }],
+    ['legend-legs',    _t("Поножи легенды"),      'legs',    'legend', 'epic',   { health: 18, defense: 4, initiative: 4 }],
+    ['legend-shoulders',_t("Наплечники легенды"), 'shoulders','legend','epic',   { health: 12, power: 4, cunning: 4 }],
+    ['moon-sickle',    _t("Лунный серп"),         'weapon1', 'moon',   'epic',   { power: 10, initiative: 4, cunning: 2, health: 8 }],
+    ['moon-gloves',    _t("Лунные перчатки"),     'gloves',  'moon',   'rare',   { initiative: 4, cunning: 3, defense: 1, health: 9 }],
+    ['granite-mace',   _t("Гранитная булава"),    'weapon1', 'granite','epic',   { power: 9, block: 3, health: 6 }],
+    ['granite-gloves', _t("Гранитные рукавицы"),  'gloves',  'granite','rare',   { defense: 6, block: 2, health: 6 }],
     ['crossbow-hunt',  _t("Охотничий арбалет"),   'ranged', null, 'common', { power: 3, initiative: 1 }],
     ['crossbow-siege', _t("Осадный арбалет"),     'ranged', null, 'rare',   { power: 7, block: 1 }],
     ['crossbow-repeater',_t("Скорострельный арбалет"),'ranged', null, 'epic', { power: 8, initiative: 3, fury: 3 }],
@@ -387,7 +416,9 @@ const Gear = (() => {
     return Object.entries(counts).map(([id, count]) => {
       const set = SETS[id];
       const active = [], next = [];
-      for (const [need, b] of Object.entries(set.bonuses)) (count >= Number(need) ? active : next).push({ need: Number(need), bonus: b });
+      const top = Math.max(1, ...equipped(gear).filter((it) => it.set === id).map((it) => it.tier || 1)), m = windowMult(id, top);
+      const scaled = (b) => { if (m === 1) return b; const o = {}; for (const k in b) o[k] = k === 'pet' ? b[k] : k === 'defense' ? b[k] * m : Math.max(1, Math.round(b[k] * m)); return o; };
+      for (const [need, b] of Object.entries(set.bonuses)) (count >= Number(need) ? active : next).push({ need: Number(need), bonus: scaled(b) });
       const total = ITEMS.filter((i) => i.set === id).length;
       return { id, name: set.name, color: set.color, count, total, active, next };
     });
@@ -396,7 +427,7 @@ const Gear = (() => {
   // 2.0.7: «Следопыт» (5 вещей) усиливает питомца: сумма бонусов pet активных комплектов
   const petBonus = (gear) => setProgress(gear).reduce((n, p) => n + p.active.reduce((m, a) => m + (a.bonus.pet || 0), 0), 0);
 
-  const blankStats = () => ({ power: 0, health: 0, defense: 0, initiative: 0, ricochet: 0, block: 0, fury: 0, cunning: 0 });
+  const blankStats = () => ({ power: 0, health: 0, defense: 0, initiative: 0, ricochet: 0, block: 0, fury: 0, cunning: 0, venom: 0 });
   const capStats = (s) => { for (const k in CAPS) s[k] = Math.max(0, Math.min(CAPS[k], s[k])); return s; };
 
   // Итоговые характеристики: предметы + бонусы наборов.
@@ -534,7 +565,7 @@ const Gear = (() => {
   const bulkPrice = (unitPrice, n) => Math.round(unitPrice) * Math.max(1, Math.round(n));
 
   return {
-    itemsFor, craftFor, isForgeOnly, RELICS, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, LOCKED_SETS, petBonus, ITEMS, CONSUMABLES, FORGE_KINDS,
+    itemsFor, craftFor, isForgeOnly, RELICS, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, LOCKED_SETS, LATE_MIN_TIER, SET_WINDOWS, petBonus, ITEMS, CONSUMABLES, FORGE_KINDS,
     DUR_BASE, DUR_STEP, REPAIR_SHARE, WEAR_SLOTS_SKIP, durMax, durOf, repairCost, wearFactor, durAfterTier, setTier, TEMPER_MAX, FIT_K, fitCost, temperCost, temperStats, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
     equipped, totalCost, setProgress, stats, statsFor, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, upgradeCostLegacy, craftCost, bulkPrice,
   };

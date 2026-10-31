@@ -31,7 +31,7 @@ function inPage() {
   if (sh > vh + 1) F.push(['vscroll', 'страница выше экрана на ' + (sh - vh) + ' px (' + sh + ' из ' + vh + ')']);
   // «живые» элементы: те, до которых реально можно дотронуться (не закрыты окном поверх)
   const live = (e) => { const r = e.getBoundingClientRect(), x = Math.min(vw - 1, Math.max(0, r.left + r.width / 2)), y = r.top + r.height / 2; if (y < 0 || y > vh) return true; const t = document.elementFromPoint(x, y); return !t || e.contains(t) || t.contains(e); };
-  const IGNORE = (e) => e.closest('label.lvl') || e.closest('#credits-screen, .credits, .test-x10'); // поле «ИИ» — для проверки баланса
+  const IGNORE = (e) => e.id === 'goal-strip' || e.closest('label.lvl') || e.closest('#credits-screen, .credits, .test-x10'); // поле «ИИ» — для проверки баланса
   const ctl = all.filter((e) => !IGNORE(e)).filter((e) => /^(BUTTON|A|SELECT|INPUT|LABEL|SUMMARY)$/.test(e.tagName) || e.getAttribute('role') === 'button' || e.dataset && (e.dataset.act || e.dataset.pick)).filter(live);
   for (const e of all) {
     const r = e.getBoundingClientRect(); if (e.closest('svg') && e.tagName !== 'svg') continue;

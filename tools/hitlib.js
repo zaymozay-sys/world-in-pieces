@@ -35,13 +35,16 @@ function hitReport(opts = {}) {
     const base = { el: desc(e), text: (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 24), rect: [r.left, r.top, r.right, r.bottom].map(Math.round).join(',') };
     if (e.matches('summary') && e.closest('.log-wrap')) continue;   // журнал боя — раскрывающийся блок под полем, ниже сгиба по замыслу
     if (sc) { const q = sc.getBoundingClientRect(); if (r.bottom > q.bottom + 1 || r.top < q.top - 1 || r.bottom > Y1 + 1 || r.top < Y0 - 1) continue; }   // кнопка внутри прокручиваемого окна, видна частично — до неё докручивают
+    if (e.closest('.tabs') && getComputedStyle(e.closest('.tabs')).overflowX === 'auto' && r.top >= Y0 - 1 && r.bottom <= Y1 + 1) continue;   // 2.0.9: вкладки в строке с горизонтальной прокруткой
     if (r.left < X0 - 1 || r.right > X1 + 1 || r.top < Y0 - 1 || r.bottom > Y1 + 1) { out.push({ ...base, kind: 'offscreen' }); continue; }
+    if (e.id === 'goal-strip') continue;   // 2.0.9: строка цели на карте — подсказка, а не основная кнопка; её высоту держит нижняя плашка
     if (Math.min(r.width, r.height) < MIN) out.push({ ...base, kind: 'small', size: Math.round(r.width) + '×' + Math.round(r.height) });
     const pts = [[.5, .5], [.2, .2], [.8, .2], [.2, .8], [.8, .8]];
     const missed = [];
     for (const [rx, ry] of pts) {
       const t = document.elementFromPoint(r.left + r.width * rx, r.top + r.height * ry);
       if (t && t.closest('.modal-back, .overlay, .map-card') && !e.closest('.modal-back, .overlay, .map-card')) continue;   // под открытым окном — закрыто намеренно
+      { const stk = t && t.closest('.to-map'); if (stk && getComputedStyle(stk).position === 'sticky' && sc && sc.scrollHeight > sc.clientHeight + 2) continue; }   // 2.0.9: под липкой кнопкой «На карту» — прокруткой выводится из-под неё
       if (!t || !(t === e || e.contains(t) || t.contains(e) && getComputedStyle(t).pointerEvents === 'none')) missed.push(desc(t));
     }
     if (missed.length) out.push({ ...base, kind: 'blocked', missed: missed.length + '/5', by: [...new Set(missed)].slice(0, 3).join(' | ') });

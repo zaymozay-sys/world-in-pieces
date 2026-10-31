@@ -24,6 +24,7 @@ const maxExtra = (gear, t) => {
   return ex;
 };
 if (args.hp) { const B = global.Balance || require('../js/balance.js'); args.hp.split(',').forEach((v, i) => { B.monsters.hpBoost[i] = Number(v); }); }   // hp=1.8,1.7,... — проверка набора множителей без правки файла
+if (args.dmg) { const B = global.Balance || require('../js/balance.js'); args.dmg.split(',').forEach((v, i) => { B.monsters.dmgScale[i] = Number(v); }); }   // dmg=1,1,... — то же для урона
 const rows = [];
 for (const t of COLORS) {
   const L = Math.min(100, Hero.itemLevel(t) + Number(args.off || 0)), mons = pickSpecies(t);
