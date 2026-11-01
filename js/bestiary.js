@@ -180,7 +180,7 @@ const Bestiary = (() => {
       name: _t("Болотный рак"), unlock: 4, hp: 84, ai: 34, coins: 29, gear: 0,
       stats: { defense: 10, block: 8 },
       drops: [['hide', 0.6, 1, 2], ['bone', 0.5, 1, 2], ['chitin', 0.1, 1, 2]],
-      desc: _t("Прячется в тине, выставив клешни. Прячется за панцирем: пока он цел, удары вязнут в нём."),
+      desc: _t("Прячется в тине, выставив клешни. Укрывается за панцирем: пока он цел, удары вязнут в нём."),
     },
     bolotnik: {
       family: _t("Болотные твари"), ability: 'mire', xp: 1.1,
@@ -572,7 +572,7 @@ const Bestiary = (() => {
       name: _t("Тень-убийца"), unlock: 10, hp: 62, ai: 42, coins: 52, gear: 0,
       stats: { initiative: 16, power: 40, ricochet: 6 },
       drops: [['essence', 0.6, 1, 2], ['crystal', 0.35, 1, 1], ['silk', 0.3, 1, 1]],
-      desc: _t("Тень с чёрным клинком. Порез почти не больно, но яд на лезвии жжёт ещё несколько ходов."),
+      desc: _t("Тень с чёрным клинком. Порез почти не чувствуется, но яд на лезвии жжёт ещё несколько ходов."),
     },
     // --- 2.0.7 (этап C): четыре существа — источники смолы, рога и хитина ---
     pinestump: {
@@ -758,8 +758,7 @@ const Bestiary = (() => {
   // swarmSize — размер роя (см. rollSwarmSize); у обычных видов всегда 1 и ни на что не влияет.
   function scaled(id, tier, swarmSize = 1, heroLevel = 0) {
     const m = MONSTERS[id], t = B_T.clamp(tier);
-    // 2.0.7 (D2): внутри цвета существа растут вместе с героем — +2,5% ХП и урона за каждый уровень героя выше начала цвета (не больше +22,5%)
-    const grow = 1 + 0.025 * Math.max(0, Math.min(9, (heroLevel || 0) - ((t - 1) * 10 + 1)));
+    const grow = 1;   // 2.0.8: существо одного цвета всегда одинаково, от уровня героя не зависит
     const stats = B_G.blankStats();
     const sw = swarmMult(id, swarmSize);
     const dmg = B_T.GROWTH[t - 1] * B_B.damage.stone * sw.dmg * B_B.monsters.dmgScale[t - 1] * grow;            // рост урона существа (в бою даёт Силу уровня)
@@ -777,7 +776,7 @@ const Bestiary = (() => {
   // faction — фракция игрока: вещи чужих фракций не выпадают.
   // 1.6.6: heroTier — цвет героя. Существо слабее цветом ничего из ресурсов не даёт (монеты и опыт остаются): слабых мобов бить невыгодно,
   // ресурсы для малых уровней остаются на рынке. weak = true сообщает экрану награды, почему ресурсов нет.
-  const resourcesWeak = (tier, heroTier) => heroTier > 0 && B_T.clamp(tier) < heroTier;
+  const resourcesWeak = (tier, heroTier) => heroTier > 0 && B_T.clamp(tier) <= heroTier - 2;   // 2.0.8: ресурсов нет, если существо слабее на 2 цвета и больше
   function rollDrops(id, tier, rand = Math.random, faction, heroTier, boost = 1) {
     const m = MONSTERS[id], t = B_T.clamp(tier);
     const resources = [], weak = resourcesWeak(t, heroTier);

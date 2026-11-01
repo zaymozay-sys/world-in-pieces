@@ -68,7 +68,7 @@ const Combat = (() => {
     }
     if (f.secondWind && !f.revived2 && f.hp - amount <= 0) {       // 1.6.3: умение медалей «Второе дыхание»
       f.revived2 = true;
-      f.hp = Math.ceil(f.max * 0.3);
+      f.hp = Math.ceil(f.max * (f.secondWindFrac || 0.3));     // питомцу «Амулет верности» задаёт свою долю
       return true;
     }
     f.hp = Math.max(0, f.hp - amount);

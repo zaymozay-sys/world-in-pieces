@@ -90,19 +90,19 @@ const Elixirs = (() => {
   const describe = (kind, tier) => {
     if (kind === 'endure') return _t("Один раз за бой смертельный удар оставит вам 1 ХП.");
     if (kind === 'food') return _t("Питомец бьёт на {0}% сильнее до конца боя.", [Math.round((FOOD_MULT(tier) - 1) * 100)]);
-    if (kind === 'speed') return _t("Дополнительный ход сразу и Проворство +{0} на {1} ходов.", [bonus(tier, 'speed'), LONG_TURNS]);
+    if (kind === 'speed') return _t("Дополнительный ход сразу и Проворство +{0} на {1 ход|хода|ходов}.", [bonus(tier, 'speed'), LONG_TURNS]);
     if (kind === 'road') return _t("Броня +{0} и максимум ХП +{1}% на этот бой и ещё {2}.", [Math.round(bonus(tier, 'road')), Math.round(ROAD_HP * 100), ROAD_FIGHTS - 1]);
     const K = KINDS[kind], st = (typeof Gear !== 'undefined' && Gear.STAT_NAMES) ? Gear.STAT_NAMES : {};
-    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно раз в {1} хода, ход не тратится.", [heal(tier), INSTANT_CD]);
-    if (kind === 'swap') return _t("Превращает до {0} камней того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1} хода, ход не тратится.", [swapAmount(tier), INSTANT_CD]);
-    if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1} хода, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), INSTANT_CD]);
+    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [heal(tier), INSTANT_CD]);
+    if (kind === 'swap') return _t("Превращает до {0 камень|камня|камней} того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [swapAmount(tier), INSTANT_CD]);
+    if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), INSTANT_CD]);
     const b = bonus(tier, kind), name = st[K.stat] || K.stat, pc = (K.stat === 'defense' || K.stat === 'power') ? '' : '%';
     // Броня — цифры: показываем, сколько вычитается из каждого удара у героя середины этого цвета.
     const flat = kind === 'defense' ? b : null;
     let t = K.mode === 'turn'
       ? (kind === 'power' ? _t("+{0}% к Силе до конца хода. Пить перед ударом.", [b]) : _t("+{0} {1} до конца хода. Пить перед ударом.", [b, name]))
-      : flat !== null ? _t("{1} +{0} (−{0} к каждому удару) на {2} ходов", [flat, name, LONG_TURNS])
-      : _t("+{0}{2} {1} на {3} ходов.", [b, name, pc, LONG_TURNS]);
+      : flat !== null ? _t("{1} +{0} (−{0} к каждому удару) на {2 ход|хода|ходов}", [flat, name, LONG_TURNS])
+      : _t("+{0}{2} {1} на {3 ход|хода|ходов}.", [b, name, pc, LONG_TURNS]);
     if (tier >= 10) t += `; +${Math.round(asStat(K.second, rawBonus(tier, kind), tier) * GREAT.k)} ${st[K.second] || K.second}`;
     if (tier >= FX_MIN && sideText(kind, tier)) t += `; ${sideText(kind, tier)}`;
     return t;

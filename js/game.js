@@ -227,7 +227,7 @@ function buildFighter(side) {
   // многоточием, если не помещается), чтобы строка с именем никогда не переносилась на вторую
   // строку — иначе карточки игрока и противника оказались бы разной высоты (см. .fighter .name).
   const nameRow = side === 'right'
-    ? _t("<div class=\"name\"><span class=\"fname\" style=\"color:{0}\" title=\"{1}\">{2}</span> {3}</div>", [tierColor(f.tier), f.name, f.name, tierChip(f.tier)])
+    ? _t("<div class=\"name\"><span class=\"fname\" style=\"color:{0}\" title=\"{1}\">{2}</span> {3}</div>", [tierColor(f.tier), f.name, f.name, tierChip(f.tier) + mobLevelHtml(f.tier)])
     : _t("<div class=\"name\"><span class=\"fname\" title=\"{0}\">{1}</span> <span class=\"hero-lvl\" title=\"Уровень героя\">ур. {2}</span></div>", [f.name, f.name, f.level || 1]);
   el.innerHTML = _t("\n    <div class=\"avatar\" title=\"Открыть ранец и экипировку\"></div>\n    {0}\n    <div class=\"hpbar\"><i></i><span class=\"hptext\"></span></div>\n    <div class=\"counters\">{1}</div>\n    <div class=\"gearrow\" title=\"Открыть ранец и экипировку\"></div>\n    <div class=\"statline\"></div>\n    {2}\n    <div class=\"badge\"></div>\n    {3}\n    {4}", [nameRow, counters, side === 'right' ? _t("<div class=\"ability-line\" title=\"{0}\">Приём: <b>{1}</b></div>", [(Bestiary.ability(f.monsterId) || {}).desc || '', (Bestiary.ability(f.monsterId) || {}).name || '—']) : '', side === 'left' ? '<div class="pet-panel" id="pet-panel" hidden><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div>' : '', side === 'right' ? '<div class="pet-panel clone-panel" id="clone-panel" hidden><div class="clone-av"></div><div class="clone-body"><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div></div>' : '']);
 
@@ -618,8 +618,8 @@ const MAGICS = {
     tip: _t("Один случайный цвет на поле целиком перекрашивается в другой") },
   sacrifice: { name: _t("Жертва"), icon: sacrificeIcon,
     tip: _t("Сжигает часть своего текущего ХП — следующий собранный камень наносит утроенный урон") },
-  divination: { name: _t("Прорицание"), icon: divinationIcon,
-    tip: _t("Показывает лучший ход на поле (урон, магия, риск ответа врага). Ход не тратит") },
+  temper: { name: _t("Закалка"), icon: (typeof furyIcon === 'function' ? furyIcon : strikeIcon),
+    tip: _t("Выбранный камень и четыре соседних поднимаются на ступень номинала (×1 → ×3 → ×5). Усиленные камни сильнее бьют, лечат и копят господство цвета; ход тратится") },
   fury: { name: _t("Кулак ярости"), icon: (typeof furyIcon === 'function' ? furyIcon : strikeIcon),
     tip: _t("Следующий удар наносит двойной урон. Только пока камней вашего цвета на поле больше (по номиналам), чем любого другого") },
 };
@@ -662,8 +662,8 @@ function buildSpellbar() {
     if (b.classList.contains('new-spell') && Profile.data.spellSeen) { Profile.data.spellSeen[k] = true; Profile.save(); b.classList.remove('new-spell'); }
     if (k === 'faction') useFactionAbility();
     else if (k === 'lightning') toggleMagic();
-    else if (k === 'fire' || k === 'transmute' || k === 'square' || k === 'pierce') toggleAim(k);
-    else playerInstant(k);      // heal, chaos, strike, mirror, tide, sacrifice, divination, fury
+    else if (k === 'fire' || k === 'transmute' || k === 'square' || k === 'pierce' || k === 'temper') toggleAim(k);
+    else playerInstant(k);      // heal, chaos, strike, mirror, tide, sacrifice, fury
   });
 }
 
@@ -740,7 +740,7 @@ function useAmmo(kind, cell = null) {
     e.poison = { turns: Math.max(Ammo.DART_TURNS, (e.poison && e.poison.turns) || 0), dmg: Math.max(dmg, (e.poison && e.poison.dmg) || 0) };
     showFloat('right', _t("Яд!"), 'venom');
     SND.transmute();
-    logEvent('left', _t("{0}: Ядовитый дротик — {1} урона в начале каждого из {2} ходов противника", [f.name, dmg, Ammo.DART_TURNS]));
+    logEvent('left', _t("{0}: Ядовитый дротик — {1} урона в начале каждого из {2 хода|ходов|ходов} противника", [f.name, dmg, Ammo.DART_TURNS]));
   } else if (kind === 'bomb') {
     stopTurnTimer();
     busy = true;
@@ -850,7 +850,7 @@ let pet = null;
 // Питомец погиб (0 ХП) в ЭТОМ бою — дальше герой сражается с тем же монстром один (см. Combat.turnOrder).
 let petFell = false;
 const petEl = () => $('pet-panel');
-const petName = () => (Profile.pet() ? Pets.petDisplayName(Profile.pet().speciesId) : '');
+const petName = () => (Profile.pet() ? Pets.petTitle(Profile.pet()) : '');
 // Жив ли питомец и в строю ли он ПРЯМО СЕЙЧАС (участвует в раунде — см. Combat.turnOrder).
 const petAlive = () => !!pet && pet.hp > 0 && !petFell;
 
@@ -967,7 +967,9 @@ async function cloneTurn() {
 }
 
 // Открыто ли заклинание: по уровню героя; в обучении все нужные заклинания доступны.
-const spellOpen = (kind) => (typeof TUT === 'function' && TUT()) || Hero.isSpellUnlocked(kind, liveLevel());
+const spellOpen = (kind) => (typeof TUT === 'function' && TUT()) || (Hero.isSpellUnlocked(kind, liveLevel()) && spellChosen(kind));
+// 2.0.9: в бой берутся только выбранные магии (слоты растут с цветом); Удар и турнир — без выбора.
+const spellChosen = (kind) => kind === 'strike' || (LIVE && LIVE.fixed) || !Balance.spellUnlock[kind] && kind !== 'lightning' || Profile.spellLoadout().includes(kind);
 
 function spellDisabled(kind, on, ready) {
   const f = fighters.left;
@@ -975,8 +977,8 @@ function spellDisabled(kind, on, ready) {
   if (!spellOpen(kind)) return true;   // не открыто по уровню героя
   if (kind === 'lightning') return aiming || (!on && !ready);
   if ((kind === 'fire' || kind === 'square') && f.magic) return true;   // 2.0.5: после Молнии Крест/Захват в этом ходу недоступны
-  if (kind === 'fire' || kind === 'transmute' || kind === 'square' || kind === 'pierce') return (aiming && !on) || (!on && !ready);
-  if (aiming || f.magic || !ready) return true;            // heal, chaos, strike, mirror, tide, sacrifice, divination
+  if (kind === 'fire' || kind === 'transmute' || kind === 'square' || kind === 'pierce' || kind === 'temper') return (aiming && !on) || (!on && !ready);
+  if (aiming || f.magic || !ready) return true;            // heal, chaos, strike, mirror, tide, sacrifice
   if (kind === 'heal' && f.hp >= f.max) return true;
   if (kind === 'fury' && !furyState().ok) return true;      // родной цвет не господствует на поле
   return false;
@@ -1005,8 +1007,10 @@ function renderMagic() {
     const state = on ? (kind === 'lightning' ? _t("Отмена") : _t("Выберите цель")) : '';
     const cost = magicCostOf('left', kind);
     const needLvl = Balance.spellUnlock[kind];
-    const locked = needLvl && !spellOpen(kind);
-    btn.title = locked ? _t("{0} — откроется на уровне {1}", [MAGICS[kind].name, needLvl])
+    const unlocked = Hero.isSpellUnlocked(kind, liveLevel()) || (typeof TUT === 'function' && TUT());
+    btn.hidden = !!(unlocked && !spellOpen(kind));
+    const locked = needLvl && !unlocked;
+    btn.title = locked ? _t("{0} — откроется на {1}-м цвете", [MAGICS[kind].name, Math.ceil(needLvl / 10)])
       : state ? `${MAGICS[kind].name} — ${state}` : _t("{0}: {1} (по {2} каждого вида)", [MAGICS[kind].name, MAGICS[kind].tip, _nn(cost, 'камень', 'камня', 'камней')]);
     if (kind === 'fury' && !locked && grid && grid[0]) {
       const fs = furyState();
@@ -1110,6 +1114,12 @@ function applyBattleBg() {
     if (Art.has(k)) document.body.style.setProperty('--battle-bg', `url('${new URL(Art.url(k), location.href).href}')`);
   } catch (e) { /* без картинок остаётся цветной фон */ }
 }
+// 2.0.9: уровень существа = уровни героя, с которыми оно сражается на равных (по цвету)
+function mobLevelHtml(tier) {
+  const per = Balance.hero.levelsPerTier, a = (tier - 1) * per + 1, b = Math.min(Hero.MAX_LEVEL, tier * per);
+  return ` <span class="hero-lvl mob-lvl" title="${_t('Уровень существа: на равных с героями этих уровней')}">${_t('ур. {0}–{1}', [a, b])}</span>`;
+}
+
 function renderEnemyColumn() {
   applyBattleBg();
   if (!enemyColEl) return;
@@ -1213,13 +1223,13 @@ async function useFactionAbility(side = 'left') {
     showFloat(side, _t("Знамя!"), 'buff');
     SND.lightning();
     logEvent(side, _t("{0}: Знамя — +{1} к Силе на {2}", [f.name, F.banner.power, `${F.banner.turns} ${turnsWord(F.banner.turns)}`]));
-    if (side === 'left') note(_t("Знамя поднято: +{0} к Силе на {1} хода", [F.banner.power, F.banner.turns]));
+    if (side === 'left') note(_t("Знамя поднято: +{0} к Силе на {1 ход|хода|ходов}", [F.banner.power, F.banner.turns]));
   } else if (id === 'venom') {
     const dmg = Combat.venomTick(Combat.power(f), f.dmg);
     foe.poison = { turns: F.venom.turns, dmg };
     showFloat(other(side), _t("Яд!"), 'venom');
     SND.transmute();
-    logEvent(side, _t("{0}: Ядовитый укус — {1} урона в начале каждого из {2} ходов противника", [f.name, dmg, F.venom.turns]));
+    logEvent(side, _t("{0}: Ядовитый укус — {1} урона в начале каждого из {2 хода|ходов|ходов} противника", [f.name, dmg, F.venom.turns]));
     if (side === 'left') note(_t("Яд: {0} будет терять по {1} ХП {2}", [foe.name, dmg, `${F.venom.turns} ${turnsWord(F.venom.turns)}`]));
   } else if (id === 'hammer') {
     const keep = busy;
@@ -1584,7 +1594,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.pierce) showFloat(attackerSide, _t("Подлый удар!"), 'buff');
   if (r.shred > 0) showFloat(target, _t("Броня трещит!"), 'debuff');
   if (r.critExtra) elxMark('fury');                        // эликсир ярости: первый крит бил сильнее
-  if (r.venom) { showFloat(target, _t("Яд!"), 'venom'); logEvent(attackerSide, _t("{0}: Отрава — {1} урона в начале каждого из {2} ходов противника", [attacker.name, r.venom.dmg, r.venom.turns])); }
+  if (r.venom) { showFloat(target, _t("Яд!"), 'venom'); logEvent(attackerSide, _t("{0}: Отрава — {1} урона в начале каждого из {2 хода|ходов|ходов} противника", [attacker.name, r.venom.dmg, r.venom.turns])); }
   if (r.crit) { showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
   if (r.kind === 'reflect') {
     showFloat(target, _t("Рикошет!"), 'ricochet');
@@ -1792,7 +1802,7 @@ async function liveApply(a) {
       invalidStreakR++;
       const pen = Combat.invalidPenalty(f), lim = Balance.invalid.limit;
       dmgTag = 'pen'; dealDamage('right', pen, true);
-      logEvent('right', _t("{0}: неверный ход, -{1} ХП ({2}/{3})", [f.name, pen, invalidStreakR, lim]));
+      logEvent('right', _t("{0}: неверный ход, −{1} ХП ({2}/{3})", [f.name, pen, invalidStreakR, lim]));
       flushTurnDamage();
       if (invalidStreakR >= lim || f.hp <= 0) { checkEnd(); if (!over) { f.hp = 0; renderFighters(); checkEnd(); } return true; }
       await sleep(900);
@@ -1803,6 +1813,7 @@ async function liveApply(a) {
     const cell = liveCell(a.i), kind = a.kind;
     invalidStreakR = 0;
     if (kind === 'chaos') await castChaosArea('right', cell); else if (kind === 'transmute') await castTransmute('right', cell);
+    else if (kind === 'temper') await castTemper('right', cell);
     else if (kind === 'square') await castFire('right', cell, { shape: 'square' }); else if (kind === 'pierce') await castFire('right', cell, { shape: 'point' });
     else await castFire('right', cell);
     return over;
@@ -1953,6 +1964,11 @@ function showOverlay(text, sub = '') {
   const result = text === _t("Победа!") ? 'win' : 'loss';
   if (host.main && battleNo) {                                   // 2.0.7: номер боя на экране итога + сохранение журнала
     BattleLog.save({ n: battleNo, foe: fighters.right.name, tier: fighters.right.tier, result, hero: fighters.left.name, lines: battleLog });
+    try {                                                         // 2.0.9: отчёт тестировщиков (js/telemetry.js)
+      const H = fighters.left, E = fighters.right;
+      Telemetry.battle({ n: battleNo, result, mode: LIVE ? (tourneyFight() ? 'tournament' : 'live') : 'pve', hero: { name: H.name, hp: H.hp, max: H.max }, foe: { name: E.name, tier: E.tier, hp: E.hp, max: E.max },
+        stats: { ...rec }, extra: { pet: !!pet, tutorial: !!TUT() }, lines: battleLog, });
+    } catch (e) { /* отчёты игре не мешают */ }
     const nb = document.createElement('small'); nb.className = 'battle-no'; nb.textContent = _t("Бой № {0}", [battleNo]);
     o.firstElementChild.insertAdjacentElement('afterbegin', nb);
   }
@@ -2326,7 +2342,7 @@ function startGame() {
   turnDamage = { target: null, amount: 0 };
   turnEvents = { block: 0, blockTarget: null, reflected: 0, attacker: null };
 
-  if (duoPet) Duo.begin(duoPet);
+  if (duoPet) Duo.begin(duoPet, { noHelp: !!LIVE });
   else if (!PET && !TUT() && typeof Duo !== 'undefined') Duo.solo();
   if (!PET && typeof fitBattleHeight === 'function') requestAnimationFrame(fitBattleHeight);
   // Проворство решает, кто ходит первым.
@@ -2406,6 +2422,7 @@ function rewardFor(f, first = true, opts = {}) {
     drops.item = pieces.length ? Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, f.tier) : Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), 1e6).item;
   }   // 1.8.6: духи замка в доспехах — иногда роняют одежду
   drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm * Growth.xpMul(selNow().grow));
+  if (!opts.quick && Profile.petInBattle() && Profile.pet() && Math.random() < Pets.amuletPower(Profile.pet(), 'fortune')) { drops.coins *= 2; drops.fortune = true; }   // «Амулет удачи»
   if (lm !== 1) for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * lm));
   if (opts.quick) drops.item = null;
   if (selNow().stale) drops.item = null;                 // 2.0.9: подземелье — в уже зачищенной комнате вещей нет (ресурсы и монеты как обычно)
@@ -2430,6 +2447,7 @@ function rewardFor(f, first = true, opts = {}) {
       sh.pulls = (sh.pulls || 0) + 1; MapView.toast(_t("Зверь потянул бригантину: {0} / 5", [sh.pulls]), 3000); } }
   Daily.registerWin();
   Profile.addCoins(drops.coins);
+  if (drops.fortune) MapView.toast(_t("Амулет удачи: монет вдвое больше!"), 2500);
   const up = Profile.addXp(xp);
   const killMedal = Profile.checkKillMedal(f.monsterId, Hero.tierFor(Profile.level()));   // первая победа над видом
   const shotMedal = first && shotKilledMonster ? Profile.registerShotKill(Hero.tierFor(Profile.level())) : null;
@@ -2934,7 +2952,7 @@ function toggleAim(kind) {
   aiming = true;
   aimKind = kind;
   boardEl.classList.add('aiming', 'aiming-' + kind);
-  note(kind === 'bomb' ? _t("Пороховая шашка: выберите центр взрыва 3x3") : kind === 'fire' ? _t("Огненный крест: выберите центр области") : kind === 'square' ? _t("Захват: выберите центр квадрата 3x3") : kind === 'chaos' ? _t("Хаос: выберите центр области 3x3") : kind === 'pierce' ? _t("Выпад: выберите камень, он сгорит (ход не тратится)") : kind === 'growth' ? _t("Дикий рост: выберите камень") : _t("Превращение: выберите камень (не обсидиан)"));
+  note(kind === 'bomb' ? _t("Пороховая шашка: выберите центр взрыва 3x3") : kind === 'fire' ? _t("Огненный крест: выберите центр области") : kind === 'square' ? _t("Захват: выберите центр квадрата 3x3") : kind === 'chaos' ? _t("Хаос: выберите центр области 3x3") : kind === 'pierce' ? _t("Выпад: выберите камень, он сгорит (ход не тратится)") : kind === 'temper' ? _t("Закалка: выберите центр креста из пяти камней") : kind === 'growth' ? _t("Дикий рост: выберите камень") : _t("Превращение: выберите камень (не обсидиан)"));
   renderMagic();
 }
 
@@ -2942,7 +2960,7 @@ function stopAim() {
   aiming = false;
   aimKind = null;
   aimCell = null;
-  boardEl.classList.remove('aiming', 'aiming-fire', 'aiming-transmute', 'aiming-square', 'aiming-growth', 'aiming-bomb', 'aiming-chaos', 'aiming-pierce');
+  boardEl.classList.remove('aiming', 'aiming-fire', 'aiming-transmute', 'aiming-square', 'aiming-growth', 'aiming-bomb', 'aiming-chaos', 'aiming-pierce', 'aiming-temper');
   if (typeof renderBag === 'function') renderBag();
   hideCross();
   renderMagic();
@@ -2961,6 +2979,11 @@ function showCross(cell) {
     const c0 = Math.max(0, cell.c - 1), c1 = Math.min(N - 1, cell.c + 1);
     cross.querySelector('.sq').style.cssText =
       `top:${r0 * u}%;left:${c0 * u}%;height:${(r1 - r0 + 1) * u}%;width:${(c1 - c0 + 1) * u}%`;
+  } else if (aimKind === 'temper') {
+    const rc0 = Math.max(0, cell.c - 1), rc1 = Math.min(N - 1, cell.c + 1);
+    const cr0 = Math.max(0, cell.r - 1), cr1 = Math.min(N - 1, cell.r + 1);
+    cross.querySelector('.row').style.cssText = `top:${cell.r * u}%;height:${u}%;left:${rc0 * u}%;width:${(rc1 - rc0 + 1) * u}%`;
+    cross.querySelector('.col').style.cssText = `left:${cell.c * u}%;width:${u}%;top:${cr0 * u}%;height:${(cr1 - cr0 + 1) * u}%`;
   } else {
     // Крест ограничен областью 5x5 вокруг клетки — подсветка обрезается границей поля, как и сам эффект.
     const rc0 = Math.max(0, cell.c - FIRE_RADIUS), rc1 = Math.min(N - 1, cell.c + FIRE_RADIUS);
@@ -3299,27 +3322,29 @@ async function castTide(side) {
   return afterSpell(side);
 }
 
-// Прорицание: чистая подсказка — на поле подсвечиваются все клетки, с которых доступен ход, собирающий
-// линию 4+ (Engine.fourPlusMoves). Прямого боевого эффекта нет (см. Balance.magic.divination.turns).
-async function castDivination(side) {
+// Закалка: выбранный камень и четыре соседних (крест из пяти) поднимаются на ступень номинала (×1 → ×3 → ×5).
+// Поле и ход камней не меняются, ход тратится. Пустая клетка и камни ×5 пропускаются; если менять нечего — заклинание не тратится.
+const temperCells = (cell) => [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]].map(([dr, dc]) => ({ r: cell.r + dr, c: cell.c + dc }))
+  .filter((p) => p.r >= 0 && p.c >= 0 && p.r < N && p.c < N && grid[p.r][p.c] && grid[p.r][p.c].value < 5);
+async function castTemper(side, cell) {
+  stopAim();
   clearSelection();
-  spendMagic(side, -1, 'divination');
-  const best = AI.advise(typOf(), valOf());
-  note(best ? _t("Прорицание: лучший ход подсвечен") : _t("Прорицание: ходов нет"));
+  const picks = temperCells(cell);
+  if (!picks.length) { if (side === 'left') note(_t("Все эти камни уже ×5")); return 0; }
+  spendMagic(side, -1, 'temper');
+  note(_t("Закалка!"));
   SND.heal();
-  logEvent(side, _t("{0}: Прорицание{1}", [fighters[side].name, best ? _t(" — лучший ход найден") : '']));
-  if (side === 'left' && best) {
-    const hl = Balance.magic.divination.turns * 4000;
-    boardEl.classList.add('divining');
-    for (const i of [best.a, best.b]) {
-      const t = grid[Math.floor(i / N)][i % N];
-      if (t && t.el) t.el.classList.add('divination');
-    }
-    const clear = () => { boardEl.classList.remove('divining'); boardEl.querySelectorAll('.tile.divination').forEach((el) => el.classList.remove('divination')); };
-    setTimeout(clear, hl);
-    boardEl.addEventListener('pointerdown', clear, { once: true });
+  logEvent(side, _t("{0}: Закалка — {1} усилены", [fighters[side].name, _nn(picks.length, 'камень', 'камня', 'камней')]));
+  for (const p of picks) grid[p.r][p.c].el.classList.add('morph');
+  await sleep(500);
+  for (const p of picks) {
+    const t = grid[p.r][p.c];
+    setTileValue(t, t.value < 3 ? 3 : 5);
+    t.el.classList.remove('morph');
+    t.el.classList.add('arrive');
   }
-  return 0;                                        // 0 — ход не потрачен
+  await sleep(300);
+  return afterSpell(side);
 }
 
 // Удар: универсальное заклинание всех фракций (та же цена «камней каждого вида», что у остальных заклинаний
@@ -3369,7 +3394,7 @@ async function playerCast(cell) {
   renderMagic();
   invalidStreak = 0;
   if (LIVE) LIVE.net.act({ k: 'cast', kind, i: cell.r * N + cell.c });
-  const res = kind === 'chaos' ? await castChaosArea('left', cell) : kind === 'transmute' ? await castTransmute('left', cell)
+  const res = kind === 'chaos' ? await castChaosArea('left', cell) : kind === 'transmute' ? await castTransmute('left', cell) : kind === 'temper' ? await castTemper('left', cell)
     : kind === 'square' ? await castFire('left', cell, { shape: 'square' }) : kind === 'pierce' ? await castFire('left', cell, { shape: 'point' }) : await castFire('left', cell);
   endPlayerAction();
   if (TUT()) Tutorial.event('cast', kind);
@@ -3384,7 +3409,7 @@ async function playerCast(cell) {
 // Заклинания без выбора цели (Целебный дождь, Хаос).
 const INSTANT_CASTERS = {
   heal: castHeal, chaos: castChaos, strike: castStrike,
-  mirror: castMirror, tide: castTide, sacrifice: castSacrifice, divination: castDivination, fury: castFury,
+  mirror: castMirror, tide: castTide, sacrifice: castSacrifice, fury: castFury,
 };
 async function playerInstant(kind) {
   if (busy || over || aiming || fighters.left.magic || !canAffordMagic('left', kind)) return;
@@ -3575,10 +3600,10 @@ async function enemyTurnStart() {
       showFloat('right', '+' + act.heal, 'heal'); renderFighters(); say(_t("Регенерация, +{0} ХП", [act.heal]));
       break;
     case 'steal':
-      renderCounters('left'); showFloat('left', `−${act.stones}`, 'ricochet'); say(_t("Воровство: утащила {0} ({1})", [act.stones, GEM_NAMES[act.type]]));
+      renderCounters('left'); showFloat('left', `−${act.stones}`, 'ricochet'); say(_t("Воровство: украдено {0} ({1})", [act.stones, GEM_NAMES[act.type]]));
       break;
     case 'prank':
-      if (prankSwap()) say(_t("Пакость: поменял два камня местами")); else acted = false;
+      if (prankSwap()) say(_t("Пакость: два камня поменялись местами")); else acted = false;
       break;
     case 'howl':
       say(_t("Вой! В этот ход Сила +{0}", [A.howl.power])); renderMagic();
@@ -3589,7 +3614,7 @@ async function enemyTurnStart() {
       break;
     }
     case 'veil':
-      veil(act.stones); say(_t("Туман: {0} камней скрыты до конца вашего хода", [act.stones]));
+      veil(act.stones); say(_t("Туман: {0 камень|камня|камней} скрыты до конца вашего хода", [act.stones]));
       break;
     case 'drum':
       renderMagic(); say(_t("Шаманский бубен: этот ход все камни жгут"));
@@ -3788,7 +3813,7 @@ function applyCunning(thiefSide, victimSide, gained) {
   if (!res) return;
   renderCounters(thiefSide, Object.keys(res.stolen)); renderCounters(victimSide);
   showFloat(thiefSide, _t("Хитрость"), 'ricochet');
-  logEvent(thiefSide, _t("{0}: Хитрость — украдено {1} камней", [fighters[thiefSide].name, res.total]));
+  logEvent(thiefSide, _t("{0}: Хитрость — украдено {1 камень|камня|камней}", [fighters[thiefSide].name, res.total]));
 }
 
 function gravityDown() {
@@ -3850,6 +3875,7 @@ boardEl.addEventListener('pointerdown', (e) => {
       const t = grid[cell.r][cell.c];
       if (!t || t.ti === ONYX) { note(_t("Выберите камень, не обсидиан")); return; }
     }
+    if (aimKind === 'temper' && !temperCells(cell).length) { note(_t("Все эти камни уже ×5")); return; }
     if (aimKind === 'growth' && !grid[cell.r][cell.c]) { note(_t("Выберите камень, а не пустую клетку")); return; }
     const same = aimCell && aimCell.r === cell.r && aimCell.c === cell.c;
     if (e.pointerType === 'touch' && !same) {     // на телефоне: первое касание целится, второе поджигает
@@ -4183,7 +4209,6 @@ if (host.main) {
   canEditGear: { get: () => canEditGear, enumerable: true, configurable: true },
   castChaos: { get: () => castChaos, enumerable: true, configurable: true },
   castChaosArea: { get: () => castChaosArea, enumerable: true, configurable: true },
-  castDivination: { get: () => castDivination, enumerable: true, configurable: true },
   castFire: { get: () => castFire, enumerable: true, configurable: true },
   castFury: { get: () => castFury, enumerable: true, configurable: true },
   castGrowth: { get: () => castGrowth, enumerable: true, configurable: true },
@@ -4191,6 +4216,7 @@ if (host.main) {
   castMirror: { get: () => castMirror, enumerable: true, configurable: true },
   castSacrifice: { get: () => castSacrifice, enumerable: true, configurable: true },
   castStrike: { get: () => castStrike, enumerable: true, configurable: true },
+  castTemper: { get: () => castTemper, enumerable: true, configurable: true },
   castTide: { get: () => castTide, enumerable: true, configurable: true },
   castTransmute: { get: () => castTransmute, enumerable: true, configurable: true },
   cellFromEvent: { get: () => cellFromEvent, enumerable: true, configurable: true },
@@ -4425,11 +4451,11 @@ const Duo = (() => {
   const isTrainingNow = () => MAIN_BATTLE.fighters.right.monsterId === 'beaver';
   const boards = () => ({ hero: M(), pet: petB });
 
-  function begin(petF) {
+  function begin(petF, opts = {}) {
     end();
     const pd = Profile.pet();
     if (!BATTLE_TEMPLATE || !pd) return;
-    st = { control: 'hero', tab: 'hero', result: { hero: null, pet: null }, kills: [], petOutcomes: [], done: false, pd };
+    st = { control: 'hero', tab: 'hero', result: { hero: null, pet: null }, kills: [], petOutcomes: [], done: false, pd, help: { 'hp-h2p': 0, 'hp-p2h': 0, 'st-h2p': 0, 'st-p2h': 0 }, noHelp: !!opts.noHelp, helpOpen: false };
     const root = BATTLE_TEMPLATE.cloneNode(true);
     root.classList.add('duo-pet', 'duo-hidden');
     for (const e of root.querySelectorAll('[id]')) { e.setAttribute('data-bid', e.id); e.id = 'pet-' + e.id; }   // 1.6.4 (WIP-07): id в документе уникальны
@@ -4440,7 +4466,7 @@ const Duo = (() => {
     petB.buildSpellbar();
     petB.startPetGame({
       fighter: petF, foe: structuredClone(M().fighters.right), level: Pets.dopedIntellect(pd, petF.intBonus),
-      name: Pets.petDisplayName(pd.speciesId), speciesId: pd.speciesId, tier: pd.tier, hpMult: Pets.boardHp(pd), dmgMult: Pets.boardDmg(pd),
+      name: Pets.petTitle(pd), speciesId: pd.speciesId, tier: pd.tier, hpMult: Pets.boardHp(pd), dmgMult: Pets.boardDmg(pd),
     });
     buildBar();
     document.body.classList.add('duo-battle');
@@ -4452,11 +4478,13 @@ const Duo = (() => {
     bar.className = 'duo-bar';
     bar.innerHTML = '<button type="button" class="duo-tab on" data-tab="hero"><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small><span class="dt-st"></span></button>' +
       '<button type="button" class="duo-tab" data-tab="pet"><span class="dt-av"></span><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small><span class="dt-st"></span></button>' +
-      '<button type="button" class="duo-take"></button>';
+      '<button type="button" class="duo-take"></button><button type="button" class="duo-help" hidden></button><div class="duo-helpmenu" hidden></div>';
     bar.querySelector('[data-tab=pet] .dt-av').innerHTML = petB.petPortrait(petB.fighters.left);
     bar.addEventListener('click', (e) => {
-      const t = e.target.closest('.duo-tab'), k = e.target.closest('.duo-take');
-      if (t) setTab(t.dataset.tab);
+      const t = e.target.closest('.duo-tab'), k = e.target.closest('.duo-take'), hb = e.target.closest('.duo-help'), ha = e.target.closest('[data-help]');
+      if (ha) { if (!ha.disabled) help(ha.dataset.help); }
+      else if (hb) { st.helpOpen = !st.helpOpen; renderBar(); }
+      else if (t) setTab(t.dataset.tab);
       else if (k) setControl(st.control === 'pet' ? 'hero' : 'pet', true);
     });
     mainEl().before(bar);
@@ -4581,7 +4609,56 @@ const Duo = (() => {
     take.textContent = st.control === 'pet' ? _t("Играть за героя") : _t("Играть за питомца");
     take.hidden = st.done || (st.control === 'hero' ? petOver || (petB.brief().hp <= 0) : heroOver);
     takeState = { text: take.textContent, hidden: take.hidden };
+    renderHelp();
     renderTeam();
+  }
+
+  /* ---------- Взаимовыручка (2.2.0): герой и питомец делятся здоровьем и камнями ----------
+     Отдающий теряет 10% своего здоровья, получающий восстанавливает столько же единиц своего здоровья (не выше максимума).
+     Камни: отдаётся до 2 каждого вида. Питомец делится здоровьем с доверия «Друг» (50), камнями — «Верный» (75). Каждое действие — до 2 раз за бой.
+     Каждая помощь укрепляет доверие (+1). В бою по сети отключено. */
+  const HELP = { lose: 0.10, stones: 2, uses: 2, trustHp: 50, trustSt: 75 };
+  const helpWho = (act) => { const h2p = act.endsWith('h2p'); return { giver: h2p ? M().fighters.left : petB.fighters.left, recv: h2p ? petB.fighters.left : M().fighters.left, h2p }; };
+  function helpCheck(act) {
+    if (!st || !petB || st.noHelp || st.done) return _t("Сейчас недоступно");
+    if (st.help[act] >= HELP.uses) return _t("Исчерпано: {0 раз|раза|раз} за бой", [HELP.uses]);
+    const { giver, recv, h2p } = helpWho(act), over = h2p ? st.result.pet : st.result.hero;
+    if (over || giver.hp <= 0 || recv.hp <= 0) return _t("Участник уже выбыл");
+    if (act.startsWith('hp')) {
+      if (!h2p && Pets.trustOf(st.pd) < HELP.trustHp) return _t("Питомец доверяет вам недостаточно: нужен уровень «{0}»", [Pets.trustName({ trust: HELP.trustHp })]);
+      if (giver.hp <= giver.max * 0.4) return _t("Отдающему нужно больше 40% здоровья");
+      if (recv.hp >= recv.max) return _t("Здоровье уже полное");
+    } else {
+      if (!h2p && Pets.trustOf(st.pd) < HELP.trustSt) return _t("Питомец доверяет вам недостаточно: нужен уровень «{0}»", [Pets.trustName({ trust: HELP.trustSt })]);
+      if (!MAGIC_TYPES.some((x) => (giver.counts && giver.counts[x]) > 0)) return _t("Нет камней для передачи");
+    }
+    return '';
+  }
+  function help(act) {
+    if (helpCheck(act)) return;
+    const { giver, recv, h2p } = helpWho(act), gb = h2p ? M() : petB, rb = h2p ? petB : M();
+    const gName = h2p ? Profile.data.name || _t("Герой") : Pets.petTitle(st.pd), rName = h2p ? Pets.petTitle(st.pd) : Profile.data.name || _t("Герой");
+    if (act.startsWith('hp')) {
+      const lose = Math.min(giver.hp - 1, Math.round(giver.max * HELP.lose)), gain = Math.min(recv.max - recv.hp, lose);
+      giver.hp -= lose; recv.hp += gain;
+      gb.logEvent('left', _t("{0} делится здоровьем: −{1}", [gName, lose])); rb.logEvent('left', _t("{0} получает от друга здоровье: +{1}", [rName, gain]));
+    } else {
+      let n = 0;
+      for (const x of MAGIC_TYPES) { const k = Math.min(HELP.stones, (giver.counts && giver.counts[x]) || 0); giver.counts[x] -= k; recv.counts[x] = (recv.counts[x] || 0) + k; n += k; }
+      gb.logEvent('left', _t("{0} передаёт камни: {1}", [gName, n])); rb.logEvent('left', _t("{0} получает камни: {1}", [rName, n]));
+    }
+    st.help[act]++; Pets.addTrust(st.pd, 1); Profile.save();
+    gb.renderFighters(); rb.renderFighters(); gb.renderCounters('left'); rb.renderCounters('left');
+    renderBar();
+  }
+  function renderHelp() {
+    const hb = bar.querySelector('.duo-help'), hm = bar.querySelector('.duo-helpmenu');
+    if (!hb || !hm) return;
+    hb.hidden = st.noHelp || st.done; hb.textContent = _t("Помощь");
+    hm.hidden = hb.hidden || !st.helpOpen;
+    if (hm.hidden) return;
+    const row = (act, label) => { const why = helpCheck(act); return `<button type="button" data-help="${act}" ${why ? 'disabled' : ''} title="${esc(why)}">${label}${why ? `<small>${esc(why)}</small>` : ''}</button>`; };
+    setHtml(hm, row('hp-h2p', _t("Отдать питомцу здоровье")) + row('hp-p2h', _t("Взять здоровье у питомца")) + row('st-h2p', _t("Передать питомцу камни")) + row('st-p2h', _t("Взять камни у питомца")));
   }
 
   function setTab(t) {
@@ -4608,6 +4685,10 @@ const Duo = (() => {
     st.result[id] = { result, foe };
     if (result === 'win') st.kills.push(foe);
     if (id === 'pet') st.petOutcomes.push({ tier: foe.tier, won: result === 'win' });
+    if (id === 'pet' && result === 'win' && st.pd) {            // «Амулет целителя»: победа питомца лечит героя
+      const hp = Pets.amuletPower(st.pd, 'healer'), hf = M().fighters.left;
+      if (hp > 0 && hf && hf.hp > 0) { const add = Math.min(hf.max - hf.hp, Math.round(hf.max * hp)); if (add > 0) { hf.hp += add; M().logEvent('left', _t("Амулет целителя: герой лечится на {0}", [add])); M().renderFighters(); } }
+    }
     const other = id === 'hero' ? 'pet' : 'hero';
     if (!st.result[other]) {                              // второе поле ещё идёт — переключаем игрока на него
       if (st.control === id) setControl(other, true);
@@ -4659,9 +4740,11 @@ const Duo = (() => {
     let gain = 0;
     for (const o of st.petOutcomes) gain += Pets.xpGain(o.tier, o.won);
     const up = Pets.addXp(pd, gain, heroTier);
+    for (const o of st.petOutcomes) Pets.addTrust(pd, o.won ? 2 : -2);      // 2.1.6: доверие растёт от побед вместе и падает от поражений
     Profile.save();
-    const name = Pets.petDisplayName(pd.speciesId), after = Pets.intellect(pd);
+    const name = Pets.petTitle(pd), after = Pets.intellect(pd);
     let line = _t("<br>{0}: опыт +{1}, ум {2} → {3}", [name, gain, before, after]).replace(/^<br>/, '');
+    line += _t(" Доверие: {0}/{1}.", [Pets.trustOf(pd), Pets.TRUST_MAX]);
     if (up) line += _t(". <b class=\"lvlup\">Новый цвет: {0}!</b>", [Tiers.get(pd.tier).name]);
     if (!pd.firstWin && st.petOutcomes.some((o) => o.won)) { pd.firstWin = true; line += `<br><i>${Story.PET_LINES.firstWin}</i>`; Profile.save(); }
     return `<div class="rw-pet">${line}</div>`;

@@ -302,8 +302,8 @@ const Medals = (() => {
   const checkMaster = (s, total, earned = []) => (MASTER[s] ? MASTER[s].ms.filter((n) => total >= n && !earned.some((m) => m.id === masterMedalId(s, n))).map((n) => masterMedalId(s, n)) : []);
   const masterDone = (s, earned = []) => MASTER[s].ms.every((n) => earned.some((m) => m.id === masterMedalId(s, n)));
   function masterText(s, n) {
-    return s === 'craft' ? _t("{0} изделий в Кузнице (создано и закалено)", [n]) : s === 'depth' ? _t("Этаж подземелья: {0}", [n])
-      : s === 'cut' ? _t("{0} огранок и вставленных самоцветов", [n]) : _t("{0} рун нанесено и обновлено", [n]);
+    return s === 'craft' ? _t("{0 изделие|изделия|изделий} в Кузнице (создано и закалено)", [n]) : s === 'depth' ? _t("Этаж подземелья: {0}", [n])
+      : s === 'cut' ? _t("{0 огранка|огранки|огранок} и вставленных самоцветов", [n]) : _t("{0 руна|руны|рун} нанесено и обновлено", [n]);
   }
 
   const MEDAL_CAPS = { block: 10 };   // суммарно по всем медалям
@@ -321,17 +321,17 @@ const Medals = (() => {
   function nameFor(id) {
     const species = killSpecies(id);
     if (species) return ME_B.MONSTERS[species] ? _t("Первая победа: {0}", [ME_B.MONSTERS[species].name]) : id;
-    if (id.startsWith('streak:')) return _t("{0} линий из 5 камней", [id.slice(7)]);
-    if (id.startsWith('strike:')) return _t("{0} добиваний Ударом", [id.slice(7)]);
-    if (id.startsWith('shot:')) return _t("{0} добиваний метким выстрелом", [id.slice(5)]);
+    if (id.startsWith('streak:')) return _t("{0 линия|линии|линий} из 5 камней", [id.slice(7)]);
+    if (id.startsWith('strike:')) return _t("{0 добивание|добивания|добиваний} Ударом", [id.slice(7)]);
+    if (id.startsWith('shot:')) return _t("{0 добивание|добивания|добиваний} метким выстрелом", [id.slice(5)]);
     if (styleKey(id) && STYLE[styleKey(id)]) return STYLE[styleKey(id)].name;
     if (worldKey(id) && WORLD[worldKey(id)]) return WORLD[worldKey(id)].name;
     if (secretKey(id) && SECRET[secretKey(id)]) return SECRET[secretKey(id)].name;
-    if (id.startsWith('spell:')) return _t("{0} заклинаний в победных боях", [id.slice(6)]);
-    if (id.startsWith('drunk:')) return _t("{0} выпитых эликсиров", [id.slice(6)]);
+    if (id.startsWith('spell:')) return _t("{0 заклинание|заклинания|заклинаний} в победных боях", [id.slice(6)]);
+    if (id.startsWith('drunk:')) return _t("{0 выпитый эликсир|выпитых эликсира|выпитых эликсиров}", [id.slice(6)]);
     if (elixirKey(id)) return _t("Выпит: {0}", [ME_X().KINDS[elixirKey(id)].name]);
     if (id.startsWith('m:')) { const mm = masterOf(id); return mm ? masterText(mm.s, mm.n) : id; }
-    if (id.startsWith('daily:')) return _t("{0} дней подряд в Испытании дня", [id.slice(6)]);
+    if (id.startsWith('daily:')) return _t("{0 день|дня|дней} подряд в Испытании дня", [id.slice(6)]);
     return id;
   }
 

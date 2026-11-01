@@ -10,10 +10,15 @@ const Unlocks = (() => {
   const HINTS = { jeweler: _t("огранка самоцветов, печати стражей, скупка камней"), arena: _t("Арена теней и Испытание дня"), lighthouse: _t("тюлень даёт поручения и ключ к сундуку"), junker: _t("скупает ненужные вещи и даёт поручения"), alchemist: _t("варит зелья и эликсиры из добычи"), kennel: _t("выбор спутника, уход и яйца питомцев"), artistWorkshop: _t("руны для вещей") };
   const GIVERS = { tavern: ['tavern', _t("Трактирщик в таверне")], mill: ['mill', _t("Мельник на мельнице")], lighthouse: ['lighthouse', _t("Тюлень на маяке")], junker: ['junker', _t("Старьёвщик")], library: ['library', _t("Бобёр в Библиотеке")] };
 
+  // 2.1.7: питомцы открываются на 5-м уровне. Прежние сохранения, где питомец уже есть и растёт, не теряют его.
+  const LEVEL_NEED = { kennel: 5 };
+  const level = (d) => (typeof Hero !== 'undefined' && d && Number.isFinite(d.xp)) ? Hero.levelOf(d.xp).level : 1;
+  const hasGrownPet = (d) => !!(d && (d.pet || (d.homePet && d.homePet.xp > 0)));
+  const levelOk = (d, id) => !LEVEL_NEED[id] || level(d) >= LEVEL_NEED[id] || (id === 'kennel' && hasGrownPet(d));
   const wins = (d) => (d && d.wins) || 0;
   const need = (id) => NEED[id] || 0;
-  const isOpen = (d, id) => wins(d) >= need(id);
-  const reason = (d, id) => _t("{0} откроется после {1} (сейчас {2})", [NAMES[id] || id, _nn(need(id), 'победы', 'побед', 'побед'), wins(d)]);
+  const isOpen = (d, id) => wins(d) >= need(id) && levelOk(d, id);
+  const reason = (d, id) => (wins(d) >= need(id) && !levelOk(d, id)) ? _t("{0} откроется на уровне {1} (сейчас {2})", [NAMES[id] || id, LEVEL_NEED[id], level(d)]) : _t("{0} откроется после {1} (сейчас {2})", [NAMES[id] || id, _nn(need(id), 'победы', 'побед', 'побед'), wins(d)]);
   const hint = (id) => (NAMES[id] || id) + (HINTS[id] ? ' — ' + HINTS[id] : '');
   const openIds = (d) => Object.keys(NEED).filter((id) => isOpen(d, id));
 
@@ -29,6 +34,7 @@ const Unlocks = (() => {
     const fresh = list.find((q) => !q.accepted && !q.claimed && giverOk(q));
     if (fresh) return _t("Возьмите задание «{0}»: {1}.", [fresh.title, GIVERS[fresh.giver] ? GIVERS[fresh.giver][1] : _t("в посёлке")]);
     const next = Object.keys(NEED).filter((id) => !isOpen(d, id)).sort((a, b) => NEED[a] - NEED[b])[0];
+    if (next && wins(d) >= need(next)) return _t("Скоро откроется: {0} — достигните уровня {1}.", [NAMES[next], LEVEL_NEED[next]]);
     if (next) return _t("Скоро откроется: {0} — осталось {1}.", [NAMES[next], _nn(need(next) - wins(d), 'победа', 'победы', 'побед')]);
     return _t("Исследуйте карту, охотьтесь на боссов и собирайте осколки Великого Сердца.");
   }
@@ -46,7 +52,7 @@ const Unlocks = (() => {
     return { kind: 'monster' };
   }
 
-  return { NEED, NAMES, GIVERS, isOpen, reason, openIds, goal, hint, target };
+  return { LEVEL_NEED, NEED, NAMES, GIVERS, isOpen, reason, openIds, goal, hint, target };
 })();
 
 if (typeof module !== 'undefined') module.exports = Unlocks;

@@ -26,6 +26,7 @@ const Screens = (() => {
     artistWorkshop: { msg: '' },
     jeweler: { tab: 'cut', msg: '', cutColor: 0 },
     kennel: { msg: '', tab: 'pet' },
+    sparkshop: { msg: '', busy: false },
     alchemist: { msg: '', basket: {} },
     market: { tab: 'lots', kind: 'item', sel: null, mult: 1, qty: 1, msg: '' },
     village: { tab: 'build', msg: '' },
@@ -81,7 +82,7 @@ const Screens = (() => {
     // 1.6.2: ступень медали за вид (бронза/серебро/золото) — по числу побед над видом
     const sp0 = Medals.killSpecies(id), wins0 = sp0 ? ((Profile.data.bestiary[sp0] && Profile.data.bestiary[sp0].wins) || 0) : 0;
     const rank = sp0 && got ? Medals.rankOf(sp0, Profile.data.bestiary) : 0, nxt = sp0 && got ? Medals.nextRankWins(wins0) : null;
-    const rankText = rank ? ' ' + _t("Ступень: {0}.", [Medals.RANK_NAMES[rank - 1]]) + (nxt ? ' ' + _t("До следующей: {0} побед.", [nxt - wins0]) : '') : '';
+    const rankText = rank ? ' ' + _t("Ступень: {0}.", [Medals.RANK_NAMES[rank - 1]]) + (nxt ? ' ' + _t("До следующей: {0 победа|победы|побед}.", [nxt - wins0]) : '') : '';
     const hiddenSecret = Medals.secretKey(id) && !got;                           // 1.6.2: скрытая медаль до получения
     const title = hiddenSecret ? _t("Скрытая медаль — условие неизвестно") : Medals.nameFor(id) + rankText + ' — ' + (got
       ? (_t("получена") + (tierOpen ? '' : _t("; цвет откроется на уровне {0} (сейчас {1})", [unlockLvl, level])) + (bonusText ? _t(". Бонус: {0}", [bonusText]) : ''))
@@ -128,11 +129,11 @@ const Screens = (() => {
   function medalHow(id, got) {
     const species = Medals.killSpecies(id), n = id.slice(id.indexOf(':') + 1);
     const mm = Medals.masterOf(id);
-    if (mm) return mm.s === 'craft' ? _t("Выдаётся за {0} изделий, созданных и закалённых в Кузнице, за всё время игры.", [mm.n]) : mm.s === 'depth' ? _t("Выдаётся за достижение {0}-го этажа подземелья.", [mm.n]) : mm.s === 'cut' ? _t("Выдаётся за {0} огранок камней и самоцветов, вставленных в гнёзда вещей.", [mm.n]) : _t("Выдаётся за {0} рун, нанесённых на вещи и обновлённых у Журавля.", [mm.n]);
-    return id.startsWith('spell:') ? _t("Выдаётся за {0} заклинаний, применённых в победных боях, за всё время игры.", [n]) : id.startsWith('drunk:') ? _t("Выдаётся за {0} выпитых в боях эликсиров любого вида за всё время игры.", [n]) : Medals.elixirKey(id) ? _t("Выдаётся один раз — за первый выпитый в бою «{0}».", [Elixirs.KINDS[Medals.elixirKey(id)].name]) : id.startsWith('daily:') ? _t("Выдаётся за {0} дней подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
-      : id.startsWith('strike:') ? _t("Выдаётся за {0} добиваний противника заклинанием «Удар» за всё время игры.", [n])
-      : id.startsWith('shot:') ? _t("Выдаётся за {0} добиваний противника Выстрелом (боеприпасом) за всё время игры.", [n])
-      : _t("Выдаётся за {0} собранных линий из 5 камней за всё время игры.", [n]);
+    if (mm) return mm.s === 'craft' ? _t("Выдаётся за {0 изделие|изделия|изделий}, созданных и закалённых в Кузнице, за всё время игры.", [mm.n]) : mm.s === 'depth' ? _t("Выдаётся за достижение {0}-го этажа подземелья.", [mm.n]) : mm.s === 'cut' ? _t("Выдаётся за {0 огранка|огранки|огранок} камней и самоцветов, вставленных в гнёзда вещей.", [mm.n]) : _t("Выдаётся за {0 руна|руны|рун}, нанесённых на вещи и обновлённых у Журавля.", [mm.n]);
+    return id.startsWith('spell:') ? _t("Выдаётся за {0 заклинание|заклинания|заклинаний}, применённых в победных боях, за всё время игры.", [n]) : id.startsWith('drunk:') ? _t("Выдаётся за {0 выпитый в бою эликсир|выпитых в боях эликсира|выпитых в боях эликсиров} любого вида за всё время игры.", [n]) : Medals.elixirKey(id) ? _t("Выдаётся один раз — за первый выпитый в бою «{0}».", [Elixirs.KINDS[Medals.elixirKey(id)].name]) : id.startsWith('daily:') ? _t("Выдаётся за {0 день|дня|дней} подряд, в каждый из которых вы победили в «Испытании дня».", [n]) : Medals.secretKey(id) ? (got ? _t("Секретная медаль: {0}.", [Medals.SECRET[Medals.secretKey(id)].desc]) : _t("Скрытая медаль. Условие не известно: её нужно открыть самому.")) : Medals.worldKey(id) ? _t("Выдаётся один раз: {0}.", [Medals.WORLD[Medals.worldKey(id)].desc]) : Medals.styleKey(id) ? _t("Выдаётся один раз: {0} (обычный бой с существом).", [Medals.STYLE[Medals.styleKey(id)].desc]) : species ? _t("Выдаётся один раз — за первую победу над существом «{0}».", [(Medals.nameFor(id).split(': ')[1] || species)])
+      : id.startsWith('strike:') ? _t("Выдаётся за {0 добивание|добивания|добиваний} противника заклинанием «Удар» за всё время игры.", [n])
+      : id.startsWith('shot:') ? _t("Выдаётся за {0 добивание|добивания|добиваний} противника Выстрелом (боеприпасом) за всё время игры.", [n])
+      : _t("Выдаётся за {0 собранную линию|собранные линии|собранных линий} из 5 камней за всё время игры.", [n]);
   }
   // 1.8.5: подпись медали для окна победы: название, условие, бонус
   function medalCaption(id) {
@@ -187,11 +188,23 @@ const Screens = (() => {
   function open(id) { mount(); cur = id; render(); }
   const titleOpen = {};      // 1.8.4: какие группы титулов развёрнуты (запоминается, пока открыта страница)
   let keepScroll = false;
+  // 2.1.2: рядом с «Купить» в Лавке появляется «за ✦N» (расходники и ресурсы)
+  function sparkButtons() {
+    if (cur !== 'shop' || st.shop.tab !== 'buy' || !Spark.available()) return;
+    if (!Spark.state.loaded) { Spark.refresh().then(() => { if (cur === 'shop') render(); }); return; }
+    root.querySelectorAll('[data-buy-cons],[data-buy-res]').forEach((btn) => {
+      const d = btn.dataset, n = Math.max(1, Number(d.n) || 1);
+      const total = d.buyCons ? buyPrice(Gear.bulkPrice(consPrice(d.buyCons), n)) : Gear.bulkPrice(buyPrice(Bestiary.resPrice(d.buyRes, Math.min(st.shop.resTier, Profile.shopTop())) * RES_BUY_MARKUP), n);
+      const sp = Spark.sparksFor(total), nb = document.createElement('button');
+      nb.type = 'button'; nb.className = 'spark-buy'; nb.dataset[d.buyCons ? 'spCons' : 'spRes'] = d.buyCons || d.buyRes; nb.dataset.n = n; nb.dataset.sp = sp;
+      nb.innerHTML = Spark.html(sp); nb.disabled = Spark.state.balance < sp; btn.after(nb);
+    });
+  }
   function render() {
     if (root && cur) {
       const keepNow = keepScroll || !!root.querySelector('.ch-board');   // 2.0.9: шахматы — поле не прыгает после хода/нажатия
       const sb = keepNow && root.querySelector('.screen-body'), top = sb ? sb.scrollTop : 0;
-      root.innerHTML = SCREENS[cur].html(); addTip(); addScene(); markNeeds(); markToasts(); chessAnimate(); applyShopQuery(); basketFab();
+      root.innerHTML = SCREENS[cur].html(); addTip(); addScene(); markNeeds(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab();
       root.querySelectorAll('.tabs:not(.sub)').forEach((t) => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth + 2) t.scrollLeft = Math.max(0, on.offsetLeft - 24); });   // 2.0.9: активная вкладка видна
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
     }
@@ -567,6 +580,15 @@ const Screens = (() => {
         s.msg = _t("Куплено: {0} × {1}", [Ammo.CATALOG[d.buyAmmo].name, n]);
         return changed();
       }
+      if (d.spCons || d.spRes) {          // покупка за искры: сначала списание на сервере, потом выдача товара
+        const n = Math.max(1, Number(d.n) || 1), sp = Math.max(1, Number(d.sp) || 1), id = d.spCons || d.spRes, rt = Math.min(s.resTier, Profile.shopTop());
+        Spark.spend({ kind: 'goods', item: id, n: sp }).then((r) => {
+          if (r && r.ok) { if (d.spCons) { Profile.addConsumable(id, n); s.msg = _t("Куплено за искры: {0} × {1}", [Gear.CONSUMABLES[id].name, n]); } else { Profile.addRes(id, rt, n); s.msg = _t("Куплено за искры: {0} × {1}", [resLabel(id, rt), n]); } }
+          else s.msg = _t("Не получилось: проверьте подключение и баланс.");
+          changed();
+        });
+        return;
+      }
       if (d.buyCons) {
         const c = Gear.CONSUMABLES[d.buyCons], n = Math.max(1, Number(d.n) || 1), total = buyPrice(Gear.bulkPrice(consPrice(d.buyCons), n));
         if (!Profile.spend(total)) return;
@@ -678,7 +700,7 @@ const Screens = (() => {
     const S = Profile.stones(), J = st.jeweler, gear = Profile.gear(), P = unitP();
     const all = Array.from({ length: Stones.COLORS }, (_, i) => i + 1);
     if (tab === 'seals') {
-      return `<p class="hint">${_t("Печать стража сплавляется из трёх самоцветов одного цвета. У двери подземелья она переносит сразу на этаж стража — если вы там уже бывали.")}</p><div class="card-list">${all.map((k) => `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${gemDot(k)} ${_t("Печать «{0}»", [Stones.name(k)])} · ${_t("есть {0}", [S.seals[k]])}</span><span class="item-foot">${_t("{0} самоцвета → этаж {1} подземелья", [Stones.SEAL_COST, Stones.sealFloor(k)])} · ${Stones.name(k)} × ${S.bag[k]}</span></div><div class="card-act"><button type="button" ${S.bag[k] >= Stones.SEAL_COST ? '' : 'disabled'} data-seal-make="${k}">${_t("Сплавить")}</button></div></div>`).join('')}</div>`;
+      return `<p class="hint">${_t("Печать стража сплавляется из трёх самоцветов одного цвета. У двери подземелья она переносит сразу на этаж стража — если вы там уже бывали.")}</p><div class="card-list">${all.map((k) => `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${gemDot(k)} ${_t("Печать «{0}»", [Stones.name(k)])} · ${_t("есть {0}", [S.seals[k]])}</span><span class="item-foot">${_t("{0 самоцвет|самоцвета|самоцветов} → этаж {1} подземелья", [Stones.SEAL_COST, Stones.sealFloor(k)])} · ${Stones.name(k)} × ${S.bag[k]}</span></div><div class="card-act"><button type="button" ${S.bag[k] >= Stones.SEAL_COST ? '' : 'disabled'} data-seal-make="${k}">${_t("Сплавить")}</button></div></div>`).join('')}</div>`;
     }
     if (tab === 'sell') {
       const rows = all.filter((c) => S.bag[c] > 0).map((c) => `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${gemDot(c)} ${Stones.name(c)} × ${S.bag[c]}</span><span class="item-foot">${_t("Цена за штуку: {0}", [money(Stones.sellPrice(c, P))])}</span></div><div class="card-act"><button type="button" data-gem-sell="${c}">${_t("Продать 1")}</button></div></div>`).join('');
@@ -754,7 +776,7 @@ const Screens = (() => {
         const items = Profile.data.items.map((e) => Gear.item(e)).filter((it) => it.tier > 1 && (it.fit || !Hero.canWear(it.tier, lv))).sort((a, b) => b.tier - a.tier || a.name.localeCompare(b.name));
         if (!s.sel || !items.some((it) => it.uid === s.sel)) s.sel = items[0] ? items[0].uid : null;
         const list = items.map((it) => `<button type="button" class="itembtn ${s.sel === it.uid ? 'on' : ''}" data-pick="${it.uid}">${itemCard(it, it.fit ? _t("перекована") : '')}</button>`).join('') || `<p class="hint">${_t("Нет вещей, которые можно перековать: нужна вещь цвета на один выше вашего.")}</p>`;
-        let detail = `<p class="hint">${_t("Перековка: вещь следующего цвета можно носить на {0} уровней раньше. Характеристики не меняются.", [Balance.hero.levelsPerTier])}</p>`;
+        let detail = `<p class="hint">${_t("Перековка: вещь следующего цвета можно носить на {0 уровень|уровня|уровней} раньше. Характеристики не меняются.", [Balance.hero.levelsPerTier])}</p>`;
         if (s.sel && Profile.item(s.sel)) {
           const e = Profile.item(s.sel), it = Gear.item(e), fc = forgeCost(Gear.fitCost(e, lv));
           if (it.fit) detail = itemCard(it, _t("Уже перекована")) + `<p class="hint">${_t("Теперь её можно надеть с {0}-го уровня.", [Hero.itemLevel(it.wt)])}</p>`;
@@ -834,7 +856,7 @@ const Screens = (() => {
         const lo = Math.max(1, top - 1);
         const ok = Profile.resList().filter((r) => r.tier >= lo && r.n >= C.res);
         const list = ok.map((r) => _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2} × {3} → {4} × {5}</span><span class=\"item-foot\">У вас: {6} · работа кузнеца: {7}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-craft-ammo=\"{8}:{9}\" {10}>Изготовить</button></div></div>", [tierColor(r.tier), MonsterArt.resIcon(r.kind, r.tier), C.res, resLabel(r.kind, r.tier), C.out, AM.short, r.n, money(fee), r.kind, r.tier, Profile.data.coins >= fee ? '' : 'disabled'])).join('')
-          || _t("<p class=\"hint\">Нужно {0} одинаковых ресурса: цвет «{1}» или выше — они выпадают из существ.</p>", [C.res, Tiers.get(lo).name]);
+          || _t("<p class=\"hint\">Нужно {0 одинаковый ресурс|одинаковых ресурса|одинаковых ресурсов}: цвет «{1}» или выше — они выпадают из существ.</p>", [C.res, Tiers.get(lo).name]);
         body = _t("<div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} · в сумке {2}</span><span class=\"item-foot\">{3}</span></div></div>\n          <h3>Изготовить из ресурсов</h3><div class=\"card-list\">{4}</div>", [Ammo.icon(ak), AM.name, Profile.ammo(ak), AM.desc, list]);
       } else {
         const f = FILTERS.find((x) => x[0] === s.filter);
@@ -1077,7 +1099,7 @@ const Screens = (() => {
     const art = (typeof Art !== 'undefined' && Art.has('ui/emblem-' + id))
       ? `<img class="fac-crest-img" src="${Art.url('ui/emblem-' + id)}" alt="">` : factionIcon(id, 'fac-crest-icon');
     return `<button type="button" class="fac-crest ${chosen ? 'on' : ''}" style="--fc:${f.color}" data-pick-faction="${id}">
-      ${art}<b>${f.name}</b><small>${f.people}</small></button>`;
+      ${art}<b>${f.name}</b><small>${f.people}</small>${f.perkText ? `<em class="fac-perk">${f.perkText}</em>` : ''}</button>`;
   };
   const faction = {
     html() {
@@ -1433,7 +1455,7 @@ const Screens = (() => {
       const left = LHGames.left(d, k, day), can = LHGames.canPlay(d, k, day);
       return `<div class="card"><div class="card-body"><span class="item-title">${LHGames.GAME_NAME[k]()}</span><p class="hint">${text}</p>
         <p class="hint">${_t("Рекорд: {0}. Зачётных раундов сегодня: {1} из {2}. Билетов: {3}.", [d.best[k], left, LHGames.DAILY_PLAYS, d.tickets])}</p>
-        <p class="hint">${_t("Жетоны: от 1 до 5 за раунд — от {0} очков и выше.", [LHGames.TIERS[k][0]])}</p>
+        <p class="hint">${_t("Жетоны: от 1 до 5 за раунд — от {0 очка|очков|очков} и выше.", [LHGames.TIERS[k][0]])}</p>
         <div class="mc-act"><button type="button" class="primary" data-lhplay="${k}" ${can ? '' : 'disabled'}>${left > 0 ? _t("Играть") : d.tickets ? _t("Играть за билет") : _t("На сегодня всё")}</button></div></div></div>`;
     };
     return `${evBanner()}<p class="hint">${_t("Жетонов маяка: {0}. Игры дают только жетоны — на силу в бою они не влияют.", [d.tokens])}</p><div class="cards">
@@ -1446,7 +1468,7 @@ const Screens = (() => {
   }
   function lhResult(g) {
     if (!g.res) return '';
-    return `<div class="gear-toast">${_t("Раунд окончен: {0} очков. Жетонов: +{1}.", [g.res.score, g.res.tokens])}${g.res.record ? ' ' + _t("Новый рекорд!") : ''}</div>`;
+    return `<div class="gear-toast">${_t("Раунд окончен: {0 очко|очка|очков}. Жетонов: +{1}.", [g.res.score, g.res.tokens])}${g.res.record ? ' ' + _t("Новый рекорд!") : ''}</div>`;
   }
   // 2.0.9: оформление мини-игр маяка — рамки сцены, табло с чипами, всплывающие очки
   const LH_IC = {
@@ -1806,7 +1828,7 @@ const Screens = (() => {
       let body;
       if (s.tab === 'beasts') {
         const n = Profile.species().length;
-        body = _t("<p class=\"hint\">{0}</p>\n          <div class=\"reset\"><button type=\"button\" class=\"primary\" data-open-bestiary=\"1\">Открыть бестиарий</button></div>", [(n ? _t("Бестиарий пополняется: в нём уже {0} из {1} видов.", [n, Bestiary.ORDER.length]) : _t("Бестиарий ещё пуст — выйдите за частокол: встреченные существа появятся здесь сами.")) + `<span class="beast-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${Bestiary.ORDER.length}" aria-valuenow="${n}"><i style="width:${Math.round(100 * n / Math.max(1, Bestiary.ORDER.length))}%"></i></span>`]);
+        body = _t("<p class=\"hint\">{0}</p>\n          <div class=\"reset\"><button type=\"button\" class=\"primary\" data-open-bestiary=\"1\">Открыть бестиарий</button></div>", [(n ? _t("Бестиарий пополняется: в нём уже {0} из {1 вида|видов|видов}.", [n, Bestiary.ORDER.length]) : _t("Бестиарий ещё пуст — выйдите за частокол: встреченные существа появятся здесь сами.")) + `<span class="beast-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${Bestiary.ORDER.length}" aria-valuenow="${n}"><i style="width:${Math.round(100 * n / Math.max(1, Bestiary.ORDER.length))}%"></i></span>`]);
       } else if (s.tab === 'items') {
         const f = FILTERS.find((x) => x[0] === s.filter) || FILTERS[0];
         const bases = Gear.ITEMS.filter((b) => f[2](b.type)).sort((a, b) => (a.faction || '').localeCompare(b.faction || '') || a.cost - b.cost);
@@ -2143,16 +2165,16 @@ const credits = {
       const petArt = (p) => (typeof Art !== 'undefined' && Art.has('pets/' + p.speciesId)) ? `<img src="${Art.url('pets/' + p.speciesId)}" alt="">` : MonsterArt.bust(Pets.donorOf(p.speciesId), p.tier);
       const choose = _t("<h3>Кто идёт в бой</h3><div class=\"tabs\">\n          {0}\n          {1}\n          <button type=\"button\" class=\"{2}\" data-k-choose=\"none\">Оставить дома</button></div>", [home ? `<button type="button" class="${ch === 'home' ? 'on' : ''}" data-k-choose="home">${Pets.petDisplayName(home.speciesId)}</button>` : '', tamed ? `<button type="button" class="${ch === 'tamed' ? 'on' : ''}" data-k-choose="tamed">${Pets.petDisplayName(tamed.speciesId)}</button>` : '', ch === 'none' ? 'on' : '']);
       const eggKinds = Object.keys(Pets.EGGS).filter((k) => eggs[k] > 0);
-      const hatch = (inc || eggKinds.length) ? _t("<h3>Инкубатор</h3><div class=\"card-list\">\n          {0}\n          {1}</div>", [inc ? _t("<div class=\"card\" style=\"--t:#e0b050\"><div class=\"card-body\"><span class=\"item-title\">{0}</span><span class=\"item-foot\">{1}</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-k-collect=\"1\" {2}>Забрать</button></div></div>", [Pets.EGGS[inc.egg].name, inc.left > 0 ? _t("Согревается: ещё {0} {1}", [inc.left, inc.left === 1 ? _t("бой") : _t("боя")]) : _t("Вылупился: {0}!", [Pets.EGGS[inc.egg].chick]), inc.left > 0 ? 'disabled' : '']) : '', inc ? '' : eggKinds.map((k) => _t("<div class=\"card\" style=\"--t:#e0b050\"><div class=\"card-body\"><span class=\"item-title\">{0} × {1}</span><span class=\"item-foot\">Высидеть за {2} боёв. Цена {3}. Вылупившийся питомец заменит прирученного.</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-k-hatch=\"{4}\" {5}>Высидеть</button></div></div>", [Pets.EGGS[k].name, eggs[k], Pets.HATCH_BATTLES, money(Pets.hatchCost(ht)), k, Profile.data.coins >= Pets.hatchCost(ht) ? '' : 'disabled'])).join('')]) : '';
+      const hatch = (inc || eggKinds.length) ? _t("<h3>Инкубатор</h3><div class=\"card-list\">\n          {0}\n          {1}</div>", [inc ? _t("<div class=\"card\" style=\"--t:#e0b050\"><div class=\"card-body\"><span class=\"item-title\">{0}</span><span class=\"item-foot\">{1}</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-k-collect=\"1\" {2}>Забрать</button></div></div>", [Pets.EGGS[inc.egg].name, inc.left > 0 ? _t("Согревается: ещё {0} {1}", [inc.left, inc.left === 1 ? _t("бой") : _t("боя")]) : _t("Вылупился: {0}!", [Pets.EGGS[inc.egg].chick]), inc.left > 0 ? 'disabled' : '']) : '', inc ? '' : eggKinds.map((k) => _t("<div class=\"card\" style=\"--t:#e0b050\"><div class=\"card-body\"><span class=\"item-title\">{0} × {1}</span><span class=\"item-foot\">Высидеть за {2 бой|боя|боёв}. Цена {3}. Вылупившийся питомец заменит прирученного.</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-k-hatch=\"{4}\" {5}>Высидеть</button></div></div>", [Pets.EGGS[k].name, eggs[k], Pets.HATCH_BATTLES, money(Pets.hatchCost(ht)), k, Profile.data.coins >= Pets.hatchCost(ht) ? '' : 'disabled'])).join('')]) : '';
       let petCard = '', care = '';
       if (!pet) {
-        petCard = _t("<p class=\"hint\">Питомец не выбран. {0}</p>", [home || tamed ? _t("Выберите, кто идёт в бой, кнопками выше.") : _t("Приручить можно зверя (крыса, волк, кабан, рысь, ёж…): победите вид {0} раз — в бестиарии у Охотников появится кнопка «Приручить».", [Pets.TAME_WINS])]);
+        petCard = _t("<p class=\"hint\">Питомец не выбран. {0}</p>", [home || tamed ? _t("Выберите, кто идёт в бой, кнопками выше.") : _t("Приручить можно зверя (крыса, волк, кабан, рысь, ёж…): победите вид {0 раз|раза|раз} — в бестиарии у Охотников появится кнопка «Приручить».", [Pets.TAME_WINS])]);
         care = _t("<p class=\"hint\">Уход нужен питомцу, который идёт в бой. Выберите питомца на вкладке «Питомец».</p>");
       } else {
         const heroTier = Hero.tierFor(Profile.level());
         const rc = Pets.repairCost(pet), fc = Pets.feedCost(pet), tc = Pets.trainCost(pet, heroTier);
         const pf = Pets.petFighter(pet);
-        petCard = _t("<div class=\"card\" style=\"--t:{0}\"><span class=\"icon-wrap pet-ico\">{1}</span>\n            <div class=\"card-body\"><span class=\"item-title\">{2} {3}</span>\n              <span class=\"item-foot\">ХП {4} · удар ≈ {5} · прочность {6}/{7}{8}</span></div></div>", [tierColor(pet.tier), petArt(pet), Pets.petDisplayName(pet.speciesId), colorChip(pet.tier), Math.round(pf.max * Pets.boardHp(pet)), Pets.petAttackAmount(pf), pet.durability, pet.maxDurability, (pet.fed > 0 ? _t(" · сыт ещё {0} {1}", [pet.fed, pet.fed === 1 ? _t("бой") : _t("боя")]) : '') + _t(" · ум {0}/100 · опыт {1}", [Pets.intellect(pet), pet.xp || 0]) + (Pets.battleReady(pet) ? '' : _t(" · ещё не готов к бою: позанимайтесь в «Уходе»")) + (pf.ability && typeof PET_ABILITIES !== 'undefined' && PET_ABILITIES.includes(pf.ability) && Bestiary.ability(Pets.donorOf(pet.speciesId)) ? _t(" · приём «{0}» (с ума {1})", [Bestiary.ability(Pets.donorOf(pet.speciesId)).name, 20]) : '')]);
+        petCard = _t("<div class=\"card\" style=\"--t:{0}\"><span class=\"icon-wrap pet-ico\">{1}</span>\n            <div class=\"card-body\"><span class=\"item-title\">{2} {3}</span>\n              <span class=\"item-foot\">ХП {4} · удар ≈ {5} · прочность {6}/{7}{8}</span></div></div>", [tierColor(pet.tier), petArt(pet), Pets.petTitle(pet), colorChip(pet.tier), Math.round(pf.max * Pets.boardHp(pet)), Pets.petAttackAmount(pf), pet.durability, pet.maxDurability, (pet.fed > 0 ? _t(" · сыт ещё {0} {1}", [pet.fed, pet.fed === 1 ? _t("бой") : _t("боя")]) : '') + _t(" · ум {0}/100 · опыт {1}", [Pets.intellect(pet), pet.xp || 0]) + (Pets.battleReady(pet) ? '' : _t(" · ещё не готов к бою: позанимайтесь в «Уходе»")) + (pf.ability && typeof PET_ABILITIES !== 'undefined' && PET_ABILITIES.includes(pf.ability) && Bestiary.ability(Pets.donorOf(pet.speciesId)) ? _t(" · приём «{0}» (с ума {1})", [Bestiary.ability(Pets.donorOf(pet.speciesId)).name, 20]) : '')]);
         const sl = Pets.studyLeft(pet), canStudy = Pets.studyOpen(pet);
         const actCard = (k, title, foot, btn, dis, extra = '') => `<div class="card" style="--t:#8fc7a0"><div class="card-body"><span class="item-title">${title}</span><span class="item-foot">${foot}</span></div><div class="card-act"><button type="button" ${extra} ${dis ? 'disabled' : ''}>${btn}</button></div></div>`;
         const ACT_NAME = { study: _t("Учёба"), ball: _t("Игра с мячом"), hunt: _t("Поиск клада"), drill: _t("Дрессировка"), rest: _t("Отдых"), scout: _t("Разведка") };
@@ -2171,13 +2193,72 @@ const credits = {
       }
       const eggTab = hatch || _t("<p class=\"hint\">Яйца редких питомцев падают с грифона, виверны и саламандры. Принесите яйцо — высидим здесь.</p>");
       const kt = s.tab || 'pet';
-      const body = tipBox('kennel', _t("Три вкладки: «Питомец» — выбор спутника, «Уход» — корм, лакомства и ремонт, «Инкубатор» — высидеть яйцо редкого питомца (яйца падают с грифона, виверны и саламандры).")) + tabs([['pet', _t("Питомец")], ['care', _t("Уход")], ['egg', _t("Инкубатор") + (inc ? ' •' : '')]], kt) + (kt === 'care' ? care : kt === 'egg' ? eggTab.replace(_t("<h3>Инкубатор</h3>"), '') : choose.replace(/<h3>[^<]*<\/h3>/, '') + petCard + diaryHtml(pet));
+      const petExtra = (p) => {
+        if (!p) return '';
+        const tr = Pets.traitsOf(p);
+        const traitCards = tr.length ? tr.map((t) => `<div class="card" style="--t:#8fc7a0"><div class="card-body"><span class="item-title">${Pets.TRAITS[t].name}</span><span class="item-foot">${Pets.TRAITS[t].desc}</span></div></div>`).join('') : `<p class="hint">${_t("Черты получают новые питомцы при приручении и вылуплении; у этого их нет.")}</p>`;
+        const pts = Pets.talentPoints(p), tb = (br) => Pets.TALENT_IDS.filter((id) => Pets.TALENTS[id].branch === br).map((id) => {
+          const T = Pets.TALENTS[id], r = Pets.talentRank(p, id), can = pts > 0 && r < T.max;
+          return `<div class="card" style="--t:${br === 'fighter' ? '#d07a5a' : '#7ab0d0'}"><div class="card-body"><span class="item-title">${T.name} ${r}/${T.max}</span><span class="item-foot">${T.desc}</span></div><div class="card-act"><button type="button" data-k-talent="${id}" ${can ? '' : 'disabled'}>+1</button></div></div>`;
+        }).join('');
+        const rc = Pets.talentResetCost(p);
+        const trustCard = `<div class="card" style="--t:#e0b050"><div class="card-body"><span class="item-title">${_t("Доверие")}: ${Pets.trustOf(p)}/${Pets.TRUST_MAX} · ${Pets.trustName(p)}</span><span class="item-foot">${_t("Растёт от побед вместе, ухода и занятий, падает от поражений. Усиливает удар и здоровье до +10% и даёт очки талантов.")}</span></div></div>`;
+        const talents = (pts < 1 && !Pets.talentsSpent(p)) ? `<h3>${_t("Таланты")}</h3><div class="card-list">${trustCard}</div><p class="hint">${_t("Таланты откроются, когда у питомца будет второй цвет или 50 доверия.")}</p>` : `<h3>${_t("Таланты")} · ${_t("очков: {0}", [pts])}</h3><div class="card-list">${trustCard}</div><h4>${Pets.BRANCH_NAMES.fighter}</h4><div class="card-list">${tb('fighter')}</div><h4>${Pets.BRANCH_NAMES.helper}</h4><div class="card-list">${tb('helper')}</div>${rc ? `<div class="card-list"><div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${_t("Сбросить таланты")}</span><span class="item-foot">${_t("Очки вернутся, талантами можно распорядиться заново.")}</span></div><div class="card-act"><button type="button" data-k-reset="1" ${Profile.data.coins >= rc ? '' : 'disabled'}>${money(rc)}</button></div></div></div>` : ''}`;
+        const evoHtml = (() => {
+          const st = Pets.evoStage(p), can = Pets.canEvolve(p), c = Pets.evoCost(p);
+          if (st === 0 && !can) return `<h3>${_t("Эволюция")}</h3><p class="hint">${_t("На 5-м цвете питомец сможет выбрать путь: Охотник или Защитник. На 10-м цвете путь усилится.")}</p>`;
+          const cur = st ? `<div class="card" style="--t:#e0b050"><div class="card-body"><span class="item-title">${Pets.evoTitle(p)}</span><span class="item-foot">${Pets.EVOS[p.evo].desc}</span></div></div>` : '';
+          let act = '';
+          if (can && st === 0) act = Object.keys(Pets.EVOS).map((id) => `<div class="card" style="--t:#e0b050"><div class="card-body"><span class="item-title">${Pets.EVOS[id].name}</span><span class="item-foot">${Pets.EVOS[id].desc} ${_t("Даёт очко талантов.")}</span></div><div class="card-act"><button type="button" data-k-evo="${id}" ${Profile.data.coins >= c ? '' : 'disabled'}>${money(c)}</button></div></div>`).join('');
+          else if (can) act = `<div class="card" style="--t:#e0b050"><div class="card-body"><span class="item-title">${Pets.EVO_TITLES[1]}</span><span class="item-foot">${_t("Путь усиливается. Даёт очко талантов.")}</span></div><div class="card-act"><button type="button" data-k-evo="up" ${Profile.data.coins >= c ? '' : 'disabled'}>${money(c)}</button></div></div>`;
+          return `<h3>${_t("Эволюция")}</h3><div class="card-list">${cur}${act}</div>`;
+        })();
+        const amuletHtml = (() => {
+          const cur = Pets.amuletId(p), t = Pets.gearTier(p, 'charm'), up = Pets.gearUpCost(p, 'charm');
+          return `<h3>${_t("Амулет питомца")}</h3><div class="card-list">${Pets.AMULET_IDS.map((id) => {
+            const A = Pets.AMULETS[id], on = cur === id, shownT = on ? t : Math.max(1, t);
+            let btn = '';
+            if (on) btn = up == null ? '' : `<button type="button" data-k-gear="charm" ${Profile.data.coins >= up ? '' : 'disabled'}>${_t("Улучшить")} ${money(up)}</button>`;
+            else if (!cur) { const c = Pets.gearUpCost(p, 'charm'); btn = c == null ? '' : `<button type="button" data-k-amulet="${id}" ${Profile.data.coins >= c ? '' : 'disabled'}>${_t("Сделать")} ${money(c)}</button>`; }
+            else { const c = Pets.amuletSwapCost(p); btn = `<button type="button" data-k-amulet="${id}" ${Profile.data.coins >= c ? '' : 'disabled'}>${_t("Сменить")} ${money(c)}</button>`; }
+            return `<div class="card" style="--t:${on ? '#e0b050' : '#c9b48a'}"><div class="card-body"><span class="item-title">${A.name} ${on ? colorChip(t) : ''}</span><span class="item-foot">${A.desc(shownT)}</span></div><div class="card-act">${btn}</div></div>`;
+          }).join('')}</div>`;
+        })();
+        const gearHtml = `<h3>${_t("Снаряжение питомца")}</h3><div class="card-list">${Pets.GEAR_IDS.filter((id) => id !== 'charm').map((id) => { const g = Pets.GEAR[id], t = Pets.gearTier(p, id), c = Pets.gearUpCost(p, id);
+          return `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${g.name} ${t ? colorChip(t) : _t("нет")}</span><span class="item-foot">${g.desc}</span></div><div class="card-act">${c == null ? '' : `<button type="button" data-k-gear="${id}" ${Profile.data.coins >= c ? '' : 'disabled'}>${t ? _t("Улучшить") : _t("Сделать")} ${money(c)}</button>`}</div></div>`; }).join('')}</div>`;
+        return `<h3>${_t("Кличка и черты")}</h3><div class="card-list"><div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${_t("Кличка")}: ${Pets.petTitle(p)}</span><span class="item-foot"><input id="k-name" class="pet-name-input" type="text" maxlength="${Pets.NAME_MAX}" placeholder="${_t("Новая кличка")}" value="${p.name || ''}"></span></div><div class="card-act"><button type="button" data-k-name="1">${_t("Сохранить")}</button></div></div>${traitCards}</div>${evoHtml}${gearHtml}${amuletHtml}${talents}`;
+      };
+      const zooHtml = () => {
+        const cap = Profile.stableCap(), cur = Profile.tamedPet(), list = Profile.stable();
+        const card = (p, act, tag) => `<div class="card" style="--t:${tierColor(p.tier)}"><span class="icon-wrap pet-ico">${petArt(p)}</span><div class="card-body"><span class="item-title">${Pets.petTitle(p)} ${colorChip(p.tier)}</span><span class="item-foot">${tag}${Pets.traitsOf(p).length ? ' · ' + Pets.traitsOf(p).map((t) => Pets.TRAITS[t].name).join(', ') : ''} · ${_t("ум {0}/100", [Pets.intellect(p)])} · ${_t("прочность {0}/{1}", [p.durability, p.maxDurability])}</span></div><div class="card-act">${act}</div></div>`;
+        const errandBtns = (p, i) => { const e = Pets.errandOf(p);
+          if (!e) return Object.keys(Pets.ERRANDS).map((k) => `<button type="button" class="ghost" data-k-errand="${i}:${k}">${Pets.ERRANDS[k].name} · ${Pets.ERRANDS[k].battles} ${_t("{0 бой|боя|боёв}", [Pets.ERRANDS[k].battles]).replace(/^\d+ /, '')}</button>`).join('');
+          return e.left > 0 ? `<span class="hint">${Pets.ERRANDS[e.kind].name}: ${_t("ещё боёв — {0}", [e.left])}</span>` : `<button type="button" data-k-back="${i}">${_t("Встретить")}</button>`; };
+        const rows = (cur ? card(cur, '', _t("с вами")) : '') + list.map((p, i) => card(p, errandBtns(p, i) + `<button type="button" data-k-swap="${i}">${_t("Взять с собой")}</button><button type="button" class="ghost" data-k-free="${i}">${_t("Отпустить")}</button>`, _t("в зверинце"))).join('');
+        const free = Math.max(0, cap - (cur ? 1 : 0) - list.length);
+        return `<h3>${_t("Зверинец")}: ${(cur ? 1 : 0) + list.length} / ${cap}</h3><div class="card-list">${rows || `<p class="hint">${_t("Пока никого. Приручённые звери и вылупившиеся питомцы живут здесь.")}</p>`}</div><p class="hint">${free ? _t("Свободных мест: {0}. Новый питомец займёт свободное место, а прежний останется в зверинце.", [free]) : _t("Мест нет: новый питомец заменит прежнего. Места покупаются в лавке искр.")}</p><div class="card-list"><div class="card" style="--t:#e8a23c"><div class="card-body"><span class="item-title">${_t("Больше мест")}</span><span class="item-foot">${_t("Первое место бесплатно, остальные за искры Сердца.")}</span></div><div class="card-act"><button type="button" data-k-sparks="1">${_t("Лавка искр")}</button></div></div></div>`;
+      };
+      const body = tipBox('kennel', _t("«Питомец» — выбор спутника, кличка, черты и таланты; «Уход» — корм, лакомства и ремонт. Вкладка «Инкубатор» появится с первым яйцом, а «Зверинец» — с запасным питомцем или купленным местом.")) + tabs([['pet', _t("Питомец")], ['care', _t("Уход")], ...(inc || Object.keys(Pets.EGGS).some((k) => eggs[k] > 0) ? [['egg', _t("Инкубатор") + (inc ? ' •' : '')]] : []), ...(Profile.stableCap() > 1 || Profile.stable().length ? [['zoo', _t("Зверинец")]] : [])], kt) + (kt === 'zoo' ? zooHtml() : kt === 'care' ? care : kt === 'egg' ? eggTab.replace(_t("<h3>Инкубатор</h3>"), '') : choose.replace(/<h3>[^<]*<\/h3>/, '') + petCard + petExtra(pet) + diaryHtml(pet));
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Питомник\">{0}\n        <div class=\"screen-body tavern-body\"{1}><div class=\"npc-row\"><span class=\"npc-portrait\">{2}</span>\n          <div class=\"npc-say\"><b>Смотрительница Ласка</b><p class=\"hint\">{3}</p></div></div>{4}</div></div>", [head(_t("Питомник")), sceneStyle('kennel'), npcPortrait('kennel-keeper', '#9a7a52', '#2a1a10'), s.msg || _t("Заходи, заходи. Домашний питомец — твой друг на всю жизнь; зверей из леса можно приручить после 25 побед над видом. Покормлю, подлечу, научу новому — всё за честную монету."), body]);
     },
     click(b) {
       const s = st.kennel, d = b.dataset, pet = Profile.pet();
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
       const ht = Hero.tierFor(Profile.level());
+      if (d.kEvo) { const p = Profile.pet(), c = p ? Pets.evoCost(p) : 0; if (p && Pets.canEvolve(p) && Profile.spend(c)) { Pets.evolve(p, d.kEvo); Profile.save(); s.msg = _t("Питомец эволюционировал: {0}!", [Pets.evoTitle(p)]); } return changed(); }
+      if (d.kAmulet) { const p = Profile.pet(); if (p && Pets.AMULETS[d.kAmulet]) {
+        const had = Pets.gearTier(p, 'charm') > 0, c = had ? Pets.amuletSwapCost(p) : Pets.gearUpCost(p, 'charm');
+        if (c != null && Profile.spend(c)) { if (!had) Pets.gearUp(p, 'charm'); Pets.setAmulet(p, d.kAmulet); Profile.save(); s.msg = _t("{0}: готово!", [Pets.AMULETS[d.kAmulet].name]); } }
+        return changed(); }
+      if (d.kGear) { const p = Profile.pet(), c = p ? Pets.gearUpCost(p, d.kGear) : null; if (p && c != null && Profile.spend(c)) { Pets.gearUp(p, d.kGear); Profile.save(); s.msg = _t("{0}: готово!", [Pets.GEAR[d.kGear].name]); } return changed(); }
+      if (d.kTalent) { if (Pets.talentUp(Profile.pet(), d.kTalent)) { Profile.save(); s.msg = _t("Талант изучен."); } return changed(); }
+      if (d.kReset) { const p = Profile.pet(), c = p ? Pets.talentResetCost(p) : 0; if (c && Profile.spend(c)) { Pets.talentReset(p); Profile.save(); s.msg = _t("Таланты сброшены: очки вернулись."); } return changed(); }
+      if (d.kName) { const inp = document.getElementById('k-name'); s.msg = Profile.renamePet(inp && inp.value) ? _t("Кличка сохранена.") : _t("Кличка: до 16 знаков, только буквы, цифры, пробел и дефис."); return changed(); }
+      if (d.kSwap) { if (Profile.swapPet(+d.kSwap)) s.msg = _t("Питомец идёт с вами."); return changed(); }
+      if (d.kErrand) { const [i, k] = d.kErrand.split(':'); if (Profile.sendErrand(+i, k)) s.msg = _t("Питомец отправился на поручение."); return changed(); }
+      if (d.kBack) { const r = Profile.takeErrand(+d.kBack); if (r) s.msg = r.coins ? _t("Питомец вернулся и принёс монеты: {0}.", [r.coins]) : _t("Питомец вернулся с добычей: {0} × {1}.", [Bestiary.RESOURCES[r.res].name, r.n]); return changed(); }
+      if (d.kFree) { if (Profile.releasePet(+d.kFree)) s.msg = _t("Отпущен на волю. Удачи ему!"); return changed(); }
+      if (d.kSparks) { return Screens.openSparks(); }
       if (d.kChoose) { Profile.setPetChoice(d.kChoose); s.msg = d.kChoose === 'none' ? _t("Ладно, посидит дома.") : _t("Вот и славно, пойдёт с вами."); return changed(); }
       if (d.kHatch) { if (Profile.startHatch(d.kHatch, ht)) s.msg = _t("Яйцо в тепле. Приходи через несколько боёв."); return changed(); }
       if (d.kCollect) { const p = Profile.collectHatch(ht); if (p) s.msg = _t("{0} — твой!", [Pets.petDisplayName(p.speciesId)]) + " " + Story.PET_LINES.hatch; return changed(); }
@@ -2220,7 +2301,7 @@ const credits = {
     return (list || Profile.resList()).filter((r) => r.tier === tier && r.n >= Elixirs.need(tier) && (!own || own.includes(r.kind)))
       .sort((a, b) => (own ? own.indexOf(a.kind) - own.indexOf(b.kind) : 0) || b.n - a.n)[0] || null;
   };
-  const ownNames = (key, tier) => Forge.ownList(key, tier).map((k) => Bestiary.RESOURCES[k].name).join(' / ');
+  const ownNames = (key, tier) => Forge.ownList(key, tier).map((k) => `<span class="own-res">${MonsterArt.resIcon(k, tier)}${Bestiary.RESOURCES[k].name}</span>`).join(' / ');
   const alchFee = (rc) => Math.round(consPrice(rc.out) * 0.25 * rc.n);
 
   /* =============== ВИТРИНЫ С КОРЗИНОЙ ЗАКАЗА (2.0.7) ===============
@@ -2288,7 +2369,7 @@ const credits = {
       const have = (Profile.elixirBag().find((e) => e.kind === k && e.tier === et) || {}).n || 0;
       const lock = K.noBrew ? (LOCK_NOTE[k] ? LOCK_NOTE[k]() : _t("Не варится")) : '';
       return shelfCard('alchemist', { key, icon: Elixirs.icon(k, et), title: K.name, color: tierColor(et), have,
-        sub: `${Elixirs.describe(k, et).replace(/[.]$/, '')}. ${_t("Нужно: {0} ресурса (цвет «{1}»)", [Elixirs.need(et), Tiers.get(et).name])}${res ? '' : ` — ${ownNames(k, et)}`}`,
+        sub: `${Elixirs.describe(k, et).replace(/[.]$/, '')}. ${_t("Нужно: {0 ресурс|ресурса|ресурсов} (цвет «{1}»)", [Elixirs.need(et), Tiers.get(et).name])}${res ? '' : ` — ${ownNames(k, et)}`}`,
         price: money(fee), lock, disabled: !res && !(b[key] > 0) && false });
     }).join('');
     const lines = Object.entries(b).map(([key, q]) => { const [kind, tr] = key.split(':'); const fee = Elixirs.price(Number(tr), kind);
@@ -2302,7 +2383,7 @@ const credits = {
       const lo = Math.max(1, Hero.tierFor(Profile.level()) - 1);
       const cards = RECIPES.map((rc, i) => {
         const c = Gear.CONSUMABLES[rc.out], stack = alchStack(rc.res, rc.out), fee = alchFee(rc);
-        return _t("<div class=\"card\" style=\"--t:#8fd08a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}{3}</span><span class=\"item-foot\">{4}</span>\n            <span class=\"item-foot\">Нужно: {5} ресурса — {11} (цвет «{6}» или выше) + {7} за работу{8}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-brew=\"{9}\" {10}>Сварить</button></div></div>", [itemIcon(rc.out), c.name, rc.n, c.alchemy ? _t(" <span class=\"tag\" style=\"--c:#8fd08a\">только здесь</span>") : '', c.desc, rc.res, Tiers.get(lo).name, money(fee), stack ? _t(" · возьму из запаса: {0} ({1})", [resLabel(stack.kind, stack.tier), stack.n]) : _t(" · <b class=\"warn\">подходящих ресурсов нет</b>"), i, stack ? (Profile.data.coins >= fee ? '' : 'disabled data-why="coin"') : 'disabled data-why="res"', ownNames(rc.out, Hero.tierFor(Profile.level()))]);
+        return _t("<div class=\"card\" style=\"--t:#8fd08a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}{3}</span><span class=\"item-foot\">{4}</span>\n            <span class=\"item-foot\">Нужно: {5 ресурс|ресурса|ресурсов} — {11} (цвет «{6}» или выше) + {7} за работу{8}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-brew=\"{9}\" {10}>Сварить</button></div></div>", [itemIcon(rc.out), c.name, rc.n, c.alchemy ? _t(" <span class=\"tag\" style=\"--c:#8fd08a\">только здесь</span>") : '', c.desc, rc.res, Tiers.get(lo).name, money(fee), stack ? _t(" · возьму из запаса: {0} ({1})", [resLabel(stack.kind, stack.tier), stack.n]) : _t(" · <b class=\"warn\">подходящих ресурсов нет</b>"), i, stack ? (Profile.data.coins >= fee ? '' : 'disabled data-why="coin"') : 'disabled data-why="res"', ownNames(rc.out, Hero.tierFor(Profile.level()))]);
       }).join('');
       const dd = Profile.data, ks = alchStack(3), kfee = 150, bs = Profile.resList().filter((r) => r.kind === 'shell' && r.n >= 2).sort((a, b) => a.tier - b.tier)[0], bfee = 400;
       let extra = '';
@@ -2314,7 +2395,7 @@ const credits = {
         extra += _t("<div class=\"card\" style=\"--t:#4fa3d8\"><div class=\"card-body\"><span class=\"item-title\">Зелье подводного дыхания <span class=\"tag\" style=\"--c:#8fd08a\">по дневнику</span></span><span class=\"item-foot\">На один нырок к серебряному сундуку. Нужно: 2 ракушки одного цвета{0} + {1}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-brew-breath=\"1\" {2}>Сварить</button></div></div>", [bs ? _t(" (возьму из запаса: {0})", [resLabel(bs.kind, bs.tier)]) : _t(" — ракушек нет (выпадают из крабов и речных тварей)"), money(bfee), bs ? (dd.coins >= bfee ? '' : 'disabled data-why="coin"') : 'disabled data-why="res"']);
       }
       if (dd.breath) extra += _t("<p class=\"hint\">Зелье подводного дыхания готово — ныряйте у серебряного сундука.</p>");
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Алхимик\">{0}\n        <div class=\"screen-body tavern-body\"{1}><div class=\"npc-row\"><span class=\"npc-portrait\">{2}</span>\n          <div class=\"npc-say\"><b>Тётушка Жабка, алхимик</b><p class=\"hint\">{3}</p></div></div>\n          {4}\n          <div class=\"card-list\">{5}{6}</div>\n          <h3>Эликсиры</h3><p class=\"hint\">Эликсиры пьются в бою, в любой свой ход, бесплатно (ход не тратится): Сила — на один ход, перед ударом; Броня, Блок, Рикошет, Ярость и Хитрость — на 10 ходов; Жизнь, Камни и Превращение — сразу, раз в 3 хода. Нужно {7} одинаковых ресурса цвета эликсира и монеты за работу.</p>\n          {8}\n          <div class=\"card-list\">{9}</div></div></div>", [head(_t("Алхимик")), sceneStyle('alchemist'), npcPortrait('alchemist', '#6f8a4a', '#f2d24a'), s.msg || _t("Ква! Неси добычу — сварю такое, чего в Лавке не купишь."), tipBox('alchemist', _t("Здесь же варятся «Живой ключ» и зелье подводного дыхания — карточки появляются, когда они нужны по поручениям.")), extra, cards, Elixirs.need(1), tierPicker(Math.max(1, Hero.tierFor(Profile.level())), s.etier || 1, 'elix-tier'), elixShelf(s)]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Алхимик\">{0}\n        <div class=\"screen-body tavern-body\"{1}><div class=\"npc-row\"><span class=\"npc-portrait\">{2}</span>\n          <div class=\"npc-say\"><b>Тётушка Жабка, алхимик</b><p class=\"hint\">{3}</p></div></div>\n          {4}\n          <div class=\"card-list\">{5}{6}</div>\n          <h3>Эликсиры</h3><p class=\"hint\">Эликсиры пьются в бою, в любой свой ход, бесплатно (ход не тратится): Сила — на один ход, перед ударом; Броня, Блок, Рикошет, Ярость и Хитрость — на 10 ходов; Жизнь, Камни и Превращение — сразу, раз в 3 хода. Нужно {7 одинаковый ресурс|одинаковых ресурса|одинаковых ресурсов} цвета эликсира и монеты за работу.</p>\n          {8}\n          <div class=\"card-list\">{9}</div></div></div>", [head(_t("Алхимик")), sceneStyle('alchemist'), npcPortrait('alchemist', '#6f8a4a', '#f2d24a'), s.msg || _t("Ква! Неси добычу — сварю такое, чего в Лавке не купишь."), tipBox('alchemist', _t("Здесь же варятся «Живой ключ» и зелье подводного дыхания — карточки появляются, когда они нужны по поручениям.")), extra, cards, Elixirs.need(1), tierPicker(Math.max(1, Hero.tierFor(Profile.level())), s.etier || 1, 'elix-tier'), elixShelf(s)]);
     },
     click(b) {
       const s = st.alchemist, d = b.dataset;
@@ -2404,7 +2485,7 @@ const credits = {
           const qty = s.kind === 'item' ? '' : `<div class="qty-picker">${[1, 5, 10, 'all'].map((q) => `<button type="button" class="qs ${s.qty === q ? 'on' : ''}" data-mk-qty="${q}">${q === 'all' ? _t("все") : '×' + q}</button>`).join('')}</div>`;
           const prices = `<div class="qty-picker">${Market.PRICE_STEPS.map((m) => `<button type="button" class="qs ${s.mult === m ? 'on' : ''}" data-mk-mult="${m}">${money(Math.max(1, Math.round(fair * m)))}</button>`).join('')}</div>`;
           const full = (M.lots || []).length >= Village.maxLots(Profile.data.village);
-          panel = _t("<div class=\"pick-detail\"><b>{0} × {1}</b>{2}\n            <p class=\"hint\">Цена за лот (справедливая — {3}):</p>{4}\n            <p class=\"hint\">{5}. Сбор за место: {6} — не возвращается.</p>\n            {7}\n            <div class=\"pick-act\"><button type=\"button\" class=\"primary\" data-mk-list=\"1\" {8}>Выставить за {9}</button></div></div>", [a.name, n, qty, money(fair), prices, Market.etaText(price, fair), money(fee), full ? _t("<p class=\"hint warn\">Не больше {0} лотов одновременно.</p>", [Village.maxLots(Profile.data.village)]) : '', !full && Profile.data.coins >= fee ? '' : 'disabled', money(price)]);
+          panel = _t("<div class=\"pick-detail\"><b>{0} × {1}</b>{2}\n            <p class=\"hint\">Цена за лот (справедливая — {3}):</p>{4}\n            <p class=\"hint\">{5}. Сбор за место: {6} — не возвращается.</p>\n            {7}\n            <div class=\"pick-act\"><button type=\"button\" class=\"primary\" data-mk-list=\"1\" {8}>Выставить за {9}</button></div></div>", [a.name, n, qty, money(fair), prices, Market.etaText(price, fair), money(fee), full ? _t("<p class=\"hint warn\">Не больше {0 лота|лотов|лотов} одновременно.</p>", [Village.maxLots(Profile.data.village)]) : '', !full && Profile.data.coins >= fee ? '' : 'disabled', money(price)]);
         }
         body = _t("<div class=\"tabs sub\">{0}</div>\n          <div class=\"two-col\"><div class=\"bag-grid\">{1}</div><div>{2}</div></div>\n          <p class=\"hint\">Надетые вещи не выставляются — сначала снимите их в оружейной.</p>", [MK_KINDS.map(([k, label]) => `<button type="button" class="${k === s.kind ? 'on' : ''}" data-mk-kind="${k}">${label}</button>`).join(''), list, panel]);
       }
@@ -2449,14 +2530,14 @@ const credits = {
   const help = {
     html() {
       const spells = (typeof MAGICS !== 'undefined' && typeof Balance !== 'undefined')
-        ? Object.entries(Balance.spellUnlock).filter(([k]) => MAGICS[k]).sort((a, b) => a[1] - b[1]).map(([k, lv]) => _t("{0} — с {1}-го уровня", [MAGICS[k].name, lv])).join('; ') : '';
+        ? Object.entries(Balance.spellUnlock).filter(([k]) => MAGICS[k]).sort((a, b) => a[1] - b[1]).map(([k, lv]) => _t("{0} — с {1}-го цвета", [MAGICS[k].name, Math.ceil(lv / 10)])).join('; ') : '';
       const blds = Object.entries(Unlocks.NEED).sort((a, b) => a[1] - b[1]).map(([id, n]) => _t("{0} — после {1}", [Unlocks.NAMES[id], _nn(n, 'победы', 'побед', 'побед')])).join('; ');
       const card = (t, body, art = '') => `<div class="card quest-card help-card"><div class="card-body"><span class="item-title">${t}</span>${art ? `<div class="help-art">${art}</div>` : ''}<span class="item-foot help-text">${body}</span></div></div>`;
       // 1.6.0: справка с картинками — камни, заклинания (плитки с иконками), вещи, питомец, эликсиры
       const gemsOf = (types, cls = '') => types.map((t) => `<span class="ha-gem ${cls}">${GEM_SVG[t]}</span>`).join('');
       const artBattle = `<span class="ha-ex">${gemsOf(['ruby', 'ruby', 'ruby'])}<small>${_t("3 камня — удар")}</small></span><span class="ha-ex">${gemsOf(['emerald', 'emerald', 'emerald', 'emerald'])}<small>${_t("4 и больше — ещё ход")}</small></span>`;
       const spellTiles = (typeof MAGICS !== 'undefined' && typeof Balance !== 'undefined' && typeof spellIconHtml === 'function')
-        ? `<div class="help-spells">${Object.entries(Balance.spellUnlock).filter(([k]) => MAGICS[k]).sort((a, b) => a[1] - b[1]).map(([k, lv]) => `<div class="hs-tile" title="${String(MAGICS[k].tip || '').replace(/"/g, '&quot;')}"><span class="hs-ico">${spellIconHtml(k, 'help-' + k)}</span><b>${MAGICS[k].name}</b><small>${_t("с {0}-го уровня", [lv])}</small></div>`).join('')}</div>` : '';
+        ? `<div class="help-spells">${Object.entries(Balance.spellUnlock).filter(([k]) => MAGICS[k]).sort((a, b) => a[1] - b[1]).map(([k, lv]) => `<div class="hs-tile" title="${String(MAGICS[k].tip || '').replace(/"/g, '&quot;')}"><span class="hs-ico">${spellIconHtml(k, 'help-' + k)}</span><b>${MAGICS[k].name}</b><small>${_t("с {0}-го цвета", [Math.ceil(lv / 10)])}</small></div>`).join('')}</div>` : '';
       let artGear = '', artPet = '', artElix = '';
       try { artGear = Gear.itemsFor(Profile.data.faction).slice(0, 5).map((b) => `<span class="ha-ico">${itemIcon(b.type, '', b.id)}</span>`).join(''); } catch (err) { /* без картинок */ }
       try { const hp = Profile.homePet(); if (hp) artPet = `<span class="ha-ico big">${(typeof Art !== 'undefined' && Art.has('pets/' + hp.speciesId)) ? `<img src="${Art.url('pets/' + hp.speciesId)}" alt="">` : MonsterArt.bust(Pets.donorOf(hp.speciesId), hp.tier)}</span>`; } catch (err) { /* без картинок */ }
@@ -2587,7 +2668,7 @@ const credits = {
           }
           return card(`${I.name} <small>${dots}</small>`, foot, act);
         }).join('');
-        body = `<p class="hint">${_t("Золото можно вложить в деревню: улучшения остаются навсегда и принадлежат только вам: в общей деревне каждый игрок пользуется своими уровнями. Уровни 1–5 открываются с цвета героя 2k, уровни 6–10 — с обсидианового, и стоят всё дороже.")}</p>${siegeLine()}<div class="card-list">${cards}</div>`;
+        body = `<p class="hint">${_t("Золото можно вложить в деревню: улучшения остаются навсегда и принадлежат только вам: в общей деревне каждый игрок пользуется своими уровнями. Уровни 1–5 открываются с 2-го, 4-го, 6-го, 8-го и 10-го цвета героя, уровни 6–10 — с обсидианового, и стоят всё дороже.")}</p>${siegeLine()}<div class="card-list">${cards}</div>`;
       } else if (s.tab === 'crafts') { body = craftsBody();
       } else if (s.tab === 'home') { body = homeBody();
       } else if (s.tab === 'mail') { body = mailBody();
@@ -2756,12 +2837,12 @@ const credits = {
         const rows = dt && folk ? dt.list.map((r) => `<tr class="${r.faction === dt.me ? 'me' : ''}"><td>${dt.list.indexOf(r) + 1}</td><td>${escText(Factions.get(r.faction).name)}</td><td>${(r.score > 0 ? '+' : '') + r.score}</td><td>${r.players}</td></tr>`).join('') : dt && seas ? dt.list.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td>${escText(r.nick)}</td><td>${(r.score > 0 ? '+' : '') + r.score}</td><td>${r.games}</td></tr>`).join('') : dt && R.period === 'depth' ? dt.list.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td>${escText(r.nick)}</td><td>${r.floor}</td></tr>`).join('') : dt ? dt.list.map((r) => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td>${escText(r.nick)}</td><td>${R.period === 'all' ? r.elo : (r.score > 0 ? '+' : '') + r.score}</td><td>${r.wins}/${r.losses}</td></tr>`).join('') : '';
         const seasHint = seas && dt ? (() => {
           const left = Math.max(0, Math.ceil((dt.end - dt.now) / 86400000)), pt = dt.prev && dt.prev.top && dt.prev.top.length ? dt.prev.top.map((x) => `${x.place}. ${escText(x.nick)} (${x.score > 0 ? '+' : ''}${x.score})`).join(' · ') : _t("никого");
-          return `<p class="hint">${_t("Сезон закончится через {0} дн. В начале нового очки обнуляются. В зачёт идут игроки, сыгравшие от {1} боёв; тройка лучших получает награду, победитель — титул. Прошлый сезон: {2}", [left, dt.minGames, pt])}</p>`
+          return `<p class="hint">${_t("Сезон закончится через {0} дн. В начале нового очки обнуляются. В зачёт идут игроки, сыгравшие от {1 боя|боёв|боёв}; тройка лучших получает награду, победитель — титул. Прошлый сезон: {2}", [left, dt.minGames, pt])}</p>`
             + (dt.me ? `<p class="hint">${_t("Ваше место: {0} · очки сезона: {1} · боёв: {2}", [dt.me.place, (dt.me.score > 0 ? '+' : '') + dt.me.score, dt.me.games])}</p>` : `<p class="hint">${_t("Вас пока нет в списке: сыграйте живые бои сезона.")}</p>`);
         })() : '';
         const folkHint = folk && dt ? (() => {
           const left = Math.max(0, Math.ceil((dt.end - dt.now) / 86400000)), pw = dt.prev && dt.prev.winner ? escText(Factions.get(dt.prev.winner).name) : _t("никто");
-          return `<p class="hint">${_t("Битва народов: очки народа — сумма изменений рейтинга всех его игроков за неделю (бои с другими народами переносят очки победителю, бои своих ничего не меняют). Неделя закончится через {0} дн. Побеждает народ с лучшим положительным счётом, где играли хотя бы {1} игрока; его бойцы, сыгравшие от {2} боёв, получают награду. Победитель прошлой недели: {3}.", [left, dt.minPlayers, dt.minGames, pw])}</p>`
+          return `<p class="hint">${_t("Битва народов: очки народа — сумма изменений рейтинга всех его игроков за неделю (бои с другими народами переносят очки победителю, бои своих ничего не меняют). Неделя закончится через {0} дн. Побеждает народ с лучшим положительным счётом, где играли хотя бы {1} игрока; его бойцы, сыгравшие от {2 боя|боёв|боёв}, получают награду. Победитель прошлой недели: {3}.", [left, dt.minPlayers, dt.minGames, pw])}</p>`
             + (dt.me ? `<p class="hint">${_t("Ваш народ: {0}", [escText(Factions.get(dt.me).name)])}</p>` : `<p class="hint">${_t("Ваш народ появится в списке после первого живого боя.")}</p>`);
         })() : '';
         const me = folk ? folkHint : seas ? seasHint : R.period === 'depth' ? (dt ? `<p class="hint">${_t("Рейтинг глубины: лучший пройденный уровень подземелья. Хранитель глубин ждёт на каждом 10-м уровне. Мой лучший уровень: {0}", [(Profile.data.tower && Profile.data.tower.best) || 0])}</p>` : '') : dt && dt.me ? `<p class="hint">${_t("Ваше место: {0} · {1}: {2} · победы/поражения: {3}/{4}", [dt.me.place, R.period === 'all' ? _t("рейтинг") : _t("очки за период"), R.period === 'all' ? dt.me.elo : dt.me.score, dt.me.wins, dt.me.losses])}</p>` : (dt ? `<p class="hint">${_t("Вас пока нет в списке: сыграйте живой бой.")}</p>` : '');
@@ -2801,7 +2882,7 @@ const credits = {
         const g = Puzzle.game(pz, pz.day), cells = [];
         for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${s.pzSel === i ? ' sel' : ''}" data-pzcell="${i}" ${pz.done ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(g.typ[i], g.sp[i])}</button>`);
         const star = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
-        body = `${evBanner()}<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0} ходов. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3} очков; за каждую новую звезду — монеты (раз в день).", [Puzzle.MOVES, Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
+        body = `${evBanner()}<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0 ход|хода|ходов}. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3 очко|очка|очков}; за каждую новую звезду — монеты (раз в день).", [Puzzle.MOVES, Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
           <div class="arena-rank"><b>${star(pz.stars)}</b> <small>${_t("Очки: {0} · ходов осталось: {1} · рекорд: {2} · решено дней: {3}", [g.score, Puzzle.movesLeft(pz), pz.best || '—', pz.total])}</small></div>
           <div class="lh-board">${cells.join('')}</div>
           ${pz.done ? `<p class="hint">${_t("На сегодня всё. Новая головоломка — завтра.")}</p>` : ''}`;
@@ -3057,16 +3138,19 @@ const credits = {
       const s = st.wiki, a = s.art ? Wiki.find(s.art) : null;
       let body;
       if (a) {
-        body = `<div class="wiki-art"><button type="button" data-wback>${_t("← К списку")}</button><h3>${a.title()}</h3>${a.body()}`
-          + `${(a.go || []).length ? `<div class="wiki-go">${a.go.map(([id, lab]) => `<button type="button" data-wgo="${id}">${_t("Открыть: {0}", [lab()])}</button>`).join('')}</div>` : ''}</div>`;
+        const bk = Wiki.banner(a), see = Wiki.see(a);
+        body = `<div class="wiki-art"><button type="button" data-wback>${(s.hist || []).length ? _t("← Назад") : _t("← К списку")}</button>`
+          + `${bk && typeof Art !== 'undefined' && Art.has(bk) && !/^b:/.test(a.id) ? (a.hidden ? `<img class="wiki-portrait" src="${Art.url(bk)}" alt="">` : `<div class="wiki-banner" style="background-image:url('${Art.url(bk)}')"></div>`) : ''}<h3>${a.title()}</h3>${Wiki.linked(a)}`
+          + `${(a.go || []).length ? `<div class="wiki-go">${a.go.map(([id, lab]) => `<button type="button" data-wgo="${id}">${_t("Открыть: {0}", [lab()])}</button>`).join('')}</div>` : ''}`
+          + `${see.length ? `<div class="wiki-see"><b>${_t("Смотрите также")}:</b> ${see.map((x) => `<button type="button" class="wk-link" data-wart="${x.id}">${x.title()}</button>`).join(' · ')}</div>` : ''}</div>`;
       } else {
         body = `<input type="search" class="wiki-q" data-wq placeholder="${_t("Поиск по базе знаний")}" value="${escText(s.q || '')}"><div class="wiki-res">${wikiList(s.q)}</div>`;
       }
       return `<div class="modal" role="dialog" aria-label="${_t("База знаний")}">${head(_t("База знаний"))}<div class="screen-body tavern-body">${body}</div></div>`;
     },
     click(b) {
-      if (b.dataset.wart) { st.wiki.art = b.dataset.wart; return render(); }
-      if (b.dataset.wback !== undefined) { st.wiki.art = null; return render(); }
+      if (b.dataset.wart) { const h = st.wiki.hist = st.wiki.hist || []; if (st.wiki.art) h.push(st.wiki.art); st.wiki.art = b.dataset.wart; return render(); }
+      if (b.dataset.wback !== undefined) { const h = st.wiki.hist || []; st.wiki.art = h.length ? h.pop() : null; return render(); }
       if (b.dataset.wgo) return open(b.dataset.wgo);
     },
   };
@@ -3080,11 +3164,47 @@ const credits = {
     },
     click(b) { if (b.dataset.wnwiki !== undefined) open('wiki'); },
   };
-  const SCREENS = { whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
+
+  /* =============== ЛАВКА ИСКР (2.1.2): платная валюта «Искры Сердца» =============== */
+  // Искры покупаются только за реальные деньги (платёж подключается при запуске на площадке); бесплатно не выдаются.
+  // Здесь: обмен искр на монеты, слоты зверинца. Топовые комплекты и эпические вещи за искры не продаются.
+  const sparkshop = {
+    html() {
+      const s = st.sparkshop, S = Spark.state, rate = Spark.rate();
+      const online = Spark.available();
+      const ex = [Spark.BLUE, Spark.RED, 10 * Spark.RED].map((n) => `<div class="card" style="--t:#e8a23c"><div class="card-body"><span class="item-title">${Spark.html(n)} → ${money(n * rate)}</span><span class="item-foot">${_t("Обмен в одну сторону: искры в монеты.")}</span></div><div class="card-act"><button type="button" data-sp-ex="${n}" ${online && S.balance >= n && !s.busy ? '' : 'disabled'}>${_t("Обменять")}</button></div></div>`).join('');
+      const slots = [2, 3, 4, 5, 6].map((n) => {
+        const owned = S.rights.includes('stable_' + n), prev = n === 2 || S.rights.includes('stable_' + (n - 1)), p = Spark.stablePrice(n);
+        return `<div class="card" style="--t:#8fc7a0"><div class="card-body"><span class="item-title">${_t("Место в зверинце №{0}", [n])}</span><span class="item-foot">${owned ? _t("Куплено") : prev ? _t("Ещё один питомец живёт у Ласки.") : _t("Сначала купите предыдущее место.")}</span></div><div class="card-act">${owned ? '' : `<button type="button" data-sp-slot="${n}" ${online && prev && S.balance >= p && !s.busy ? '' : 'disabled'}>${Spark.html(p)}</button>`}</div></div>`;
+      }).join('');
+      const pots = Object.entries(Gear.CONSUMABLES).filter(([, c]) => c.alchemy).map(([k, c]) => { const sp = Spark.sparksFor(Profile.consumablePrice(k)); return `<div class="card" style="--t:#c9b48a">${itemIcon(k)}<div class="card-body"><span class="item-title">${c.name}</span><span class="item-foot">${c.desc} · ${_t("в ранце: {0}", [Profile.data.backpack[k] || 0])}</span></div><div class="card-act"><button type="button" data-sp-pot="${k}" data-sp="${sp}" ${online && S.balance >= sp && !s.busy ? '' : 'disabled'}>${Spark.html(sp)}</button></div></div>`; }).join('');
+      const test = S.testGrant ? `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${_t("Тестовые искры")}</span><span class="item-foot">${_t("Для тестировщиков: раз в сутки. На запуске этой кнопки не будет.")}</span></div><div class="card-act"><button type="button" data-sp-test="1" ${s.busy ? 'disabled' : ''}>${_t("Получить")}</button></div></div>` : '';
+      return `<div class="modal" role="dialog" aria-label="${_t("Лавка искр")}"><header><h2>${_t("Лавка искр")}</h2><span class="wallet-head">${Spark.html(S.balance)} ${money(Profile.data.coins)}</span><button type="button" class="close" data-act="close">${_t("Закрыть")}</button></header>
+        <div class="screen-body">${s.msg ? `<p class="hint">${s.msg}</p>` : ''}
+        ${online ? '' : `<p class="hint">${_t("Искры работают только при подключении к серверу игры. Войдите в сеть, чтобы пользоваться лавкой.")}</p>`}
+        <p class="hint">${_t("Искры Сердца ускоряют развитие: их можно обменять на монеты. Сильнейшие комплекты («Молот», «Бастион», «Легенда Подземелий») за искры не продаются: их добывают в игре.")}</p>
+        <h3>${_t("Обмен")} · ${_t("курс")}: ${Spark.html(Spark.RED)} = ${money(rate * Spark.RED)}</h3><p class="hint">${_t("Номиналы искр")}: ${Spark.legend()}</p><div class="card-list">${ex}</div>
+        <h3>${_t("Зелья и эликсиры")}</h3><div class="card-list">${pots}</div>
+        <h3>${_t("Зверинец")}</h3><div class="card-list">${slots}</div>${test ? `<h3>${_t("Тест")}</h3><div class="card-list">${test}</div>` : ''}
+        </div></div>`;
+    },
+    async click(b) {
+      const s = st.sparkshop, d = b.dataset; if (s.busy) return;
+      const run = async (fn) => { s.busy = true; render(); try { await fn(); } finally { s.busy = false; changed(); } };
+      if (d.spEx) return run(async () => { const n = +d.spEx, r = await Spark.exchange(n); s.msg = r.ok ? _t("Готово: {0} обменяны на {1}.", [Spark.html(n), money(r.coins)]) : _t("Не получилось: проверьте подключение и баланс."); });
+      if (d.spPot) return run(async () => { const k = d.spPot, r = await Spark.spend({ kind: 'goods', item: k, n: Math.max(1, Number(d.sp) || 1) }); if (r.ok) { Profile.addConsumable(k, 1); s.msg = _t("Куплено за искры: {0} × {1}", [Gear.CONSUMABLES[k].name, 1]); } else s.msg = _t("Не получилось: проверьте подключение и баланс."); });
+      if (d.spSlot) return run(async () => { const n = +d.spSlot, r = await Spark.spend({ kind: 'fixed', item: 'stable_' + n }); s.msg = r.ok ? _t("Новое место в зверинце куплено!") : _t("Не получилось: проверьте подключение и баланс."); });
+      if (d.spTest) return run(async () => { const r = await Spark.testGrant(); s.msg = r.ok ? _t("Начислено тестовых искр: {0}.", [1000]) : r.error === 'wait' ? _t("Тестовые искры дают раз в сутки.") : _t("Не получилось: проверьте подключение."); });
+    },
+  };
+
+  const SCREENS = { sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
   return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, get screen() { return cur; }, arenaTab: () => (st.arena && st.arena.tab), openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: () => open('best'),
     openTavern: () => { st.tavern.msg = ''; open('tavern'); },
     openJunker: () => { st.junker.msg = ''; open('junker'); },
     openMill: () => { st.mill.msg = ''; open('mill'); },
+    openSparks: async () => { st.sparkshop.msg = ''; open('sparkshop'); await Spark.refresh(); if (cur === 'sparkshop') render(); },
+    openMail: () => { st.village.tab = 'mail'; st.village.msg = ''; open('village'); },
     openLighthouse: () => { st.lighthouse.msg = ''; st.lighthouse.tab = 'quests'; st.lighthouse.game = null; open('lighthouse'); },
     openHeroCard: () => open('herocard'),
     openWreck: () => { st.wreck.msg = ''; open('wreck'); },

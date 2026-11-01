@@ -139,6 +139,44 @@ const SaveGuard = (() => {
         if (p.maxDurability !== max || p.durability !== dur || !tierOk(p.tier)) { fix('питомец: прочность/цвет'); d.pet = { ...p, tier: clampTier(p.tier), maxDurability: max, durability: dur }; }
       }
     }
+    if (d.stable !== undefined) {   // 2.1.2: зверинец — запасные питомцы (не больше 5), каждый должен быть настоящим
+      const ok = (p) => isObj(p) && typeof p.speciesId === 'string' && SG_B.MONSTERS[SG_P.donorOf(p.speciesId)];
+      const src = Array.isArray(d.stable) ? d.stable : [], good = src.filter(ok).slice(0, 5);
+      if (!Array.isArray(d.stable) || good.length !== src.length) fix('зверинец');
+      d.stable = good.map((p) => { const max = Number.isFinite(p.maxDurability) && p.maxDurability >= 1 ? Math.floor(p.maxDurability) : SG_P.MAX_DURABILITY; const dur = Number.isFinite(p.durability) ? Math.max(0, Math.min(max, Math.floor(p.durability))) : max; return { ...p, tier: clampTier(p.tier), maxDurability: max, durability: dur }; });
+    }
+    {   // 2.1.5: черты и кличка питомцев
+      const extras = (p) => {
+        if (!isObj(p)) return;
+        if (p.traits !== undefined) { const t = [...new Set(SG_P.traitsOf(p))].slice(0, 2); if (!Array.isArray(p.traits) || t.length !== p.traits.length) { fix('черты питомца'); p.traits = t; } }
+        if (p.evo !== undefined || p.evoStage !== undefined) {   // эволюция: путь известен, ступень допустима для цвета
+          const ok = SG_P.EVOS[p.evo] && (p.evoStage === 1 || p.evoStage === 2) && p.tier >= SG_P.EVO_TIERS[p.evoStage - 1];
+          if (!ok) { if (SG_P.EVOS[p.evo] && p.tier >= SG_P.EVO_TIERS[0] && p.evoStage >= 1) { fix('эволюция питомца: ступень'); p.evoStage = 1; } else { fix('эволюция питомца'); delete p.evo; delete p.evoStage; } }
+        }
+        if (p.gear !== undefined) {
+          const g = {}; if (isObj(p.gear)) for (const id of SG_P.GEAR_IDS) { const t = SG_P.gearTier(p, id); if (t) g[id] = t; }
+          if (!isObj(p.gear) || JSON.stringify(g) !== JSON.stringify(p.gear)) fix('снаряжение питомца');
+          p.gear = g;
+        }
+        if (p.amulet !== undefined && !SG_P.AMULETS[p.amulet]) { fix('амулет питомца'); delete p.amulet; }
+        if (p.trust !== undefined && p.trust !== SG_P.trustOf(p)) { fix('доверие питомца'); p.trust = SG_P.trustOf(p); }
+        if (p.talents !== undefined) {
+          const t = {}; if (isObj(p.talents)) for (const id of SG_P.TALENT_IDS) { const r = SG_P.talentRank(p, id); if (r) t[id] = r; }
+          p.talents = t;
+          if (SG_P.talentPoints(p) < 0 || SG_P.talentsSpent(p) > Math.max(0, (p.tier || 1) - 1) + Math.floor(SG_P.trustOf(p) / 50)) { fix('таланты питомца'); p.talents = {}; }
+        }
+        if (p.name !== undefined) { const n = SG_P.cleanName(p.name); if (!n) { fix('кличка питомца'); delete p.name; } else p.name = n; }
+      };
+      extras(d.pet); extras(d.homePet); if (Array.isArray(d.stable)) d.stable.forEach(extras);
+      if (Array.isArray(d.stable)) d.stable.forEach((p) => {   // 2.2.2: поручение — только известный вид и 0..10 боёв
+        if (p.errand === undefined || p.errand === null) { delete p.errand; return; }
+        const e = p.errand, k = e && SG_P.ERRANDS[e.kind] ? e.kind : null;
+        if (!k || !Number.isFinite(e.left)) { fix('поручение питомца'); delete p.errand; return; }
+        const left = Math.max(0, Math.min(SG_P.ERRANDS[k].battles, Math.floor(e.left)));
+        if (left !== e.left) fix('поручение питомца');
+        p.errand = { kind: k, left };
+      });
+    }
     if (d.petChoice === 'tamed' && !d.pet) d.petChoice = 'home';
     if (d.incubator !== null && d.incubator !== undefined && !(isObj(d.incubator) && SG_P.EGGS[d.incubator.egg] && Number.isFinite(d.incubator.left) && d.incubator.left >= 0)) { fix('инкубатор'); d.incubator = null; }
 

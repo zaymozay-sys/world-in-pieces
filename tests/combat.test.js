@@ -313,7 +313,7 @@ assert.strictEqual(Combat.TURN_TIMER.skipLimit, 3);
 }
 
 // Цена новых заклинаний задана и участвует в общей проверке снижения Магией (см. цикл выше по всем costs)
-for (const k of ['mirror', 'sacrifice', 'tide', 'divination', 'strike']) assert.ok(B.magic.costs[k] >= B.magic.minCost);
+for (const k of ['mirror', 'sacrifice', 'tide', 'temper', 'strike']) assert.ok(B.magic.costs[k] >= B.magic.minCost);
 
 // Хитрость: после сбора камней противником с шансом cunning% забирает половину (вниз, минимум 1) магических камней
 {
@@ -358,7 +358,7 @@ for (const k of ['mirror', 'sacrifice', 'tide', 'divination', 'strike']) assert.
   assert.strictEqual(Combat.hit(g, fighter(), 10, false, never).amount, base * B.magic.fury.mult * B.magic.sacrifice.mult);
   assert.ok(!g.tripleNext && !g.doubleNext);
   assert.strictEqual(B.magic.costs.fury, 4);
-  assert.strictEqual(B.spellUnlock.fury, 19);   // 1.3.8: Кулак ярости открывается с 6-го цвета
+  assert.strictEqual(B.spellUnlock.fury, 31);   // 2.0.9: магии открываются с начала цвета; Кулак ярости — с 4-го цвета
 }
 
 console.log('combat: все тесты пройдены');

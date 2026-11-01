@@ -79,7 +79,10 @@ const Hero = (() => {
   // позже (см. Balance.spellUnlock).
   const isSpellUnlocked = (kind, L) => H_B.unlockAll || (typeof Profile !== 'undefined' && Profile.data && Profile.data.testAllSpells) || clampL(L) >= (H_B.spellUnlock[kind] || 1);
 
-  return { clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
+  // Сколько магий (без Удара) можно взять в бой: 5 на старте, +1 на 4-м, 7-м и 10-м цвете.
+  const spellSlots = (L) => { const t = tierFor(clampL(L)); return 5 + (t >= 4 ? 1 : 0) + (t >= 7 ? 1 : 0) + (t >= 10 ? 1 : 0); };
+
+  return { spellSlots, clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

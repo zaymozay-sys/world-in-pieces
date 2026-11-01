@@ -352,8 +352,8 @@ const MapArt = (() => {
 
   // Подпись здания на тёмной подложке (рисуется отдельным слоем поверх зданий).
   function label(text, x, y) {
-    const w = text.length * 4.5 + 8;
-    return `<g class="map-label-g" transform="translate(${x.toFixed(1)} ${(y + 21).toFixed(1)})"><rect x="${(-w / 2).toFixed(1)}" y="-6.5" width="${w.toFixed(1)}" height="10" rx="3"/><text y="1">${text}</text></g>`;
+    const w = text.length * 5.6 + 10;
+    return `<g class="map-label-g" transform="translate(${x.toFixed(1)} ${(y + 21).toFixed(1)})"><rect x="${(-w / 2).toFixed(1)}" y="-8" width="${w.toFixed(1)}" height="12.5" rx="3.5"/><text y="1.6">${text}</text></g>`;
   }
 
   return { defs, deco, building, label, TERRAIN_COLORS: T };

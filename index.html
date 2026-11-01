@@ -42,6 +42,8 @@
         <button id="m-help" type="button" class="icon-btn" title="Как играть">?</button>
         <button id="m-credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
         <button id="m-battlelogs" type="button" hidden>Журналы боёв</button>
+        <button id="m-sparks" type="button" hidden>Лавка искр</button>
+        <button id="m-report" type="button" hidden>Сообщить о проблеме</button>
         <button id="m-wiki" type="button" hidden>База знаний</button>
         <button id="m-whatsnew" type="button" hidden>Что нового</button>
         <button id="m-more" type="button" title="Меню" aria-haspopup="true">☰</button>
@@ -69,6 +71,7 @@
           <div class="mm-sub" hidden>
             <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
             <button type="button" data-mdo="m-battlelogs">Журналы боёв</button>
+            <button type="button" data-mdo="m-report">Сообщить о проблеме</button>
             <button type="button" data-mdo="m-help">Как играть</button>
             <button type="button" data-mdo="m-wiki">База знаний</button>
             <button type="button" data-mdo="m-whatsnew">Что нового</button>
@@ -160,7 +163,7 @@
         <li>Фракции: Люди (родной камень — сапфир), Гномы (обсидиан), Эльфы (изумруд), Ящеры (рубин). Родные камни заряжают приём фракции (15 камней с учётом номиналов и бонусов линии), приём ход не тратит. Знамя: +50% урона на 3 хода. Рунный молот: 3 камня становятся обсидианом x3. Корни: противник не может трогать выбранный столбец свой следующий ход. Ядовитый укус: противник теряет здоровье в начале 3 своих ходов. Фракционные вещи носит только своя фракция. Сменить фракцию можно в Ратуше.</li>
         <li>У каждого вида существ свой приём (воровство, вой, туман, окаменение, огненное дыхание и другие): он указан в карточке существа и в бестиарии.</li>
         <li>Неверный ход: −5% максимума ХП (на 1-м уровне это 5–6 ХП) и ход переходит к противнику. Три неверных хода подряд — поражение.</li>
-        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Проворство (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной Вашего дома; в дорогу в сумке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
+        <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Проворство (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной вашего дома; в дорогу в сумке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
         <li>Уровень героя растёт от опыта за победы (опыта на уровень нужно всё больше). С уровнем растут ХП, урон камней и лимит очков снаряжения; вещь цвета N можно надеть с уровня (N − 1) × 5 + 1. Сильнее существо и выше его цвет — больше опыта.</li>
         <li>Ранец: зелье здоровья, эликсир силы, каменная пыль и свиток спешки используются в бою, ход не тратят. Победа даёт новый предмет и расходники.</li>
         <li>Цвета-уровни (по возрастанию): Красный, Оранжевый, Жёлтый, Зелёный, Голубой, Синий, Фиолетовый, Серебро, Золото, Обсидиановый. Цвет есть у вещей, монстров и ресурсов: чем выше, тем сильнее. Оценка опасности существа (Лёгкий, Равный, Опасный, Смертельный) показывает примерный шанс победы.</li>
@@ -190,6 +193,7 @@
   <script src="js/factions.js"></script>
   <script src="js/items.js"></script>
   <script src="js/runes.js"></script>
+  <script src="js/talents.js"></script>
   <script src="js/combat.js"></script>
   <script src="js/bestiary.js"></script>
   <script src="js/parts.js"></script>
@@ -219,6 +223,7 @@
   <script src="js/trader.js"></script>
   <script src="js/crafts.js"></script>
   <script src="js/decor.js"></script>
+  <script src="js/spark.js"></script>
   <script src="js/mail.js"></script>
   <script src="js/events.js"></script>
   <script src="js/compass.js"></script>
@@ -248,6 +253,7 @@
   <script src="js/tutorial.js"></script>
   <script src="js/splashfx.js"></script>
   <script src="js/battlelog.js"></script>
+  <script src="js/telemetry.js"></script>
   <script src="js/game.js"></script>
   <script src="js/devjump.js"></script>
 </body>

@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // английская версия: все статьи без русских слов и без прокрутки вбок на узком экране
   const c2 = await b.newContext({ viewport: { width: 320, height: 700 } }); const q = await c2.newPage(); const e2 = []; q.on('pageerror', (e) => e2.push(e.message));
   await q.goto(URL); await sleep(1200); await q.evaluate(() => { setTimeout(() => I18N.setLang('en'), 0); }); await sleep(5000);
-  const rep = await q.evaluate(() => { Screens.open('wiki'); const out = []; for (const a of Wiki.ARTICLES) { document.querySelector(`[data-wart="${a.id}"]`).click(); const m = document.querySelector('.modal'); const t = document.querySelector('.wiki-art').textContent; if (/[а-яё]{3}/i.test(t)) out.push(a.id + ': русский текст'); if (m.scrollWidth > m.clientWidth + 1) out.push(a.id + ': прокрутка вбок'); document.querySelector('[data-wback]').click(); } return out; });
+  const rep = await q.evaluate(() => { Screens.open('wiki'); const out = []; for (const a of Wiki.BASE) { document.querySelector(`[data-wart="${a.id}"]`).click(); const m = document.querySelector('.modal'); const t = document.querySelector('.wiki-art').textContent; if (/[а-яё]{3}/i.test(t)) out.push(a.id + ': русский текст'); if (m.scrollWidth > m.clientWidth + 1) out.push(a.id + ': прокрутка вбок'); document.querySelector('[data-wback]').click(); } return out; });
   ok(!rep.length && !e2.length, 'английские статьи: ' + (rep.concat(e2).join('; ') || 'все чистые'));
   await b.close(); console.log(bad ? `\nwiki209.e2e: ошибок ${bad}` : '\nwiki209.e2e: всё в порядке'); process.exit(bad ? 1 : 0);
 })();

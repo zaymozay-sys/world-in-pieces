@@ -63,7 +63,7 @@ d.pid = 'мусор'; assert.ok(Net.validPid(n.pidFor(d)), 'битый номе�
   const pidX = Net.newPid(); let saved = 0;
   const rn = Net.create({ serverUrl: url, fetch: doFetch, guest: 'q'.repeat(40), getPid: () => pidX, saveVersion: (v) => { saved = v; } }, { delay: 5, setTimeout: (f) => f(), clearTimeout: () => {} });
   await rn.init(); assert.ok(rn.remote && rn.remote.enabled);
-  assert.strictEqual(rn.mirror(JSON.stringify({ a: 1, xp: 600, wins: 5 })), true);
+  assert.strictEqual(rn.mirror(JSON.stringify({ a: 1, xp: 1500, wins: 5 })), true);
   await new Promise((r) => setTimeout(r, 100)); assert.ok(saved > 0, 'версия сохранена после отправки');
   assert.strictEqual(await rn.remote.newer(), null, 'своё сохранение не новее');
   // второе устройство: тот же гость отправил более новое
@@ -81,7 +81,7 @@ d.pid = 'мусор'; assert.ok(Net.validPid(n.pidFor(d)), 'битый номе�
   // карточка уходит вместе со снимком, только если изменилась
   let cardPuts = 0; const cf = (u, o) => { if (/\/card$/.test(u) && o.method === 'PUT') cardPuts++; return doFetch(u, o); };
   const rn4 = Net.create({ serverUrl: url, fetch: cf, guest: 'y'.repeat(40), getPid: () => 'p-yyyyyyyy-yyyyyyyy-yyyyyyyy', getCard: () => ({ nick: 'Я', faction: 'dwarf', gender: 'm', level: 4, rank: 0, gear: {} }) }, { delay: 1, setTimeout: (f) => f(), clearTimeout: () => {} });
-  await rn4.init(); rn4.mirror('{"a":1,"xp":600}'); await new Promise((r) => setTimeout(r, 100)); rn4.mirror('{"a":2,"xp":600}'); await new Promise((r) => setTimeout(r, 100));
+  await rn4.init(); rn4.mirror('{"a":1,"xp":1500}'); await new Promise((r) => setTimeout(r, 100)); rn4.mirror('{"a":2,"xp":1500}'); await new Promise((r) => setTimeout(r, 100));
   assert.strictEqual(cardPuts, 1, 'карточка не меняется — второй раз не отправляем');
   // без адреса сервера — как раньше
   const off = Net.create({}); assert.strictEqual(off.remote, null);

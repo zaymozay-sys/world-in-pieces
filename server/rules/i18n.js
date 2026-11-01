@@ -26,7 +26,10 @@
   function T(key, args) {
     let s = key;
     if (dict) { const d = dict[key]; if (d !== undefined) s = d; else missing.add(key); }
-    return args ? s.replace(/\{(\d+)\}/g, (m, i) => args[+i]) : s;
+    if (!args) return s;
+    // склонение прямо в строке: «{0 бой|боя|боёв}» (рус., 3 формы) или «{0 fight|fights}» (англ., 2 формы)
+    s = s.replace(/\{(\d+) ([^{}]+)\}/g, (m, i, f) => { const a = f.split('|'), n = Number(args[+i]); return args[+i] + ' ' + (a.length < 3 ? (Math.abs(n) === 1 ? a[0] : a[a.length - 1]) : N(n, a[0], a[1], a[2], true)); });
+    return s.replace(/\{(\d+)\}/g, (m, i) => args[+i]);
   }
   // для DOM: текст из index.html (пробелы схлопываются, как при выгрузке ключей)
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
@@ -49,8 +52,8 @@
     if (typeof location !== 'undefined') location.reload();
   }
   // Склонение по числу: _n(n, 'монета', 'монеты', 'монет'); _nn — с числом впереди («3 монеты»). В английском — только ед./мн. число из словаря.
-  function N(n, one, few, many) {
-    if (lang === 'en') return T(Math.abs(n) === 1 ? one : many);
+  function N(n, one, few, many, raw) {
+    if (lang === 'en' && !raw) return T(Math.abs(n) === 1 ? one : many);
     const a = Math.abs(n) % 10, b = Math.abs(n) % 100;
     return a === 1 && b !== 11 ? one : (a >= 2 && a <= 4 && (b < 10 || b >= 20)) ? few : many;
   }

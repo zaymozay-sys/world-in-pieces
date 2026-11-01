@@ -130,16 +130,47 @@ const create = async (databaseUrl) => {
       const d = await q("SELECT id, state, body FROM tournaments WHERE state='done' ORDER BY start_at DESC LIMIT 1");
       return [...a.rows, ...d.rows];
     },
-    async deletePlayer(pid) { await q("UPDATE tournaments SET body = replace(body, $1, 'del-' || substr($1, 3, 8)) WHERE position($1 in body) > 0", [pid]); const r = await q('DELETE FROM players WHERE pid=$1', [pid]); return r.rowCount > 0; },
+    async deletePlayer(pid) { await q('DELETE FROM telemetry WHERE pid=$1', [pid]); await q('DELETE FROM premium_wallet WHERE pid=$1', [pid]); await q('DELETE FROM premium_rights WHERE pid=$1', [pid]); await q("UPDATE tournaments SET body = replace(body, $1, 'del-' || substr($1, 3, 8)) WHERE position($1 in body) > 0", [pid]); const r = await q('DELETE FROM players WHERE pid=$1', [pid]); return r.rowCount > 0; },
     async purge(now, auditMaxAgeMs) {
       const a = await q('DELETE FROM sessions WHERE expires_at <= to_timestamp($1/1000.0)', [now]);
       const b = await q('DELETE FROM audit WHERE created_at < to_timestamp($1/1000.0)', [now - auditMaxAgeMs]);
       const vd = await q('DELETE FROM vouchers WHERE at < $1', [now - rating.VOUCHER_KEEP_MS]);
       const sp = await q('DELETE FROM square_posts WHERE at < $1', [now - 7 * 86400000]);
       await q('DELETE FROM square_reports WHERE at < $1', [now - 7 * 86400000]);
+      const tl = await q('DELETE FROM telemetry WHERE at < $1', [now - 30 * 86400000]);
       const rl = await q('DELETE FROM rating_log WHERE at < $1', [now - 366 * 86400000]);
       const c = await q("DELETE FROM tournaments WHERE state NOT IN ('open','running') AND start_at < $1", [now - 60 * 86400000]);
-      return a.rowCount + b.rowCount + c.rowCount + rl.rowCount + vd.rowCount + sp.rowCount;
+      return tl.rowCount + a.rowCount + b.rowCount + c.rowCount + rl.rowCount + vd.rowCount + sp.rowCount;
+    },
+    async walletGet(pid) {
+      const w = await q('SELECT balance, test_at FROM premium_wallet WHERE pid=$1', [pid]);
+      const r = await q('SELECT item FROM premium_rights WHERE pid=$1', [pid]);
+      return { balance: w.rows[0] ? Number(w.rows[0].balance) : 0, testAt: w.rows[0] ? Number(w.rows[0].test_at) : 0, rights: r.rows.map((x) => x.item) };
+    },
+    async walletApply(pid, delta, reason, ref, at, right, setTestAt) {
+      const c = await pool.connect();
+      try {
+        await c.query('BEGIN');
+        const dup = await c.query('SELECT 1 FROM premium_ledger WHERE ref=$1', [ref]);
+        const cur = await c.query('INSERT INTO premium_wallet(pid) VALUES($1) ON CONFLICT (pid) DO UPDATE SET pid=EXCLUDED.pid RETURNING balance', [pid]);
+        const bal = Number(cur.rows[0].balance);
+        if (dup.rows[0]) { await c.query('ROLLBACK'); return { ok: true, dup: true, balance: bal }; }
+        const lock = await c.query('SELECT balance FROM premium_wallet WHERE pid=$1 FOR UPDATE', [pid]);
+        const b0 = Number(lock.rows[0].balance);
+        if (b0 + delta < 0) { await c.query('ROLLBACK'); return { ok: false, reason: 'funds', balance: b0 }; }
+        if (right) { const own = await c.query('SELECT 1 FROM premium_rights WHERE pid=$1 AND item=$2', [pid, right]); if (own.rows[0]) { await c.query('ROLLBACK'); return { ok: false, reason: 'owned', balance: b0 }; } }
+        await c.query('UPDATE premium_wallet SET balance=balance+$2, test_at=CASE WHEN $3::bigint > 0 THEN $3 ELSE test_at END WHERE pid=$1', [pid, delta, setTestAt || 0]);
+        await c.query('INSERT INTO premium_ledger(pid,delta,reason,ref,at) VALUES($1,$2,$3,$4,$5)', [pid, delta, reason, ref, at]);
+        if (right) await c.query('INSERT INTO premium_rights(pid,item,at) VALUES($1,$2,$3)', [pid, right, at]);
+        await c.query('COMMIT');
+        return { ok: true, balance: b0 + delta };
+      } catch (e) { try { await c.query('ROLLBACK'); } catch (e2) { /* уже закрыто */ } throw e; } finally { c.release(); }
+    },
+    async walletLedger(pid, limit = 50) { const r = await q('SELECT pid, delta, reason, ref, at FROM premium_ledger WHERE pid=$1 ORDER BY id DESC LIMIT $2', [pid, limit]); return r.rows.map((x) => ({ ...x, delta: Number(x.delta), at: Number(x.at) })); },
+    async teleAdd(pid, nick, rows, at) { for (const r of rows) await q('INSERT INTO telemetry(at,pid,nick,ver,kind,data) VALUES($1,$2,$3,$4,$5,$6)', [r.at || at, pid, nick || r.who || '', r.ver, r.kind, JSON.stringify(r.data)]); return rows.length; },
+    async teleList({ since = 0, kind = null, nick = null, limit = 100 } = {}) {
+      const r = await q('SELECT id, at, pid, nick, ver, kind, data FROM telemetry WHERE at >= $1 AND ($2::text IS NULL OR kind = $2) AND ($3::text IS NULL OR nick = $3) ORDER BY id DESC LIMIT $4', [since, kind, nick, limit]);
+      return r.rows.map((x) => ({ ...x, id: Number(x.id), at: Number(x.at) }));
     },
     async log(kind, pid, info) { try { await q('INSERT INTO audit(kind,pid,info) VALUES($1,$2,$3)', [kind, pid || null, info ? String(info).slice(0, 300) : null]); } catch (e) {} },
     async close() { await pool.end(); },

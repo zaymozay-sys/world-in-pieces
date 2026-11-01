@@ -132,6 +132,12 @@ const Net = (() => {
       async squareDelete(id) { if (!(await auth())) return false; const r = await call('POST', '/square/delete', { id }); return r.code === 200 && !!(r.json && r.json.deleted); },
       async rating(period) { if (!(await auth())) return null; const r = await call('GET', '/rating?period=' + encodeURIComponent(period)); return r.code === 200 && r.json && Array.isArray(r.json.list) ? r.json : null; },
       // награды сезона: что положено за прошлую неделю и месяц, и одноразовое получение
+      // отчёты тестировщиков (js/telemetry.js): пачка записей { kind, ver, who, at, data }
+      async telemetry(items) { if (!(await auth())) return false; try { const r = await call('POST', '/telemetry', { items }); return r.code === 200; } catch (x) { return false; } },
+      // Искры Сердца: баланс и траты на сервере (см. js/spark.js)
+      async wallet() { if (!(await auth())) return null; try { const r = await call('GET', '/wallet'); return r.code === 200 ? r.json : null; } catch (x) { return null; } },
+      async walletSpend(body) { if (!(await auth())) return { error: 'net' }; try { const r = await call('POST', '/wallet/spend', body); return r.json ? Object.assign({ code: r.code }, r.json) : { error: 'net' }; } catch (x) { return { error: 'net' }; } },
+      async walletTestGrant() { if (!(await auth())) return { error: 'net' }; try { const r = await call('POST', '/wallet/test-grant', {}); return r.json ? Object.assign({ code: r.code }, r.json) : { error: 'net' }; } catch (x) { return { error: 'net' }; } },
       async funnel(e) { if (!base || off) return false; try { const r = await call('POST', '/funnel', { e }); return r.code === 200; } catch (x) { return false; } },
       async seasonList() { if (!(await auth())) return null; const r = await call('GET', '/rating/season'); return r.code === 200 && r.json && Array.isArray(r.json.list) ? r.json.list : null; },
       async seasonClaim(id) { if (!(await auth())) return null; const r = await call('POST', '/rating/season/claim', { id }); return r.code === 200 && r.json ? r.json : null; },

@@ -480,6 +480,40 @@ const MapView = (() => {
     const pl = g.firstChild, p = px(st.pos);
     pl.style.transition = animate ? `transform ${ms}ms linear` : 'none';
     pl.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+    petToken(p.x, p.y, animate ? ms : 0);
+  }
+  // 2.2.1: питомец на карте — идёт следом за героем, по касанию «говорит» и раз за выход что-нибудь находит
+  let petFound = false;
+  function petToken(x, y, ms) {
+    const g = el['l-player'];
+    let t = document.getElementById('pet-tok');
+    const pet = (typeof Profile !== 'undefined' && Profile.petsOpen && Profile.petsOpen()) ? Profile.homePet() : null;
+    if (!pet || typeof Art === 'undefined' || !Art.has('pets/' + pet.speciesId)) { if (t) t.remove(); return; }
+    if (!t) {
+      t = document.createElementNS('http://www.w3.org/2000/svg', 'g'); t.id = 'pet-tok'; t.style.cursor = 'pointer';
+      t.innerHTML = `<ellipse cy="9" rx="13" ry="4" fill="#000" opacity=".45"/><image href="${Art.url('pets/' + pet.speciesId)}" x="-19" y="-29" width="38" height="38" preserveAspectRatio="xMidYMid meet" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))"/><rect x="-24" y="-34" width="48" height="48" fill="transparent"/>`;
+      t.addEventListener('click', (e) => { e.stopPropagation(); petTap(); });
+      g.appendChild(t);
+    }
+    t.style.transition = ms ? `transform ${ms}ms linear` : 'none';
+    t.style.transform = `translate(${(x - 26).toFixed(1)}px, ${(y + 6).toFixed(1)}px)`;
+  }
+  function petTap() {
+    const pet = Profile.homePet(); if (!pet) return;
+    const name = Pets.petTitle(pet), tr = Pets.trustOf(pet);
+    const lines = tr >= 150 ? [_t("{0} трётся о ногу и не отходит ни на шаг.", [name]), _t("{0} смотрит на вас с обожанием.", [name])]
+      : tr >= 50 ? [_t("{0} довольно семенит рядом.", [name]), _t("{0} принюхивается и поглядывает по сторонам.", [name])]
+      : [_t("{0} осторожно держится рядом.", [name]), _t("{0} присматривается к вам.", [name])];
+    let msg = lines[Math.floor(Math.random() * lines.length)];
+    if (!petFound) {
+      petFound = true;
+      const chance = Math.min(0.9, 0.3 + tr / 400 + (Pets.talentRank(pet, 'nose') ? 0.2 : 0));
+      if (Math.random() < chance) {
+        const n = Math.max(1, Math.round((3 + Math.random() * 6) * (1 + Hero.levelOf(Profile.data ? Profile.data.xp : 0) / 20)));
+        Profile.addCoins(n); msg += ' ' + _t("И находит монеты: {0}.", [n]);
+      }
+    }
+    toast(msg, 3600);
   }
   // Плавный шаг (1.4.9): позиция фигуры и камера меняются каждый кадр (rAF), без пауз между сотами.
   let glideEnd = 0;
@@ -496,6 +530,8 @@ const MapView = (() => {
         // 1.8.8: «шаг» — лёгкий подскок и покачивание с каждой соты
         const hop = k < 1 ? Math.abs(Math.sin(k * Math.PI)) * 5 : 0, sway = k < 1 ? Math.sin(k * Math.PI * 2) * 3 : 0;
         pl.style.transform = `translate(${x.toFixed(1)}px, ${(y - hop).toFixed(1)}px) rotate(${sway.toFixed(1)}deg)`;
+        const pt = document.getElementById('pet-tok');
+        if (pt) { pt.style.transition = 'none'; const kk = Math.max(0, k - 0.3), hop2 = kk < 1 ? Math.abs(Math.sin(kk * Math.PI * 2)) * 4 : 0; pt.style.transform = `translate(${(a.x + (b.x - a.x) * kk - 26).toFixed(1)}px, ${(a.y + (b.y - a.y) * kk + 6 - hop2).toFixed(1)}px)`; }
         const v = view(), sx = x * cam.s + cam.x, sy = y * cam.s + cam.y;
         const dx = sx - v.width / 2, dy = sy - v.height / 2, zx = v.width * 0.18, zy = v.height * 0.18;
         const ox = Math.abs(dx) > zx ? dx - Math.sign(dx) * zx : 0, oy = Math.abs(dy) > zy ? dy - Math.sign(dy) * zy : 0;
@@ -844,6 +880,7 @@ const MapView = (() => {
     if (id === 'ruinHouse' || id === 'ruinTower') return toast(`${b.name}: ${b.desc}`, 3500);
     if (id === 'tavern') return Screens.openTavern();
     if (id === 'mill') return Screens.openMill();
+    if (id === 'mail') return Screens.openMail();
     if (id === 'junker') return Screens.openJunker();
     if (id === 'library') return Screens.openLibrary();
     if (id === 'jeweler') return Screens.openJeweler();
@@ -1143,7 +1180,7 @@ const MapView = (() => {
       body = _t("Под корнями старого дерева что-то блестит — чей-то тайник. Схватить быстро: добычи больше на половину, но рядом может дремать страж. Вскрыть осторожно: безопасно, добыча обычная.");
       act = `<button type="button" class="primary" data-ev="take" data-mode="fast" data-e="${e.id}">${_t("Схватить (+50%, риск)")}</button><button type="button" class="primary" data-ev="take" data-mode="safe" data-e="${e.id}">${_t("Вскрыть осторожно")}</button>`;
     } else if (e.kind === 'altar') {
-      body = _t("Камень с рунами тихо гудит. Можно попросить одно благословение на {0} обычных боя.", [World.BLESSINGS.might.fights])
+      body = _t("Камень с рунами тихо гудит. Можно попросить одно благословение на {0 обычный бой|обычных боя|обычных боёв}.", [World.BLESSINGS.might.fights])
         + (d.blessing && d.blessing.fights > 0 ? _t(" Сейчас на вас: {0} (ещё боёв: {1}) — новое заменит его.", [World.BLESSINGS[d.blessing.kind].name, d.blessing.fights]) : '');
       act = Object.entries(World.BLESSINGS).map(([k, b]) => `<button type="button" class="primary" data-ev="bless" data-k="${k}" data-e="${e.id}">${b.name}: ${b.desc}</button>`).join('');
     } else if (e.kind === 'merchant') {
@@ -1200,7 +1237,7 @@ const MapView = (() => {
       worldMedal('altar');
       d.blessing = { kind: b.dataset.k, fights: World.BLESSINGS[b.dataset.k].fights };
       useEvent(e);
-      return resultCard(_t("Древний алтарь"), _t("Благословение: {0} — {1} на {2} обычных боя.", [World.BLESSINGS[b.dataset.k].name, World.BLESSINGS[b.dataset.k].desc, d.blessing.fights]));
+      return resultCard(_t("Древний алтарь"), _t("Благословение: {0} — {1} на {2 обычный бой|обычных боя|обычных боёв}.", [World.BLESSINGS[b.dataset.k].name, World.BLESSINGS[b.dataset.k].desc, d.blessing.fights]));
     }
     if (k === 'buy') {
       const offers = (st.evShop || {})[e.id]; const o = offers && offers[Number(b.dataset.n)];
@@ -1269,7 +1306,7 @@ const MapView = (() => {
     else if (m.kind === 'spring') {
       const k = World.hash(st.seed, m.id, 'bl') < 0.5 ? 'might' : 'stone';
       d.blessing = { kind: k, fights: World.BLESSINGS[k].fights };
-      lines.push(_t("Благословение: {0} — {1} на {2} обычных боя.", [World.BLESSINGS[k].name, World.BLESSINGS[k].desc, d.blessing.fights]));
+      lines.push(_t("Благословение: {0} — {1} на {2 обычный бой|обычных боя|обычных боёв}.", [World.BLESSINGS[k].name, World.BLESSINGS[k].desc, d.blessing.fights]));
     } else if (m.kind === 'wreck') {
       coins(3);
       const kinds = Object.keys(Gear.CONSUMABLES).filter((k) => !Gear.CONSUMABLES[k].alchemy);
@@ -1436,7 +1473,7 @@ const MapView = (() => {
     const ts = Profile.tierStats(), wmax = Math.max(1, ...ts.wins);
     const winChart = Tiers.LIST.map((T, n) => {
       const t = n + 1, w = ts.wins[t], pct = Math.round(w / wmax * 100);
-      return `<div class="jr-row jr-win" tabindex="0" data-tip="${_t("изучено {0} обитателей", [ts.species[t]])}"><i class="jr-chip" style="--t:${T.color};--ti:${T.ink}">${T.id}</i><span class="jr-bar"><b style="width:${w ? Math.max(pct, 3) : 0}%;background:${T.edge}"></b></span><small>${w}</small><small class="jr-sp" title="${_t("изучено {0} обитателей", [ts.species[t]])}">${ts.species[t]}</small></div>`;
+      return `<div class="jr-row jr-win" tabindex="0" data-tip="${_t("изучено {0 обитателя|обитателей|обитателей}", [ts.species[t]])}"><i class="jr-chip" style="--t:${T.color};--ti:${T.ink}">${T.id}</i><span class="jr-bar"><b style="width:${w ? Math.max(pct, 3) : 0}%;background:${T.edge}"></b></span><small>${w}</small><small class="jr-sp" title="${_t("изучено {0 обитателя|обитателей|обитателей}", [ts.species[t]])}">${ts.species[t]}</small></div>`;
     }).join('');
     const lms = world.landmarks || [];
     const doneN = lms.filter((m) => st.found[m.id]).length;
@@ -1447,7 +1484,7 @@ const MapView = (() => {
       const nm = (st.pinNames || {})[i], C = compassS(), bt = Profile.beltTier();
       const arrow = arrowsOk() && Compass.canUse(C, 'mark', bt) ? `<button type="button" class="jr-go" data-arrow-pin="${i}">${_t("Стрелка ({0})", [Compass.count(C, 'mark')])}</button>` : '';
       const nameIn = C.diary ? `<input type="text" class="jr-name" data-pinname="${i}" maxlength="${Compass.NAME_MAX}" value="${nm || ''}" placeholder="${_t("Название")}" aria-label="${_t("Название метки")}">` : '';
-      return `<li><button type="button" class="jr-go" data-jump="${i}">${nm || _t("Метка {0}", [n + 1])}</button> <span>${HexMap.terrainName(map, i)} · ${_t("{0} сот отсюда", [dd])}</span> ${arrow} ${nameIn} <button type="button" class="jr-del" data-delpin="${i}" aria-label="${_t("Снять метку")}">×</button></li>`;
+      return `<li><button type="button" class="jr-go" data-jump="${i}">${nm || _t("Метка {0}", [n + 1])}</button> <span>${HexMap.terrainName(map, i)} · ${_t("{0 сота|соты|сот} отсюда", [dd])}</span> ${arrow} ${nameIn} <button type="button" class="jr-del" data-delpin="${i}" aria-label="${_t("Снять метку")}">×</button></li>`;
     }).join('') : `<li class="jr-unk">${_t("Меток нет. Кнопка «Метка» ставит их на карту.")}</li>`;
     const chronAll = typeof Chron !== 'undefined' ? Chron.list(Profile.data) : [];
     const chronRows = chronAll.length ? chronAll.slice(0, 20).map((e) => `<li><span class="jr-unk">${Chron.dateStr(e.t)}</span> ${Chron.text(e)}</li>`).join('') + (chronAll.length > 20 ? `<li class="jr-unk">${_t("Ещё записей: {0}", [chronAll.length - 20])}</li>` : '') : `<li class="jr-unk">${_t("Пока пусто: первые события появятся после боёв и находок.")}</li>`;
@@ -1800,6 +1837,8 @@ const MapView = (() => {
     on('m-wiki', () => Screens.open('wiki'));
     on('m-whatsnew', () => Screens.open('whatsnew'));
     on('m-battlelogs', () => BattleLog.open());
+    on('m-sparks', () => Screens.openSparks());
+    on('m-report', () => Telemetry.open());
     on('m-lang', () => I18N.setLang(I18N.lang === 'ru' ? 'en' : 'ru'));
     document.getElementById('m-lang').textContent = I18N.lang === 'ru' ? 'EN' : 'RU';   // кнопка показывает язык, на который переключит
     on('m-credits', () => Screens.openCredits());
@@ -2175,7 +2214,7 @@ const MapView = (() => {
     const bd = Profile.lockedDrop('bastion', T, 0.3, 4);                            // 2.0.7: Бастион — трофей Хранителя глубин
     if (bd) setTimeout(() => toast(_t("Трофей Хранителя: {0} (комплект «Бастион»)", [Gear.item(bd).name]), 5000), 3400);
     if (T >= 6 && Profile.grantEndure('deep' + T)) setTimeout(() => toast(_t("Награда стража: эликсир «Стойкость»!"), 5000), 2600);   // 2.0.7: первый Хранитель на каждом цвете 6–10
-    setTimeout(() => toast(_t("Хранитель глубин повержен! Добыча: {0} монет, ресурсы и расходники.", [r.coins]), 5000), 1800);
+    setTimeout(() => toast(_t("Хранитель глубин повержен! Добыча: {0 монета|монеты|монет}, ресурсы и расходники.", [r.coins]), 5000), 1800);
   }
   function enterTower() {
     if (map.kind) return;
@@ -2213,7 +2252,7 @@ const MapView = (() => {
     for (const [k, n] of r.res) Profile.addRes(k, T, n);
     for (const k of Object.keys(r.cons)) Profile.addConsumable(k, r.cons[k]);
     if (r.egg) Profile.addEgg('dragon');
-    toast(r.chest ? _t("Новый уровень подземелья! Награда: {0} монет и сундук стража — ресурсы и расходники{1}.", [r.coins, r.egg ? _t(" (и драконье яйцо)") : '']) : _t("Новый уровень подземелья! Награда: {0} монет", [r.coins]), 3800);
+    toast(r.chest ? _t("Новый уровень подземелья! Награда: {0 монета|монеты|монет} и сундук стража — ресурсы и расходники{1}.", [r.coins, r.egg ? _t(" (и драконье яйцо)") : '']) : _t("Новый уровень подземелья! Награда: {0 монета|монеты|монет}", [r.coins]), 3800);
   }
   function towerStairs() {
     const g = map.spawns.find((x) => x.guard);
@@ -2286,7 +2325,7 @@ const MapView = (() => {
     const fee = guardFeeNow();
     if (!Profile.spend(fee)) return;
     closeCard(); renderHud();
-    toast(_t("Стража выступила: −{0} монет. Враги бегут!", [fee]), 3500);
+    toast(_t("Стража выступила: −{0 монета|монеты|монет}. Враги бегут!", [fee]), 3500);
     guardIv = setInterval(() => {
       const left = st.siege && st.siege.raiders.find((r) => !r.dead);
       if (!left) { clearInterval(guardIv); guardIv = null; return; }
@@ -2342,7 +2381,7 @@ const MapView = (() => {
     RareHunt.trophy(Profile.data, sp.species);
     Profile.chron('rare', Bestiary.MONSTERS[sp.species].name);
     save();
-    toast(_t("Редкий зверь повержен: {0}! Трофей получен, добыча: {1} монет и ресурсы.", [Bestiary.MONSTERS[sp.species].name, r.coins]), 5200);
+    toast(_t("Редкий зверь повержен: {0}! Трофей получен, добыча: {1 монета|монеты|монет} и ресурсы.", [Bestiary.MONSTERS[sp.species].name, r.coins]), 5200);
   }
   // подсказка охотнику: где примерно бродит зверь (расстояние в сотах и сторона света от героя)
   function rareHint() {
@@ -2352,7 +2391,7 @@ const MapView = (() => {
     const a = Math.atan2(to.r * 1.5 - from.r * 1.5, (to.q + to.r / 2) - (from.q + from.r / 2));       // экранные оси: x вправо, y вниз
     const dirs = [_t("востоку"), _t("юго-востоку"), _t("югу"), _t("юго-западу"), _t("западу"), _t("северо-западу"), _t("северу"), _t("северо-востоку")];
     const dir = dirs[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
-    return _t("Редкий зверь {0} бродит примерно в {1} сотах к {2}. Уйдёт {3}.", [name, HexMap.dist(from, to), dir, new Date(sp.endsAt).toLocaleDateString('ru-RU')]);
+    return _t("Редкий зверь {0} бродит примерно в {1 соте|сотах|сотах} к {2}. Уйдёт {3}.", [name, HexMap.dist(from, to), dir, new Date(sp.endsAt).toLocaleDateString('ru-RU')]);
   }
   const GUEST_REST_MS = 9 * 3600 * 1000;           // побеждённый ночной гость больше не возвращается до утра
   let guestList = [], skyNight = null, skyChip = '';

@@ -282,3 +282,97 @@ console.log('pets 1.5.1 ok');
   assert.strictEqual(a2.critExtra, 0, 'добавка расходуется');
   console.log('elixirs 1.5.1 ok');
 }
+
+// 2.1.5: черты и кличка
+{
+  const T = Pets;
+  assert.strictEqual(T.makePet('wolf', 1).traits, undefined, 'без rng черт нет');
+  let seed = 7; const rng = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (let i = 0; i < 200; i++) { const p = T.makePet('wolf', 1, rng); assert.strictEqual(p.traits.length, 2); assert.notStrictEqual(p.traits[0], p.traits[1], 'две разные черты'); assert.ok(p.traits.every((t) => T.TRAITS[t])); }
+  const base = { speciesId: 'wolf', tier: 1, durability: 3, maxDurability: 3 };
+  const brave = { ...base, traits: ['brave'] }, none = { ...base };
+  assert.ok(T.petAttackAmount(T.petFighter(brave)) >= T.petAttackAmount(T.petFighter(none)), 'смелый бьёт не слабее');
+  assert.ok(T.petFighter(brave).max < T.petFighter(none).max, 'у смелого здоровья меньше');
+  assert.ok(T.huntCoins({ ...base, traits: ['greedy'] }) > T.huntCoins(none), 'жадный находит больше');
+  const slow = { ...base, traits: ['sturdy'] }, fast = { ...base, traits: ['swift'] };
+  T.studyStart(slow, 0, 'hunt'); T.studyStart(fast, 0, 'hunt'); assert.ok(fast.study < slow.study, 'шустрый занят меньше');
+  const clever = { ...base, traits: ['clever'] }; T.addXp(clever, 100, 5); T.addXp(none, 100, 5); assert.ok(clever.xp > none.xp);
+  const careful = { ...base, traits: ['careful'] }; T.loseDurability(careful, () => 0.1); assert.strictEqual(careful.durability, 3, 'осторожный уберёг прочность');
+  T.loseDurability(careful, () => 0.9); assert.strictEqual(careful.durability, 2);
+  // кличка
+  assert.strictEqual(T.cleanName('  Рекс   Второй '), 'Рекс Второй'); assert.strictEqual(T.cleanName('<b>x</b>'), null); assert.strictEqual(T.cleanName(''), null); assert.strictEqual(T.cleanName('x'.repeat(17)), null);
+  const named = { ...base }; assert.ok(T.setName(named, "Д'Артаньян")); assert.strictEqual(T.petTitle(named), "Д'Артаньян"); assert.strictEqual(T.petTitle(none), T.petDisplayName('wolf'));
+  console.log('pets 2.1.5: черты и кличка ок');
+}
+
+// 2.1.6: доверие и таланты
+{
+  const T = Pets; const mk = (o = {}) => ({ speciesId: 'wolf', tier: 1, durability: 3, maxDurability: 3, ...o });
+  assert.strictEqual(T.talentPoints(mk()), 0, 'на 1-м цвете очков нет');
+  assert.strictEqual(T.talentPoints(mk({ tier: 4 })), 3); assert.strictEqual(T.talentPoints(mk({ tier: 1, trust: 100 })), 2, 'каждые 50 доверия — очко');
+  const p = mk({ tier: 4 });
+  assert.ok(T.talentUp(p, 'fang') && T.talentUp(p, 'fang') && !T.talentUp(p, 'fang'), 'не больше 2 уровней');
+  assert.strictEqual(T.talentPoints(p), 1); assert.ok(!T.talentUp(p, 'нет'));
+  assert.ok(T.talentUp(p, 'hide') && !T.talentUp(p, 'nose'), 'очки кончились');
+  assert.ok(T.petAttackAmount(T.petFighter(p)) > T.petAttackAmount(T.petFighter(mk({ tier: 4 }))), 'таланты усиливают удар');
+  assert.strictEqual(T.talentResetCost(mk()), 0); assert.ok(T.talentResetCost(p) > 0); T.talentReset(p); assert.strictEqual(T.talentPoints(p), 3);
+  // доверие
+  const q = mk(); T.addTrust(q, 5); assert.strictEqual(q.trust, 5); T.addTrust(q, -50); assert.strictEqual(q.trust, 0, 'не ниже нуля'); T.addTrust(q, 500); assert.strictEqual(q.trust, 100, 'не выше 100');
+  const b = mk({ tier: 3, talents: { bond: 2 } }); T.addTrust(b, 4); assert.strictEqual(b.trust, 8, 'Привязанность: +100% при двух уровнях');
+  assert.ok(T.petFighter(mk({ trust: 100 })).max > T.petFighter(mk()).max, 'доверие усиливает здоровье');
+  assert.strictEqual(T.trustName(mk({ trust: 80 })), T.trustName(mk({ trust: 100 })));
+  const g = mk({ tier: 4, talents: { guard: 2 } }); assert.ok(Math.abs(T.saveChance(g) - 0.2) < 1e-9); T.loseDurability(g, () => 0.1); assert.strictEqual(g.durability, 3);
+  const both = mk({ traits: ['careful'], talents: { guard: 2 } }); assert.ok(T.saveChance(both) > 0.35 && T.saveChance(both) < 0.4, '0.2 и 0.2 складываются как независимые шансы: 0.36');
+  const fed = mk(); T.feed(fed); assert.strictEqual(fed.trust, 1); T.giveTreat(fed, 'bone'); assert.strictEqual(fed.trust, 3);
+  console.log('pets 2.1.6: доверие и таланты ок');
+}
+
+// 2.1.8: эволюция и снаряжение
+{
+  const T = Pets; const mk = (o = {}) => ({ speciesId: 'wolf', tier: 1, durability: 3, maxDurability: 3, ...o });
+  assert.ok(!T.canEvolve(mk({ tier: 4 })) && T.canEvolve(mk({ tier: 5 })), 'эволюция с 5-го цвета');
+  const p = mk({ tier: 5 }); assert.ok(!T.evolve(p, 'нет')); assert.ok(T.evolve(p, 'hunter')); assert.strictEqual(T.evoStage(p), 1);
+  assert.ok(!T.canEvolve(p), 'вторая ступень только с 10-го цвета');
+  assert.ok(T.petAttackAmount(T.petFighter(p)) > T.petAttackAmount(T.petFighter(mk({ tier: 5 }))), 'охотник бьёт сильнее');
+  assert.strictEqual(T.talentPoints(p), 5, 'очки: цвет−1 + ступень');
+  const w = mk({ tier: 5 }); T.evolve(w, 'warden'); assert.ok(T.petFighter(w).max > T.petFighter(mk({ tier: 5 })).max, 'защитник крепче');
+  const q = mk({ tier: 10, evo: 'hunter', evoStage: 1 }); assert.ok(T.canEvolve(q)); T.evolve(q, 'warden'); assert.strictEqual(q.evo, 'hunter', 'путь не меняется'); assert.strictEqual(T.evoStage(q), 2);
+  assert.ok(/Вожак/.test(T.evoTitle(q)));
+  // снаряжение
+  const g = mk({ tier: 2 }); assert.strictEqual(T.gearTier(g, 'collar'), 0); assert.ok(T.gearUpCost(g, 'collar') > 0);
+  assert.ok(T.gearUp(g, 'collar') && T.gearUp(g, 'collar') && !T.gearUp(g, 'collar'), 'цвет вещи не выше цвета питомца'); assert.strictEqual(T.gearUpCost(g, 'collar'), null);
+  assert.ok(T.petMul(g, 'hit') > T.petMul(mk({ tier: 2 }), 'hit'), 'ошейник усиливает удар');
+  T.gearUp(g, 'harness'); assert.ok(T.petFighter(g).max > T.petFighter(mk({ tier: 2 })).max);
+  const c = mk({ tier: 2 }); T.gearUp(c, 'charm'); const base = mk({ tier: 2 }); T.addXp(c, 100, 5); T.addXp(base, 100, 5); assert.ok(c.xp >= base.xp);
+  console.log('pets 2.1.8: эволюция и снаряжение ок');
+}
+
+// 2.1.9: амулеты
+{
+  const T = Pets; const mk = (o = {}) => ({ speciesId: 'wolf', tier: 3, durability: 3, maxDurability: 3, ...o });
+  assert.strictEqual(T.amuletId(mk()), null, 'без вещи амулета нет');
+  const old = mk({ gear: { charm: 2 } }); assert.strictEqual(T.amuletId(old), 'scholar', 'прежний амулет — «учёба»');
+  const l = mk({ gear: { charm: 3 }, amulet: 'loyal' }); assert.strictEqual(T.amuletId(l), 'loyal');
+  const f = T.petFighter(l); assert.ok(f.secondWind && Math.abs(f.secondWindFrac - 0.29) < 1e-9, 'верность: встаёт с долей 20% + 3% за цвет');
+  assert.ok(!T.petFighter(mk({ gear: { charm: 3 }, amulet: 'healer' })).secondWind, 'у целителя нет «встаёт»');
+  assert.ok(T.amuletPower(mk({ gear: { charm: 3 }, amulet: 'healer' }), 'healer') > 0 && T.amuletPower(l, 'healer') === 0);
+  assert.ok(T.petMul(mk({ gear: { charm: 3 }, amulet: 'scholar' }), 'xp') > 1 && T.petMul(l, 'xp') === 1, 'опыт даёт только «учёба»');
+  const s = mk(); assert.ok(T.setAmulet(s, 'fortune') && !T.setAmulet(s, 'нет'));
+  assert.ok(T.AMULET_IDS.every((id) => typeof T.AMULETS[id].desc(3) === 'string'));
+  // «верность» работает в бою: второй смертельный удар питомца убивает
+  global.Combat = global.Combat || require('../js/combat.js'); const C = Combat;
+  const pf = T.petFighter(l); pf.hp = 5; const foe = { hp: 100, max: 100, dmg: 1, stats: Gear.blankStats(), buffs: [], counts: {}, turnNo: 0 };
+  C.hit(foe, pf, 50, () => 0.999); assert.ok(pf.hp > 5, 'встал'); pf.hp = 1; C.hit(foe, pf, 50, () => 0.999); assert.strictEqual(pf.hp, 0, 'второй раз не встаёт');
+  console.log('pets 2.1.9: амулеты ок');
+}
+
+{   // 2.2.2: поручения
+  const p = { speciesId: 'wolf', tier: 2, trust: 120 };
+  assert.ok(Pets.sendErrand(p, 'coins') && !Pets.sendErrand(p, 'forage'), 'одно поручение за раз');
+  for (let i = 0; i < Pets.ERRANDS.coins.battles; i++) { assert.ok(!Pets.errandReady(p), 'ещё идёт'); Pets.errandTick(p); }
+  assert.ok(Pets.errandReady(p), 'готов');
+  const r = Pets.errandTake(p); assert.ok(r && r.coins > 0 && !p.errand, 'монеты, поручение снято');
+  Pets.sendErrand(p, 'forage'); for (let i = 0; i < 5; i++) Pets.errandTick(p);
+  const f = Pets.errandTake(p, () => 0.5); assert.ok(f && f.res && f.tier === 2 && f.n >= 3, 'ресурс цвета питомца');
+}
+console.log('pets 2.2.2: поручения ок');

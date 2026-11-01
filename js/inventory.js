@@ -33,6 +33,7 @@ const Profile = (() => {
       elixirs: { active: {}, bag: {} },            // 1.3.6: эликсиры — действующие и в сумке
       village: {},                                 // 1.5.1: уровни улучшений зданий (js/village.js)
       cosmetics: { titles: [], frames: [], title: null, frame: null },   // 1.5.1: титулы и рамки портрета
+      talents: {},                                 // 2.0.9: таланты — id → ступени (js/talents.js)
       medals: { earned: [], fiveStreaks: 0, strikeKills: 0 },   // медали: полученные { id, tier }, счётчик линий из 5
                                                      // камней и счётчик добиваний Ударом (js/medals.js)
       monster: { id: 'rat', tier: 1 },             // текущий (последний) противник
@@ -44,6 +45,7 @@ const Profile = (() => {
       shop: null,
       ui: 'columns',                               // оформление экрана боя: 'classic' (старое), 'modern' (новое) или 'columns' (колонки)
       uiVer: 2,                                    // 2 = оформление боя «колонки» по умолчанию (см. миграцию ниже)
+      stable: [],                                   // запасные питомцы зверинца (активный — pet); число мест 1 + купленные слоты (Spark)
       pet: null,                                    // прирученный питомец: { speciesId, tier, durability, maxDurability } (см. pets.js) или null
       runeBag: {},                                  // запас рун (см. runes.js): id руны → количество
       ammo: {},                                     // 1.3.0: боеприпасы в сумке (см. ammo.js): вид → количество
@@ -76,6 +78,8 @@ const Profile = (() => {
     if (!saved.uiVer) d.ui = 'columns';               // с 1.1.8 оформление боя «колонки» — по умолчанию и для старых сохранений
     // старые сохранения могли не знать о счётчике добиваний Ударом (см. Medals.STRIKE_MILESTONES)
     d.medals = { earned: [], fiveStreaks: 0, strikeKills: 0, ...(saved.medals || {}) };
+    d.talents = Talents.clean(saved.talents, Hero.levelOf(d.xp || 0).level);
+    d.spells = Array.isArray(saved.spells) ? saved.spells.filter((k) => typeof k === 'string').slice(0, 12) : null;   // 2.0.9: магии, взятые в бой (null — подбор по умолчанию)
     d.elixirs = { active: {}, bag: {}, ...(saved.elixirs || {}) };
     d.elixirs.active = {};                                           // 1.6.0: эликсиры действуют только в бою
     for (const k of Object.keys(d.elixirs.bag)) if (k.startsWith('initiative:')) {   // 1.6.0: «Инициатива» → «Хитрость»
@@ -247,6 +251,31 @@ const Profile = (() => {
     // Уровень героя и опыт.
     level: () => Hero.levelOf(data.xp).level,
     levelInfo: () => Hero.levelOf(data.xp),
+    // Магии в бою (без Удара): открытые по цвету, не больше слотов; пока игрок не выбирал — первые открытые.
+    spellPool() { const L = Hero.levelOf(data.xp).level; return ['lightning'].concat(Object.keys(Balance.spellUnlock)).filter((k) => Hero.isSpellUnlocked(k, L)); },
+    spellLoadout() {
+      const L = Hero.levelOf(data.xp).level, slots = Hero.spellSlots(L), pool = this.spellPool();
+      const chosen = Array.isArray(data.spells) ? data.spells.filter((k) => pool.includes(k)) : pool;
+      return chosen.slice(0, slots);
+    },
+    toggleSpell(k) {
+      const L = Hero.levelOf(data.xp).level, pool = this.spellPool();
+      if (!pool.includes(k)) return false;
+      const cur = this.spellLoadout();
+      if (cur.includes(k)) data.spells = cur.filter((x) => x !== k);
+      else if (cur.length < Hero.spellSlots(L)) data.spells = cur.concat(k);
+      else return false;
+      save(); return true;
+    },
+    // Таланты: очки за уровни, выбор игрока, платный сброс.
+    talentLeft: () => Talents.left(data.talents, Hero.levelOf(data.xp).level),
+    addTalent(id) { const L = Hero.levelOf(data.xp).level; if (!Talents.canAdd(data.talents, L, id)) return false; data.talents = Talents.add(data.talents, L, id); save(); return true; },
+    resetTalents() { const L = Hero.levelOf(data.xp).level, c = Talents.respecCost(L); if (!Talents.spent(data.talents)) return 'none'; if (data.coins < c) return 'coins'; data.coins -= c; data.talents = {}; save(); return 'ok'; },
+    xpTip(lv) {
+      if (lv.need === Infinity) return '';
+      const per = Math.max(1, Hero.xpReward('rat', Hero.tierFor(lv.level), lv.level));
+      return _t("Опыт: {0} / {1} · ещё ≈{2 бой|боя|боёв}", [lv.into, lv.need, Math.ceil((lv.need - lv.into) / per)]);
+    },
     // Добавляет опыт. Возвращает { from, to } — уровень до и после.
     addXp(n) { const from = Hero.levelOf(data.xp).level; if (Number.isFinite(n) && n > 0) data.xp += n; save();   // 1.6.5: NaN/отрицательное не портят опыт
       return { from, to: Hero.levelOf(data.xp).level }; },
@@ -397,7 +426,7 @@ const Profile = (() => {
     // 1.8.8: дневник питомца — записи за время вашего отсутствия (см. js/petdiary.js)
     petDiaryTick() {
       if (typeof PetDiary === 'undefined') return [];
-      const pet = api.pet(), r = PetDiary.tick(data.petDiary, pet && pet.speciesId, pet ? I_PT.petDisplayName(pet.speciesId) : '', data.petDiaryAt, Date.now());
+      const pet = api.pet(), r = PetDiary.tick(data.petDiary, pet && pet.speciesId, pet ? I_PT.petTitle(pet) : '', data.petDiaryAt, Date.now());
       data.petDiary = r.diary; data.petDiaryAt = r.last; if (r.added || !Number.isFinite(data.petDiaryAt)) save();
       return r.diary;
     },
@@ -411,6 +440,7 @@ const Profile = (() => {
       rec.byTier = rec.byTier || {}; rec.byTier[tier] = (rec.byTier[tier] || 0) + 1;   // 1.7.7: победы по цветам (для графика в журнале)
       if (tier >= rec.tier) rec.tier = Math.min(Tiers.MAX, tier + 1);
       data.bestiary[id] = rec;
+      (Array.isArray(data.stable) ? data.stable : []).forEach(I_PT.errandTick);   // 2.2.2: запасные питомцы на поручениях
       if (data.incubator && data.incubator.left > 0) data.incubator.left--;   // 1.3.9: яйцо согревается боями
       save();
     },
@@ -577,25 +607,38 @@ const Profile = (() => {
     perk: (k) => Medals.hasPerk(data.medals.earned, k),
     sandbox: (on) => { sandboxed = !!on; },
     isSandbox: () => sandboxed,
-    medalsBonus: () => { const s = Medals.bonusStats(data.medals.earned, data.bestiary); if (s.defense) s.defense = Math.max(1, Math.round(s.defense * Combat.armorUnit(Hero.dmgMult(Profile.level())))); return s; },   // 2.0.7: Броня медалей — плоская, растёт с уровнем героя
+    medalsBonus: () => { const s = Medals.bonusStats(data.medals.earned, data.bestiary); if (s.defense) s.defense = Math.max(1, Math.round(s.defense * Combat.armorUnit(Hero.dmgMult(Profile.level())))); return Gear.combine(s, Talents.bonus(data.talents)); },   // 2.0.9: сюда же добавлены таланты   // 2.0.7: Броня медалей — плоская, растёт с уровнем героя
 
     // Приручение и питомец (см. pets.js). Только один активный питомец за раз.
-    canTame: (id) => I_PT.canTame(data.bestiary, id),
+    canTame: (id) => api.petsOpen() && I_PT.canTame(data.bestiary, id),
     // 1.3.9: домашний питомец фракции (создаётся при первом обращении) и выбор, кто идёт в бой: 'home' | 'tamed' | 'none'.
+    // 2.1.7: питомцы открываются на 11-м уровне; питомец из прежнего сохранения (уже растёт) остаётся
+    petsOpen: () => Unlocks.isOpen(data, 'kennel'),
     homePet() {
+      if (!api.petsOpen()) return null;
       // 1.6.0: с появлением питомца у героя есть поводок — выдаём верёвочный (один раз) и надеваем, если слот пуст.
       if (data.faction && !data.leashGiven) {
         data.leashGiven = true;
         if (!data.items.some((x) => (Gear.item(x) || {}).type === 'leash')) { const e = Gear.makeEntry('leash-rope', 1); data.items.push(e); if (!data.loadout.leash) data.loadout.leash = e.uid; }
         save();
       }
-      if (!data.homePet && data.faction) { const h = I_PT.homeFor(data.faction); if (h) { data.homePet = I_PT.makePet(h, Hero.tierFor(Profile.level())); save(); } }
+      if (!data.homePet && data.faction) { const h = I_PT.homeFor(data.faction); if (h) { data.homePet = I_PT.makePet(h, Hero.tierFor(Profile.level()), Math.random); save(); } }
       return data.homePet || null;
     },
     petChoice: () => data.petChoice || (data.pet ? 'tamed' : 'home'),
     setPetChoice(c) { data.petChoice = c; save(); },
-    pet() { const c = api.petChoice(); return c === 'none' ? null : c === 'home' ? api.homePet() : data.pet; },
+    pet() { if (!api.petsOpen()) return null; const c = api.petChoice(); return c === 'none' ? null : c === 'home' ? api.homePet() : data.pet; },
     tamedPet: () => data.pet,
+    // Зверинец: всего мест 1 + купленные слоты. Прежний питомец уходит в запас, если место есть, иначе заменяется.
+    renamePet(c) { const p = api.pet(); if (!p || !I_PT.setName(p, c)) return false; save(); return true; },
+    stableCap: () => (typeof Spark !== 'undefined' ? Spark.slotsOwned() : 1),
+    stable: () => (data.stable = Array.isArray(data.stable) ? data.stable : []),
+    stashPet() { if (data.pet && api.stable().length + 1 < api.stableCap()) api.stable().push(data.pet); },
+    // поменять активного питомца местом с запасным (i — номер в запасе)
+    swapPet(i) { const s = api.stable(); if (!s[i]) return false; const old = data.pet; data.pet = s[i]; if (old) s[i] = old; else s.splice(i, 1); data.petChoice = 'tamed'; save(); return true; },
+    sendErrand(i, kind) { const p = api.stable()[i]; if (!p || !I_PT.sendErrand(p, kind)) return false; save(); return true; },
+    takeErrand(i) { const p = api.stable()[i], r = p && I_PT.errandTake(p); if (!r) return null; if (r.coins) api.addCoins(r.coins); else api.addRes(r.res, r.tier, r.n); save(); return r; },
+    releasePet(i) { const s = api.stable(); if (!s[i]) return false; s.splice(i, 1); save(); return true; },
     hasUsablePet() { return I_PT.isUsable(api.pet()); },
     // 1.4.8: «оставить питомца дома» на один выход (переключатель перед боем): питомец остаётся выбранным, но в бой не идёт.
     petStay: () => !!data.petStay,
@@ -617,12 +660,12 @@ const Profile = (() => {
     // Вылупившийся питомец заменяет прирученного.
     collectHatch(tier) {
       const inc = data.incubator; if (!inc || inc.left > 0) return null;
-      data.pet = I_PT.makePet(I_PT.EGGS[inc.egg].species, tier); data.incubator = null; data.petChoice = 'tamed'; api.chron('pet', I_PT.petDisplayName(data.pet.speciesId)); save(); return data.pet;
+      api.stashPet(); data.pet = I_PT.makePet(I_PT.EGGS[inc.egg].species, tier, Math.random); data.incubator = null; data.petChoice = 'tamed'; api.chron('pet', I_PT.petDisplayName(data.pet.speciesId)); save(); return data.pet;
     },
     // Приручает вид (заменяет текущего питомца, если был). Возвращает false, если условия ещё не выполнены.
     tame(id, tier) {
       if (!api.canTame(id)) return false;
-      data.pet = I_PT.makePet(id, tier);
+      api.stashPet(); data.pet = I_PT.makePet(id, tier, Math.random);
       api.chron('pet', I_PT.petDisplayName(id));
       data.petChoice = 'tamed';
       save();
@@ -1060,9 +1103,23 @@ const Inventory = (() => {
   }
 
   // Уровень, опыт, ХП и урон героя.
+  function spellPicker(lv) {
+    if (typeof MAGICS === 'undefined') return '';
+    const pool = Profile.spellPool(), cur = Profile.spellLoadout(), slots = Hero.spellSlots(lv.level);
+    const chips = pool.filter((k) => MAGICS[k]).map((k) => `<button type="button" class="sp-chip${cur.includes(k) ? ' on' : ''}" data-spell="${k}" title="${String(MAGICS[k].tip || '').replace(/"/g, '&quot;')}">${MAGICS[k].name}</button>`).join('');
+    return _t("<div class=\"spell-pick\"><b>Магии в бою: {0} / {1}</b><div class=\"sp-chips\">{2}</div><small>Нажмите, чтобы взять магию в бой или убрать её. Менять можно вне боя. Новые магии открываются с новым цветом.</small></div>", [cur.length, slots, chips]);
+  }
+  function talentPicker(lv) {
+    const t = Profile.data.talents || {}, left = Talents.left(t, lv.level), cost = Talents.respecCost(lv.level);
+    const branch = (b) => `<div class="tal-branch"><b>${b.name}</b>${b.list.map((id) => {
+      const r = t[id] || 0;
+      return `<button type="button" class="tal${r ? ' on' : ''}" data-talent="${id}" ${left > 0 && r < Talents.RANK_MAX ? '' : 'disabled'} title="${_t("+{0} за ступень", [Talents.PER[id]])}">${Talents.NAMES[id]} <small>${r}/${Talents.RANK_MAX}</small></button>`;
+    }).join('')}</div>`;
+    return _t("<div class=\"talent-pick\"><b>Таланты: свободных очков {0}</b> <small>(очко за каждые {1 уровень|уровня|уровней})</small><div class=\"tal-branches\">{2}</div><button type=\"button\" data-act=\"talreset\" {3}>Сбросить таланты — {4}</button></div>", [left, Talents.EVERY, Talents.TREE.map(branch).join(''), Talents.spent(t) ? '' : 'disabled', MonsterArt.moneyHtml(cost)]);
+  }
   function heroLine(lv, stats) {
     const pct = lv.need === Infinity ? 100 : Math.round(lv.into / lv.need * 100);
-    return _t("<div class=\"hero-level\"><b>Уровень {0}</b><span>{1}</span>\n      <div class=\"xpbar\"><i style=\"width:{2}%\"></i></div>\n      <small>ХП {3} · Сила уровня +{4} · вещи до цвета «{5}»</small></div>", [lv.level, lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need]), pct, Hero.baseHp(lv.level) + stats.health, Math.round(Hero.levelPower(lv.level) * 10) / 10, Tiers.get(Hero.tierFor(lv.level)).name]);
+    return _t("<div class=\"hero-level\"><b>Уровень {0}</b><span>{1}</span>\n      <div class=\"xpbar\"><i style=\"width:{2}%\"></i></div>\n      <small>ХП {3} · Сила уровня +{4} · вещи до цвета «{5}»</small></div>", [lv.level, lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need]), pct, Hero.baseHp(lv.level) + stats.health, Math.round(Hero.levelPower(lv.level) * 10) / 10, Tiers.get(Hero.tierFor(lv.level)).name]).replace('class="xpbar"', `class="xpbar" style="--xp:${Tiers.get(Hero.tierFor(lv.level)).color}" title="${Profile.xpTip(lv)}"`) + spellPicker(lv) + talentPicker(lv);
   }
 
   function render() {
@@ -1233,7 +1290,7 @@ const Inventory = (() => {
     } else if (sel && gear[sel] && Gear.item(gear[sel])) {
       const it = Gear.item(gear[sel]);
       detail = `<div class="pick-detail">${itemCard(it, _t("Надето: {0} · {1} оч.", [Gear.SLOT_NAMES[sel], it.cost]))}
-        <div class="pick-act">${armory ? _t("<button type=\"button\" data-unequip=\"{0}\" {1}>Снять в сундук</button>", [sel, editable ? '' : 'disabled']) : _t("<p class=\"hint\">Снять или сменить — в оружейной Вашего дома.</p>")}</div></div>`;
+        <div class="pick-act">${armory ? _t("<button type=\"button\" data-unequip=\"{0}\" {1}>Снять в сундук</button>", [sel, editable ? '' : 'disabled']) : _t("<p class=\"hint\">Снять или сменить — в оружейной вашего дома.</p>")}</div></div>`;
     }
 
     const stash = stashLayout();
@@ -1285,9 +1342,9 @@ const Inventory = (() => {
     const paneRes = `<div class="bp-pane" data-p="res">${bagGrid(resCells)}${_t("<h3>Список ресурсов</h3>{0}", [res])}${armory && runes ? _t("<h3>Кладовая: руны</h3>{0}", [runes]) : ''}</div>`;
     const sets = Gear.setProgress(gear).map((p) => _t("\n      <div class=\"set\" style=\"--c:{0}\"><b>Набор «{1}» {2}/{3}</b>\n        {4}\n        {5}\n      </div>", [p.color, p.name, p.count, p.total, p.active.map((a) => _t("<div class=\"on\">{0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join(''), p.next.slice(0, 1).map((a) => _t("<div class=\"off\">ещё до {0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join('')])).join('') || _t("<p class=\"hint\">Наборов нет: собирайте предметы одного набора — они усиливают друг друга.</p>");
 
-    root.innerHTML = _t("\n      <div class=\"modal home-modal{0}\" role=\"dialog\" aria-label=\"Ранец и экипировка\" style=\"{1}\">\n        <header>\n          <h2>{2}</h2>\n          <span class=\"wallet-head\">{3}</span>\n          <button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        {4}{5}\n        <div class=\"tabs inv-tabs\">{6}</div>\n        <div class=\"gear-toast toast-phone\">{7}</div>\n        <div class=\"home-layout\" data-itab=\"{8}\" data-arm=\"{9}\">\n          <section class=\"home-hero\">\n            {10}\n            {11}\n            <div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{12}%\" class=\"{13}\"></i></div>\n              <span>Очки снаряжения: <b>{14}</b> / {15} (растут с уровнем)</span></div>\n          </section>\n          <section class=\"home-stats\">\n            {16}\n            {17}\n            <h3>Наборы</h3>{18}\n          </section>\n          <section class=\"home-bag\">\n            <div class=\"gear-toast toast-desk\">{19}</div>\n            <div class=\"bag-gear\">\n            {20}\n {21}\n            </div>\n            <div class=\"bag-pack\" data-btab=\"{22}\">\n            {23}\n            {24}\n            {25}\n            <h3>Деньги</h3><div class=\"bag-row money-row\">{26}</div>\n            {27}\n          </div>\n          </section>\n        </div>\n      </div>", [armory && typeof Art !== 'undefined' && Art.hasScene('home') ? ' has-scene' : '', typeof Art !== 'undefined' ? artVar('scene', 'ui/bg-home') + artVar('hpanel', typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? 'ui/hero-panel-5' : 'ui/hero-panel') + artVar('sframe', 'ui/slot-frame') + artVar('bagbg', 'ui/bg-bag') : '', armory ? _t("Ваш дом · Оружейная") : _t("Сумка"), MonsterArt.moneyHtml(Profile.data.coins), tabsBattle, '', [['hero', _t("Герой")], ...(armory ? [['gear', _t("Вещи")]] : []), ['pack', _t("Сумка")]].map(([k, l]) => `<button type="button" class="${(invTab === k || (!armory && invTab === 'gear' && k === 'pack')) ? 'on' : ''}" data-itab="${k}">${l}</button>`).join('') + `<button type="button" class="pet-tab" data-act="kennel">${_t("Питомец")}</button>`, toast, !armory && invTab === 'gear' ? 'pack' : invTab, armory ? 1 : 0, doll, !armory ? _t("<p class=\"hint\">Снаряжение меняется в оружейной Вашего дома.</p>") : !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно вне боя.</p>") : '', pct, used > budget ? 'over' : '', used, budget, heroLine(lv, stats), statsBlock(stats), sets, toast, detail, armory ? _t("<h3>Ячейки хранения · {0} / {1}</h3>\n            <p class=\"hint\">Нажмите на вещь — откроется её карточка с кнопкой «Надеть» или «Снять». Название вещи видно при наведении, цвет уровня — свечение вокруг.</p>\n            <div class=\"stash-grid\">{2}</div>\n            {3}\n            <div class=\"stash-buy\">{4}</div>", [stash.filter(Boolean).length, stashCap(), tiles, stash.length > stashCap() ? _t("<p class=\"hint warn\">Сундук переполнен: {0} на {1}. Докупите ячейки или продайте лишнее в Лавке.</p>", [_nn(stash.filter(Boolean).length, 'вещь', 'вещи', 'вещей'), _nn(stashCap(), 'ячейка', 'ячейки', 'ячеек')]) : '', (Profile.data.stashRows || 0) < STASH_MAX_ROWS
+    root.innerHTML = _t("\n      <div class=\"modal home-modal{0}\" role=\"dialog\" aria-label=\"Ранец и экипировка\" style=\"{1}\">\n        <header>\n          <h2>{2}</h2>\n          <span class=\"wallet-head\">{3}</span>\n          <button type=\"button\" class=\"valor-link\" data-act=\"valor\">Стена доблести</button>\n          <button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>\n        </header>\n        {4}{5}\n        <div class=\"tabs inv-tabs\">{6}</div>\n        <div class=\"gear-toast toast-phone\">{7}</div>\n        <div class=\"home-layout\" data-itab=\"{8}\" data-arm=\"{9}\">\n          <section class=\"home-hero\">\n            {10}\n            {11}\n            <div class=\"budget\"><div class=\"budget-bar\"><i style=\"width:{12}%\" class=\"{13}\"></i></div>\n              <span>Очки снаряжения: <b>{14}</b> / {15} (растут с уровнем)</span></div>\n          </section>\n          <section class=\"home-stats\">\n            {16}\n            {17}\n            <h3>Наборы</h3>{18}\n          </section>\n          <section class=\"home-bag\">\n            <div class=\"gear-toast toast-desk\">{19}</div>\n            <div class=\"bag-gear\">\n            {20}\n {21}\n            </div>\n            <div class=\"bag-pack\" data-btab=\"{22}\">\n            {23}\n            {24}\n            {25}\n            <h3>Деньги</h3><div class=\"bag-row money-row\">{26}</div>\n            {27}\n          </div>\n          </section>\n        </div>\n      </div>", [armory && typeof Art !== 'undefined' && Art.hasScene('home') ? ' has-scene' : '', typeof Art !== 'undefined' ? artVar('scene', 'ui/bg-home') + artVar('hpanel', typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? 'ui/hero-panel-5' : 'ui/hero-panel') + artVar('sframe', 'ui/slot-frame') + artVar('bagbg', 'ui/bg-bag') : '', armory ? _t("Ваш дом · Оружейная") : _t("Сумка"), MonsterArt.moneyHtml(Profile.data.coins), tabsBattle, '', [['hero', _t("Герой")], ...(armory ? [['gear', _t("Вещи")]] : []), ['pack', _t("Сумка")]].map(([k, l]) => `<button type="button" class="${(invTab === k || (!armory && invTab === 'gear' && k === 'pack')) ? 'on' : ''}" data-itab="${k}">${l}</button>`).join('') + `<button type="button" class="pet-tab" data-act="kennel">${_t("Питомец")}</button>`, toast, !armory && invTab === 'gear' ? 'pack' : invTab, armory ? 1 : 0, doll, !armory ? _t("<p class=\"hint\">Снаряжение меняется в оружейной вашего дома.</p>") : !editable ? _t("<p class=\"hint warn\">Менять снаряжение можно вне боя.</p>") : '', pct, used > budget ? 'over' : '', used, budget, heroLine(lv, stats), statsBlock(stats), sets, toast, detail, armory ? _t("<h3>Ячейки хранения · {0} / {1}</h3>\n            <p class=\"hint\">Нажмите на вещь — откроется её карточка с кнопкой «Надеть» или «Снять». Название вещи видно при наведении, цвет уровня — свечение вокруг.</p>\n            <div class=\"stash-grid\">{2}</div>\n            {3}\n            <div class=\"stash-buy\">{4}</div>", [stash.filter(Boolean).length, stashCap(), tiles, stash.length > stashCap() ? _t("<p class=\"hint warn\">Сундук переполнен: {0} на {1}. Докупите ячейки или продайте лишнее в Лавке.</p>", [_nn(stash.filter(Boolean).length, 'вещь', 'вещи', 'вещей'), _nn(stashCap(), 'ячейка', 'ячейки', 'ячеек')]) : '', (Profile.data.stashRows || 0) < STASH_MAX_ROWS
               ? _t("<button type=\"button\" data-act=\"buyrow\" {0}>Докупить ряд ячеек (+{1}) — {2}</button>", [Profile.data.coins >= rowPrice() ? '' : 'disabled', STASH_ROW, MonsterArt.moneyHtml(rowPrice())])
-              : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это сумка: эликсиры, расходники, боеприпасы и ресурсы. Вещи и руны хранятся в оружейной Вашего дома — там же меняется снаряжение.</p>"), bagTab, bagTabsHtml, paneElix, paneRes, MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
+              : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это сумка: эликсиры, расходники, боеприпасы и ресурсы. Вещи и руны хранятся в оружейной вашего дома — там же меняется снаряжение.</p>"), bagTab, bagTabsHtml, paneElix, paneRes, MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
     const fc = Village.frameColor(Profile.data.cosmetics), dfr = root.querySelector('.doll-frame');   // 1.5.1: рамка из гардероба
     if (fc && dfr) dfr.style.boxShadow = `0 0 0 3px ${fc}, 0 0 14px 4px ${fc}`;
   }
@@ -1310,6 +1367,9 @@ const Inventory = (() => {
     if (e.target === root) return close();
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.dataset.talent) { if (!canEditGear()) return say(_t("Менять таланты можно вне боя.")); if (Profile.addTalent(t.dataset.talent)) render(); return; }
+    if (t.dataset.act === 'talreset') { if (!canEditGear()) return say(_t("Менять таланты можно вне боя.")); const r = Profile.resetTalents(); return r === 'coins' ? say(_t("Не хватает денег на сброс талантов.")) : render(); }
+    if (t.dataset.spell) { if (!canEditGear()) return say(_t("Менять магии можно вне боя.")); if (!Profile.toggleSpell(t.dataset.spell)) say(_t("Все слоты магий заняты: уберите одну, чтобы взять другую.")); else render(); return; }
     if (t.dataset.act === 'close') return close();
     if (t.dataset.act === 'kennel') { if (typeof Screens !== 'undefined') Screens.open('kennel'); return; }
     if (t.dataset.act === 'valor') { if (typeof Screens !== 'undefined') Screens.openValor(); return; }
@@ -1347,7 +1407,7 @@ const Inventory = (() => {
     if (t.dataset.slot && tab === 'left' && !armory) {   // 1.5.7: карточка героя вне дома — нажатие на надетую вещь открывает её карточку (только просмотр)
       const wuid = Profile.data.loadout[t.dataset.slot];
       if (wuid) return ItemInfo.open(wuid);
-      return say(_t("Ячейка «{0}» пуста — снаряжение меняется в оружейной Вашего дома", [Gear.SLOT_NAMES[t.dataset.slot]]));
+      return say(_t("Ячейка «{0}» пуста — снаряжение меняется в оружейной вашего дома", [Gear.SLOT_NAMES[t.dataset.slot]]));
     }
     if (t.dataset.slot) { sel = (tab === 'left' && sel === t.dataset.slot) ? null : t.dataset.slot; pick = null; toast = ''; resetArmed = false; return render(); }
     if (t.dataset.pick) { pick = pick === t.dataset.pick ? null : t.dataset.pick; toast = ''; return render(); }
@@ -1360,7 +1420,7 @@ const Inventory = (() => {
       Profile.data.stashRows = (Profile.data.stashRows || 0) + 1;
       Profile.save();
       if (typeof onEconomyChanged === 'function') onEconomyChanged();
-      return say(_t("Куплен ряд из {0} ячеек", [STASH_ROW]));
+      return say(_t("Куплен ряд из {0 ячейки|ячеек|ячеек}", [STASH_ROW]));
     }
     if (t.dataset.act === 'allslots') { sel = null; return render(); }
     if (t.dataset.equip) { sel = t.dataset.to; const u = t.dataset.equip; pick = null; return equipItem(u); }
@@ -1382,7 +1442,7 @@ const Inventory = (() => {
   }
 
   function equipItem(uid) {
-    if (!armory) return say(_t("Снаряжение меняется в оружейной Вашего дома"));
+    if (!armory) return say(_t("Снаряжение меняется в оружейной вашего дома"));
     const load = Profile.data.loadout;
     if (load[sel] === uid) {                         // повторный клик снимает вещь
       load[sel] = null;
@@ -1407,7 +1467,7 @@ const Inventory = (() => {
 
   // Для карточки предмета (ItemInfo): надеть вещь из ячейки хранения / снять в ячейку. Возвращает текст ошибки или null.
   function equipUid(u) {
-    if (!armory || !canEditGear()) return _t("Снаряжение меняется в оружейной Вашего дома");
+    if (!armory || !canEditGear()) return _t("Снаряжение меняется в оружейной вашего дома");
     const k = stashLayout().indexOf(u);
     if (k < 0) return _t("Вещь не найдена в ячейках");
     const err = fromStash(k);

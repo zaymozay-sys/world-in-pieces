@@ -55,7 +55,7 @@ assert.ok(Hero.consumablePrice(50, 91) === 50 * Tiers.PRICE_MULT[9]);
 /* ---------- разблокировка заклинаний по уровню (Balance.spellUnlock) ---------- */
 
 // стартовая пятёрка и общий для всех фракций Удар не упомянуты в spellUnlock — доступны с 1-го уровня
-for (const k of ['lightning', 'heal', 'divination', 'strike']) {
+for (const k of ['lightning', 'heal', 'temper', 'strike']) {
   assert.strictEqual(Hero.isSpellUnlocked(k, 1), true, k + ' доступен с 1-го уровня');
 }
 // заклинания более высокого уровня закрыты до своего порога и открываются с него

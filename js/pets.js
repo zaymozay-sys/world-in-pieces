@@ -68,15 +68,141 @@ const Pets = (() => {
   const petDisplayName = (id) => (HOME[id] && HOME[id].name) || (EGG_BY_SPECIES[id] && EGG_BY_SPECIES[id].chick) || DISPLAY_NAMES[id] || (PT_B.MONSTERS[id] ? _t("Боевой {0}", [PT_B.MONSTERS[id].name.toLowerCase()]) : _t("Питомец"));
 
   // Новый питомец из вида id, приручённого на цвете tier. Полная прочность.
-  function makePet(id, tier) {
-    return { speciesId: id, tier: PT_T.clamp(tier), durability: MAX_DURABILITY, maxDurability: MAX_DURABILITY };
+  /* ---------- Черты и кличка (2.1.5) ----------
+     При приручении/вылуплении питомец получает две разные черты: у каждой есть сильная и слабая сторона.
+     Множители: hit — удар, hp — здоровье, xp — опыт, find — клад и разведка, speed — время занятий (меньше = быстрее), save — шанс не потерять прочность. */
+  const TRAITS = {
+    brave:    { name: _t("Смелый"),         desc: _t("Удар сильнее на 10%, здоровья меньше на 5%."),               mul: { hit: 1.10, hp: 0.95 } },
+    sturdy:   { name: _t("Крепкий"),        desc: _t("Здоровья больше на 12%, занятия дольше на 10%."),            mul: { hp: 1.12, speed: 1.10 } },
+    swift:    { name: _t("Шустрый"),        desc: _t("Занятия короче на 15%, удар слабее на 5%."),                 mul: { speed: 0.85, hit: 0.95 } },
+    clever:   { name: _t("Сообразительный"), desc: _t("Опыт растёт на 15% быстрее, здоровья меньше на 5%."),        mul: { xp: 1.15, hp: 0.95 } },
+    lucky:    { name: _t("Везучий"),        desc: _t("Клад и разведка богаче на 20%, опыт меньше на 10%."),        mul: { find: 1.20, xp: 0.90 } },
+    greedy:   { name: _t("Жадный"),         desc: _t("Клад богаче на 25%, удар слабее на 5%."),                    mul: { find: 1.25, hit: 0.95 } },
+    careful:  { name: _t("Осторожный"),     desc: _t("С шансом 20% не теряет прочность в проигранном бою, удар слабее на 5%."), mul: { save: 0.20, hit: 0.95 } },
+    loyal:    { name: _t("Преданный"),      desc: _t("Удар и здоровье выше на 6%, клад и разведка беднее на 15%."), mul: { hit: 1.06, hp: 1.06, find: 0.85 } },
+    calm:     { name: _t("Спокойный"),      desc: _t("Опыт растёт на 10% быстрее, занятия дольше на 10%."),         mul: { xp: 1.10, speed: 1.10 } },
+    fierce:   { name: _t("Свирепый"),       desc: _t("Удар сильнее на 15%, опыт меньше на 10%."),                  mul: { hit: 1.15, xp: 0.90 } },
+  };
+  const TRAIT_IDS = Object.keys(TRAITS);
+  function rollTraits(rng = Math.random) {
+    const pool = TRAIT_IDS.slice(), out = [];
+    for (let i = 0; i < 2; i++) out.push(pool.splice(Math.floor(rng() * pool.length) % pool.length, 1)[0]);
+    return out;
+  }
+  const traitsOf = (pet) => ((pet && Array.isArray(pet.traits)) ? pet.traits.filter((t) => TRAITS[t]) : []);
+  const traitMul = (pet, key) => traitsOf(pet).reduce((m, t) => m * (TRAITS[t].mul[key] || 1), 1);
+  const NAME_MAX = 16;
+  // Кличка: буквы, цифры, пробел, дефис, апостроф; до 16 знаков. Возвращает очищенную строку или null.
+  function cleanName(s) {
+    const t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    if (!t || t.length > NAME_MAX || !/^[\p{L}\p{N} '\-]+$/u.test(t)) return null;
+    return t;
+  }
+  function setName(pet, s) { const n = cleanName(s); if (!pet || !n) return false; pet.name = n; return true; }
+  const petTitle = (pet) => (pet && pet.name) || petDisplayName(pet && pet.speciesId);
+
+
+  /* ---------- Доверие и таланты (2.1.6) ----------
+     Доверие 0–100 растёт от совместных побед, ухода и занятий, падает от поражений. Оно слегка усиливает питомца (до +10% к удару и здоровью)
+     и даёт очки талантов. Очков: на 1 меньше цвета питомца, плюс по одному за каждые 50 доверия. Таланты — две ветки, у каждого до 2 уровней. */
+  const TRUST_MAX = 100;
+  const TRUST_NAMES = [[75, _t("Верный")], [50, _t("Друг")], [25, _t("Знакомый")], [0, _t("Настороженный")]];
+  const trustOf = (pet) => Math.max(0, Math.min(TRUST_MAX, Math.round((pet && pet.trust) || 0)));
+  const trustName = (pet) => (TRUST_NAMES.find(([lo]) => trustOf(pet) >= lo) || TRUST_NAMES[3])[1];
+  const TALENTS = {
+    fang:    { branch: 'fighter', name: _t("Острые клыки"),   desc: _t("Удар сильнее на 6% за уровень."),                   max: 2, per: { hit: 0.06 } },
+    hide:    { branch: 'fighter', name: _t("Толстая шкура"),   desc: _t("Здоровья больше на 6% за уровень."),                max: 2, per: { hp: 0.06 } },
+    guard:   { branch: 'fighter', name: _t("Страж"),           desc: _t("Шанс не потерять прочность в проигранном бою +10% за уровень."), max: 2, save: 0.10 },
+    mettle:  { branch: 'fighter', name: _t("Выучка"),          desc: _t("Удар и здоровье выше на 3% за уровень."),          max: 2, per: { hit: 0.03, hp: 0.03 } },
+    nose:    { branch: 'helper',  name: _t("Чутьё"),           desc: _t("Клад и разведка богаче на 10% за уровень."),       max: 2, per: { find: 0.10 } },
+    learner: { branch: 'helper',  name: _t("Любознательный"),  desc: _t("Опыт растёт на 8% быстрее за уровень."),           max: 2, per: { xp: 0.08 } },
+    quick:   { branch: 'helper',  name: _t("Проворство"),      desc: _t("Занятия короче на 8% за уровень."),               max: 2, per: { speed: -0.08 } },
+    bond:    { branch: 'helper',  name: _t("Привязанность"),   desc: _t("Доверие растёт на 50% быстрее за уровень."),       max: 2, bond: 0.5 },
+  };
+  const TALENT_IDS = Object.keys(TALENTS);
+  const BRANCH_NAMES = { fighter: _t("Боец"), helper: _t("Помощник") };
+  const talentRank = (pet, id) => Math.max(0, Math.min(TALENTS[id] ? TALENTS[id].max : 0, Math.floor(((pet && pet.talents) || {})[id] || 0)));
+  const talentsSpent = (pet) => TALENT_IDS.reduce((n, id) => n + talentRank(pet, id), 0);
+  const talentPoints = (pet) => Math.max(0, (pet ? Math.max(0, pet.tier - 1) + Math.floor(trustOf(pet) / 50) + evoStage(pet) : 0) - talentsSpent(pet));
+  function talentUp(pet, id) {
+    if (!pet || !TALENTS[id] || talentRank(pet, id) >= TALENTS[id].max || talentPoints(pet) < 1) return false;
+    pet.talents = pet.talents || {}; pet.talents[id] = talentRank(pet, id) + 1; return true;
+  }
+  const talentResetCost = (pet) => (talentsSpent(pet) ? Math.round(300 * mult(pet.tier)) : 0);
+  function talentReset(pet) { if (pet) pet.talents = {}; return pet; }
+  const talentMul = (pet, key) => TALENT_IDS.reduce((m, id) => m * (1 + ((TALENTS[id].per || {})[key] || 0) * talentRank(pet, id)), 1);
+  // шанс уберечь прочность в проигранном бою: черты и таланты складываются как независимые шансы
+  const saveChance = (pet) => {
+    let keep = 1 - Math.min(0.95, traitMul(pet, 'save') < 1 ? traitMul(pet, 'save') : 0);
+    for (const id of TALENT_IDS) keep *= 1 - Math.min(0.95, (TALENTS[id].save || 0) * talentRank(pet, id));
+    return 1 - keep;
+  };
+
+  /* ---------- Эволюция и снаряжение (2.1.8) ----------
+     На 5-м цвете питомец выбирает путь: «Охотник» (удар) или «Страж» (здоровье); на 10-м цвете путь усиливается («Вожак»). Каждая ступень даёт очко талантов.
+     Снаряжение — ошейник (удар), сбруя (здоровье), амулет (опыт и находки): у каждой вещи свой цвет (не выше цвета питомца), её можно улучшать за монеты. */
+  const EVO_TIERS = [5, 10];
+  const EVOS = {
+    hunter: { name: _t("Охотник"), desc: _t("Путь удара: +12% к удару, на 10-м цвете ещё +8%."),     per: [{ hit: 0.12 }, { hit: 0.08 }] },
+    warden: { name: _t("Защитник"), desc: _t("Путь защиты: +12% к здоровью, на 10-м цвете ещё +8%."), per: [{ hp: 0.12 }, { hp: 0.08 }] },
+  };
+  const EVO_TITLES = [_t("Матёрый"), _t("Вожак")];
+  const evoStage = (pet) => (pet && EVOS[pet.evo] ? Math.min(2, Math.max(1, Math.floor(pet.evoStage || 1))) : 0);
+  const canEvolve = (pet) => !!pet && ((evoStage(pet) === 0 && pet.tier >= EVO_TIERS[0]) || (evoStage(pet) === 1 && pet.tier >= EVO_TIERS[1]));
+  const evoCost = (pet) => Math.round(1200 * mult(pet.tier));
+  function evolve(pet, path) {
+    if (!canEvolve(pet)) return false;
+    if (evoStage(pet) === 0) { if (!EVOS[path]) return false; pet.evo = path; pet.evoStage = 1; return true; }
+    pet.evoStage = 2; return true;
+  }
+  const evoTitle = (pet) => (evoStage(pet) ? EVO_TITLES[evoStage(pet) - 1] + ' · ' + EVOS[pet.evo].name : '');
+  const evoMul = (pet, key) => { const st = evoStage(pet); let m = 1; for (let i = 0; i < st; i++) m *= 1 + (EVOS[pet.evo].per[i][key] || 0); return m; };
+  const GEAR = {
+    collar:  { name: _t("Ошейник"), desc: _t("Удар сильнее на 2% за цвет вещи."),              per: { hit: 0.02 } },
+    harness: { name: _t("Сбруя"),   desc: _t("Здоровья больше на 2% за цвет вещи."),           per: { hp: 0.02 } },
+    charm:   { name: _t("Амулет"),  desc: _t("Особый эффект на выбор: верность, целитель, удача или учёба."), per: { xp: 0.02, find: 0.02 } },
+  };
+  const GEAR_IDS = Object.keys(GEAR);
+  const gearTier = (pet, id) => Math.max(0, Math.min((pet && pet.tier) || 0, Math.floor(((pet && pet.gear) || {})[id] || 0)));
+  const gearUpCost = (pet, id) => (!pet || !GEAR[id] || gearTier(pet, id) >= Math.min(PT_T.MAX, pet.tier) ? null : Math.round(250 * mult(gearTier(pet, id) + 1)));
+  function gearUp(pet, id) { if (gearUpCost(pet, id) == null) return false; pet.gear = pet.gear || {}; pet.gear[id] = gearTier(pet, id) + 1; return true; }
+  const gearMul = (pet, key) => GEAR_IDS.reduce((m, id) => m * (id === 'charm' && amuletId(pet) !== 'scholar' ? 1 : (1 + ((GEAR[id].per[key]) || 0) * gearTier(pet, id))), 1);
+  /* Амулеты: слот амулета даёт один особый эффект на выбор; его сила растёт с цветом вещи. */
+  const AMULETS = {
+    loyal:   { name: _t("Амулет верности"),  desc: (t) => _t("Раз за бой питомец встаёт после гибели с {0}% здоровья.", [Math.round(amuletValue('loyal', t) * 100)]) },
+    healer:  { name: _t("Амулет целителя"),  desc: (t) => _t("Когда питомец побеждает врага на своём поле, он лечит героя на {0}% здоровья.", [Math.round(amuletValue('healer', t) * 100)]) },
+    fortune: { name: _t("Амулет удачи"),     desc: (t) => _t("С шансом {0}% монет с побеждённого врага становится вдвое больше.", [Math.round(amuletValue('fortune', t) * 100)]) },
+    scholar: { name: _t("Амулет учёбы"),     desc: (t) => _t("Опыт и находки больше на {0}%.", [2 * t]) },
+  };
+  const AMULET_IDS = Object.keys(AMULETS);
+  function amuletValue(id, t) { return id === 'loyal' ? 0.2 + 0.03 * t : id === 'healer' ? 0.06 + 0.01 * t : id === 'fortune' ? 0.05 + 0.015 * t : 0; }
+  const amuletId = (pet) => (gearTier(pet, 'charm') > 0 ? (AMULETS[pet.amulet] ? pet.amulet : 'scholar') : null);
+  const amuletPower = (pet, id) => (amuletId(pet) === id ? amuletValue(id, gearTier(pet, 'charm')) : 0);
+  const amuletSwapCost = (pet) => Math.round(250 * mult(Math.max(1, gearTier(pet, 'charm'))));
+  // выбрать вид амулета: первый раз вместе с изготовлением (цена как у улучшения), потом смена за монеты (цвет вещи сохраняется)
+  function setAmulet(pet, id) { if (!pet || !AMULETS[id]) return false; pet.amulet = id; return true; }
+
+  // итоговый множитель: черты × таланты × доверие (последнее только для удара и здоровья)
+  const petMul = (pet, key) => traitMul(pet, key) * talentMul(pet, key) * evoMul(pet, key) * gearMul(pet, key) * ((key === 'hit' || key === 'hp') ? 1 + trustOf(pet) / 1000 : 1);
+  function addTrust(pet, n) {
+    if (!pet || !n) return pet;
+    const bond = TALENT_IDS.reduce((m, id) => m + (TALENTS[id].bond || 0) * talentRank(pet, id), 0);
+    const d = n > 0 ? Math.round(n * (1 + bond)) : n;
+    pet.trust = Math.max(0, Math.min(TRUST_MAX, trustOf(pet) + d)); return pet;
+  }
+
+  function makePet(id, tier, rng) {
+    const p = { speciesId: id, tier: PT_T.clamp(tier), durability: MAX_DURABILITY, maxDurability: MAX_DURABILITY };
+    if (rng) p.traits = rollTraits(rng);       // без rng (старые вызовы и тесты) черт нет
+    return p;
   }
 
   // Питомец готов выйти в бой, только пока у него есть прочность.
   const isUsable = (pet) => !!pet && pet.durability > 0;
 
   // Поражение питомца в бою тратит 1 прочность (мутирует и возвращает тот же объект — как Profile хранит остальной прогресс).
-  function loseDurability(pet) {
+  function loseDurability(pet, rng = Math.random) {
+    if (saveChance(pet) > 0 && rng() < saveChance(pet)) return pet;     // «Осторожный», талант «Страж»
     pet.durability = Math.max(0, pet.durability - 1);
     return pet;
   }
@@ -92,14 +218,15 @@ const Pets = (() => {
   function petFighter(pet) {
     const sc = PT_B.scaled(donorOf(pet.speciesId), pet.tier);
     return {
-      hp: sc.hp, max: sc.hp, dmg: sc.dmg, stats: PT_G.combine(sc.stats, {}),
+      hp: Math.round(sc.hp * petMul(pet, 'hp')), max: Math.round(sc.hp * petMul(pet, 'hp')), hitMul: petMul(pet, 'hit'), dmg: sc.dmg, stats: PT_G.combine(sc.stats, {}),
       buffs: [], haste: false, magic: false, counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 },
       ability: PT_B.MONSTERS[donorOf(pet.speciesId)].ability, charged: false, revived: false, turnNo: 0,
+      ...(amuletPower(pet, 'loyal') ? { secondWind: true, secondWindFrac: amuletPower(pet, 'loyal') } : {}),     // «Амулет верности»: один раз встаёт
     };
   }
 
   // Урон автоатаки питомца (до модификаторов Combat.hit) — доля его собственного максимума ХП; сытый (корм) — сильнее.
-  const petAttackAmount = (petF) => Math.max(1, Math.round(petF.max * PET_HIT_SHARE * (petF.fedBonus || 1)));
+  const petAttackAmount = (petF) => Math.max(1, Math.round(petF.max * PET_HIT_SHARE * (petF.fedBonus || 1) * (petF.hitMul || 1)));
 
   /* ---------- Питомник (1.3.0): платный уход за питомцем ----------
      Цены растут с цветом питомца (Tiers.PRICE_MULT), как всё остальное в игре. */
@@ -109,7 +236,7 @@ const Pets = (() => {
   const feedCost = (pet) => Math.round(45 * mult(pet.tier));
   // Обучение: питомец переходит на следующий цвет (не выше цвета героя). null — дальше нельзя.
   const trainCost = (pet, heroTier) => (pet.tier >= Math.min(PT_T.MAX, heroTier) ? null : Math.round(500 * mult(pet.tier + 1)));
-  function feed(pet) { pet.fed = FEED_BATTLES; return pet; }
+  function feed(pet) { pet.fed = FEED_BATTLES; addTrust(pet, 1); return pet; }
   function train(pet) { pet.tier = PT_T.clamp(pet.tier + 1); return pet; }
   // Начало боя с питомцем: сытость тратит один бой. Возвращает множитель урона на этот бой.
   function useFeed(pet) { if (!pet || !(pet.fed > 0)) return 1; pet.fed--; return FEED_BONUS; }
@@ -129,6 +256,7 @@ const Pets = (() => {
     const T = TREATS[kind];
     if (kind === 'bone') pet.fed = T.battles;
     else { pet.treats = pet.treats || {}; pet.treats[kind] = T.battles; }
+    addTrust(pet, 2);
     return pet;
   }
   // Начало боя: прибавки от угощений (без «сочной косточки» — её тратит useFeed) и расход одного боя.
@@ -154,8 +282,8 @@ const Pets = (() => {
      тем раньше он перейдёт на следующий цвет (не выше цвета героя). */
   const NOVICE_INT = 10, NOVICE_HP = 1.9, BOARD_DMG = 1.3;   // 1.5.0: новичок (ум < 10) на своём поле ещё крепче
   const isRare = (pet) => !!pet && !!EGG_BY_SPECIES[pet.speciesId];     // питомец из яйца: зверь-донор сильнее, ИИ врага крепче
-  const boardHp = (pet) => (intellect(pet) < NOVICE_INT ? NOVICE_HP : BOARD_HP) * (isRare(pet) ? 1.35 : 1);
-  const boardDmg = (pet) => BOARD_DMG * (isRare(pet) ? 1.2 : 1);
+  const boardHp = (pet) => (intellect(pet) < NOVICE_INT ? NOVICE_HP : BOARD_HP) * (isRare(pet) ? 1.35 : 1) * petMul(pet, 'hp');
+  const boardDmg = (pet) => BOARD_DMG * (isRare(pet) ? 1.2 : 1) * petMul(pet, 'hit');
   const BOARD_HP = 1.6;                   // на своём поле питомец крепче: слабому уму нужен запас здоровья
   const INT_XP = 1500, DOPE_BONE = 8;     // ум в бою = ум по опыту + допинг от угощений (до 100)
   const dopedIntellect = (pet, bonus) => Math.min(100, intellect(pet) + (bonus || 0));
@@ -164,7 +292,7 @@ const Pets = (() => {
   const xpGain = (foeTier, won) => Math.round((won ? 14 : 10) * (1 + 0.4 * (Math.max(1, foeTier) - 1)));
   // Начисляет опыт; цвет растёт сам, но не выше heroTier. Возвращает, на сколько цветов вырос.
   function addXp(pet, n, heroTier) {
-    pet.xp = (pet.xp || 0) + Math.max(0, n);
+    pet.xp = (pet.xp || 0) + Math.max(0, Math.round(n * petMul(pet, 'xp')));
     let up = 0;
     while (pet.tier < Math.min(PT_T.MAX, heroTier) && pet.xp >= tierXp(pet.tier)) { pet.tier++; up++; }
     return up;
@@ -177,9 +305,9 @@ const Pets = (() => {
   const studyLeft = (pet, now = Date.now()) => (pet && pet.study ? Math.max(0, pet.study - now) : -1);   // -1: ничем не занят
   function studyStart(pet, now = Date.now(), kind = 'study', speed = 1) {      // speed < 1 — улучшение Питомника
     if (!pet || pet.study || !ACTS[kind] || (kind === 'study' && !studyOpen(pet))) return false;
-    pet.study = now + Math.round(ACTS[kind].ms * Math.max(0.2, speed)); pet.studyKind = kind; return true;
+    pet.study = now + Math.round(ACTS[kind].ms * Math.max(0.2, speed * petMul(pet, 'speed'))); pet.studyKind = kind; return true;
   }
-  const huntCoins = (pet) => Math.round(40 * mult(pet.tier));
+  const huntCoins = (pet) => Math.round(40 * mult(pet.tier) * petMul(pet, 'find'));
   // Серия дней: занятие в новый день подряд растит серию; на 3-й и 7-й день — бонус опыта.
   const dayOf = (now) => Math.floor((now - new Date(now).getTimezoneOffset() * 60000) / 86400000);
   const STREAK_BONUS = { 3: 60, 7: 150 };
@@ -204,15 +332,29 @@ const Pets = (() => {
     else if (kind === 'rest') { const g = Math.min(1, pet.maxDurability - pet.durability); pet.durability += g; res = { kind, gain: g }; }
     else if (kind === 'scout') {
       const kinds = PT_B.PRIZE_RESOURCES, k = kinds[Math.floor(rng() * kinds.length)];
-      res = { kind, res: { kind: k, tier: Math.max(1, Math.min(pet.tier, heroTier)), n: 1 + Math.floor(rng() * 2) } };
+      res = { kind, res: { kind: k, tier: Math.max(1, Math.min(pet.tier, heroTier)), n: 1 + Math.floor(rng() * 2) + (petMul(pet, 'find') > 1 && rng() < petMul(pet, 'find') - 1 ? 1 : 0) } };
     } else { const up = addXp(pet, STUDY_XP, heroTier); res = { kind, up }; }
+    addTrust(pet, 1);
     res.before = before; res.after = intellect(pet);
     Object.assign(res, { streakInfo: streakTick(pet, heroTier, now) });
     res.after = intellect(pet);
     return res;
   }
   const battleReady = (pet) => intellect(pet) >= READY_INT;
-  return { DRILL_INT, STREAK_BONUS, BOARD_DMG, boardDmg, isRare, boardHp, NOVICE_INT, STUDY_MS, STUDY_XP, STUDY_CAP, READY_INT, ACTS, huntCoins, studyOpen, studyLeft, studyStart, studyCollect, battleReady, BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,
+  // 2.2.2: поручения — запасной питомец из зверинца уходит на несколько боёв героя и возвращается с добычей
+  const ERRANDS = { coins: { name: _t("Поиск монет"), battles: 4 }, forage: { name: _t("Сбор добычи"), battles: 5 } };
+  const FORAGE_KINDS = ['hide', 'fang', 'bone', 'scrap', 'ore', 'splinter', 'honey', 'silk'];
+  const errandOf = (pet) => (pet && pet.errand && ERRANDS[pet.errand.kind]) ? pet.errand : null;
+  const errandReady = (pet) => { const e = errandOf(pet); return !!e && e.left <= 0; };
+  const sendErrand = (pet, kind) => { if (!pet || !ERRANDS[kind] || errandOf(pet)) return false; pet.errand = { kind, left: ERRANDS[kind].battles }; return true; };
+  const errandTick = (pet) => { const e = errandOf(pet); if (e && e.left > 0) e.left--; };
+  const errandTake = (pet, rnd = Math.random) => {   // награда: монеты или ресурс цвета питомца; доверие даёт добавку
+    if (!errandReady(pet)) return null;
+    const kind = pet.errand.kind; pet.errand = null;
+    if (kind === 'coins') return { coins: Math.round(huntCoins(pet) * 1.2) };
+    return { res: FORAGE_KINDS[Math.floor(rnd() * FORAGE_KINDS.length)], tier: Math.max(1, pet.tier || 1), n: 2 + Math.floor(trustOf(pet) / 100) + (rnd() < 0.3 ? 1 : 0) };
+  };
+  return { ERRANDS, errandOf, errandReady, sendErrand, errandTick, errandTake, AMULETS, AMULET_IDS, amuletId, amuletPower, amuletValue, amuletSwapCost, setAmulet, EVO_TIERS, EVO_TITLES, EVOS, evoStage, canEvolve, evoCost, evolve, evoTitle, GEAR, GEAR_IDS, gearTier, gearUpCost, gearUp, TRUST_MAX, trustOf, trustName, TALENTS, TALENT_IDS, BRANCH_NAMES, talentRank, talentsSpent, talentPoints, talentUp, talentReset, talentResetCost, saveChance, petMul, addTrust, TRAITS, TRAIT_IDS, rollTraits, traitsOf, traitMul, NAME_MAX, cleanName, setName, petTitle, DRILL_INT, STREAK_BONUS, BOARD_DMG, boardDmg, isRare, boardHp, NOVICE_INT, STUDY_MS, STUDY_XP, STUDY_CAP, READY_INT, ACTS, huntCoins, studyOpen, studyLeft, studyStart, studyCollect, battleReady, BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,
     repairCost, feedCost, trainCost, feed, train, useFeed };
 })();
 

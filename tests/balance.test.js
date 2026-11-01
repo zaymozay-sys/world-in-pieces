@@ -55,7 +55,7 @@ assert.ok(mean >= 0.6 && mean <= 0.75, 'средний шанс против «�
 /* ---------- новые заклинания: цена и разблокировка заданы и укладываются в общую шкалу ---------- */
 {
   const M = Balance.magic;
-  for (const k of ['mirror', 'tide', 'sacrifice', 'divination', 'strike']) {
+  for (const k of ['mirror', 'tide', 'sacrifice', 'temper', 'strike']) {
     assert.ok(Number.isInteger(M.costs[k]) && M.costs[k] >= M.minCost, `цена ${k} задана и не ниже минимума`);
   }
   // Жертва сжигает заметную, но не убийственную долю текущего ХП за один каст
@@ -69,4 +69,4 @@ assert.ok(mean >= 0.6 && mean <= 0.75, 'средний шанс против «�
 console.log('balance: все тесты пройдены');
 { const B = require('../js/balance.js'); const A = require('assert');
   A.strictEqual(B.magic.costs.pierce, 6); A.ok(B.magic.costs.pierce > B.magic.costs.lightning, 'Выпад — самое дорогое заклинание');
-  A.strictEqual(B.spellUnlock.pierce, 35); console.log('pierce ok'); }
+  A.strictEqual(B.spellUnlock.pierce, 61); console.log('pierce ok'); }

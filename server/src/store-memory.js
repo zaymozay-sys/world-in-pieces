@@ -2,7 +2,7 @@
 const create = () => {
   const rating = require('./rating');
   const checks = new Map(), vouchers = [];  let voucherSeq = 0;
-  const posts = [], reports = [], hides = new Map(), funnel = new Map(); let postSeq = 0;
+  const wallets = new Map(), ledger = [], ledgerRefs = new Set(), rightsMap = new Map(), tele = [], posts = [], reports = [], hides = new Map(), funnel = new Map(); let postSeq = 0, teleSeq = 0;
   const rats = new Map(), rlog = [], claims = new Set(), tours = new Map(), cards = new Map(), players = new Map(), byExt = new Map(), snaps = new Map(), sessions = new Map(), audit = [];
   return {
     async findOrCreatePlayer(platform, ext, wantPid) {
@@ -128,12 +128,28 @@ const create = () => {
       players.delete(pid); checks.delete(pid); for (let i = vouchers.length - 1; i >= 0; i--) if (vouchers[i].pid === pid) vouchers.splice(i, 1); rats.delete(pid); for (let i = rlog.length - 1; i >= 0; i--) if (rlog[i].pid === pid || rlog[i].opp === pid) { if (rlog[i].pid !== pid) rlog[i].opp = 'deleted'; else rlog.splice(i, 1); } for (const k of [...claims]) if (k.endsWith('|' + pid)) claims.delete(k);
       for (let i = posts.length - 1; i >= 0; i--) if (posts[i].pid === pid) posts.splice(i, 1);
       for (let i = reports.length - 1; i >= 0; i--) if (reports[i].reporter === pid || reports[i].author === pid) reports.splice(i, 1);
+      for (let i = tele.length - 1; i >= 0; i--) if (tele[i].pid === pid) tele.splice(i, 1);
+      wallets.delete(pid); rightsMap.delete(pid);   // журнал операций остаётся без привязки к человеку: только pid, который после удаления ни на что не указывает
       hides.delete(pid); for (const s of hides.values()) s.delete(pid);
       cards.delete(pid); byExt.delete(p.platform + ':' + p.ext); snaps.delete(pid);
       for (const [h, s] of sessions) if (s.pid === pid) sessions.delete(h);
       return true;
     },
-    async purge(now, auditMaxAgeMs) { let n = 0; for (let i = posts.length - 1; i >= 0; i--) if (now - posts[i].at > 7 * 86400000) { posts.splice(i, 1); n++; } for (let i = reports.length - 1; i >= 0; i--) if (now - reports[i].at > 7 * 86400000) reports.splice(i, 1); for (let i = vouchers.length - 1; i >= 0; i--) if (now - vouchers[i].at > rating.VOUCHER_KEEP_MS) { vouchers.splice(i, 1); n++; } for (let i = rlog.length - 1; i >= 0; i--) if (now - rlog[i].at > 366 * 86400000) { rlog.splice(i, 1); n++; } for (const [k, t] of tours) if (t.state !== 'open' && t.state !== 'running' && now - t.startAt > 60 * 86400000) { tours.delete(k); n++; } for (const [h, s] of sessions) if (s.expires <= now) { sessions.delete(h); n++; } for (let i = audit.length - 1; i >= 0; i--) if (now - audit[i].at > auditMaxAgeMs) { audit.splice(i, 1); n++; } return n; },
+    async purge(now, auditMaxAgeMs) { let n = 0; for (let i = tele.length - 1; i >= 0; i--) if (now - tele[i].at > 30 * 86400000) { tele.splice(i, 1); n++; } for (let i = posts.length - 1; i >= 0; i--) if (now - posts[i].at > 7 * 86400000) { posts.splice(i, 1); n++; } for (let i = reports.length - 1; i >= 0; i--) if (now - reports[i].at > 7 * 86400000) reports.splice(i, 1); for (let i = vouchers.length - 1; i >= 0; i--) if (now - vouchers[i].at > rating.VOUCHER_KEEP_MS) { vouchers.splice(i, 1); n++; } for (let i = rlog.length - 1; i >= 0; i--) if (now - rlog[i].at > 366 * 86400000) { rlog.splice(i, 1); n++; } for (const [k, t] of tours) if (t.state !== 'open' && t.state !== 'running' && now - t.startAt > 60 * 86400000) { tours.delete(k); n++; } for (const [h, s] of sessions) if (s.expires <= now) { sessions.delete(h); n++; } for (let i = audit.length - 1; i >= 0; i--) if (now - audit[i].at > auditMaxAgeMs) { audit.splice(i, 1); n++; } return n; },
+    // Искры: баланс, права, операции. apply — одна атомарная операция: ref уникален (повтор возвращает прежний итог), баланс не уходит ниже нуля.
+    async walletGet(pid) { const w = wallets.get(pid) || { balance: 0, testAt: 0 }; return { balance: w.balance, testAt: w.testAt, rights: [...(rightsMap.get(pid) || [])] }; },
+    async walletApply(pid, delta, reason, ref, at, right, setTestAt) {
+      if (ledgerRefs.has(ref)) { const w = wallets.get(pid) || { balance: 0 }; return { ok: true, dup: true, balance: w.balance }; }
+      const w = wallets.get(pid) || { balance: 0, testAt: 0 };
+      if (w.balance + delta < 0) return { ok: false, reason: 'funds', balance: w.balance };
+      if (right && (rightsMap.get(pid) || new Set()).has(right)) return { ok: false, reason: 'owned', balance: w.balance };
+      w.balance += delta; if (setTestAt) w.testAt = setTestAt; wallets.set(pid, w); ledgerRefs.add(ref); ledger.push({ pid, delta, reason, ref, at });
+      if (right) { if (!rightsMap.has(pid)) rightsMap.set(pid, new Set()); rightsMap.get(pid).add(right); }
+      return { ok: true, balance: w.balance };
+    },
+    async walletLedger(pid, limit = 50) { return ledger.filter((x) => x.pid === pid).slice(-limit).reverse(); },
+    async teleAdd(pid, nick, rows, at) { for (const r of rows) tele.push({ id: ++teleSeq, at: r.at || at, pid, nick: nick || r.who || '', ver: r.ver, kind: r.kind, data: r.data }); while (tele.length > 20000) tele.shift(); return rows.length; },
+    async teleList({ since = 0, kind = null, nick = null, limit = 100 } = {}) { return tele.filter((x) => x.at >= since && (!kind || x.kind === kind) && (!nick || x.nick === nick)).sort((a, b) => b.id - a.id).slice(0, limit).map((x) => ({ ...x })); },
     async log(kind, pid, info) { audit.push({ kind, pid, info, at: Date.now() }); },
     _audit: audit, async close() {},
   };

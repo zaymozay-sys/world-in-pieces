@@ -47,7 +47,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     } else {
       // телефон: строка приёма скрыта, подпись — в хвосте строки хода
       const st = await p.evaluate(() => { const e = document.getElementById('status'); const cs = getComputedStyle(e, '::after'); return { content: cs.content, display: cs.display, color: cs.color, text: e.textContent, soon: e.hasAttribute('data-soon'), over: e.scrollWidth > e.clientWidth + 1, ov: getComputedStyle(e).textOverflow }; });
-      ok(/Оглушение: в ближайший ход/.test(st.content) && st.display === 'inline' && st.soon, tag + ': подпись в строке хода «' + st.content + '»');
+      ok(/Оглушение:? в ближайший ход/.test(st.content) && st.display === 'inline' && st.soon, tag + ': подпись в строке хода «' + st.content + '»');
       ok(st.text === 'Ваш ход', tag + ': текст строки хода не испорчен («' + st.text + '»)');
     }
     if (skin === '3') {

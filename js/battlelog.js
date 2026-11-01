@@ -36,7 +36,7 @@ const BattleLog = (() => {
     const res = { win: _t("победа"), loss: _t("поражение") };
     const back = document.createElement('div'); back.className = 'modal-back'; back.id = 'battlelog-modal';
     back.innerHTML = `<div class="modal battlelog-card" role="dialog" aria-label="${esc(_t("Журналы боёв"))}"><h3>${esc(_t("Журналы боёв"))}</h3>
-      <p class="hint">${esc(_t("Хранятся последние {0} боёв в этом браузере. Номер боя виден на экране итога: по нему можно найти журнал и скопировать его для разбора.", [MAX]))}</p>
+      <p class="hint">${esc(_t("Хранятся последние {0 бой|боя|боёв} в этом браузере. Номер боя виден на экране итога: по нему можно найти журнал и скопировать его для разбора.", [MAX]))}</p>
       <div class="bl-list">${all.length ? all.map((e) => `<div class="bl-row" data-n="${e.n}"><button type="button" class="bl-open"><b>№ ${e.n}</b> · ${esc(e.foe)} · ${esc(res[e.result] || e.result)} · <small>${esc(new Date(e.ts).toLocaleString())}</small></button><div class="bl-body" hidden><button type="button" class="bl-copy">${esc(_t("Копировать журнал"))}</button><ol></ol></div></div>`).join('') : `<p>${esc(_t("Пока нет сохранённых боёв."))}</p>`}</div>
       <div class="reset"><button type="button" class="primary bl-close">${esc(_t("Закрыть"))}</button></div></div>`;
     back.addEventListener('click', (ev) => {

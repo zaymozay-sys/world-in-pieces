@@ -23,7 +23,7 @@ for (const f of fs.readdirSync(dir)) {
   }
 }
 assert.ok(used.size > 1000, 'в коде найдено много строк для перевода: ' + used.size);
-const ph = (s) => (s.match(/\{\d+\}/g) || []).sort().join();
+const ph = (s) => (s.match(/\{\d+(?= [^{}]+\})|\{\d+\}/g) || []).map((x) => x.replace(/\}$/, '')).sort().join();
 const tags = (s) => (s.match(/<\/?[a-z][^>]*>/gi) || []).map((t) => t.replace(/>\s*$/, '>')).length;
 for (const k of used) {
   const v = EN[k];

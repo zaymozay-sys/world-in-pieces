@@ -31,6 +31,8 @@ const cleanCard = (c, maxLevel) => {
   return body.length <= 12000 ? { out, body } : null;
 };
 const funnel = require('./funnel');
+const telemetry = require('./telemetry');
+const premium = require('./premium');
 // Наибольший уровень, который сервер подтверждает игроку: по подтверждённому опыту (savecheck.trust), у нового аккаунта — по стартовому.
 const trustedLevel = async (store, pid) => {
   const ck = await store.getCheck(pid);
@@ -50,7 +52,7 @@ const limiter = (limit, windowMs, now) => {
 };
 
 const create = ({ cfg, store, now = Date.now, tourney = null }) => {
-  const funnelOk = limiter(40, 3600000, now);
+  const funnelOk = limiter(40, 3600000, now), teleOk = limiter(120, 3600000, now), walletOk = limiter(60, 60000, now);
   const ipOk = limiter(cfg.rateIp, 60000, now), authOk = limiter(cfg.rateAuth, 60000, now);
 
   const send = (res, code, obj, origin) => {
@@ -160,6 +162,59 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
           const ok = cfg.statsKey && key.length === cfg.statsKey.length && crypto.timingSafeEqual(Buffer.from(key), Buffer.from(cfg.statsKey));
           if (!ok) return send(res, 404, { error: 'none' }, origin);
           return send(res, 200, { days: await store.funnelDays(funnel.dayOf(now() - funnel.DAYS * 86400000)) }, origin);
+        }
+      }
+      if (url === '/wallet' || url === '/wallet/spend' || url === '/wallet/test-grant' || url === '/wallet/grant') {
+        if (url === '/wallet/grant') {          // выдача искр разработчиком: по ключу STATS_KEY, для одного игрока
+          if (req.method !== 'POST') return send(res, 404, { error: 'none' }, origin);
+          const sp = new URL(req.url, 'http://x').searchParams, key = String(sp.get('key') || '');
+          const ok = cfg.statsKey && key.length === cfg.statsKey.length && crypto.timingSafeEqual(Buffer.from(key), Buffer.from(cfg.statsKey));
+          if (!ok) return send(res, 404, { error: 'none' }, origin);
+          const b = await readBody(req);
+          if (!b || typeof b.pid !== 'string' || !Number.isSafeInteger(b.n) || b.n < 1 || b.n > premium.MAX_SPEND || typeof b.ref !== 'string' || !/^[0-9a-zA-Z_-]{8,64}$/.test(b.ref)) return send(res, 400, { error: 'body' }, origin);
+          const r = await store.walletApply(b.pid, b.n, 'grant', b.ref, now(), null, 0);
+          return send(res, 200, r, origin);
+        }
+        const pid = await authed(req);
+        if (!pid) return send(res, 401, { error: 'auth' }, origin);
+        if (!walletOk(pid)) return send(res, 429, { error: 'rate' }, origin);
+        const w = await store.walletGet(pid);
+        if (url === '/wallet' && req.method === 'GET') return send(res, 200, { balance: w.balance, rights: w.rights, testGrant: !!cfg.testSparks, testAt: w.testAt, now: now() }, origin);
+        if (url === '/wallet/test-grant' && req.method === 'POST') {
+          if (!cfg.testSparks) return send(res, 404, { error: 'none' }, origin);
+          if (now() - w.testAt < premium.TEST_GRANT_DAY_MS) return send(res, 429, { error: 'wait', testAt: w.testAt }, origin);
+          const r = await store.walletApply(pid, premium.TEST_GRANT, 'test-grant', 'tg-' + pid.slice(2, 10) + '-' + Math.floor(now() / premium.TEST_GRANT_DAY_MS), now(), null, now());
+          return send(res, r.ok ? 200 : 409, { ...r, rights: w.rights }, origin);
+        }
+        if (url === '/wallet/spend' && req.method === 'POST') {
+          const b = await readBody(req);
+          const c = premium.check(b, new Set(w.rights));
+          if (!c.ok) return send(res, 400, { error: c.reason }, origin);
+          const r = await store.walletApply(pid, -c.price, b.kind + (b.item ? ':' + String(b.item).slice(0, 40) : ''), b.ref, now(), b.kind === 'fixed' ? b.item : null, 0);
+          if (!r.ok) return send(res, r.reason === 'funds' ? 402 : 409, { error: r.reason, balance: r.balance }, origin);
+          return send(res, 200, { ok: true, balance: r.balance, spent: c.price, dup: !!r.dup, rights: b.kind === 'fixed' ? [...w.rights, b.item] : w.rights }, origin);
+        }
+        return send(res, 404, { error: 'none' }, origin);
+      }
+      if (url === '/telemetry') {
+        if (req.method === 'POST') {
+          const pid = await authed(req);
+          if (!pid) return send(res, 401, { error: 'auth' }, origin);
+          if (!teleOk(pid)) return send(res, 429, { error: 'rate' }, origin);
+          const b = await readBody(req);
+          if (!b || !Array.isArray(b.items)) return send(res, 400, { error: 'body' }, origin);
+          const rows = telemetry.clean(b.items);
+          let nick = ''; try { const ci = await store.cardInfo(pid); nick = ci && ci.nick ? String(ci.nick).slice(0, 40) : ''; } catch (e) { /* ник не обязателен */ }
+          const n = rows.length ? await store.teleAdd(pid, nick, rows, now()) : 0;
+          return send(res, 200, { ok: true, n }, origin);
+        }
+        if (req.method === 'GET') {
+          const sp = new URL(req.url, 'http://x').searchParams, key = String(sp.get('key') || '');
+          const ok = cfg.statsKey && key.length === cfg.statsKey.length && crypto.timingSafeEqual(Buffer.from(key), Buffer.from(cfg.statsKey));
+          if (!ok) return send(res, 404, { error: 'none' }, origin);
+          const kind = sp.get('kind'), nick = sp.get('nick'), since = Number(sp.get('since')) || 0, limit = Math.min(500, Math.max(1, Number(sp.get('limit')) || 100));
+          if (kind && !telemetry.KINDS.includes(kind)) return send(res, 400, { error: 'kind' }, origin);
+          return send(res, 200, { list: await store.teleList({ since, kind: kind || null, nick: nick || null, limit }), now: now() }, origin);
         }
       }
       if (url === '/depth' && req.method === 'GET') {
