@@ -69,6 +69,8 @@ const MapArt = (() => {
         <circle cy="-3" r="7" fill="#3c7536" stroke="${O}" stroke-width=".8"/><circle cx="-2.4" cy="-5.4" r="3.2" fill="#62a452" opacity=".9"/>`)}
       ${sym('s-pine', `<ellipse cy="8" rx="5.5" ry="2" fill="#000" opacity=".28"/><rect x="-1.2" y="3" width="2.4" height="5" fill="#4a2f1a"/>
         <path d="M0 -13 L7 -2 L3.5 -2 L8 5 L-8 5 L-3.5 -2 L-7 -2Z" fill="#2f5a34" stroke="${O}" stroke-width=".8"/><path d="M0 -13 L-3 -7 L1 -6Z" fill="#5c8e56"/>`)}
+      ${sym('s-oak', `<ellipse cy="9" rx="11" ry="3" fill="#000" opacity=".3"/><path d="M-4 9 Q-3 2 -2 -4 L2 -4 Q3 2 4 9Z" fill="#5b3b22" stroke="${O}" stroke-width=".9"/><path d="M-2 -2 Q-8 -6 -10 -9 M2 -2 Q8 -6 10 -9" stroke="#5b3b22" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="-9" cy="-10" r="7" fill="#2f6a30" stroke="${O}" stroke-width=".9"/><circle cx="9" cy="-10" r="7" fill="#2f6a30" stroke="${O}" stroke-width=".9"/><circle cx="0" cy="-14" r="9" fill="#3c7e3a" stroke="${O}" stroke-width=".9"/><circle cx="-3" cy="-17" r="4" fill="#6bb258" opacity=".85"/><circle cx="7" cy="-14" r="2.6" fill="#6bb258" opacity=".7"/>`)}
       ${sym('s-peak', `<path d="M-16 9 L-3 -14 L3 -5 L7 -10 L18 9Z" fill="#88827b" stroke="#2e2a27" stroke-width="1"/>
         <path d="M-3 -14 L3 -5 L-1 9 L-16 9Z" fill="#a39d95"/><path d="M-3 -14 L-7 -7 L-4 -8 L-2 -5 L0 -8 L3 -5Z" fill="#f6f7f9"/><path d="M7 -10 L4 -5.5 L7 -6.5 L9 -5Z" fill="#f6f7f9"/>`)}
       ${sym('s-hill', `<path d="M-13 6 Q-5 -9 7 6Z" fill="#b19a64" stroke="#5f4d30" stroke-width=".9"/><path d="M-6 6 Q3 -5 13 6Z" fill="#9b8554" stroke="#5f4d30" stroke-width=".9"/><path d="M-9 1 Q-6 -4 -2 -3" stroke="#d6c28e" stroke-width="1.2" fill="none"/>`)}

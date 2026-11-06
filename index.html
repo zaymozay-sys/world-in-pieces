@@ -54,8 +54,8 @@
           <button type="button" class="mm-head" aria-expanded="false">Графика и эффекты</button>
           <div class="mm-sub" hidden>
             <button type="button" id="mm-anim" data-mdo="m-anim">Анимации: обычные</button>
-            <button type="button" id="mm-text" data-mdo="m-text">Текст: обычный</button>
-            <button type="button" id="mm-lite" data-mdo="m-lite">Графика карты: высокая</button>
+              <button type="button" id="mm-lite" data-mdo="m-lite">Графика карты: высокая</button>
+            <button type="button" id="mm-gpu" data-mdo="m-gpu">Ускорение карты: выкл</button>
             <button type="button" id="mm-fx-clouds" data-mdo="m-fx-clouds"></button>
             <button type="button" id="mm-fx-weather" data-mdo="m-fx-weather"></button>
             <button type="button" id="mm-fx-amb" data-mdo="m-fx-amb"></button>
@@ -67,14 +67,18 @@
             <button type="button" id="mm-wx" data-mdo="m-wx">Погода: выкл</button>
             <button type="button" id="mm-skywin" data-mdo="m-skywin">Окошко погоды: вкл</button>
           </div>
-          <button type="button" class="mm-head" aria-expanded="false">Игра и справка</button>
+          <button type="button" class="mm-head" aria-expanded="false">Игра</button>
           <div class="mm-sub" hidden>
             <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
+          <button type="button" id="mm-text" data-mdo="m-text">Текст: обычный</button>
             <button type="button" data-mdo="m-battlelogs">Журналы боёв</button>
-            <button type="button" data-mdo="m-report">Сообщить о проблеме</button>
+          </div>
+          <button type="button" class="mm-head" aria-expanded="false">Справка и связь</button>
+          <div class="mm-sub" hidden>
             <button type="button" data-mdo="m-help">Как играть</button>
             <button type="button" data-mdo="m-wiki">База знаний</button>
             <button type="button" data-mdo="m-whatsnew">Что нового</button>
+            <button type="button" data-mdo="m-report">Сообщить о проблеме</button>
             <button type="button" data-mdo="m-credits">О разработчиках</button>
           </div>
           <div class="map-ver" id="map-ver" aria-hidden="false"></div>
@@ -126,6 +130,7 @@
           <span class="btns">
             <button id="hint" type="button" title="Показать лучший обмен (H)">Подсказка</button>
             <button id="mute" type="button">Звук: вкл</button>
+            <button id="skin-btn" type="button" class="desk-only" aria-pressed="false">Оформление: классика</button>
             <button id="timer-btn" type="button" class="desk-only" aria-pressed="false">Таймер: выкл</button>
             <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
             <button id="restart" type="button" title="Уйти с поля боя на карту">Отступить</button>
@@ -138,6 +143,7 @@
           <button type="button" data-do="fullscreen">Полный экран</button>
           <button type="button" data-do="log">Журнал боя</button>
           <button type="button" data-do="anim">Анимации: обычные</button>
+          <button type="button" data-do="skin">Оформление: классика</button>
           <button type="button" data-do="timer">Таймер хода: выкл</button>
         </div>
         <details class="log-wrap" id="log-wrap">

@@ -565,6 +565,13 @@ const HexMap = (() => {
       }
       if (best) { best.species = Z.species; best.tier = Z.tier; best.zone = zid; }
     }
+    // 2.2.7: у выхода из деревни всегда стоит жук-точильщик — рядом с ним рисуется вековой дуб-ориентир. Берём ближайшее обычное существо
+    // на лугу или холмах и меняем ему только вид: номер, сота и цвет остаются прежними, так что ничего не сдвигается.
+    {
+      const near = map.spawns.filter((sp) => !sp.boss && !sp.zone && !sp.castle && !sp.island && !sp.tower && ['meadow', 'hills'].includes(cells[sp.idx].terrain) && cells[sp.idx].d <= VILLAGE_R + 2 && !cells[sp.idx].road)
+        .sort((x, y) => cells[x.idx].d - cells[y.idx].d || x.idx - y.idx)[0];
+      if (near) { near.species = 'beetle'; near.oak = true; }
+    }
     // 1.5.4: Врата подземелья — ближайшая к заданной точке свободная доступная сота; карта, дороги и монстры остаются прежними.
     for (const [id, b] of Object.entries(BUILDINGS)) {
       if (!b.post || b.castleOnly) continue;

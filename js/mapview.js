@@ -27,6 +27,11 @@ const MapView = (() => {
     document.body.classList.toggle('no-skywin', !skyWinOn);
     const b = document.getElementById('mm-skywin'); if (b) b.textContent = skyWinLabel();
   }
+  // 2.2.7: «Ускорение карты» — камера двигается CSS-преобразованием на отдельном слое (видеокарта сдвигает готовую картинку, а не рисует карту заново). По умолчанию выкл: на части устройств слой съедает память.
+  const GPU_KEY = 'wip-gpumap';
+  let gpuMap = false;
+  try { gpuMap = localStorage.getItem(GPU_KEY) === '1'; } catch (e) { /* без хранилища — обычный режим */ }
+  const gpuLabel = () => (gpuMap ? _t("Ускорение карты: вкл") : _t("Ускорение карты: выкл"));
   const liteLabel = () => (lite ? _t("Графика карты: упрощённая") : _t("Графика карты: высокая"));
   // 1.8.6: после поражения герой приходит в себя у Алтаря воскрешения (свободная сота рядом с ним), иначе — в центре деревни.
   function respawnPos() {
@@ -39,6 +44,7 @@ const MapView = (() => {
   const MAP_VER = 8;                 // версия раскладки карты: при смене номера сот сбрасывается исследование (1.7.2: радиус 30; 2.0.7: изменён состав спавна — этап C)
   const el = {};
   const cam = { x: 0, y: 0, s: 1 };
+  const CAM_DEAD = 0.36;                                  // 2.2.9: камера стоит, пока герой в средних 72% экрана; сдвигается, только когда он подходит к краю (было 36%)
   let walking = null, stepping = false, battleSpawn = null, hoverIdx = -1, toastTimer = null;
   const fogEls = new Map();
   const mini = { canvas: null, ctx: null, base: null, dirty: true, raf: 0 }, fightFx = { scale: 0 };
@@ -218,6 +224,21 @@ const MapView = (() => {
     return `<g class="river" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#1d4268" opacity=".6">${bank}</g><g stroke="${fill}">${water}</g><g stroke="#b7e0f3" stroke-dasharray="2 8" opacity=".55">${shine}</g></g>`;
   }
 
+  // 2.2.7: «Вековой дуб»: свободная сота рядом с ближайшим к деревне жуком-точильщиком. Только рисунок — существ не добавляем и не двигаем (номера в сохранениях прежние).
+  let oakCache = null;
+  function oakSpot() {
+    if (!map || map.kind || map.radius == null) return null;
+    if (oakCache && oakCache.map === map) return oakCache.v;
+    let v = null;
+    const beetles = map.spawns.filter((sp) => sp.species === 'beetle' && !sp.boss && !sp.zone && !sp.guest).sort((a, b) => (!!b.oak - !!a.oak) || (map.cells[a.idx].d - map.cells[b.idx].d) || (a.idx - b.idx));
+    const busy = new Set(map.spawns.map((x) => x.idx)); for (const b of map.buildings) for (const i of b.cells || [b.idx]) busy.add(i);
+    for (const sp of beetles.slice(0, 6)) {
+      const at = HexMap.neighbors(map, sp.idx).filter((n) => { const c = map.cells[n]; return !busy.has(n) && !c.road && !c.building && (c.terrain === 'meadow' || c.terrain === 'hills' || c.terrain === 'forest'); }).sort((a, b) => a - b)[0];
+      if (at !== undefined) { v = { idx: at, spawn: sp.id }; break; }
+    }
+    oakCache = { map, v };
+    return v;
+  }
   function renderStatic() {
     const terr = new Map(), deco = new Map(), roads = [], vil = [], labels = [];
     const caves = map.kind === 'tower' && typeof Art !== 'undefined' && Art.has('map/tex-cave-floor') && Art.has('map/tex-cave-wall');   // 2.0.9: плитки подземелья (art/map/tex-cave-floor, tex-cave-wall)
@@ -230,6 +251,7 @@ const MapView = (() => {
       if (d) bucketPush(deco, p, `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
     }
 
+    { const o = oakSpot(); if (o && !lite) { const p = px(o.idx); bucketPush(deco, p, `<g class="oak" transform="translate(${p.x.toFixed(1)} ${(p.y - 8).toFixed(1)}) scale(2.9)"><use href="#s-oak"/></g>`); } }   // 2.2.7: вековой дуб — ориентир у ближайшего к деревне жука-точильщика
     const riverHtml = riverSvg();
     // дороги и мосты: отрезки между соседними дорожными сотами
     const seg = (a, b) => { const p = px(a), q = px(b); return `M${p.x.toFixed(1)} ${p.y.toFixed(1)} L${q.x.toFixed(1)} ${q.y.toFixed(1)}`; };
@@ -521,6 +543,8 @@ const MapView = (() => {
     const pl = el['l-player'].firstChild;
     if (!pl) return sleep(ms);
     pl.style.transition = 'none';
+    const pt = document.getElementById('pet-tok'); if (pt) pt.style.transition = 'none';
+    let prevT = 0;
     return new Promise((res) => {
       const now = performance.now(), t0 = (glideEnd > now - 40 && glideEnd <= now + 16) ? glideEnd : now;
       glideEnd = t0 + ms;
@@ -530,12 +554,12 @@ const MapView = (() => {
         // 1.8.8: «шаг» — лёгкий подскок и покачивание с каждой соты
         const hop = k < 1 ? Math.abs(Math.sin(k * Math.PI)) * 5 : 0, sway = k < 1 ? Math.sin(k * Math.PI * 2) * 3 : 0;
         pl.style.transform = `translate(${x.toFixed(1)}px, ${(y - hop).toFixed(1)}px) rotate(${sway.toFixed(1)}deg)`;
-        const pt = document.getElementById('pet-tok');
-        if (pt) { pt.style.transition = 'none'; const kk = Math.max(0, k - 0.3), hop2 = kk < 1 ? Math.abs(Math.sin(kk * Math.PI * 2)) * 4 : 0; pt.style.transform = `translate(${(a.x + (b.x - a.x) * kk - 26).toFixed(1)}px, ${(a.y + (b.y - a.y) * kk + 6 - hop2).toFixed(1)}px)`; }
-        const v = view(), sx = x * cam.s + cam.x, sy = y * cam.s + cam.y;
-        const dx = sx - v.width / 2, dy = sy - v.height / 2, zx = v.width * 0.18, zy = v.height * 0.18;
+        if (pt) { const kk = Math.max(0, k - 0.3), hop2 = kk < 1 ? Math.abs(Math.sin(kk * Math.PI * 2)) * 4 : 0; pt.style.transform = `translate(${(a.x + (b.x - a.x) * kk - 26).toFixed(1)}px, ${(a.y + (b.y - a.y) * kk + 6 - hop2).toFixed(1)}px)`; }
+        const v = walkView || view(), sx = x * cam.s + cam.x, sy = y * cam.s + cam.y;
+        const dx = sx - v.width / 2, dy = sy - v.height / 2, zx = v.width * CAM_DEAD, zy = v.height * CAM_DEAD;
         const ox = Math.abs(dx) > zx ? dx - Math.sign(dx) * zx : 0, oy = Math.abs(dy) > zy ? dy - Math.sign(dy) * zy : 0;
-        if (ox || oy) { cam.x -= ox * 0.15; cam.y -= oy * 0.15; clampCam(); applyCam(); }
+        const dt = prevT ? Math.min(64, t - prevT) : 16; prevT = t;
+        if (ox || oy) { const f = 1 - Math.exp(-dt / 120); cam.x -= ox * f; cam.y -= oy * f; clampCam(); applyCam(true); }   // 2.2.7: плавность не зависит от частоты кадров
         if (k < 1) requestAnimationFrame(frame); else res();
       };
       requestAnimationFrame(frame);
@@ -575,14 +599,25 @@ const MapView = (() => {
   /* ---------- камера ---------- */
   let lastView = null;                  // размеры поля карты с прошлого замера (cull() не должен заставлять браузер пересчитывать вёрстку)
   const view = () => (lastView = el['map-svg'].getBoundingClientRect());
-  function applyCam() {
-    el['map-world'].setAttribute('transform', `translate(${cam.x.toFixed(1)} ${cam.y.toFixed(1)}) scale(${cam.s.toFixed(3)})`);
+  // 2.2.7: во время ходьбы (light) каждый кадр двигается только сама карта; отсечение невидимого и миникарта — не чаще раза в 180 мс
+  let heavyAt = 0, heavyTimer = 0;
+  function camHeavy() { heavyTimer = 0; heavyAt = performance.now(); el['map-svg'].classList.toggle('far', cam.s < 0.62); cull(); drawMini(); }
+  function applyCam(light) {
+    if (gpuMap) el['map-world'].style.transform = `translate(${cam.x.toFixed(1)}px, ${cam.y.toFixed(1)}px) scale(${cam.s.toFixed(3)})`;
+    else el['map-world'].setAttribute('transform', `translate(${cam.x.toFixed(1)} ${cam.y.toFixed(1)}) scale(${cam.s.toFixed(3)})`);
+    if (light) {
+      if (performance.now() - heavyAt > 180) camHeavy();
+      else if (!heavyTimer) heavyTimer = setTimeout(camHeavy, 180);
+      return;
+    }
+    clearTimeout(heavyTimer); heavyTimer = 0; heavyAt = performance.now();
     el['map-svg'].classList.toggle('far', cam.s < 0.62);
     cull();
     drawMini();
   }
+  let walkView = null;                  // 2.2.7: на время ходьбы размеры поля замеряются один раз — иначе каждый кадр заставлял браузер пересчитывать вёрстку
   function clampCam() {
-    const v = view(), R = HexMap.RADIUS + 1;
+    const v = walkView || view(), R = HexMap.RADIUS + 1;
     const w = SIZE * Math.sqrt(3) * R * cam.s, h = SIZE * 1.5 * R * cam.s;
     cam.x = Math.min(v.width / 2 + w, Math.max(v.width / 2 - w, cam.x));
     cam.y = Math.min(v.height / 2 + h, Math.max(v.height / 2 - h, cam.y));
@@ -618,7 +653,7 @@ const MapView = (() => {
   function follow() {
     const v = view(), p = px(st.pos);
     const sx = p.x * cam.s + cam.x, sy = p.y * cam.s + cam.y;
-    if (sx < v.width * 0.25 || sx > v.width * 0.75 || sy < v.height * 0.25 || sy > v.height * 0.75) centerOn(st.pos);
+    if (sx < v.width * (0.5 - CAM_DEAD) || sx > v.width * (0.5 + CAM_DEAD) || sy < v.height * (0.5 - CAM_DEAD) || sy > v.height * (0.5 + CAM_DEAD)) centerOn(st.pos);
   }
 
   /* ---------- ввод ---------- */
@@ -771,6 +806,7 @@ const MapView = (() => {
     const t = tierOfCell(i), sp = monsterAt(i);
     const zone = t ? _t(" · зона <b style=\"color:{0}\">{1}</b>", [Tiers.get(t).edge, Tiers.get(t).name]) : '';
     if (sp) return `<b>${Bestiary.MONSTERS[sp.species].name}</b> ${tierChip(sp.tier, Growth.steps(st, sp))}${zone}`;
+    { const o = oakSpot(); if (o && o.idx === i) return _t("<b>Вековой дуб</b> · рядом живёт жук-точильщик") + zone; }
     const sg = siegeAt(i);
     if (sg) return `<b>${Bestiary.MONSTERS[sg.r.species].name}</b> ${tierChip(sg.r.tier)}${sg.looter ? _t(" · похититель") : _t(" · осада")}${zone}`;
     const lm = lmAt.get(i);
@@ -811,6 +847,7 @@ const MapView = (() => {
 
   async function stepLoop() {
     stepping = true;
+    walkView = view();
     while (walking) {
       const w = walking;
       const arrived = w.adjacent ? HexMap.dist(map.cells[st.pos], map.cells[w.goal]) <= 1 : st.pos === w.goal;
@@ -837,7 +874,7 @@ const MapView = (() => {
       if (reveal) renderMonsters();
       await glide(from, px(next), ms);
     }
-    stepping = false;
+    stepping = false; walkView = null;
     renderHud();
     save();
   }
@@ -1065,6 +1102,36 @@ const MapView = (() => {
       const act = el['map-card'].querySelector('.mc-act');
       if (act) act.insertAdjacentHTML('beforebegin', `<label class="pet-toggle"><input type="checkbox" id="mc-pet"${Profile.petStay() ? '' : ' checked'}> ${_t("Взять питомца в бой: {0}", [Pets.petDisplayName(Profile.pet().speciesId)])}</label>`);
     }
+    decorateMobCard(sp);
+  }
+
+  // Вид карточки существа: «Компакт» (по умолчанию), «Рамка», «Шапка». Выбор — кнопка в углу карточки, хранится в браузере.
+  const MC_SKINS = ['c', 'a', 'b'];
+  const mcName = (v) => (v === 'a' ? _t("Рамка") : v === 'b' ? _t("Шапка") : _t("Компакт"));
+  const mcSkin = () => { try { const v = localStorage.getItem('gm-mob-card'); return MC_SKINS.includes(v) ? v : 'b'; } catch (e) { return 'b'; } };
+  function decorateMobCard(sp) {
+    const card = el['map-card'].querySelector('.map-card'); if (!card) return;
+    const v = mcSkin();
+    card.classList.add('mcv', 'mcv-' + v);
+    card.insertAdjacentHTML('afterbegin', `<button type="button" class="mc-skin" data-mc-skin title="${_t("Вид карточки")}">${mcName(v)}</button>`);
+    const abil = card.querySelector('.mc-ability'), mon = sp && Bestiary.MONSTERS[sp.species];
+    if (abil && mon) abil.insertAdjacentHTML('afterbegin', Art.familyIcon(mon.family));
+    const ttl = card.querySelector('.mc-title');
+    if (ttl && sp && sp.zone) ttl.insertAdjacentHTML('beforebegin', Art.zoneIcon(sp.zone));
+    const body = card.querySelector('.mc-body'), drops = card.querySelector('.mc-drops');
+    if (body && drops) drops.insertAdjacentHTML('afterend', `<button type="button" class="mc-more" data-mc-more>${_t("Подробнее")} ▾</button>`);
+  }
+  function mcCycle(btn) {
+    const card = btn.closest('.map-card'); if (!card) return;
+    const cur = MC_SKINS.find((k) => card.classList.contains('mcv-' + k)) || 'c', nx = MC_SKINS[(MC_SKINS.indexOf(cur) + 1) % MC_SKINS.length];
+    card.classList.remove('mcv-' + cur); card.classList.add('mcv-' + nx);
+    btn.textContent = mcName(nx);
+    try { localStorage.setItem('gm-mob-card', nx); } catch (e) { /* без хранилища выбор не запомнится */ }
+  }
+  function mcMore(btn) {
+    const card = btn.closest('.map-card'); if (!card) return;
+    const on = card.classList.toggle('mc-open');
+    btn.textContent = (on ? _t("Свернуть") : _t("Подробнее")) + (on ? ' ▴' : ' ▾');
   }
 
   function closeCard() { el['map-card'].innerHTML = ''; }
@@ -1706,11 +1773,15 @@ const MapView = (() => {
     clearTimeout(nextTimer);
     if (t.kind === 'building' && map.buildings.find((b) => b.id === t.id)) {
       coachRing(t.id); nextTimer = setTimeout(() => coachRing(null), 6000);
-      return toast(_t("Вам сюда: {0}", [Unlocks.NAMES[t.id] || t.id]));
+      return toast(_t("Вам сюда: {0}", [Unlocks.NAMES[t.id] || (HexMap.BUILDINGS[t.id] && HexMap.BUILDINGS[t.id].name) || t.id]));
     }
     const cands = map.spawns.filter((sp) => !sp.boss && known(sp.idx) && alive(sp));
     if (!cands.length) return toast(_t("Исследуйте карту — рядом пока никого нет"));
-    cands.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]));
+    // 2.2.7: новичку в первую очередь советуем ещё не побеждённый вид (для заданий на бестиарий) и не слишком грозного зверя
+    const beaten = (sp) => !!(d.bestiary && d.bestiary[sp.species] && d.bestiary[sp.species].wins);
+    const dist = (sp) => HexMap.dist(map.cells[st.pos], map.cells[sp.idx]);
+    const oak = oakSpot(), isOak = (sp) => !!(oak && sp.id === oak.spawn && !beaten(sp));
+    cands.sort((a, b) => (isOak(b) - isOak(a)) || (beaten(a) - beaten(b)) || (dist(a) - dist(b)));
     centerOn(cands[0].idx); showMonster(cands[0]);
   }
 
@@ -1769,6 +1840,7 @@ const MapView = (() => {
       if (gs.dataset.t !== gt) { gs.dataset.t = gt; gs.classList.remove('flash'); void gs.offsetWidth; gs.classList.add('flash'); }
       gs.textContent = gt;
     }
+    if (!first && (d.wins || 0) >= 6 && !battleSpawn && Tips.fire(d, 'zone')) save();   // 2.2.7: после шестой победы — один раз подсказка про дальние зоны
     markNext(d);
   }
   // 1.8.3: «один явный следующий шаг» — мягкое свечение на том, что строка цели просит сделать: ближайший зверь (до первой победы) или здание с готовой / новой наградой-заданием
@@ -1848,6 +1920,7 @@ const MapView = (() => {
     document.getElementById('mm-anim').textContent = AnimSpeed.label();
     document.getElementById('mm-text').textContent = TextSize.label();
     document.body.classList.toggle('map-lite', lite); document.getElementById('mm-lite').textContent = liteLabel();   // 1.7.2
+    document.body.classList.toggle('map-gpu', gpuMap); document.getElementById('mm-gpu').textContent = gpuLabel();
     // Эффекты карты по блокам: облака, осадки, дым/флаги, покачивание существ (сохраняется в браузере)
     const FX = { clouds: _t("Облака"), weather: _t("Осадки и туман"), amb: _t("Дым и флаги"), bob: _t("Покачивание существ") };
     let fxOff = {}; try { fxOff = JSON.parse(localStorage.getItem('gm_fx') || '{}') || {}; } catch (e) { fxOff = {}; }
@@ -1880,6 +1953,15 @@ const MapView = (() => {
         return;
       }
       if (b.dataset.mdo === 'm-skywin') { setSkyWin(!skyWinOn); toast(skyWinOn ? _t("Окошко погоды включено") : _t("Окошко погоды скрыто")); return; }   // меню остаётся открытым
+      if (b.dataset.mdo === 'm-gpu') {                                     // 2.2.7: ускорение карты, меню остаётся открытым
+        gpuMap = !gpuMap;
+        try { localStorage.setItem(GPU_KEY, gpuMap ? '1' : '0'); } catch (e) { /* ничего */ }
+        document.body.classList.toggle('map-gpu', gpuMap); b.textContent = gpuLabel();
+        if (!gpuMap) el['map-world'].style.transform = '';
+        applyCam();
+        toast(gpuMap ? _t("Ускорение карты включено: камера движется на отдельном слое") : _t("Ускорение карты выключено"));
+        return;
+      }
       if (b.dataset.mdo === 'm-lite') {                                    // 1.7.2: упрощённая графика карты, меню остаётся открытым
         lite = !lite;
         try { localStorage.setItem(LITE_KEY, lite ? '1' : '0'); } catch (e) { /* ничего */ }
@@ -1912,6 +1994,8 @@ const MapView = (() => {
     el['map-card'].addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
+      if (b.hasAttribute('data-mc-skin')) return mcCycle(b);
+      if (b.hasAttribute('data-mc-more')) return mcMore(b);
       if (b.dataset.act === 'close') closeCard();
       if (b.dataset.act === 'faction') { closeCard(); Screens.openFactions(false); }
       if (b.dataset.act === 'market') { closeCard(); Screens.open('market'); }
@@ -2496,7 +2580,7 @@ const MapView = (() => {
     init, reset, returnFromBattle, focusSpecies, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
     devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = (Math.random() * 2147483646 + 1) | 0; t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
-    devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland,
+    devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland, devShowMonster: showMonster,
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack, fightLord,
     // 1.5.4

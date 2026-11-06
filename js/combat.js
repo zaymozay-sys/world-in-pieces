@@ -17,6 +17,44 @@ const Combat = (() => {
   const A = C_B.abilities;
   const chance = (p, rand) => p > 0 && rand() * 100 < p;
 
+  /* 2.2.7: платные приёмы существ. Включено у бойца с f.stoneMode (его ставит game.js противнику с копилкой камней); у героя, питомцев и в симуляторе
+     без counts действуют прежние правила. Цена — в Balance.abilityStones, оплата — суммой камней трёх цветов, списывается с самых больших стопок. */
+  const stoneKeys = (f) => f.mobTypes || Object.keys(f.counts || {}).filter((t) => t !== 'onyx');
+  const stoneTotal = (f) => stoneKeys(f).reduce((s, t) => s + (f.counts[t] || 0), 0);
+  // Цена приёма в нормальном виде: { mode: 'each' | 'any' | 'color', n, color } или null (приём бесплатный / без камней).
+  // 2.2.8: на цветах 1–3 у «лёгких» приёмов цена ниже (Balance.mobEarlyCost[приём] = цена для цветов 1, 2, 3) — приём срабатывает в первых боях.
+  function costSpec(key, f) {
+    const v = C_B.abilityStones && C_B.abilityStones[key];
+    if (!v) return null;
+    const m = C_B.mobCostMul || 1, mode = v.each ? 'each' : v.any ? 'any' : 'color';
+    const early = f && f.tier >= 1 && f.tier <= 3 && C_B.mobEarlyCost && C_B.mobEarlyCost[key];
+    const n = Math.max(1, Math.round((early ? early[f.tier - 1] : (v.each || v.any || v.n)) * m));
+    return { mode, n, color: v.color };
+  }
+  const stoneCost = (key, f) => { const c = costSpec(key, f); return c ? (c.mode === 'each' ? c.n * 3 : c.n) : 0; };   // для оценок: сколько камней всего
+  const paidMode = (f, key) => !!(C_B.mobStones && f && f.stoneMode && f.counts && costSpec(key || f.ability, f));
+  function canPay(f, key) {
+    const c = costSpec(key || f.ability, f); if (!c) return true;
+    if (c.mode === 'each') return stoneKeys(f).every((t) => (f.counts[t] || 0) >= c.n);
+    if (c.mode === 'color') return (f.counts[c.color] || 0) >= c.n;
+    return stoneTotal(f) >= c.n;
+  }
+  // Камни на старте боя: хватает на один приём. Вызывает игра/симулятор после обнуления счётчиков.
+  function startStones(f) {
+    if (!(C_B.mobStartStones && paidMode(f))) return;
+    const c = costSpec(f.ability, f), keys = stoneKeys(f);
+    if (c.mode === 'each') for (const t of keys) f.counts[t] = (f.counts[t] || 0) + c.n;
+    else if (c.mode === 'color') f.counts[c.color] = (f.counts[c.color] || 0) + c.n;
+    else for (const t of keys) f.counts[t] = (f.counts[t] || 0) + Math.ceil(c.n / keys.length);
+  }
+  function payStones(f, key) {
+    const c = costSpec(key || f.ability, f); if (!c) return;
+    if (c.mode === 'each') { for (const t of stoneKeys(f)) f.counts[t] -= c.n; return; }
+    if (c.mode === 'color') { f.counts[c.color] -= c.n; return; }
+    let need = c.n;
+    for (const t of stoneKeys(f).slice().sort((x, y) => (f.counts[y] || 0) - (f.counts[x] || 0))) { const d = Math.min(need, f.counts[t] || 0); f.counts[t] -= d; need -= d; if (need <= 0) break; }
+  }
+
   /* 1.6.0: Броня — цифры, а не проценты. Очки Брони (stats.defense) переводятся в «плоское» число, которое вычитается из
      каждого удара: Броня 1, удар 3 — прилетит 2. Масштаб — типичный удар линии из 3 камней самого бойца (его dmg × урон камня × 3),
      поэтому броня растёт вместе с уровнем и цветом, как и урон. Пол урона: не меньше 20% удара и не меньше 1. */
@@ -48,7 +86,7 @@ const Combat = (() => {
   function power(f) {
     let p = (f.stats.power || 0) + levelPower(f.dmg);
     let extra = buffPower(f);
-    if (f.ability === 'rage' && f.hp < f.max * A.rage.below) extra += A.rage.power;
+    if (f.ability === 'rage' && !paidMode(f) && f.hp < f.max * A.rage.below) extra += A.rage.power;   // платная Ярость — баффом (см. monsterTurnStart)
     return Math.round((p + extra * buffUnit(f)) * (1 + (f.elxPct || 0) / 100));   // 2.0.4: эликсир силы — % от суммарной Силы
   }
   // Типичный удар (линия из HIT_STONES камней среднего номинала) — для оценок шансов, брони и ИИ.
@@ -57,7 +95,8 @@ const Combat = (() => {
 
   // Снимает ХП. «Неупокоенный» один раз встаёт вместо смерти. Возвращает true, если боец восстал.
   function loseHp(f, amount) {
-    if (f.ability === 'undying' && !f.revived && f.hp - amount <= 0) {
+    if (f.ability === 'undying' && !f.revived && f.hp - amount <= 0 && (!paidMode(f) || canPay(f))) {
+      if (paidMode(f)) payStones(f);
       f.revived = true;
       f.hp = Math.ceil(f.max * A.undying.hp);
       return true;
@@ -116,7 +155,8 @@ const Combat = (() => {
       out.attackerRevived = loseHp(attacker, amount);
       return out;
     }
-    if (attacker.ability === 'charge' && !attacker.charged) {
+    if (attacker.ability === 'charge' && !attacker.charged && (!paidMode(attacker) || canPay(attacker))) {
+      if (paidMode(attacker)) payStones(attacker);
       attacker.charged = true;
       amount *= A.charge.mult;
       out.charged = true;
@@ -133,7 +173,7 @@ const Combat = (() => {
       blocked = false;
       out.pierceBlock = true;
     }
-    // Банка мёда: гарантированный блок следующего удара (заряд копится в target.shield, см. useConsumable).
+    // Настой стойкости: гарантированный блок следующего удара (заряд копится в target.shield, см. useConsumable).
     if (!blocked && target.shield > 0) { blocked = true; target.shield--; out.shieldUsed = true; }
     if (blocked) {
       out.kind = 'block';
@@ -146,7 +186,8 @@ const Combat = (() => {
       }
       return out;
     }
-    out.pierce = attacker.ability === 'backstab' && chance(A.backstab.chance, rand);
+    out.pierce = attacker.ability === 'backstab' && (chance(A.backstab.chance, rand) && (!paidMode(attacker) || canPay(attacker)));
+    if (out.pierce && paidMode(attacker)) payStones(attacker);
     amount = mitigate(amount, out.pierce ? 0 : armorOf(target));
     out.amount = amount;
     // Возмездие добавляет временный Рикошет сверх базового (см. buffStat/monsterTurnStart 'retribution').
@@ -169,7 +210,8 @@ const Combat = (() => {
       target.poison = { turns: V.turns, dmg: Math.max(dmg, (target.poison && target.poison.turns > 0 && target.poison.dmg) || 0) };
       out.venom = { dmg, turns: V.turns };
     }
-    if (attacker.ability === 'vampire' && attacker.hp > 0) {
+    if (attacker.ability === 'vampire' && attacker.hp > 0 && (!paidMode(attacker) || canPay(attacker))) {
+      if (paidMode(attacker)) payStones(attacker);
       out.heal = Math.min(attacker.max - attacker.hp, Math.ceil(amount * A.vampire.share));
       attacker.hp += out.heal;
     }
@@ -252,7 +294,7 @@ const Combat = (() => {
       f.luck = K.luck.pct;
       return { kind, pct: K.luck.pct };
     }
-    // Банка мёда: наугад — либо мгновенный прирост максимума ХП (держится весь бой), либо заряд
+    // Настой стойкости: наугад — либо мгновенный прирост максимума ХП (держится весь бой), либо заряд
     // гарантированного блока следующего удара (см. target.shield в hit()).
     if (kind === 'honeyjar') {
       const Kj = K.honeyjar;
@@ -337,10 +379,45 @@ const Combat = (() => {
        { kind: 'regen', heal } { kind: 'steal', type, stones } { kind: 'prank' } { kind: 'howl' }
        { kind: 'petrify' } { kind: 'veil', stones } { kind: 'drum' } { kind: 'breath', mult }
      Регенерация, воровство, вой и бубен применяются здесь же. */
+  // 2.2.7: «сейчас или подождать». Умное существо (бонус ума > 0) не тратит камни зря: лечение — только когда ХП ниже 70 %,
+  // а ослабляющие приёмы — не против героя, которому осталось меньше 12 % ХП (бой и так решит ближайшая линия). Не дольше двух ходов подряд.
+  const HOLD_DEBUFFS = ['weaken', 'sap', 'mire', 'toxin', 'stun', 'petrify', 'veil', 'howl', 'pinch', 'prank', 'steal'];
+  const holdAbility = (f, hero) => {
+    if (!C_B.mobHold || intelBonus(f) <= 0 || !hero || !canPay(f)) { f.holdTurns = 0; return false; }
+    const lowHero = hero.max > 0 && hero.hp < hero.max * 0.12;
+    const hold = (f.ability === 'regen' && f.hp > f.max * 0.7) || (lowHero && HOLD_DEBUFFS.includes(f.ability));
+    if (hold && (f.holdTurns || 0) < 2) { f.holdTurns = (f.holdTurns || 0) + 1; return true; }
+    f.holdTurns = 0;
+    return false;
+  };
+  // 2.2.8: сколько ходов героя держится дебафф существа (Морок, Трясина, Липкость); у существ без камней и у питомцев — один ход.
+  const effectTurns = (f, id) => {
+    const c = C_B.mobEffectTurns && C_B.mobEffectTurns[id];
+    if (!c || !C_B.mobStones || !f || !f.stoneMode) return 1;
+    const t = Math.max(1, Math.min(10, f.tier || 1));
+    return Math.max(1, Math.round(c.min + (c.max - c.min) * (t - 1) / 9));
+  };
+  // Повторный дебафф продлевает срок, а не копится: прежняя запись того же вида заменяется.
+  const putDebuff = (hero, b) => { hero.buffs = hero.buffs.filter((x) => x.kind !== b.kind); hero.buffs.push(b); };
   function monsterTurnStart(f, hero, types, rand = battleRand) {
+    if (paidMode(f) && holdAbility(f, hero)) return null;
+    const r = monsterTurnStartRaw(f, hero, types, rand);
+    if (r && paidMode(f)) payStones(f);                       // приём сработал — платим камнями
+    return r;
+  }
+  function monsterTurnStartRaw(f, hero, types, rand) {
     const n = f.turnNo;
+    const sm = paidMode(f);
+    const off = (every) => (sm ? !canPay(f) : (n % every));                    // true — приём сейчас не срабатывает
+    const roll = (pct) => (sm ? canPay(f) : chance(pct, rand));
     switch (f.ability) {
+      case 'rage': {                                          // платная Ярость: пока ХП меньше порога и хватает камней — удар сильнее на этот ход
+        if (!sm || f.hp >= f.max * A.rage.below || !canPay(f)) return null;
+        f.buffs.push({ kind: 'rage', amount: A.rage.power, turns: 1 });
+        return { kind: 'rage', amount: A.rage.power };
+      }
       case 'regen': {
+        if (sm && !canPay(f)) return null;
         const heal = Math.min(f.max - f.hp, Math.max(1, Math.round(f.max * A.regen.heal)));
         if (heal <= 0) return null;
         f.hp += heal;
@@ -348,48 +425,51 @@ const Combat = (() => {
       }
       case 'steal': {
         const have = types.filter((t) => hero.counts[t] > 0);
-        if (!have.length || !chance(A.steal.chance, rand)) return null;
+        if (!have.length || !roll(A.steal.chance)) return null;
         const type = have[Math.floor(rand() * have.length)], stones = Math.min(A.steal.stones, hero.counts[type]);
         hero.counts[type] -= stones;
         return { kind: 'steal', type, stones };
       }
-      case 'prank': return chance(A.prank.chance, rand) ? { kind: 'prank' } : null;
+      case 'prank': return roll(A.prank.chance) ? { kind: 'prank' } : null;
       case 'howl':
-        if (n % A.howl.every) return null;
+        if (off(A.howl.every)) return null;
         f.buffs.push({ kind: 'howl', amount: A.howl.power, turns: 1 });
         return { kind: 'howl' };
-      case 'petrify': return n % A.petrify.every ? null : { kind: 'petrify' };
-      case 'veil': return n % A.veil.every ? null : { kind: 'veil', stones: A.veil.stones };
+      case 'petrify': return off(A.petrify.every) ? null : { kind: 'petrify' };
+      case 'veil': return off(A.veil.every) ? null : { kind: 'veil', stones: A.veil.stones };
       case 'drum':
-        if (n % A.drum.every) return null;
+        if (off(A.drum.every)) return null;
         f.magic = true;
         return { kind: 'drum' };
-      case 'breath': return n % A.breath.every ? null : { kind: 'breath', mult: A.breath.mult };
+      case 'breath': return off(A.breath.every) ? null : { kind: 'breath', mult: A.breath.mult };
       // Морок Тени: на ваш следующий ход немного слабеет наносимый вами урон (та же «сумка баффов», что у Вой/Эликсира,
       // только с отрицательной amount — buffPower() и так суммирует все баффы без разбора кода).
       case 'weaken': {
-        if (n % A.weaken.every) return null;
-        hero.buffs.push({ kind: 'weaken', amount: A.weaken.power, turns: 1 });
-        return { kind: 'weaken', amount: A.weaken.power };
+        if (off(A.weaken.every)) return null;
+        const tw = effectTurns(f, 'weaken');
+        putDebuff(hero, { kind: 'weaken', amount: A.weaken.power, turns: tw });
+        return { kind: 'weaken', amount: A.weaken.power, turns: tw };
       }
       // Панцирь Рака: с каждым разом отращивает новый шип — Блок растёт и остаётся до конца боя.
       case 'pinch': {
-        if (n % A.pinch.every) return null;
+        if (off(A.pinch.every)) return null;
         const add = Math.max(0, Math.min(C_G.CAPS.block, f.stats.block + A.pinch.block) - f.stats.block);
         f.stats.block += add;
         return { kind: 'pinch', add };
       }
       // Трясина Болотника: на ваш следующий ход, если ошибётесь, штраф ХП будет двойным (см. invalidPenalty).
       case 'mire': {
-        if (n % A.mire.every) return null;
-        hero.buffs.push({ kind: 'mire', amount: 0, turns: 1 });
-        return { kind: 'mire' };
+        if (off(A.mire.every)) return null;
+        const tm = effectTurns(f, 'mire');
+        putDebuff(hero, { kind: 'mire', amount: 0, turns: tm });
+        return { kind: 'mire', turns: tm };
       }
       // Смола Древеня: ваше следующее заклинание обойдётся на extra камня каждого цвета дороже (см. spellCost).
       case 'sap': {
-        if (n % A.sap.every) return null;
-        hero.buffs.push({ kind: 'sap', amount: 0, extra: A.sap.extra, turns: 1 });
-        return { kind: 'sap', extra: A.sap.extra };
+        if (off(A.sap.every)) return null;
+        const ts = effectTurns(f, 'sap');
+        putDebuff(hero, { kind: 'sap', amount: 0, extra: A.sap.extra, turns: ts });
+        return { kind: 'sap', extra: A.sap.extra, turns: ts };
       }
       // Спороносец Дикого гриба: споры копятся из камней, которые гриб собрал сам (см. addSpores). Проверка —
       // В НАЧАЛЕ ХОДА гриба: если спор ≥ clone.charge, живого двойника нет и за бой их было < clone.max,
@@ -407,7 +487,7 @@ const Combat = (() => {
       // Срабатывания подряд СКЛАДЫВАЮТСЯ: каждое добавляет отдельную запись в buffs со своим таймером —
       // buffStat() суммирует все активные, поэтому два подряд срабатывания дают вдвое больше Блока.
       case 'evasion': {
-        if (!chance(A.evasion.chance, rand)) return null;
+        if (!roll(A.evasion.chance)) return null;
         f.buffs.push({ kind: 'evasion', amount: A.evasion.block, turns: A.evasion.turns });
         return { kind: 'evasion', amount: A.evasion.block };
       }
@@ -415,28 +495,28 @@ const Combat = (() => {
       // retribution.turns СВОИХ следующих ходов (считая этот) Рикошет повышен сверх обычного. Складывается
       // так же, как Изворотливость (см. выше) — несколько срабатываний подряд суммируют бонус Рикошета.
       case 'retribution': {
-        if (!chance(A.retribution.chance, rand)) return null;
+        if (!roll(A.retribution.chance)) return null;
         f.buffs.push({ kind: 'retribution', amount: A.retribution.ricochet, turns: A.retribution.turns });
         return { kind: 'retribution', amount: A.retribution.ricochet };
       }
       // Оглушение (1.7.3): героя оглушает — свой следующий ход он пропускает (см. game.js enemyTurn); Блок героя
       // даёт шанс устоять. hero.stunned снимает вызывающий, когда ход пропущен.
       case 'stun': {
-        if (n % A.stun.every) return null;
+        if (off(A.stun.every)) return null;
         if (chance((hero.stats && hero.stats.block) || 0, rand)) return { kind: 'stun', resisted: true };
         hero.stunned = true;
         return { kind: 'stun' };
       }
       // Отрава (1.7.3): яд на героя — в начале каждого из turns его ходов он теряет dmg ХП (raw, броня и Блок не помогают).
       case 'toxin': {
-        if (n % A.toxin.every) return null;
+        if (off(A.toxin.every)) return null;
         const dmg = Math.max(1, Math.round(venomTick(power(f), f.dmg) * A.toxin.mult));
         hero.poison = { turns: A.toxin.turns, dmg: Math.max(dmg, (hero.poison && hero.poison.turns > 0 && hero.poison.dmg) || 0) };
         return { kind: 'toxin', dmg, turns: A.toxin.turns };
       }
       // Щит (1.7.3): обновляет щит до pct максимума ХП; новый заменяет остаток прежнего.
       case 'ward': {
-        if (n % A.ward.every) return null;
+        if (off(A.ward.every)) return null;
         const amount = Math.max(1, Math.round(f.max * A.ward.pct));
         f.ward = amount;
         return { kind: 'ward', amount };
@@ -449,10 +529,31 @@ const Combat = (() => {
      { kind, every, left } — «каждый N-й ход», left ходов существа до срабатывания (1 — в ближайший);
      { kind, chance } — «с шансом»; { kind, once, spent } — одноразовый; { kind, hot } — Ярость раненого;
      { kind, passive } — действует постоянно. fighters.right.turnNo — сколько ходов существо уже сделало. */
+  // 2.2.7: чего существу не хватает для платного приёма — веса цветов [сапфир, рубин, изумруд] для оценки хода ИИ; прибавка уровня ИИ по цвету.
+  const wantGems = (f) => {
+    const w = [0, 0, 0], nm = f && f.stoneMode && f.counts ? nextMove(f) : null, k = C_B.mobWantBonus || 0;
+    if (!nm || !nm.paid || nm.spent || !nm.cond || nm.ready || !k) return w;
+    const sp = nm.spec, T = ['sapphire', 'ruby', 'emerald'];
+    T.forEach((t, i) => {
+      const lack = sp.mode === 'each' ? sp.n - (f.counts[t] || 0) : sp.mode === 'color' ? (sp.color === t ? sp.n - (f.counts[t] || 0) : 0) : (sp.n - nm.have > 0 ? 1 : 0);
+      if (lack > 0) w[i] = k;
+    });
+    return w;
+  };
+  const intelBonus = (f) => {
+    if (!C_B.mobStones || !f || !f.stoneMode) return 0;
+    const t = Math.max(1, Math.min(10, f.tier || 1)), a = C_B.mobIntelMin || 0, b = C_B.mobIntelMax || 0;
+    return Math.round(a + (b - a) * (t - 1) / 9);
+  };
   function nextMove(f) {
     const id = f && f.ability;
     if (!id || f.hp <= 0) return null;
     const a = A[id] || {};
+    if (paidMode(f)) {                                       // 2.2.7: платный приём — цена и сколько камней уже есть
+      const cost = stoneCost(id, f), have = stoneTotal(f), spec = costSpec(id, f), spent = (id === 'undying' && !!f.revived) || (id === 'charge' && !!f.charged);
+      const cond = id === 'rage' ? f.hp < f.max * a.below : id === 'regen' ? f.hp < f.max : true;
+      return { kind: id, paid: true, cost, have, spec, spent, cond, ready: !spent && cond && canPay(f, id) };
+    }
     if (a.every) return { kind: id, every: a.every, left: a.every - ((f.turnNo || 0) % a.every) };
     if (id === 'undying') return { kind: id, once: true, spent: !!f.revived };
     if (id === 'charge') return { kind: id, once: true, spent: !!f.charged };
@@ -567,7 +668,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

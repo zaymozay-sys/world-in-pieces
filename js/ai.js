@@ -47,7 +47,7 @@ const AI = (() => {
       [v[m.a], v[m.b]] = [v[m.b], v[m.a]];
       const g = [0, 0, 0, 0];
       Engine.resolve(t, v, g, ONYX);
-      return { m, t, v, dmg: mode.dmg(g), s: score(g, mode) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
+      return { m, t, v, dmg: mode.dmg(g), s: score(g, mode) + (want ? g[0] * want[0] + g[1] * want[1] + g[2] * want[2] : 0) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
     });
   }
 
@@ -78,6 +78,7 @@ const AI = (() => {
     return best;
   }
 
+  let want = null;                   // веса камней по цветам: противник копит камни под платный приём
   let rootFilter = null;             // скованные клетки: такие обмены противнику сейчас недоступны
 
   function rankRoot(typ, val, hpMe, hpOpp, depth, cfg, deadline, mode) {
@@ -201,6 +202,7 @@ const AI = (() => {
   function choose(typ, val, hpMe, hpOpp, level, afford = {}, ctx = {}) {
     const A = typeof afford === 'boolean' ? { lightning: afford, fire: afford, transmute: afford, heal: afford, chaos: afford } : afford;
     const cfg = settings(level);
+    want = ctx.want && ctx.want.some((x) => x > 0) ? ctx.want : null;
     rootFilter = ctx.locked && ctx.locked.length ? new Set(ctx.locked) : null;
     const canMagic = A.lightning || A.fire || A.square || A.transmute || A.heal || A.chaos;
     const considerMagic = canMagic && Math.random() < 0.3 + 0.7 * cfg.level / 100;

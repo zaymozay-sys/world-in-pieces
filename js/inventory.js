@@ -49,6 +49,8 @@ const Profile = (() => {
       pet: null,                                    // прирученный питомец: { speciesId, tier, durability, maxDurability } (см. pets.js) или null
       runeBag: {},                                  // запас рун (см. runes.js): id руны → количество
       ammo: {},                                     // 1.3.0: боеприпасы в сумке (см. ammo.js): вид → количество
+      brewMade: 0,                                  // 2.2.9: сколько штук заряда сварено в Кузнице (мастерство варки)
+      shotSel: '',                                  // выбранный для боя запас: 'вид' или 'вид:свойство' (пусто — обычный)
       ammoStart: false,                             // выдана ли первая пачка боеприпасов своего народа
       market: { lots: [], log: [] },                // 1.3.0: Торговые ряды (см. market.js)
       story: { shards: {} },                        // 1.3.0: осколки Великого Сердца (см. story.js): id стража → true
@@ -235,6 +237,12 @@ const Profile = (() => {
     // Вещи и снаряжение
     item: findItem,
     // Снаряжение в виде «ячейка → экземпляр» (для расчётов и рисунков).
+    // 2.2.9: запасы боеприпаса героя (обычный и усиленные) и выбранный для выстрела.
+    shotStocks() { const k = this.shotKind(); return Ammo.stocks((x) => (data.ammo || {})[x] > 0 && Ammo.parse(x).kind === k); },
+    shotKey() { const k = this.shotKind(), sel = data.shotSel; return sel && Ammo.parse(sel).kind === k && (data.ammo || {})[sel] > 0 ? sel : k; },
+    cycleShot() { const list = this.shotStocks(), cur = this.shotKey(); if (list.length < 2) { data.shotSel = ''; return this.shotKey(); } data.shotSel = list[(Math.max(0, list.indexOf(cur)) + 1) % list.length]; save(); return data.shotSel; },
+    brewLevel() { return Ammo.brewLevel(data.brewMade); },
+    noteBrew(n) { if (Number.isFinite(n) && n > 0) { data.brewMade = (Number(data.brewMade) || 0) + Math.floor(n); save(); } },
     shotKind() { return (typeof Gear.shotKind === 'function' && Gear.shotKind(this.gear())) || Ammo.forFaction(data.faction); },
     gear() {
       const g = Gear.emptyLoadout();
@@ -878,7 +886,7 @@ const ItemInfo = (() => {
       const v = it.stats[k] || 0, d = cur ? v - (cur.stats[k] || 0) : 0;
       const delta = cur && d ? `<span class="ic-d ${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲ +' : '▼ −'}${Math.abs(d)}</span>` : '';
       const pct = Math.min(100, Math.round(v / STAT_SCALE[k] * 100));
-      return `<li class="ic-stat s-${k} ${v ? '' : 'zero'}"><span class="ic-sv">${v ? fmtStat(k, v) : _t("{0}: нет", [Gear.STAT_NAMES[k]])}</span>${delta}
+      return `<li class="ic-stat s-${k} ${v ? '' : 'zero'}">${typeof Art !== 'undefined' && Art.has('ui/stat-' + k) ? `<img class="stat-ic" src="${Art.url('ui/stat-' + k)}" alt="" draggable="false">` : ''}<span class="ic-sv">${v ? fmtStat(k, v) : _t("{0}: нет", [Gear.STAT_NAMES[k]])}</span>${delta}
         <i class="ic-bar"><b style="width:${pct}%"></b></i><small>${k === 'defense' && v ? _t("вычитается из каждого удара: −{0} у вашего героя", [Combat.armorAt(v)]) : STAT_HELP[k]}</small></li>`;
     }).join('');
 
@@ -1088,7 +1096,7 @@ const Inventory = (() => {
     // 1.8.4: что изменилось с момента открытия карточки — плюс зелёным, минус красным (пока карточка не закрыта)
     if (!who && !statBase) statBase = { ...stats };
     const delta = (k) => (who || !statBase) ? 0 : (stats[k] || 0) - (statBase[k] || 0);
-    const row = (name, big, small, k) => { const d = k ? delta(k) : 0; const cls = d > 0 ? ' class="stat-up"' : d < 0 ? ' class="stat-down"' : ''; return `<div><span>${name}</span><b${cls}>${big}${d ? ` <i>(${d > 0 ? '+' : '−'}${Math.abs(d)})</i>` : ''}</b><small>${small}</small></div>`; };
+    const row = (name, big, small, k) => { const d = k ? delta(k) : 0; const cls = d > 0 ? ' class="stat-up"' : d < 0 ? ' class="stat-down"' : ''; const sk = Object.keys(N).find((x) => N[x] === name), sic = sk && typeof Art !== 'undefined' && Art.has('ui/stat-' + sk) ? `<img class="stat-ic" src="${Art.url('ui/stat-' + sk)}" alt="" draggable="false">` : ''; return `<div><span>${sic}${name}</span><b${cls}>${big}${d ? ` <i>(${d > 0 ? '+' : '−'}${Math.abs(d)})</i>` : ''}</b><small>${small}</small></div>`; };
     const arm = Combat.armorAt(stats.defense), cap = '';
     return `<div class="stat-list">${[
       row(N.power, `+${Math.round(stats.power)}`, _t("к каждому удару: +{0} (с Силой уровня +{1})", [fmt1(stats.power + Combat.levelPower(dmg)), fmt1(Combat.levelPower(dmg))]), 'power'),
@@ -1190,6 +1198,8 @@ const Inventory = (() => {
   // Ячейки вокруг фигуры: слева голова/грудь/наручи, справа амулет/поножи, внизу — правая рука, спец. снаряд
   // (пока в разработке, пустой) и левая рука. Двуручное оружие занимает обе руки.
   let pick = null;            // uid выбранной вещи в сумке
+  // 2.2.9: нижний ряд карточки героя — четыре равные ячейки с подписью под каждой (вместо пустых промежутков)
+  const handCell = (slotHtml, s) => `<div class="hand-cell" data-hand="${s}">${slotHtml}<i class="hand-cap">${Gear.SLOT_NAMES[s]}</i></div>`;
   function dollSlot(gear, s, editable) {
     const it = Gear.item(gear[s]);
     const main = Gear.item(gear.main);
@@ -1274,7 +1284,7 @@ const Inventory = (() => {
     const ak = Profile.shotKind(), AM = Ammo.CATALOG[ak], an = Profile.ammo(ak);
 
     const heroName = (typeof Profile.data.name === 'string' && Profile.data.name && escText(Profile.heroName())) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender);
-    const doll = _t("<div class=\"doll\">\n      <div class=\"df-cap\"><b>{0}</b><span>Уровень {1} · очки снаряжения {2} / {3}</span></div>\n      <div class=\"doll-frame{4}\">\n        <div class=\"df-col l\">{5}</div>\n        <div class=\"doll-fig\">{6}</div>\n        <div class=\"df-col r\">{7}</div>\n        <div class=\"df-hands\">{8}\n          {9}\n          {10}</div>\n      </div>\n    </div>", [heroName + Profile.favBadges(), lv.level, used, budget, typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? ' p5' : '', ['head', 'shoulders', 'chest', 'arms', 'leash'].map((s) => dollSlot(gear, s, editable)).join(''), Figures.figure(Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender), gear), ['amulet', 'gloves', 'legs', 'bag', 'compass'].map((s) => dollSlot(gear, s, editable)).join(''), dollSlot(gear, 'main', editable), dollSlot(gear, 'ranged', editable).replace('</button>', `<b class="ammo-n" title="${AM.name} × ${an}">${an}</b></button>`), dollSlot(gear, 'off', editable) + dollSlot(gear, 'belt', editable).replace('class="dslot ', 'class="dslot beltslot ')]);
+    const doll = _t("<div class=\"doll\">\n      <div class=\"df-cap\"><b>{0}</b><span>Уровень {1} · очки снаряжения {2} / {3}</span></div>\n      <div class=\"doll-frame{4}\">\n        <div class=\"df-col l\">{5}</div>\n        <div class=\"doll-fig\">{6}</div>\n        <div class=\"df-col r\">{7}</div>\n        <div class=\"df-hands\">{8}\n          {9}\n          {10}</div>\n      </div>\n    </div>", [heroName + Profile.favBadges(), lv.level, used, budget, typeof Art !== 'undefined' && Art.has('ui/hero-panel-5') ? ' p5' : '', ['head', 'shoulders', 'chest', 'arms', 'leash'].map((s) => dollSlot(gear, s, editable)).join(''), Figures.figure(Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender), gear), ['amulet', 'gloves', 'legs', 'bag', 'compass'].map((s) => dollSlot(gear, s, editable)).join(''), handCell(dollSlot(gear, 'main', editable), 'main'), handCell(dollSlot(gear, 'ranged', editable).replace('</button>', `<b class="ammo-n" title="${AM.name} × ${an}">${an}</b></button>`), 'ranged'), handCell(dollSlot(gear, 'off', editable), 'off') + handCell(dollSlot(gear, 'belt', editable).replace('class="dslot ', 'class="dslot beltslot '), 'belt')]);
 
     // Подробности: выбранная вещь из сумки (надеть) или надетая в выбранной ячейке (снять).
     let detail = '';
@@ -1304,7 +1314,7 @@ const Inventory = (() => {
     }).join('');
 
     const bag = Profile.data.backpack || {};
-    const ammoRow = _t("<div class=\"bag-row\">{0}<span><b>{1}</b> × {2}<br><small>{3} Выстрел хода не тратит, один за ход.</small></span></div>", [Ammo.icon(ak), AM.name, an, AM.desc]);
+    const ammoRow = Ammo.stocks((x) => Ammo.parse(x).kind === ak ? Profile.ammo(x) : 0).concat(Profile.ammo(ak) > 0 ? [] : [ak]).map((x) => { const V = Ammo.parse(x).variant; return _t("<div class=\"bag-row\">{0}<span><b>{1}</b> × {2}<br><small>{3} Выстрел хода не тратит, один за ход.</small></span></div>", [Ammo.icon(x), Ammo.stockName(x), Profile.ammo(x), AM.desc + (V ? ' ' + Ammo.VDESC[V] : '')]); }).join('');
     const cons = Object.entries(Gear.CONSUMABLES).filter(([k]) => bag[k] > 0)
       .map(([k, c]) => `<div class="bag-row">${itemIcon(k)}<span><b>${c.name}</b> × ${bag[k]}<br><small>${c.desc}</small></span></div>`).join('')
       || _t("<p class=\"hint\">Эликсиров и расходников нет.</p>");
@@ -1352,10 +1362,10 @@ const Inventory = (() => {
   // Особые предметы квестов: ключи к сундукам побережья, «Морской дневник», зелье подводного дыхания
   function keyItemsHtml() {
     const d = Profile.data, xk = d.xkeys || {}, xc = d.xchests || {}, out = [];
-    const row = (glyph, name, desc) => `<div class="bag-row"><span class="key-glyph" aria-hidden="true">${glyph}</span><span><b>${name}</b><br><small>${desc}</small></span></div>`;
-    if (d.chestKey && !d.chestOpened) out.push(row('🔑', _t("Ключ-сапфир"), _t("Отпирает сапфировый сундук у бригантины.")));
-    if (xk.ruby && !xc.ruby) out.push(row('🔑', _t("Ржавый ключ"), _t("Отпирает рубиновый сундук на восточных камнях.")));
-    if (xk.emerald && !xc.emerald) out.push(row('🌿', _t("Живой ключ"), _t("Отпирает изумрудный сундук у маяка.")));
+    const row = (glyph, name, desc, art) => `<div class="bag-row"><span class="key-glyph" aria-hidden="true">${art && typeof Art !== 'undefined' && Art.has(art) ? `<img class="key-img" src="${Art.url(art)}" alt="" draggable="false">` : glyph}</span><span><b>${name}</b><br><small>${desc}</small></span></div>`;
+    if (d.chestKey && !d.chestOpened) out.push(row('🔑', _t("Ключ-сапфир"), _t("Отпирает сапфировый сундук у бригантины."), 'items/key-sapphire'));
+    if (xk.ruby && !xc.ruby) out.push(row('🔑', _t("Ржавый ключ"), _t("Отпирает рубиновый сундук на восточных камнях."), 'items/key-ruby'));
+    if (xk.emerald && !xc.emerald) out.push(row('🌿', _t("Живой ключ"), _t("Отпирает изумрудный сундук у маяка."), 'items/key-emerald'));
     if (d.diary) out.push(row(typeof Art !== 'undefined' && Art.has('items/sea-diary') ? `<img src="${Art.url('items/sea-diary')}" alt="">` : '📖', _t("Морской дневник"), _t("Дневник Капитана: рецепт зелья подводного дыхания и путь к серебряному сундуку.")));
     if (d.breath) out.push(row('🫧', _t("Зелье подводного дыхания"), _t("Хватит на один нырок к серебряному сундуку.")));
     return out.length ? _t("<h3>Сумка: особые предметы</h3>{0}", [out.join('')]) : '';

@@ -16,6 +16,7 @@ const Spark = (() => {
   // значок: камень (изумруд / сапфир / рубин) в золотой оправе со вспышкой; размер растёт с номиналом
   const GEM = { green: ['#d9ffd0', '#38b45a', '#126a34'], blue: ['#d6ecff', '#3a86e0', '#17408f'], red: ['#ffd9d9', '#e0364a', '#7d1424'] };
   const icon = (kind = 'red') => {
+    if (typeof Art !== 'undefined' && Art.has('ui/spark-' + kind)) return `<img class="spark-icon spark-${kind}" src="${Art.url('ui/spark-' + kind)}" alt="" draggable="false">`;
     const [l, m, d] = GEM[kind], id = 'spg' + kind;
     return `<svg class="spark-icon spark-${kind}" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${l}"/><stop offset=".5" stop-color="${m}"/><stop offset="1" stop-color="${d}"/></linearGradient></defs>`
       + `<polygon points="5.5,9 8.5,4.5 15.5,4.5 18.5,9 12,20.5" fill="url(#${id})" stroke="#e0b050" stroke-width="1.7" stroke-linejoin="round"/>`

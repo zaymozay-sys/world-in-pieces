@@ -23,7 +23,8 @@ const Market = (() => {
   function fairUnit(kind, key, entry, unitPrice) {
     if (kind === 'item') { const it = MK_G.item(entry); return Math.max(1, Math.round(it.price * 0.7 * MK_G.wearFactor(entry))); }   // 1.6.6: изношенная вещь дешевле
     if (kind === 'res') { const [k, t] = key.split(':'); return Math.max(1, Math.round(MK_B.resPrice(k, Number(t)) * 1.8)); }
-    return Math.max(1, Math.round((unitPrice || 1) * 0.75));     // cons/ammo: от цены в Лавке
+    if (kind === 'ammo') return Math.max(1, Math.round((unitPrice || 1) * 0.5));   // 2.2.9: боеприпасы делаются в Кузнице — ниже, чтобы «изготовить → в ряды» не давало прибыли
+    return Math.max(1, Math.round((unitPrice || 1) * 0.75));     // cons: от цены в Лавке
   }
   const fee = (price, rate = FEE) => Math.max(1, Math.round(price * rate));
 

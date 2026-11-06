@@ -169,6 +169,8 @@ assert.ok(seaDrops > 60, 'Капитан часто оставляет част�
   const weak = Bestiary.rollDrops('wolf', 2, always, undefined, 5);
   assert.strictEqual(weak.resources.length, 0); assert.ok(weak.weak && weak.coins > 0, 'монеты остаются');
   assert.ok(Bestiary.rollDrops('wolf', 5, always, undefined, 5).resources.length > 0, 'того же цвета — дроп есть');
+  assert.ok(Bestiary.rollDrops('wolf', 4, always, undefined, 5).resources.length > 0, 'на цвет слабее — дроп есть');
+  assert.strictEqual(Bestiary.rollDrops('wolf', 3, always, undefined, 5).resources.length, 0, 'на 2 цвета слабее — нет')
   assert.ok(Bestiary.rollDrops('wolf', 6, always, undefined, 5).resources.length > 0, 'сильнее — дроп есть');
   assert.ok(Bestiary.rollDrops('wolf', 2, always).resources.length > 0, 'без цвета героя правило не действует');
   console.log('economy: правило слабого существа — ок');

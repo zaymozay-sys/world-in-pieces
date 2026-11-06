@@ -125,7 +125,7 @@ const Wiki = (() => {
         + p(_t("Яйца редких питомцев падают с грифона, виверны и саламандры; высиживаются за несколько боёв ({0}).", [Pets.HATCH_BATTLES])),
       go: [['kennel', () => _t("Питомник")]] },
     { id: 'elixirs', sec: 'home', title: () => _t("Эликсиры и зелья"), keys: 'эликсиры зелья алхимик',
-      body: () => p(_t("Алхимик варит зелья и эликсиры из добытых ресурсов. Эликсиры пьются в бою в любой свой ход и ход не тратят: одни действуют 10 ходов, Сила — один ход, остальные мгновенные (Жизнь, Камни, Превращение) — раз в 3 хода. Боевые расходники лечат и усиливают прямо в бою.")),
+      body: () => p(_t("Алхимик варит зелья и эликсиры из добытых ресурсов. Эликсиры пьются в бою в любой свой ход и ход не тратят: одни действуют 10 ходов, Сила — один ход, остальные мгновенные (Жизнь — раз в ход, Камни и Превращение — раз в 3 хода). Боевые расходники лечат и усиливают прямо в бою.")),
       go: [['alchemist', () => _t("Алхимик")]] },
     { id: 'lighthouse', sec: 'games', title: () => _t("Маяк: мини-игры и жетоны"), keys: 'маяк мини-игры жетоны обвал зеркала прилив канаты кладоискатель',
       body: () => p(_t("Хранитель маяка предлагает пять мини-игр: «Обвал», «Зеркала», «Прилив», «Канаты» и «Кладоискатель». В каждой {0 зачётный раунд|зачётных раунда|зачётных раундов} в день; дополнительные раунды — за билеты.", [LHGames.DAILY_PLAYS]))
@@ -141,7 +141,7 @@ const Wiki = (() => {
     { id: 'bestiary', sec: 'world', title: () => _t("Существа: каталог"), keys: 'существа монстры звери бестиарий каталог',
       body: () => p(_t("Все существа игры по семействам. Нажмите на существо, чтобы узнать, что с него падает, какие у него приёмы и где его искать."))
         + Object.entries(Object.keys(Bestiary.MONSTERS).reduce((o, id) => { const f = Bestiary.MONSTERS[id].family || '—'; (o[f] = o[f] || []).push(id); return o; }, {}))
-          .map(([f, ids]) => `<h4 class="wk-fam">${esc(f)}</h4><div class="wk-grid">${ids.map((id) => card('m:' + id, 'monsters/' + id, Bestiary.MONSTERS[id].name)).join('')}</div>`).join(''),
+          .map(([f, ids]) => `<h4 class="wk-fam">${typeof Art !== 'undefined' ? Art.familyIcon(f) : ''}${esc(f)}</h4><div class="wk-grid">${ids.map((id) => card('m:' + id, 'monsters/' + id, Bestiary.MONSTERS[id].name)).join('')}</div>`).join(''),
       go: [['best', () => _t("Бестиарий")]] },
     { id: 'petlist', sec: 'home', title: () => _t("Питомцы: каталог"), keys: 'питомцы звери яйца боевые каталог',
       body: () => p(_t("Приручённые звери, боевые питомцы народов и питомцы из яиц."))
@@ -398,13 +398,22 @@ const Wiki = (() => {
     }
     return html;
   }
-  const text = (a) => { if (!cache.has(a.id)) cache.set(a.id, (a.title() + ' ' + a.keys + ' ' + a.body().replace(/<[^>]+>/g, ' ')).toLowerCase()); return cache.get(a.id); };
+  // 2.2.7: общий поиск (Вики, Лавка, Бестиарий): «ё» = «е», окончания не мешают («питомцы» находит «питомец», «кузнице» — «кузница»),
+  // короткие слова (до 3 букв) ищутся только с начала слова, чтобы «еж» не находился в «между».
+  const qnorm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
+  const qstem = (w) => (w.length > 5 ? w.slice(0, -2) : w.length > 4 ? w.slice(0, -1) : w);
+  const qwords = (q) => qnorm(q).split(/\s+/).filter(Boolean);
+  const qhit = (h, w) => (w.length <= 3 ? (' ' + h).replace(/[^a-zа-я0-9]/g, ' ').includes(' ' + w) : (h.includes(w) || h.includes(qstem(w))));
+  const qmatch = (hay, q) => { const h = qnorm(hay); return qwords(q).every((w) => qhit(h, w)); };
+  const text = (a) => { if (!cache.has(a.id)) cache.set(a.id, qnorm(a.title() + ' ' + a.keys + ' ' + a.body().replace(/<[^>]+>/g, ' '))); return cache.get(a.id); };
   function search(q) {
-    const words = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
+    const words = qwords(q);
     if (!words.length) return BASE;
-    return all().filter((a) => { const t = text(a); return words.every((w) => t.includes(w)); });
+    const hits = all().filter((a) => { const t = text(a); return words.every((w) => qhit(t, w)); });
+    const inTitle = (a) => { const t = qnorm(a.title()); return words.every((w) => qhit(t, w)) ? 0 : 1; };
+    return hits.map((a, i) => [a, inTitle(a), i]).sort((x, y) => x[1] - y[1] || x[2] - y[2]).map((x) => x[0]);   // названия, совпавшие с запросом, — выше
   }
   const find = (id) => all().find((a) => a.id === id);
-  return { get ARTICLES() { return all(); }, BASE, SECTIONS, search, find, linked, banner: (a) => a.banner || (BANNER[a.id] ? 'ui/' + BANNER[a.id] : null), see: (a) => (SEE[a.id] || { m: ['bestiary', 'abilities'], p: ['petlist', 'pets'], i: ['itemlist', 'sets'], c: ['supplylist', 'elixirs'], a: ['supplylist', 'abilities'], x: ['supplylist', 'elixirs'], b: ['buildinglist', 'buildings', 'village'] }[a.id.slice(0, 1)] || []).map(find).filter(Boolean), img };
+  return { get ARTICLES() { return all(); }, BASE, SECTIONS, search, qmatch, find, linked, banner: (a) => a.banner || (BANNER[a.id] ? 'ui/' + BANNER[a.id] : null), see: (a) => (SEE[a.id] || { m: ['bestiary', 'abilities'], p: ['petlist', 'pets'], i: ['itemlist', 'sets'], c: ['supplylist', 'elixirs'], a: ['supplylist', 'abilities'], x: ['supplylist', 'elixirs'], b: ['buildinglist', 'buildings', 'village'] }[a.id.slice(0, 1)] || []).map(find).filter(Boolean), img };
 })();
 if (typeof module !== 'undefined') module.exports = Wiki;

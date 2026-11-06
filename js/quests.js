@@ -36,6 +36,7 @@ const Quests = (() => {
       title: _t("Оберег в дорогу"),
       desc: _t("Наденьте амулет — в бою без него как без второй руки. Купите в лавке или найдите в бою."),
       need: (d) => (d.loadout && d.loadout.amulet ? 1 : 0),
+      where: (d) => ((d.items || []).some((e) => { try { return Gear.item(e).type === 'amulet'; } catch (x) { return false; } }) ? 'home' : 'shop'),   // 2.2.7: куплен — надеть дома, иначе — в Лавку
       goal: 1,
       reward: { coins: 80 },
       rewardText: _t("80 медных монет"),

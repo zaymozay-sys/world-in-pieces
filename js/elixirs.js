@@ -1,11 +1,11 @@
 if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.js'); // i18n
 /* Эликсиры (1.3.6, переделаны в 1.6.0): восемь видов × 10 цветов. Пьются ТОЛЬКО в бою, в любой свой ход, бесплатно (ход не тратится),
    расходуются из сумки; на карте не действуют. Сила — до конца хода (перед ударом), Броня/Блок/Рикошет/Ярость/Хитрость — 10 своих ходов,
-   Жизнь (ХП цифрой) и Камни — мгновенно, общий запас «раз в 3 хода». С 5-го цвета у вида есть побочный эффект (раз с каждого
+   Жизнь (ХП цифрой) и Камни — мгновенно, общий запас «раз в ход». С 5-го цвета у вида есть побочный эффект (раз с каждого
    выпитого эликсира), с 10-го — «Великий»: вторая характеристика на пятую часть силы (1.8.0, было половина: блок как вторая характеристика у Брони и Хитрости давал +6 п.п.). Прибавка за цвет — PER_TIER (см. tools/elixir-balance.js). */
 const Elixirs = (() => {
   // 1.6.0: эликсиры пьются в бою, в любой момент своего хода, ход не тратят. mode: 'turn' — до конца текущего хода (пить перед ударом),
-  // 'long' — на LONG_TURNS своих ходов, 'instant' — мгновенно, общий запас «раз в INSTANT_CD хода».
+  // 'long' — на LONG_TURNS своих ходов, 'instant' — мгновенно, свой запас у каждого вида (INSTANT_CDS).
   const KINDS = {
     power:      { name: _t("Эликсир силы"),        stat: 'power',      second: 'fury',    mode: 'turn' },
     defense:    { name: _t("Эликсир брони"),       stat: 'defense',    second: 'block',   mode: 'long' },
@@ -23,7 +23,8 @@ const Elixirs = (() => {
     food:       { name: _t("Вкусный корм"),        stat: null,         second: null,      mode: 'pet',  tonic: true },
     endure:     { name: _t("Стойкость"),           stat: null,         second: null,      mode: 'pet',  noBrew: true, single: true },
   };
-  const LONG_TURNS = 10, INSTANT_CD = 3;
+  const LONG_TURNS = 10, INSTANT_CDS = { health: 1, stones: 3, swap: 3 };   // как часто можно пить мгновенный эликсир (в ходах героя), у каждого вида свой запас
+  const cdOf = (kind) => INSTANT_CDS[kind] || 1;
   const GREAT = { k: 0.2 };                                          // «Великий» (10-й цвет): вторая характеристика на эту долю силы
   const HEAL = [30, 40, 50, 70, 90, 120, 160, 210, 270, 350];        // лечение «Жизни» в ХП по цвету (кратно 10; 1-й цвет — 30, 10-й — 350)
   const heal = (tier) => HEAL[Math.max(1, Math.min(10, tier)) - 1];
@@ -93,9 +94,9 @@ const Elixirs = (() => {
     if (kind === 'speed') return _t("Дополнительный ход сразу и Проворство +{0} на {1 ход|хода|ходов}.", [bonus(tier, 'speed'), LONG_TURNS]);
     if (kind === 'road') return _t("Броня +{0} и максимум ХП +{1}% на этот бой и ещё {2}.", [Math.round(bonus(tier, 'road')), Math.round(ROAD_HP * 100), ROAD_FIGHTS - 1]);
     const K = KINDS[kind], st = (typeof Gear !== 'undefined' && Gear.STAT_NAMES) ? Gear.STAT_NAMES : {};
-    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [heal(tier), INSTANT_CD]);
-    if (kind === 'swap') return _t("Превращает до {0 камень|камня|камней} того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [swapAmount(tier), INSTANT_CD]);
-    if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), INSTANT_CD]);
+    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [heal(tier), cdOf(kind)]);
+    if (kind === 'swap') return _t("Превращает до {0 камень|камня|камней} того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [swapAmount(tier), cdOf(kind)]);
+    if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), cdOf(kind)]);
     const b = bonus(tier, kind), name = st[K.stat] || K.stat, pc = (K.stat === 'defense' || K.stat === 'power') ? '' : '%';
     // Броня — цифры: показываем, сколько вычитается из каждого удара у героя середины этого цвета.
     const flat = kind === 'defense' ? b : null;
@@ -142,6 +143,6 @@ const Elixirs = (() => {
     const col = (typeof Tiers !== 'undefined' && Tiers.get(tier)) ? Tiers.get(tier).color : '#c33';
     return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M42 12h16v6l-2 2v12c14 7 24 22 24 38 0 12-8 18-30 18S20 82 20 70c0-16 10-31 24-38V20l-2-2z" fill="#e8f1f4" fill-opacity=".35" stroke="#222" stroke-width="3"/><path d="M24 62c0 14 8 20 26 20s26-6 26-20c-8 4-18-4-26 0s-18 4-26 0z" fill="${col}" stroke="#222" stroke-width="2"/><rect x="40" y="8" width="20" height="9" rx="2" fill="#8a5a2c" stroke="#222" stroke-width="2"/><text x="50" y="76" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" stroke="#000" stroke-width=".6">${tier}</text></svg>`;
   };
-  return { ROAD_FIGHTS, ROAD_HP, FOOD_MULT, powerPct, activePct, LOW, GREAT, SWAP, STONES, HEAL, PER_TIER, FX_MIN, effect, sideText, icon, KINDS, ORDER, MAX_TIER, bonus, battles, key, split, price, need, describe, bonusStats, drink, tick, heal, stonesGain, swapAmount, swapMove, turns, LONG_TURNS, INSTANT_CD };
+  return { ROAD_FIGHTS, ROAD_HP, FOOD_MULT, powerPct, activePct, LOW, GREAT, SWAP, STONES, HEAL, PER_TIER, FX_MIN, effect, sideText, icon, KINDS, ORDER, MAX_TIER, bonus, battles, key, split, price, need, describe, bonusStats, drink, tick, heal, stonesGain, swapAmount, swapMove, turns, LONG_TURNS, INSTANT_CDS, cdOf };
 })();
 if (typeof module !== 'undefined') module.exports = Elixirs;

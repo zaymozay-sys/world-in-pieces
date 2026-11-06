@@ -100,7 +100,11 @@ const Art = (() => {
 
   applyGems();
   applyBoard();
-  return { has, url, icon, hasPortrait, portrait, hasBody, body, bodyKey, bodyLevel, hasMonster, monster, hasNpc, npcPortrait, hasScene, sceneUrl };
+  // Значок семейства существ по русскому названию (ui/family-*); нет картинки — пустая строка.
+  const FAMILY_KEYS = { 'Звери': 'beasts', 'Разбойники': 'bandits', 'Пчёлы': 'bees', 'Твари': 'creatures', 'Драконы': 'dragons', 'Лесные стражи': 'foresters', 'Великаны': 'giants', 'Гоблины': 'goblins', 'Чудовища': 'monsters', 'Орки': 'orcs', 'Тени': 'shadows', 'Духи': 'spirits', 'Каменные стражи': 'stoneguards', 'Болотные твари': 'swamp', 'Нежить': 'undead' };
+  const familyIcon = (name, cls) => { const k = FAMILY_KEYS[name]; return k && has('ui/family-' + k) ? `<img class="${cls || 'fam-ic'}" src="${url('ui/family-' + k)}" alt="" draggable="false">` : ''; };
+  const zoneIcon = (id, cls) => has('ui/zone-' + id) ? `<img class="${cls || 'zone-ic'}" src="${url('ui/zone-' + id)}" alt="" draggable="false">` : '';
+  return { familyIcon, zoneIcon, has, url, icon, hasPortrait, portrait, hasBody, body, bodyKey, bodyLevel, hasMonster, monster, hasNpc, npcPortrait, hasScene, sceneUrl };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

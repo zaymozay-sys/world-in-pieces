@@ -16,6 +16,8 @@ async function open(b, vp) {
   await p.click('text=Горные кланы').catch(() => {}); await p.click('text=Мужской').catch(() => {});
   await p.fill('input', 'Тест').catch(() => {}); await p.click('text=Начать игру!').catch(() => {});
   await p.waitForTimeout(1000);
+  // 2.2.7: питомцы открываются с 5-го уровня — для боя вдвоём нужен герой 6-го уровня с питомцем
+  await p.evaluate(() => { Profile.data.wins = Math.max(Profile.data.wins || 0, 20); Profile.data.xp = Math.max(Profile.data.xp || 0, Hero.totalFor(6)); if (!Profile.data.pet) { Profile.data.pet = Object.assign(Pets.makePet('wolf', 1), { xp: 300 }); Profile.data.petChoice = 'tamed'; } Profile.save(); }); await p.waitForTimeout(300);
   return { p, errs };
 }
 const attack = (p) => p.evaluate(() => {

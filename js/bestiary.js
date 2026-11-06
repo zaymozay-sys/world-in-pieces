@@ -58,10 +58,10 @@ const Bestiary = (() => {
     rage:    { name: _t("Ярость"),           desc: _t("Раненый (меньше половины здоровья) бьёт на 40% сильнее") },
     drum:    { name: _t("Шаманский бубен"),  desc: _t("Каждый третий ход все собранные им камни наносят урон") },
     vampire: { name: _t("Кровопийца"),       desc: _t("Лечится на половину нанесённого урона") },
-    weaken:  { name: _t("Морок"),            desc: _t("Каждый третий ход насылает морок: на ваш следующий ход урон слабее") },
+    weaken:  { name: _t("Морок"),            desc: _t("Каждый третий ход насылает морок: урон слабее на ваш следующий ход (у старших цветов — на несколько ходов)") },
     pinch:   { name: _t("Панцирь"),          desc: _t("Каждый третий ход отращивает новый шип: Блок растёт и остаётся до конца боя") },
-    mire:    { name: _t("Трясина"),          desc: _t("Каждый второй ход затягивает поле топью: ошибётесь — штраф ХП будет двойным") },
-    sap:     { name: _t("Липкость"),            desc: _t("Каждый третий ход заливает камни смолой: ваше следующее заклинание дороже на камень") },
+    mire:    { name: _t("Трясина"),          desc: _t("Каждый второй ход затягивает поле топью: ошибётесь — штраф ХП будет двойным (у старших цветов — несколько ходов)") },
+    sap:     { name: _t("Липкость"),            desc: _t("Каждый третий ход заливает камни смолой: заклинание дороже на камень (у старших цветов — несколько ходов)") },
     clone:   { name: _t("Спороносец"),       desc: _t("Копит споры из собранных камней; набрав {0}, выпускает двойника с тем же здоровьем, что сейчас у гриба (до {1} за бой). Двойник бьёт вас каждый раунд и прикрывает оригинал", [B_B.abilities.clone.charge, B_B.abilities.clone.max]) },
     wisp:    { name: _t("Блуждающий огонь"), desc: _t("Засчитываются только камни номиналом x3 и x5: камни x1 исчезают с поля, но не дают ни ресурсов, ни урона") },
     evasion:     { name: _t("Изворотливость"), desc: _t("С шансом в начале своего хода уворачивается: на несколько ходов Блок выше обычного, срабатывания подряд складываются") },
@@ -762,9 +762,12 @@ const Bestiary = (() => {
     const stats = B_G.blankStats();
     const sw = swarmMult(id, swarmSize);
     const dmg = B_T.GROWTH[t - 1] * B_B.damage.stone * sw.dmg * B_B.monsters.dmgScale[t - 1] * grow;            // рост урона существа (в бою даёт Силу уровня)
-    for (const k in m.stats) stats[k] = Math.round(m.stats[k] * (k === 'power' ? B_T.POWER_MULT[t - 1] * 0.045 * dmg * B_B.monsters.powerMul : B_T.statMult(k, t)));   // Сила существа — число к удару (очко старой шкалы = 0,045 × рост урона)
+    // 2.2.7: платные приёмы — усиление существа статами по смыслу приёма (Balance.mobAbilityStats), поверх врождённых
+    const base = { ...m.stats }, extra = B_B.mobStones && B_B.mobAbilityStats && B_B.mobAbilityStats[m.ability];
+    if (extra) for (const k in extra) base[k] = (base[k] || 0) + extra[k];
+    for (const k in base) stats[k] = Math.round(base[k] * (k === 'power' ? B_T.POWER_MULT[t - 1] * 0.045 * dmg * B_B.monsters.powerMul : B_T.statMult(k, t)));   // Сила существа — число к удару (очко старой шкалы = 0,045 × рост урона)
     return {
-      hp: Math.round(m.hp * B_T.GROWTH[t - 1] * sw.hp * B_B.monsters.hpBoost[t - 1] * grow),
+      hp: Math.round(m.hp * B_T.GROWTH[t - 1] * sw.hp * B_B.monsters.hpBoost[t - 1] * grow * (B_B.mobStones && B_B.mobHpMul ? (B_B.mobHpMulMin || 1) + (B_B.mobHpMul - (B_B.mobHpMulMin || 1)) * (t - 1) / 9 : 1)),   // 2.2.7: существа крепче с цветом: ×mobHpMulMin на 1-м, ×mobHpMul на 10-м
       dmg,
       stats: B_G.combine(stats, {}),
       ai: Math.max(1, Math.min(100, m.ai + (t - 1) * B_B.monsters.aiPerTier)),

@@ -4244,8 +4244,8 @@ button.nope { animation: nope .3s ease; }
 .bldg.unlock-flash { animation: unlockFlash 1.2s ease-out 2; }
 @media (prefers-reduced-motion: reduce) { .hpbar .trail { transition: none; } button.nope, .wallet-head.bump, .bldg.unlock-flash { animation: none; } }
 /* 2.0.9: вспышка для «Уровень!/Медаль!/Находка!» и искры при успехе в окнах */
-@keyframes lvlShine { 0% { background-position: -120% 0; } 100% { background-position: 220% 0; } }
-.overlay b.lvlup { background: linear-gradient(100deg, currentColor 35%, #fff6cf 50%, currentColor 65%) no-repeat; background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: lvlShine 1.4s ease-out .3s 1 both; }
+@keyframes lvlShine { 0% { background-position: 100% 0; } 100% { background-position: 0% 0; } }
+.overlay b.lvlup { background: linear-gradient(100deg, currentColor 0 40%, #fff6cf 50%, currentColor 60% 100%) no-repeat; background-size: 300% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: lvlShine 1.4s ease-out .3s 1 both; }
 @keyframes toastPop { 0% { opacity: 0; transform: scale(.94); } 50% { transform: scale(1.03); } 100% { opacity: 1; transform: none; } }
 @keyframes spark { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.2); } }
 .gear-toast:not(.warn) { position: relative; animation: toastPop .35s ease-out; }
@@ -4392,3 +4392,223 @@ body.ui-columns .bagitem b, body.ui-columns.phone .bagitem b { font-size: 12px; 
 .fac-crest { align-content: start; }
 .fac-perk { display: block; margin-top: 4px; font-style: normal; font-size: 12px; line-height: 1.25; color: var(--muted); }
 .screen-body[style*="background-image"] { min-height: min(72vh, 640px); }
+/* 2.2.5: на телефоне ряд вкладок не сжимается (в Лавке он схлопывался до 20px и прятался под подсказкой), список вещей в Кузнице выше */
+.modal .tabs { flex-shrink: 0; }
+@media (max-width: 700px) { .item-list.tall { max-height: min(52vh, 440px); } }
+
+/* 2.2.6: телефон — подпись под шкалой опыта переносится вместо «побе…», всплывающая подсказка карты внизу (не закрывает кнопки шапки), первая вкладка не тускнеет, бонусы комплекта свёрнуты */
+body.phone .me-txt > small { font-size: 11px; letter-spacing: -.2px; white-space: nowrap; overflow: visible; text-overflow: clip; }
+body.phone .map-toast, body.ui-columns.phone .map-toast { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+.modal .tabs:not(.sub) { -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%); mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%); }
+.set-more > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 2px 0; }
+/* 2.2.6: цели касания на телефоне не меньше 44 px (WCAG 2.5.5): вкладки, кнопки в карточках, списки */
+@media (pointer: coarse), (max-width: 700px) {
+  .modal .tabs button, .modal .tabs.sub button { min-height: 44px; }
+  .modal .card button, .modal .card-body button, .modal button.primary, .modal select, .modal .actions button { min-height: 44px; }
+}
+/* 2.2.7: тело окна заполняет высоту окна — раньше картинка фона обрывалась под содержимым, а ниже оставалась тёмная полоса */
+.modal > .screen-body { flex: 1 1 auto; min-height: 0; }
+
+/* 2.2.7: «Ускорение карты» (меню ☰): мир карты — отдельный слой, камера сдвигает его без перерисовки */
+body.map-gpu #map-world { transform-origin: 0 0; will-change: transform; }
+body.map-gpu #map-svg { transform: translateZ(0); }
+/* 2.2.7: первая вкладка в прокручиваемом ряду не прилипает к краю экрана */
+.modal .tabs:not(.sub) { padding-left: 16px; padding-right: 16px; scroll-padding-left: 16px; }
+/* 2.2.7: поле поиска в Базе знаний на телефоне было сплющено до 19 px */
+.wiki-q { min-height: 44px; font-size: 16px; line-height: 1.3; }
+/* 2.2.7: кнопки карточки вещи («Надеть», «Снять») закреплены внизу окна — раньше их приходилось искать, прокрутив всю карточку */
+.icard-modal .ic-act { position: sticky; bottom: 0; z-index: 3; background: #1c1810; border-top: 1px solid #8a6a3a; box-shadow: 0 -8px 14px rgba(0, 0, 0, .35); }
+.icard-modal .ic-act:empty { display: none; }
+.icard-modal .ic-act button { min-height: 44px; }
+.icard-modal .icard { overflow: clip; }   /* clip не создаёт своей прокрутки, поэтому закреплённый блок кнопок липнет к низу окна */
+.icard-modal .ic-act button.primary { background: var(--accent); color: #1b140a; border-color: transparent; font-weight: 700; }
+
+/* 2.2.7: в бою на телефоне (высокий экран) кнопки не ниже 44px: заклинания, расходники, панель. Поле при этом уменьшается не больше чем на 16px,
+   а на низких экранах (где места и так мало) прежние размеры остаются */
+@media (pointer: coarse) and (min-height: 760px) {
+  body.ui-columns.phone.mode-battle { --bar: 46px; --spc: 44px; --bagh: 44px; --pic: 44px; }
+  body.ui-columns.phone.mode-battle .bar .btns button { min-height: 44px; }
+}
+
+/* 2.2.7: сенсорные цели в Лавке и окнах — не меньше 44px; подписи фильтров чуть крупнее и светлее (контраст ≥ 4,5:1) */
+@media (pointer: coarse) {
+  .modal button.close, .modal .head button, .modal-back .actions button { min-height: 44px; min-width: 44px; }
+  input.cat-search { min-height: 44px; }
+  .modal button.tp { min-width: 44px !important; min-height: 44px !important; height: 44px !important; }
+  .modal .sh-btn { min-width: 44px !important; width: 44px !important; min-height: 44px !important; }
+  .modal .card-info { min-width: 44px !important; min-height: 44px !important; width: 44px !important; height: 44px !important; display: inline-flex !important; align-items: center; justify-content: center; }
+  .modal-back button:not(.primary):not(.ch-cell):not(.btile):not(.stash-cell) { min-height: 44px; }
+  .set-more > summary { min-height: 44px; display: flex; align-items: center; }
+}
+.modal label { color: #d6c4a0; font-size: 12px; }
+
+/* 2.2.7: приём существа картинкой; пока не заряжен — приглушён, перед срабатыванием — подсвечен */
+.enemy-col .ec-tile .ec-art { width: 82%; height: 82%; object-fit: contain; pointer-events: none; }
+.enemy-col .ec-tile.ability.idle { opacity: .5; filter: grayscale(.55); }
+.enemy-col .ec-tile.ability.ready { border-color: #ffd46a; box-shadow: 0 0 10px rgba(255, 212, 106, .6); }
+
+/* 2.2.7: приём существа как магия — строка над полем (на телефоне вместо текстовой подписи приёма) */
+.mob-magic { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 9px; border: 1px solid #8a4a3a; background: rgba(40, 22, 18, .88); color: #ecd7c4; align-self: stretch; overflow: hidden; }
+.mob-magic.ready { border-color: #ffd46a; box-shadow: 0 0 10px rgba(255, 212, 106, .5); }
+.mob-magic.idle { opacity: .6; filter: grayscale(.4); }
+.mob-magic.spent { opacity: .45; filter: grayscale(.7); }
+.mob-magic .mm-ic { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: rgba(0, 0, 0, .35); box-shadow: 0 0 8px rgba(190, 70, 50, .55); }
+.mob-magic .mm-art { width: 100%; height: 100%; object-fit: contain; }
+.mob-magic .mm-letter { font-style: normal; font-weight: 700; font-size: 18px; color: #f0c9a8; }
+.mob-magic .mm-tx { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mob-magic .mm-tx > b { font-size: 12px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mob-magic .mm-cost { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; line-height: 14px; }
+.mob-magic .mm-chip { display: inline-flex; align-items: center; gap: 2px; opacity: .75; }
+.mob-magic .mm-chip.ok { opacity: 1; color: #ffe9a8; }
+.mob-magic .mm-chip svg { width: 13px; height: 13px; }
+
+/* 2.2.8: контраст на окнах с картинкой-фоном (Торговые ряды и др.): подсказка плотнее, заголовки и подписи светлее */
+.tip-box { background: rgb(40, 30, 12) !important; }
+.screen-body[style*="background-image"] h3 { color: #d2c19a; }
+.screen-body[style*="background-image"] .hint { color: #dccda9; }
+
+/* 2.2.8: цели касания не меньше 24×24 (WCAG 2.5.8) и на компьютере: значок «Карточка предмета», заголовок «Бонусы комплекта» */
+.card-info { min-width: 24px; min-height: 24px; }
+@media (min-width: 701px) { .set-more > summary { min-height: 24px; display: flex; align-items: center; } }
+
+/* 2.2.8: строка магии существа над полем — компактнее на низких экранах, чтобы не отнимать высоту у поля */
+@media (max-height: 700px) {
+  .mob-magic { padding: 2px 6px; gap: 6px; }
+  .mob-magic .mm-ic { width: 28px; height: 28px; }
+  .mob-magic .mm-letter { font-size: 15px; }
+}
+
+/* 2.2.9: нижний ряд карточки героя — четыре равные ячейки на резных плашках с подписью; промежутки заполнены, а не пусты */
+.home-modal .doll-frame.p5 .df-hands { display: grid; grid-template-columns: repeat(4, 1fr); justify-content: stretch; align-items: stretch; gap: 0; padding: 0 1.5%; top: 77.2%; height: 20.2%; }
+.home-modal .df-hands .hand-cell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 5% 2% 4%; box-sizing: border-box; }
+.home-modal .df-hands .hand-cell + .hand-cell::before { content: ""; position: absolute; left: 0; top: 14%; bottom: 14%; width: 2px; border-radius: 1px; background: linear-gradient(180deg, transparent, rgba(190, 140, 70, .75) 25%, rgba(190, 140, 70, .75) 75%, transparent); box-shadow: 1px 0 0 rgba(0, 0, 0, .55); }
+.home-modal .doll-frame.p5 .df-hands .hand-cell .dslot, .home-modal .doll-frame.p5 .df-hands .hand-cell .dslot.beltslot { position: relative; left: auto; top: auto; width: auto; height: 76%; max-width: 94%; aspect-ratio: 1; flex: none; }
+.home-modal .df-hands .hand-cap { font-style: normal; font-size: clamp(9px, 2.2vw, 12px); line-height: 1; color: #c9b48a; text-shadow: 0 1px 1px #000; letter-spacing: .02em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ===================== Оформление боя «золото» (body.bt-gold) =====================
+   Рамки и панели из art/ui/battle3-*; картинки подставляет game.js через переменные --bt3-*. Раскладка не меняется. */
+body.bt-gold .board { box-shadow: none; border-radius: 6px; position: relative; overflow: visible; }
+body.bt-gold #bagbar { margin-top: 26px; }
+body.bt-gold .status { margin-bottom: 18px; }
+body.bt-gold .board::after {
+  content: ''; position: absolute; inset: -22.5%; pointer-events: none; z-index: 5;
+  background: var(--bt3-board) center / 100% 100% no-repeat;
+}
+body.bt-gold .fighter {
+  border: 26px solid transparent; border-image: var(--bt3-card) 60 fill / 26px stretch;
+  background: transparent; padding: 4px 6px; box-sizing: border-box;
+}
+body.bt-gold .fighter.active { border-color: transparent; filter: drop-shadow(0 0 6px rgba(255, 207, 99, .55)); }
+body.bt-gold .status {
+  background: var(--bt3-turn) center / 100% 100% no-repeat; border: 0; color: #ffe4a3; text-shadow: 0 1px 2px #000;
+  padding: 7px 18px; box-sizing: border-box;
+}
+body.bt-gold .spellbar, body.bt-gold .bagbar {
+  background: none; border: 10px solid transparent; border-image: var(--bt3-panel) 90 fill / 10px stretch; border-radius: 0;
+}
+body.bt-gold .spellbar button.magic {
+  background: transparent; border: 6px solid transparent; border-image: var(--bt3-slot-magic) 140 fill / 6px stretch;
+}
+body.bt-gold .bagbar button, body.bt-gold .bagbar .bagitem {
+  background: transparent; border: 6px solid transparent; border-image: var(--bt3-slot-item) 140 fill / 6px stretch;
+}
+body.bt-gold .status { min-height: 36px; display: flex; align-items: center; justify-content: center; line-height: 1.2; padding: 4px 22px; }
+@media (max-width: 700px) {
+  body.bt-gold .fighter { border-width: 13px; border-image-width: 13px; border-image-slice: 60 fill; padding: 0 2px; }
+  body.bt-gold .status { min-height: 30px; font-size: 13px; }
+}
+@media (max-width: 700px) {
+  body.bt-gold .board::after { inset: -23%; }
+  body.bt-gold .board { margin: 18px 14px 20px; }
+  body.bt-gold .status { margin-bottom: 4px; }
+  body.bt-gold #bagbar { margin-top: 4px; }
+}
+
+/* поправки оформления «золото»: карточки по размеру содержимого, компактная панель расходников */
+body.bt-gold .fighter { align-self: start; }
+body.bt-gold .fighter .avatar { margin-top: 2px; }
+body.bt-gold :is(#bagbar,[data-bid="bagbar"]) {
+  justify-self: center; width: fit-content; max-width: 100%; grid-template-columns: repeat(6, minmax(0, 46px)); gap: 3px; padding: 2px;
+}
+body.bt-gold .bagbar .bagitem { min-height: 0; }
+body.bt-gold .bagbar .bagitem .item-icon { width: 22px; height: 22px; }
+@media (max-width: 700px) {
+  body.ui-columns.phone.bt-gold { --board: min(calc(100vw - 54px), calc(100dvh - 350px)); }
+  body.bt-gold .board { margin: 18px auto 20px; }
+  body.bt-gold :is(#bagbar,[data-bid="bagbar"]) { grid-template-columns: repeat(5, minmax(0, 52px)); }
+}
+
+/* «золото»: столбец заклинаний вне рамки поля, слоты без двойных рамок; ранец по ширине поля */
+body.bt-gold.ui-columns .spellbar { border: 0; border-image: none; padding: 0; transform: translateX(-34px); }
+body.bt-gold.ui-columns .enemy-col { transform: translateX(34px); }
+body.bt-gold .spellbar button.magic { border: 0; border-image: none; background: var(--bt3-slot-magic) center / 100% 100% no-repeat; border-radius: 0; }
+body.bt-gold :is(#bagbar,[data-bid="bagbar"]) { width: var(--board); max-width: 100%; grid-template-columns: repeat(10, 1fr); }
+body.bt-gold .bagbar .bagitem .item-icon { width: min(26px, 70%); height: auto; aspect-ratio: 1; }
+@media (max-width: 700px) {
+  body.bt-gold.ui-columns .spellbar { transform: none; }
+  body.bt-gold :is(#bagbar,[data-bid="bagbar"]) { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* итог боя: журнал открыт — кнопка «На карту» не липнет поверх текста; текст журнала обычным шрифтом */
+.overlay > div:has(.battle-log:not([hidden])) .to-map { position: static; }
+.overlay .battle-log, .overlay .battle-log li { font-weight: 400; }
+.overlay .battle-log { font-size: 12.5px; line-height: 1.3; }
+.overlay .battle-log li b, .overlay .battle-log li strong { font-weight: 400; }
+
+.medal-round .mg-icon { gap: 0; }
+.medal-round .mg-img { width: 58%; height: auto; display: block; margin: 0 auto; }
+.medal-round .mg-icon small { margin-top: 0; font-size: 10px; font-weight: 700; color: #ffe4a3; text-shadow: 0 1px 2px #000; }
+.trophy-ic { vertical-align: middle; }
+.decor-ic { width: 1.5em; height: 1.5em; object-fit: contain; vertical-align: middle; }
+.home-slot .hs-ic .decor-ic { width: 44px; height: 44px; }
+.elx-enemy { justify-content: flex-end; }
+.elx-enemy .elx-badge.held { border-color: #b4552d; }
+.act-ic { width: 1.6em; height: 1.6em; object-fit: contain; vertical-align: middle; margin-right: 6px; }
+/* Здоровье бойцов показано в их карточках; верхняя плашка его не повторяет: в бою одному — скрыта целиком, с питомцем остаются только вкладки. */
+body.mode-battle .duo-bar.solo { display: none; }
+body.mode-battle .duo-tab .dt-hp, body.mode-battle .duo-tab small { display: none; }
+
+/* Карточка существа: три вида (js/mapview.js, decorateMobCard). */
+.map-card.mcv { position: relative; }
+.mc-skin { position: absolute; right: 12px; top: -11px; z-index: 2; padding: 2px 10px; font-size: 11px; border-radius: 10px; background: #1c1a17; color: #e0c07a; border: 1px solid #8a6d32; min-height: 0; }
+.mc-more { display: none; margin-top: 6px; padding: 3px 10px; font-size: 12px; min-height: 0; background: transparent; color: #e0c07a; border: 1px dashed #8a6d32; border-radius: 10px; }
+.map-card.mcv .mc-body .danger { display: inline-block; margin: 2px 0; }
+.map-card.mcv .chips { margin-top: 6px; }
+.map-card.mcv .mc-act .primary { background: linear-gradient(#e7c466, #b98a2c); color: #2a1c05; border-color: #f2d98a; font-weight: 700; }
+.map-card.mcv .mc-act button:not(.primary) { opacity: .85; }
+/* A: рамка */
+.mcv-a { border: 2px solid #c9a24a; border-top-width: 2px; border-radius: 14px; background: radial-gradient(120% 90% at 20% 0%, #3a3022, #1c1a17 70%); box-shadow: inset 0 0 0 3px #1c1a17, inset 0 0 0 4px #7a6230, 0 12px 40px rgba(0,0,0,.6); }
+.mcv-a .mc-art { width: 128px; align-self: flex-start; }
+.mcv-a .mc-art svg, .mcv-a .mc-art img { filter: drop-shadow(0 4px 8px #000a); }
+.mcv-a .mc-ability { margin: 8px 0 4px; padding: 6px 10px; border-left: 3px solid #c9a24a; background: #0005; border-radius: 0 8px 8px 0; color: #e8dcc0; }
+.mcv-a .mc-body > .hint { font-style: italic; opacity: .8; }
+/* B: шапка */
+.mcv-b { flex-direction: column; gap: 6px; padding: 0 0 12px; overflow: hidden; border-top: 0; }
+.mcv-b .mc-art { width: 100%; display: grid; place-items: center; padding: 14px 0 6px; background: radial-gradient(70% 100% at 50% 100%, color-mix(in srgb, var(--t, #6d8bd6) 55%, #000) , #14161a 75%); }
+.mcv-b .mc-art > * { width: 120px; max-width: 40%; }
+.mcv-b .mc-body { padding: 0 14px; text-align: center; }
+.mcv-b .mc-title { display: block; padding-right: 0; font-size: 20px; }
+.mcv-b { overflow: visible; } .mcv-b .mc-art { border-radius: 12px 12px 0 0; }
+.mcv-b .chips, .mcv-b .mc-drops, .mcv-b .mc-act { justify-content: center; }
+.mcv-b .mc-ability { text-align: left; }
+.mcv-b .mc-act button { flex: 1; }
+/* C: компакт */
+.mcv-c .mc-more { display: inline-block; }
+.mcv-c:not(.mc-open) .mc-ability, .mcv-c:not(.mc-open) .mc-body > .hint, .mcv-c:not(.mc-open) .mc-body > p { display: none; }
+.mcv-c:not(.mc-open) .mc-body > .grow-note { display: none; }
+.mcv-c .mc-art { width: 84px; }
+
+.card > .tal-ic{width:44px;height:44px;flex:none;object-fit:contain;margin-right:8px;align-self:center}
+img.spark-icon{object-fit:contain}
+
+.stat-ic{width:22px;height:22px;object-fit:contain;vertical-align:-6px;margin-right:5px;flex:none}
+.ic-stat .stat-ic{float:left;margin:1px 6px 0 0}
+.enemy-col .ec-glyph.ec-img{width:84%;height:84%;object-fit:contain;stroke:none}
+
+.card > .pet-ic{width:44px;height:44px;flex:none;object-fit:contain;margin-right:8px;align-self:center}
+
+.fam-ic{width:22px;height:22px;object-fit:contain;vertical-align:-6px;margin-right:5px}
+.wk-fam .fam-ic{width:28px;height:28px;vertical-align:-9px}
+.map-card .zone-ic{width:30px;height:30px;object-fit:contain;vertical-align:-9px;margin-right:6px}
+
+.key-glyph .key-img{width:40px;height:40px;object-fit:contain;display:block}

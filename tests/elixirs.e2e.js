@@ -19,7 +19,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       for (const [k, t, n] of [['power', 3, 2], ['defense', 4, 1], ['health', 2, 2], ['stones', 1, 1], ['swap', 1, 2], ['cunning', 5, 1]]) Profile.addElixir(k, t, n);
       const f = fighters.left, count = (k, t) => (Profile.elixirBag().find((e) => e.kind === k && e.tier === t) || { n: 0 }).n;
       busy = false; over = false; aiming = false;
-      applyLevel(); recalcStats('left'); f.elx = {}; f.elxCd = 0; f.counts = { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 };
+      applyLevel(); recalcStats('left'); f.elx = {}; f.elxCds = {}; f.counts = { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 };
 
       // 1. только в свой ход
       turnSide = 'right';
@@ -43,21 +43,21 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       for (let i = 0; i < 3; i++) { setTurn('right'); setTurn('left'); }
       o.defLeft3 = f.elx.defense.left;
 
-      // 4. Жизнь — цифрой; общий запас «раз в 3 хода» с Камнями
+      // 4. Жизнь — цифрой; общий запас «раз в ход» с Камнями
       f.hp = 10; const hp0 = f.hp, extra = Village.elixirExtra(Profile.data.village);
       o.drankHealth = useElixir('health', 2); o.healed = f.hp - hp0; o.healExpected = Math.min(f.max - hp0, Math.round(Elixirs.heal(2) * (1 + 0.05 * extra)));
-      o.stonesBlocked = useElixir('stones', 1); o.why = elxWhy('stones', 1);
-      o.cd = f.elxCd;
-      for (let i = 0; i < 3; i++) { setTurn('right'); setTurn('left'); }
-      o.cdLater = f.elxCd;
+      o.stonesBlocked = useElixir('health', 2); o.why = elxWhy('health', 2);
+      o.cd = f.elxCds.health;
+      setTurn('right'); setTurn('left');
+      o.cdLater = f.elxCds.health;
       // 5. Камни — по 4 каждого магического вида на 1-м цвете
       o.drankStones = useElixir('stones', 1);
       o.stones = ['sapphire', 'ruby', 'emerald'].map((t) => f.counts[t]); o.stonesExpected = Elixirs.stonesGain(1);
       // 6. Превращение: 5 камней самого частого вида → в самый редкий
-      for (let i = 0; i < 3; i++) { setTurn('right'); setTurn('left'); }
+      setTurn('right'); setTurn('left');
       f.counts = { sapphire: 9, ruby: 2, emerald: 5, onyx: 0 };
       o.drankSwap = useElixir('swap', 1); o.swapped = ['sapphire', 'ruby', 'emerald'].map((t) => f.counts[t]);
-      for (let i = 0; i < 3; i++) { setTurn('right'); setTurn('left'); }
+      setTurn('right'); setTurn('left');
       f.counts = { sapphire: 4, ruby: 4, emerald: 4, onyx: 0 };
       const before = count('swap', 1); o.swapEven = useElixir('swap', 1); o.swapEvenKept = count('swap', 1) === before; o.swapWhy = elxWhy('swap', 1);
       f.counts = { sapphire: 3, ruby: 0, emerald: 1, onyx: 0 };       // разница 3 — переносим один (половина разницы)
@@ -80,8 +80,8 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
     ok(r.keptOnExtra && r.goneAfterTurn, 'Сила живёт до конца хода (в т. ч. бонусного) и снимается при передаче хода');
     ok(r.drankDef && r.defLeft === 10 && r.defLeft3 === 7, 'Броня держится 10 своих ходов: ' + r.defLeft3);
     ok(r.drankHealth && r.healed === r.healExpected && r.healed > 0, `Жизнь лечит цифрой ${r.healed} из ${r.healExpected}`);
-    ok(r.stonesBlocked === false && r.cd === 3 && /раз в/.test(r.why), 'Камни не пьются сразу после Жизни (общий запас 3 хода): ' + r.why);
-    ok(r.cdLater === 0, 'через 3 хода запас восстановился: ' + r.cdLater);
+    ok(r.stonesBlocked === false && r.cd === 1 && /раз в/.test(r.why), 'Жизнь не пьётся дважды за ход: ' + r.why);
+    ok(r.cdLater === 0, 'со следующего хода запас восстановился: ' + r.cdLater);
     ok(r.drankStones && r.stones.every((n) => n === r.stonesExpected && n === 4), 'Камни: по 4 каждого вида на 1-м цвете: ' + r.stones);
     ok(r.drankSwap && JSON.stringify(r.swapped) === '[6,5,5]', 'Превращение: не больше половины разницы (9 и 2 → переносим 3, а не 5): ' + r.swapped);
     ok(r.swapEven === false && r.swapEvenKept && /поровну/.test(r.swapWhy), 'при равных камнях менять нечего, эликсир не тратится');

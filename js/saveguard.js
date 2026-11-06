@@ -45,6 +45,8 @@ const SaveGuard = (() => {
     // --- кошелёк, опыт, победы ---
     if (!Number.isFinite(d.coins) || d.coins < 0 || !Number.isInteger(d.coins)) { fix('coins'); d.coins = Number.isFinite(d.coins) && d.coins > 0 ? Math.floor(Math.min(d.coins, MAXN * 1000)) : 0; }
     if (!Number.isFinite(d.xp) || d.xp < 0) { fix('xp'); d.xp = 0; }
+    if (d.brewMade !== undefined && (!Number.isInteger(d.brewMade) || d.brewMade < 0)) { fix('brewMade'); d.brewMade = Math.max(0, Math.floor(nonNeg(d.brewMade))); }
+    if (d.shotSel !== undefined && (typeof d.shotSel !== 'string' || (d.shotSel && !SG_A.parse(d.shotSel).ok))) { fix('shotSel'); d.shotSel = ''; }
     if (!Number.isInteger(d.wins) || d.wins < 0) { fix('wins'); d.wins = Math.max(0, Math.floor(nonNeg(d.wins))); }
 
     // --- вещи: только настоящие, цвет 1..10, uid уникальны ---
@@ -102,7 +104,7 @@ const SaveGuard = (() => {
     d.backpack = counters(d.backpack, (k) => !!SG_G.CONSUMABLES[k], 'расходники');
     if (!isObj(d.elixirs)) d.elixirs = { active: {}, bag: {} };
     d.elixirs.bag = counters(d.elixirs.bag, elixKeyOk, 'эликсиры');
-    d.ammo = counters(d.ammo, (k) => !!SG_A.CATALOG[k], 'боеприпасы');
+    d.ammo = counters(d.ammo, (k) => SG_A.parse(k).ok, 'боеприпасы');
     if (Object.keys(refundRunes).length) { d.runeBag = isObj(d.runeBag) ? d.runeBag : {}; for (const k in refundRunes) d.runeBag[k] = (Number(d.runeBag[k]) || 0) + refundRunes[k]; }
     d.runeBag = counters(d.runeBag, (k) => !!SG_R.CATALOG[k], 'руны');
     if (d.eggs !== undefined) d.eggs = counters(d.eggs, (k) => !!SG_P.EGGS[k], 'яйца');
@@ -118,7 +120,7 @@ const SaveGuard = (() => {
       const lots = [], now = Date.now();
       for (const l of Array.isArray(d.market.lots) ? d.market.lots : []) {
         const base = isObj(l) && typeof l.id === 'string' && ['item', 'res', 'cons', 'ammo'].includes(l.kind) && Number.isFinite(l.price) && l.price > 0 && Number.isFinite(l.n) && l.n >= 1 && Number.isFinite(l.fair) && l.fair > 0;
-        const keyOk = base && (l.kind === 'item' ? validEntry(l.entry) : l.kind === 'res' ? resKeyOk(l.key) : l.kind === 'cons' ? !!SG_G.CONSUMABLES[l.key] : !!SG_A.CATALOG[l.key]);
+        const keyOk = base && (l.kind === 'item' ? validEntry(l.entry) : l.kind === 'res' ? resKeyOk(l.key) : l.kind === 'cons' ? !!SG_G.CONSUMABLES[l.key] : SG_A.parse(l.key).ok);
         if (!keyOk) { fix('лот убран'); continue; }
         const c = { ...l };
         if (!Number.isFinite(c.listedAt)) { c.listedAt = now; fix('лот: время'); }

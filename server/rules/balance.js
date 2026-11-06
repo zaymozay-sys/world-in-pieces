@@ -104,7 +104,7 @@ const Balance = {
     elixir: { power: 35 },
     dust: { stones: 3 },                       // камней каждого вида
     luck: { pct: 50 },                         // +% к монетам и ресурсам с победы в этом бою
-    // Банка мёда: 50/50 либо мгновенный прирост максимума ХП (держится до конца боя), либо один
+    // Настой стойкости: 50/50 либо мгновенный прирост максимума ХП (держится до конца боя), либо один
     // гарантированный блок следующего удара — какой из двух эффектов достанется, решает бросок при использовании.
     honeyjar: { hpChance: 0.5, hpPct: 0.25, shieldHits: 1 },
     stoneskin: { armor: 25 },                    // 1.3.6: Каменная кожа (Алхимик) — +25 Брони до конца боя (потолок Брони общий)
@@ -123,6 +123,40 @@ const Balance = {
   },
 
   // Приёмы существ (см. bestiary.js). every — «каждый N-й ход», chance — шанс в %.
+  // 2.2.7: приёмы существ платные — цена в камнях (сумма трёх цветов из счётчиков существа; камни существо копит само, собирая линии).
+  // mobStones=false возвращает прежние правила (отсчёт ходов / шанс). Приёмы без цены (Спороносец копит споры сам) не меняются.
+  mobStones: true,
+  // 2.2.7: «ум» существа. intelMin/intelMax — прибавка к уровню ИИ на 1-м и 10-м цвете (линейно); wantBonus — вес камня нужного цвета в оценке хода, пока приём не готов.
+  mobIntelMin: 0, mobIntelMax: 8, mobWantBonus: 0.6,
+  // Длительность дебаффов существ (в ходах героя) растёт с цветом линейно от min (1-й цвет) до max (10-й): Морок, Трясина, Липкость.
+  mobEffectTurns: { weaken: { min: 1, max: 3 }, mire: { min: 1, max: 3 }, sap: { min: 1, max: 2 } },
+  // Цена «лёгких» приёмов на цветах 1, 2, 3 (дальше — обычная из abilityStones): чтобы в первых боях приём срабатывал.
+  mobEarlyCost: { steal: [3, 3, 4], prank: [3, 3, 4], pinch: [3, 3, 4] },
+  mobHold: true,   // умное существо иногда придерживает платный приём (Combat.holdAbility)
+  mobPayShare: Number(typeof process !== 'undefined' && process.env && process.env.PAYSHARE) || 1,   // доля цены, списываемая со счётчиков существа (1 — полная цена, как у заклинаний героя)
+  mobCostMul: Number(typeof process !== 'undefined' && process.env && process.env.COSTMUL) || 1,   // общий множитель цен приёмов (для подбора симулятором)
+  // Усиление существа статами по смыслу приёма (в «врождённых» единицах, растут с цветом как остальные статы существа).
+  mobAbilityStats: {
+    steal: { cunning: 6 }, howl: { power: 12 }, backstab: { fury: 6 }, prank: { initiative: 6 }, undying: { defense: 6 }, charge: { power: 10 },
+    regen: { defense: 5 }, petrify: { defense: 6 }, veil: { block: 5 }, breath: { power: 12, ricochet: 3 }, rage: { power: 12, fury: 4 },
+    drum: { power: 10 }, vampire: { fury: 6 }, weaken: { block: 5 }, pinch: { defense: 8 }, mire: { block: 5 }, sap: { defense: 6 },
+    evasion: { block: 6 }, retribution: { ricochet: 6 }, stun: { power: 12 }, toxin: { power: 10 }, ward: { defense: 8 },
+  },
+  mobStartStones: true,   // на старте боя у существа камни на один приём (по трети цены на цвет)
+  mobHpMulMin: Number(typeof process !== 'undefined' && process.env && process.env.HPMIN) || 1.4,   // здоровье существ 1-го цвета (множитель)
+  mobHpMul: Number(typeof process !== 'undefined' && process.env && process.env.HPMUL) || 2.8,   // компенсация: платные приёмы дороже прежних, поэтому существа крепче
+  /* Цена приёма — в камнях трёх цветов (как у заклинаний героя, у которых «по N каждого цвета»). Три вида цены:
+       { each: n }          — по n камней КАЖДОГО цвета (дорого: нужен запас всех трёх);
+       { any: n }           — n камней любых цветов суммой;
+       { color: 'ruby', n } — n камней одного цвета (дёшево: копится быстро).
+     Оплата полная. Сложность существа задаётся ценой приёма: меняйте числа здесь (общий множитель — mobCostMul). */
+  abilityStones: {
+    steal: { any: 5 }, howl: { each: 2 }, backstab: { color: 'ruby', n: 3 }, prank: { any: 5 }, undying: { each: 3 }, charge: { each: 1 },
+    regen: { color: 'emerald', n: 2 }, petrify: { each: 2 }, veil: { color: 'sapphire', n: 3 }, breath: { color: 'ruby', n: 5 },
+    rage: { color: 'ruby', n: 2 }, drum: { each: 2 }, vampire: { color: 'ruby', n: 2 }, weaken: { color: 'sapphire', n: 5 },
+    pinch: { any: 5 }, mire: { color: 'emerald', n: 3 }, sap: { color: 'emerald', n: 5 }, evasion: { any: 5 }, retribution: { any: 5 },
+    stun: { each: 3 }, toxin: { color: 'emerald', n: 6 }, ward: { color: 'sapphire', n: 6 },
+  },
   abilities: {
     steal:    { chance: 35, stones: 2 },
     howl:     { every: 3, power: 50 },
@@ -171,6 +205,26 @@ const Balance = {
   // Проворство: шанс первого хода = 50 + (ваша − его), в пределах.
   initiative: { base: 50, min: 5, max: 95 },
 
+  // 2.2.9: варка зарядов в Кузнице. share — доля цены покупки в Лавке, которую стоит вход (ресурсы + комиссия) для обычного заряда;
+  // mul — множитель этой доли для усиленных. Группы — роли ресурсов (как «свой ресурс» эликсиров): hard — сила, hunt — хитрость,
+  // heal — жизнь, charm — магия, light — скорость. mastery — число сваренных штук для уровней мастерства 1…5.
+  brew: {
+    share: 0.65, fee: 0.3,
+    groups: {
+      hard:  { mul: 1.35, res: ['fang', 'ore', 'scrap', 'horn', 'chitin', 'granite', 'nugget', 'graphite'] },
+      hunt:  { mul: 1.35, res: ['silk', 'feather', 'bone'] },
+      heal:  { mul: 1.45, res: ['honey', 'shell', 'hide', 'resin'] },
+      charm: { mul: 1.6,  res: ['crystal', 'essence', 'selenite', 'fluorite', 'mica', 'quartz', 'malachite'] },
+      light: { mul: 1.8,  res: ['splinter', 'scale'] },
+    },
+    mastery: [0, 10, 30, 70, 150],
+    unlock: { hard: 2, hunt: 2, heal: 3, charm: 3, light: 4 },   // уровень мастерства, с которого доступен заряд
+    bonusOutLevel: 3,                                              // с этого уровня усиленные заряды выходят на 1 штуку больше (цена растёт пропорционально)
+    // свойства зарядов (этап 2): hard — урон ×; hunt — множители слабости/стойкости; heal — доля лечения «Эликсира жизни» своего цвета;
+    // charm — камней каждого цвета (стреле вместо этого кража на charmSteal); light — один дополнительный выстрел за бой
+    mods: { hardDmg: 1.25, huntWeak: 1.75, huntResist: 0.85, healShare: 0.4, charmStones: 1, charmSteal: 3 },
+  },
+
   // Награды за победу.
   rewards: {
     coinBase: 0.4,                 // доходы и траты «за уровень» (сундуки, арена, сюжет, деревня)
@@ -194,7 +248,7 @@ const Balance = {
     // (см. эффективные ХП/урон в Bestiary.scaled и отчёт tools/sim.js — карточка на карте всегда
     // показывает оценку «в среднем», разброс по размеру роя — на игроке).
     // offset = прежний (Balance.danger HEAD 2.0.3) + сдвиг симулятора при переходе на плоскую Силу (tools/fit-danger.js: разница offset по старому и новому расчёту)
-    offset: { scorp1: -0.06, scorp2: -0.06, scorp3: -0.06, scorp4: -0.06, scorp5: -0.06, scorp6: -0.06, scorp7: -0.06, scorp8: -0.06, scorp9: -0.06, scorp10: -0.06, selenebat: -0.98, nuggetmole: 0.01, fluoritefly: -1.35, granitespirit: 0.04, malachitelizard: -0.82, micabeetle: 0.32, quartzspider: -0.85, graphitegolem: 0.55, rat: 0.88, wolf: 0.1, bandit: 0.4, goblin: 0.42, skeleton: -0.1, boar: 0.28, troll: -0.47, golem: 0.59, wraith: -0.63, dragon: -0.67, orc: -0.2, orcShaman: -1.0, ghoul: -0.2, crab: 0.41, bolotnik: 0.72, shadow: -1.03, treant: 0.38, mushroom: -1.79, lynx: 0.88, hedgehog: 0.89, wildbees: -0.03, viper: 2.03, spider: 2.08, vulture: 1.71, wisp: -0.05, gull: 2.35, hermit: 2.59, smuggler: 1.76, captain: 0.81, pike: 1.16, fox: 0.68, badger: 0.75, owl: 1.19, otter: 0.89, heron: 0.63, elk: 0.58, goat: 1.21, eagle: 0.5, rhino: 0.77, leopard: 0.83, leech: 0.84, glowmaw: 0.67, coralhulk: 0.88, stormray: 0.72, tidecaller: 0.6, thornback: 1.15, mimic: 1.0, salamander: 1.37, bear: 1.13, griffin: 0.91, wyvern: 1.29, basilisk: 0.61, ironscarab: 0.93, rocklizard: 0.94, moonmoth: 1.07, bumblebee: 0.72, forestling: 1.18, barrowman: 0.5, crystalid: 1.07, firetail: 0.73, weaver: 0.86, carapace: 1.15, ironguard: 0.84, boneknight: 0.84, ogre: 0.65, berserk: 1.17, assassin: 0.52, pinestump: 0.81, ramtur: 0.88, beetle: 1.18, mantis: 1.04 },
+    offset: { rat: -0.27, wolf: 0.31, bandit: -0.71, goblin: 0.12, skeleton: -1.06, boar: -0.97, troll: -1.25, golem: 0.79, wraith: -0.51, dragon: -0.26, orc: -0.28, orcShaman: -2.58, ghoul: -1.04, crab: 0.41, bolotnik: 0.32, shadow: -0.03, treant: 0.3, mushroom: -2.68, lynx: -0.31, hedgehog: -0.64, wildbees: -0.55, viper: -0.9, spider: -0.61, vulture: -1.15, wisp: -3.53, gull: -0.41, hermit: -0.08, smuggler: 0.19, captain: -0.17, pike: -0.93, fox: -0.74, badger: 0.04, owl: -0.4, otter: -0.92, heron: -1.11, elk: -0.88, goat: -1.13, eagle: -0.16, rhino: -0.67, leopard: -1.06, leech: -0.98, glowmaw: -0.29, coralhulk: -0.58, stormray: -0.62, tidecaller: 0.18, thornback: -0.47, mimic: 0.29, salamander: -1.26, bear: -0.11, griffin: -0.04, wyvern: -0.02, basilisk: -0.06, ironscarab: -0.7, rocklizard: -0.17, moonmoth: -0.15, bumblebee: -0.81, forestling: 0.58, barrowman: -1.24, crystalid: -0.19, firetail: -1.49, weaver: 0.32, carapace: -0.16, ironguard: -1.13, boneknight: -0.64, ogre: -0.73, berserk: -1.06, assassin: -1.27, pinestump: 0.6, ramtur: -1.12, beetle: -0.66, mantis: 0.17, selenebat: -0.73, nuggetmole: -1.08, fluoritefly: -0.23, granitespirit: -0.47, malachitelizard: -1.06, micabeetle: 0.24, quartzspider: -1.49, graphitegolem: -0.52, scorp1: -0.06, scorp2: -0.06, scorp3: -0.06, scorp4: -0.06, scorp5: -0.06, scorp6: -0.06, scorp7: -0.06, scorp8: -0.06, scorp9: -0.06, scorp10: -0.06 },
     bands: { easy: 0.8, even: 0.55, hard: 0.35 },
   },
 

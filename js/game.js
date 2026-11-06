@@ -261,7 +261,7 @@ function buildFighter(side) {
 const enemyBag = (level) => Combat.enemyBag(level);
 // Все баффы урона: эликсир силы, Знамя людей, Вой волка.
 const buffPower = (f) => Combat.buffPower(f);
-const BUFF_NAMES = { power: _t("Боевой настой"), banner: _t("Знамя"), howl: _t("Вой"), weaken: _t("Морок"), mire: _t("Трясина"), sap: _t("Липкость") };
+const BUFF_NAMES = { power: _t("Боевой настой"), banner: _t("Знамя"), howl: _t("Вой"), rage: _t("Ярость"), weaken: _t("Морок"), mire: _t("Трясина"), sap: _t("Липкость") };
 const WEAPON_PERK_NAMES = { pierceBlock: _t("Пробивной болт (иногда пробивает Блок)"), armorShred: _t("Крошит Броню с каждым ударом") };
 const itemColor = (it) => (it.set && Gear.SETS[it.set] ? Gear.SETS[it.set].color : Gear.NEUTRAL_COLOR);
 // Идёт ли бой (или игрок на карте). Снаряжение можно менять вне боя, до первого хода и после конца боя.
@@ -306,7 +306,7 @@ function recalcStats(side) {
   f.max = (side === 'left' ? f.base * testMult() : f.base) + f.stats.health;
   if (side === 'left' && f.bless === 'stone') f.max = Math.round(f.max * (1 + World.BLESSINGS.stone.amount / 100));   // 1.5.4: алтарь
   if (f.elx && f.elx.road && f.elx.road.left > 0) f.max = Math.round(f.max * (1 + Elixirs.ROAD_HP));   // 2.0.7: «Тоник дороги»
-  if (f.tempMax) f.max += f.tempMax;                                      // Банка мёда
+  if (f.tempMax) f.max += f.tempMax;                                      // Настой стойкости
   f.hp = Math.min(f.hp, f.max);
   f.weaponPerk = Gear.weaponPerk(f.gear);                       // приём особого оружия (арбалет, утренняя звезда)
 }
@@ -565,6 +565,7 @@ function renderFighters() {
   renderSkyFx();
   renderClonePanel();                                      // двойник Дикого гриба (скрыт, если его нет)
   renderElxBadges();
+  renderEnemyElx();
   renderMagic();
 }
 
@@ -685,11 +686,12 @@ function renderBag() {
   if (!bagEl) return;
   const bag = Profile.data.backpack;
   // Подписи под иконками убраны (экономят место в бою) — название и описание уходят в title (подсказка при наведении).
-  const ak = Profile.shotKind(), A = Ammo.CATALOG[ak], an = Profile.ammo(ak);
-  const ammoBtn = _t("<button type=\"button\" class=\"bagitem ammo {0}\" data-ammo=\"{1}\" title=\"{2} (выстрел хода не тратит, один за ход): {3}\" {4}>\n       {5}<b>{6}</b></button>", [aiming && aimKind === 'bomb' ? 'on' : '', ak, A.name, A.desc, ammoDisabled() ? 'disabled' : '', Ammo.icon(ak), an]);
+  const ak = Profile.shotKey(), A = Ammo.CATALOG[Ammo.parse(ak).kind], an = Profile.ammo(ak), av = Ammo.parse(ak).variant;
+  const ammoBtn = _t("<button type=\"button\" class=\"bagitem ammo {0}\" data-ammo=\"{1}\" title=\"{2} (выстрел хода не тратит, один за ход): {3}\" {4}>\n       {5}<b>{6}</b></button>", [aiming && aimKind === 'bomb' ? 'on' : '', ak, Ammo.stockName(ak), A.desc + (av ? ' ' + Ammo.VDESC[av] : ''), ammoDisabled() ? 'disabled' : '', Ammo.icon(ak), an]);
+  const cycBtn = Profile.shotStocks().length > 1 ? `<button type="button" class="bagitem ammocycle" data-ammocycle title="${_t("Сменить заряд")}" aria-label="${_t("Сменить заряд")}" ${busy || over || aiming || turnSide !== 'left' ? 'disabled' : ''}><b>⇄</b></button>` : '';
   const nElx = Profile.elixirBag().reduce((a, e) => a + e.n, 0);
   const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || cardFight() || !!LIVE || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
-  bagEl.innerHTML = ammoBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).map(([k, c]) =>
+  bagEl.innerHTML = ammoBtn + cycBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).map(([k, c]) =>
     `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? (bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
        ${itemIcon(k)}<b>${bag[k] || 0}</b></button>`).join('');
   for (const bt of bagEl.querySelectorAll('button.bagitem.ammo, button.bagitem.elxmenu')) {      // 1.6.4: остальные два тоже получают состояние и подпись
@@ -699,11 +701,12 @@ function renderBag() {
   }
 }
 function ammoDisabled() {
-  const ak = Profile.shotKind();
+  const ak = Profile.shotKey();
   if (aiming && aimKind === 'bomb') return false;            // повторное нажатие снимает прицел
-  return busy || over || aiming || turnSide !== 'left' || fighters.left.ammoShot || !(Profile.ammo(ak) > 0) || isChallenge() || !!LIVE;
+  return busy || over || aiming || turnSide !== 'left' || (fighters.left.ammoShot && !(Ammo.parse(ak).variant === 'light' && !fighters.left.lightUsed)) || !(Profile.ammo(ak) > 0) || isChallenge() || !!LIVE;
 }
 if (bagEl) bagEl.addEventListener('click', (e) => {
+  if (e.target.closest('[data-ammocycle]')) { if (!e.target.closest('button').disabled) { Profile.cycleShot(); renderBag(); } return; }
   if (e.target.closest('[data-elxmenu]')) { if (!e.target.closest('button').disabled) openElxMenu(); return; }
   const a = e.target.closest('button.bagitem.ammo');
   if (a) { if (!a.disabled) useAmmo(a.dataset.ammo); return; }
@@ -712,16 +715,24 @@ if (bagEl) bagEl.addEventListener('click', (e) => {
 });
 
 // Боеприпас (js/ammo.js): ход не тратит, один выстрел за свой ход. Шашка гномов — с прицелом по клетке.
-function useAmmo(kind, cell = null) {
-  const f = fighters.left, e = fighters.right, A = Ammo.CATALOG[kind];
-  if (!A || f.ammoShot || !(Profile.ammo(kind) > 0)) return;
+function useAmmo(stockKey, cell = null) {
+  const f = fighters.left, e = fighters.right, P = Ammo.parse(stockKey), kind = P.kind, variant = P.variant, A = Ammo.CATALOG[kind];
+  const extra = variant === 'light' && !f.lightUsed;                          // «Лёгкий»: один дополнительный выстрел за бой, свой выстрел хода не занимает
+  if (!A || !P.ok || (f.ammoShot && !extra) || !(Profile.ammo(stockKey) > 0)) return;
   if (A.aim && !cell) { toggleAim('bomb'); renderBag(); return; }
   if (busy || over || turnSide !== 'left') return;
-  Profile.takeAmmo(kind);
-  f.ammoShot = true;
+  Profile.takeAmmo(stockKey);
+  if (extra) f.lightUsed = true; else f.ammoShot = true;
   const base = Math.round(Combat.strikeDamage(f) * Gear.shotMult(Profile.gear()) * (!isChallenge() && !cardFight() && Profile.perk('shot') ? 1.35 : 1));   // метательное оружие: сила по цвету
-  const fam = (Bestiary.MONSTERS[e.monsterId] || {}).family, am = Ammo.mult(kind, fam);   // 1.5.1: слабости семейств
-  if (am > 1) showFloat('right', _t("Слабое место!"), 'crit'); else if (am < 1) showFloat('right', _t("Не берёт!"), 'debuff');
+  const fam = (Bestiary.MONSTERS[e.monsterId] || {}).family, am = Ammo.multV(kind, fam, variant) * Ammo.dmgMul(variant);   // 1.5.1: слабости семейств; 2.2.9: свойство заряда
+  const weakM = Ammo.multV(kind, fam, variant);
+  if (weakM > 1) showFloat('right', _t("Слабое место!"), 'crit'); else if (weakM < 1) showFloat('right', _t("Не берёт!"), 'debuff');
+  if (variant) {
+    const hl = Ammo.healAmount(variant, Elixirs.heal(Hero.tierFor(Profile.level())));
+    if (hl > 0) { const before = f.hp; f.hp = Math.min(f.max, f.hp + hl); if (f.hp > before) { SND.heal(); showCenterPop('+' + (f.hp - before), 'heal', Ammo.VNAME[variant]); logEvent('left', _t("{0}: {1} заряд лечит на {2} ХП", [f.name, Ammo.VNAME[variant], f.hp - before])); } }
+    const cs = Ammo.charmStones(kind, variant);
+    if (cs > 0) { for (const t of MAGIC_TYPES) f.counts[t] += cs; renderCounters('left'); logEvent('left', _t("{0}: {1} заряд приносит по {2} камню каждого цвета", [f.name, Ammo.VNAME[variant], cs])); }
+  }
   if (kind === 'bolt') {
     const dealt = dealDamage('right', Math.round(Ammo.boltDamage(base) * am), true);
     e.buffs = []; e.shield = 0; e.mirrorReady = false; e.tripleNext = false;
@@ -730,7 +741,7 @@ function useAmmo(kind, cell = null) {
     logEvent('left', _t("{0}: Освящённый болт — урон {1}, усиления и щит противника сняты", [f.name, dealt]));
   } else if (kind === 'moonarrow') {
     const dealt = dealDamage('right', Math.round(Ammo.arrowDamage(base) * am), true);
-    const got = Ammo.steal(e.counts, MAGIC_TYPES);
+    const got = Ammo.steal(e.counts, MAGIC_TYPES, Ammo.stealCount(kind, variant));
     for (const [t, n] of Object.entries(got)) { e.counts[t] -= n; f.counts[t] += n; }
     renderCounters('left', Object.keys(got)); renderCounters('right');
     SND.lightning();
@@ -806,11 +817,11 @@ function useConsumable(side, kind) {
   } else if (kind === 'honeyjar') {
     SND.heal();
     if (ef.mode === 'hp') {
-      showCenterPop('+' + ef.amount, 'heal', _t("Банка мёда"));
-      logEvent(side, _t("{0}: Банка мёда — +{1} к максимуму ХП до конца боя", [f.name, ef.amount]));
+      showCenterPop('+' + ef.amount, 'heal', _t("Настой стойкости"));
+      logEvent(side, _t("{0}: Настой стойкости — +{1} к максимуму ХП до конца боя", [f.name, ef.amount]));
     } else {
-      logEvent(side, _t("{0}: Банка мёда — следующий удар по нему будет заблокирован", [f.name]));
-      note(_t("{0}: Банка мёда даёт заряд блока", [f.name]));
+      logEvent(side, _t("{0}: Настой стойкости — следующий удар по нему будет заблокирован", [f.name]));
+      note(_t("{0}: Настой стойкости даёт заряд блока", [f.name]));
     }
   }
   bag[kind]--;
@@ -1016,7 +1027,7 @@ function renderMagic() {
       const fs = furyState();
       if (!fs.ok) btn.title += _t("\nНужно, чтобы камней вашего цвета ({0}) на поле было больше, чем любого другого, с учётом номиналов (сейчас: {1} против {2})", [GEM_NAMES[GEM_TYPES[fs.home]], fs.mine, fs.other]);
     }
-    btn.innerHTML = spellIconHtml(kind, 'bar-' + kind) + (!locked && cost ? `<i class="sp-cost" aria-hidden="true">${cost}</i>` : '');
+    btn.innerHTML = spellIconHtml(kind, (PET ? 'pbar-' : 'bar-') + kind) + (!locked && cost ? `<i class="sp-cost" aria-hidden="true">${cost}</i>` : '');
     btn.classList.toggle('locked', !!locked);
     btn.classList.toggle('new-spell', !!(needLvl && !locked && Profile.data.spellSeen && !Profile.data.spellSeen[kind]));
     btn.disabled = spellDisabled(kind, on, ready);
@@ -1049,10 +1060,36 @@ function renderBadge(side) {
   if (side === 'right') { renderEnemyColumn(); renderAbilityLine(); }
 }
 
+// 2.2.7: цена платного приёма словами: «по 2 каждого цвета», «5 любых», «3 рубина».
+const GEM_ACC = { sapphire: _t("сапфира"), ruby: _t("рубина"), emerald: _t("изумруда") };
+function mobCostText(spec) {
+  if (!spec) return '';
+  if (spec.mode === 'each') return _t("по {0} каждого цвета", [spec.n]);
+  if (spec.mode === 'color') return `${spec.n} ${GEM_ACC[spec.color] || spec.color}`;
+  return _t("{0} любых", [spec.n]);
+}
+function mobHaveText(f) { return MAGIC_TYPES.map((t) => f.counts[t] || 0).join('/'); }
+// 2.2.7: приём существа как «магия» — строка над полем: значок (рисунок art/spells/mob-<приём>.webp или буква), цена камнями; приглушён, пока камней не хватает.
+// Возвращает '' для существа без платного приёма (тогда показывается обычная подпись).
+function mobMagicHtml(f) {
+  const nmv = Combat.nextMove(f), A = Bestiary.ability(f.monsterId) || (f.ability && Bestiary.ABILITIES[f.ability]);
+  if (!nmv || !nmv.paid || !nmv.spec || !A || !A.name) return '';
+  const e = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const sp = nmv.spec, mk = 'spells/mob-' + f.ability, cnt = f.counts || {};
+  const glyph = (typeof Art !== 'undefined' && Art.has(mk)) ? `<img class="mm-art" src="${Art.url(mk)}" alt="" draggable="false">` : `<i class="mm-letter">${e(A.name[0])}</i>`;
+  const chip = (t, n) => `<span class="mm-chip${(cnt[t] || 0) >= n ? ' ok' : ''}" title="${e(GEM_NAMES[t] || t)}">${GEM_SVG[t] || ''}<b>${Math.min(cnt[t] || 0, n)}/${n}</b></span>`;
+  const cost = sp.mode === 'each' ? MAGIC_TYPES.map((t) => chip(t, sp.n)).join('')
+    : sp.mode === 'color' ? chip(sp.color, sp.n)
+    : `<span class="mm-chip${nmv.have >= sp.n ? ' ok' : ''}"><b>${Math.min(nmv.have, sp.n)}/${sp.n}</b> ${e(_t("любых"))}</span>`;
+  const cls = nmv.ready ? 'ready' : nmv.spent ? 'spent' : 'idle';
+  return `<div class="mob-magic ${cls}" role="note" title="${e(`${A.name}: ${A.desc}\n${_t("Цена: {0}", [mobCostText(sp)])}`)}"><span class="mm-ic">${glyph}</span><span class="mm-tx"><b>${e(A.name)}</b><span class="mm-cost">${nmv.spent ? e(_t("уже использован")) : cost}</span></span></div>`;
+}
+window.mobMagicHtml = mobMagicHtml;
 // 1.7.3: подпись «что дальше» — рядом с названием приёма (во всех оформлениях, где строка приёма видна).
 function nextMoveText(f) {
   const nm = Combat.nextMove(f);
   if (!nm) return '';
+  if (nm.paid) return nm.spent ? _t("уже использован") : _t("цена: {0}", [mobCostText(nm.spec)]) + (nm.ready ? _t(" — готов") : '');
   if (nm.left !== undefined) return nm.left === 1 ? _t("в ближайший ход") : _t("через {0} {1}", [nm.left, turnsWord(nm.left)]);
   if (nm.once) return nm.spent ? _t("уже использован") : nm.kind === 'undying' ? _t("воскреснет один раз") : _t("первый удар двойной");
   if (nm.kind === 'rage') return nm.hot ? _t("в ярости!") : _t("при ХП ниже {0}%", [nm.below]);
@@ -1071,7 +1108,7 @@ function renderAbilityLine() {
   if (!sp) { sp = document.createElement('span'); sp.className = 'next'; line.appendChild(sp); }
   const nm = fighters.right.hp > 0 ? Combat.nextMove(fighters.right) : null, t = nextMoveText(fighters.right);
   sp.textContent = t ? ' · ' + t : '';
-  const soon = !!nm && (nm.left === 1 || (nm.kind === 'rage' && nm.hot));
+  const soon = !!nm && (nm.paid ? nm.ready : (nm.left === 1 || (nm.kind === 'rage' && nm.hot)));
   sp.classList.toggle('soon', soon);
   // Узкий экран: строка приёма и значки скрыты, поэтому та же подпись — в хвосте строки хода (#status::after, см. CSS).
   const ab = enemyAbility(fighters.right);
@@ -1096,12 +1133,12 @@ const EC_GLYPH = {
   sand:   '<path d="M6 3h12M6 21h12M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/>',
   spores: '<circle cx="8" cy="9" r="2.6"/><circle cx="15.5" cy="7" r="1.8"/><circle cx="15" cy="15" r="3"/><circle cx="7.5" cy="17" r="1.6"/>',
 };
-const ecSvg = (g) => `<svg class="ec-glyph" viewBox="0 0 24 24" aria-hidden="true">${EC_GLYPH[g]}</svg>`;
+const ecSvg = (g) => (typeof Art !== 'undefined' && Art.has('ui/fx-' + g)) ? `<img class="ec-glyph ec-img" src="${Art.url('ui/fx-' + g)}" alt="" draggable="false">` : `<svg class="ec-glyph" viewBox="0 0 24 24" aria-hidden="true">${EC_GLYPH[g]}</svg>`;
 // Подпись «через N ход/хода/ходов».
 const turnsWord = (n) => (n % 10 === 1 && n % 100 !== 11 ? _t("ход") : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? _t("хода") : _t("ходов"));
 // Свои имена эффектов для столбца (у BUFF_NAMES нет Изворотливости и Возмездия — бейдж «1/2» не трогаем).
 const EC_BUFFS = {
-  power: ['power', _t("Боевой настой"), _t("урон выше")], banner: ['power', _t("Знамя"), _t("урон выше")], howl: ['power', _t("Вой"), _t("удар сильнее")],
+  power: ['power', _t("Боевой настой"), _t("урон выше")], banner: ['power', _t("Знамя"), _t("урон выше")], howl: ['power', _t("Вой"), _t("удар сильнее")], rage: ['power', _t("Ярость"), _t("удар сильнее")],
   weaken: ['down', _t("Морок"), _t("урон слабее")], mire: ['down', _t("Трясина"), ''], sap: ['down', _t("Липкость"), ''],
   evasion: ['shield', _t("Изворотливость"), _t("Блок")], retribution: ['spikes', _t("Возмездие"), _t("Рикошет")],
 };
@@ -1133,6 +1170,7 @@ function renderEnemyColumn() {
   if (ab) {
     const A = Balance.abilities[f.ability] || {};
     let num = '', state = '', cls = 'ability';
+    const nmv = Combat.nextMove(f);
     if (A.every) {
       const left = A.every - ((f.turnNo || 0) % A.every);
       num = left;
@@ -1141,8 +1179,16 @@ function renderEnemyColumn() {
     if (f.ability === 'rage' && f.hp > 0 && f.hp < f.max * A.below) { cls += ' hot'; state = _t("\nСейчас в ярости!"); }
     if ((f.ability === 'undying' && f.revived) || (f.ability === 'charge' && f.charged)) { cls += ' spent'; state = _t("\nУже использован в этом бою"); }
     if (f.ability === 'pinch' && f.stats.block) state += _t("\nБлок сейчас: {0}%", [f.stats.block]);
-    if (!A.every && nextMoveText(f)) state += '\n' + nextMoveText(f);
-    top.push(tile(cls, `<i class="ec-letter">${ab.name[0]}</i>`, _t("Приём: {0}\n{1}{2}", [ab.name, ab.desc, state]), num));
+    if (!A.every && !(nmv && nmv.paid) && nextMoveText(f)) state += '\n' + nextMoveText(f);
+    // 2.2.7: приём показан картинкой art/spells/mob-<приём>.webp (нет рисунка — первая буква). Приём с отсчётом «каждый N-й ход» приглушён, пока не заряжен, и ярче перед срабатыванием.
+    if (nmv && nmv.paid) {                                   // платный приём: значок яркий, когда хватает камней, иначе приглушён
+      cls += nmv.ready ? ' ready' : nmv.spent ? ' spent' : ' idle';
+      num = nmv.spent ? '' : nmv.cost;
+      state = '\n' + (nmv.spent ? _t("Уже использован в этом бою") : _t("Цена: {0}. У существа (сапфир/рубин/изумруд): {1}", [mobCostText(nmv.spec), mobHaveText(f)]));
+    } else if (A.every) cls += (A.every - ((f.turnNo || 0) % A.every)) <= 1 ? ' ready' : ' idle';
+    const mobKey = 'spells/mob-' + f.ability;
+    const glyph = (typeof Art !== 'undefined' && Art.has(mobKey)) ? `<img class="ec-art" src="${Art.url(mobKey)}" alt="" draggable="false">` : `<i class="ec-letter">${ab.name[0]}</i>`;
+    top.push(tile(cls, glyph, _t("Приём: {0}\n{1}{2}", [ab.name, ab.desc, state]), num));
   }
   if (f.ward > 0) top.push(tile('buff', ecSvg('shield'), _t("Щит: примет ещё {0} урона, прежде чем существо начнёт терять ХП", [f.ward]), f.ward));
   // Споры Спороносца — пока не исчерпан лимит двойников за бой.
@@ -1198,7 +1244,7 @@ function renderFactionButton() {
   // Подпись на кнопке убрана (экономит место в бою) — название, описание и заряд уходят в title при наведении.
   btn.title = on ? _t("{0} — Выберите столбец", [fac.ability.name])
     : _t("{0}: {1}. Заряжается камнями «{2}» ({3}/{4}). Ход не тратит.", [fac.ability.name, fac.ability.desc, GEM_NAMES[fac.gem], charge, CHARGE]);
-  btn.innerHTML = `${spellIconHtml('faction', 'bar-faction')}
+  btn.innerHTML = `${spellIconHtml('faction', (PET ? 'pbar-' : 'bar-') + 'faction')}
     <i class="charge"><b style="width:${Math.round(charge / CHARGE * 100)}%"></b></i>`;
   btn.disabled = !on && (busy || over || !full || (aiming && aimKind !== 'growth'));
   btn.dataset.state = on ? 'on' : !full ? 'need' : btn.disabled ? 'wait' : 'ready';        // 1.6.4 (WIP-10)
@@ -1406,7 +1452,7 @@ function elxFire(kind) {                                   // один раз с
 }
 function elxArm() {                                        // начало боя: эликсиры не действуют, пока их не выпьют
   const f = fighters.left;
-  f.elx = {}; f.elxUsed = {}; f.elxCd = 0; f.critExtra = 0;
+  f.elx = {}; f.elxUsed = {}; f.elxCds = {}; f.critExtra = 0;
   { const rd = Profile.takeRoad && Profile.takeRoad(); if (rd) f.elx.road = { tier: rd.tier, left: 999, pct: 0 }; f.endure = false; }   // 2.0.7
   renderElxBadges();
 }
@@ -1423,7 +1469,7 @@ function elxWhy(kind, tier) {                              // причина, п
   if (!host.main || PET || isChallenge()) return _t("Здесь эликсиры не пьют");
   if (over || busy || aiming || turnSide !== 'left') return _t("Эликсир пьётся в свой ход");
   if (K.mode === 'instant') {
-    if (f.elxCd > 0) return _t("Мгновенные эликсиры — раз в {0}: ещё {1}", [_nn(Elixirs.INSTANT_CD, 'ход', 'хода', 'ходов'), _nn(f.elxCd, 'ход', 'хода', 'ходов')]);
+    if ((f.elxCds[kind] || 0) > 0) return _t("Этот эликсир — раз в {0}: ещё {1}", [_nn(Elixirs.cdOf(kind), 'ход', 'хода', 'ходов'), _nn(f.elxCds[kind], 'ход', 'хода', 'ходов')]);
     if (kind === 'health' && f.hp >= f.max) return _t("Здоровье и так полное");
     if (kind === 'swap' && !elxSwapPlan(f)) return _t("Камней поровну — менять нечего");
     return '';
@@ -1446,7 +1492,7 @@ function useElixir(kind, tier) {
     setTimeout(() => { note(_t("Медаль! {0}", [Medals.nameFor(m.id)]) + rl); logEvent('left', _t("Медаль! {0}", [Medals.nameFor(m.id)]) + rl); }, 600 + i * 1400);
   });
   if (K.mode === 'instant') {
-    f.elxCd = Elixirs.INSTANT_CD;                          // уменьшается в начале каждого хода героя: снова можно через 3 хода
+    f.elxCds[kind] = Elixirs.cdOf(kind);                   // уменьшается в начале каждого хода героя
     if (kind === 'health') {
       const h = Math.min(f.max - f.hp, Math.round(Elixirs.heal(tier) * mult));
       f.hp += h; SND.heal();
@@ -1511,6 +1557,24 @@ function renderElxBadges() {
   if (!row) { row = document.createElement('div'); row.className = 'elx-badges'; box.appendChild(row); }
   row.innerHTML = act.map((k) => `<span class="elx-badge${used[k] ? ' used' : ''}" title="${Elixirs.KINDS[k].name}: ${Elixirs.describe(k, el[k].tier)} · ${_t("осталось: {0}", [_nn(el[k].left, 'ход', 'хода', 'ходов')])}${used[k] ? ' — ' + _t("уже сработал") : ''}">${Elixirs.icon(k, el[k].tier)}<i>${el[k].left}</i></span>`).join('');
 }
+// Эликсиры существа: что ещё несёт (отнято у героя) и что действует сейчас; видны под его портретом.
+let enemyElxKey = '';
+function renderEnemyElx() {
+  if (!host.main) return;
+  const box = fEl('right'); if (!box) return;
+  const f = fighters.right, loot = (!LIVE && Profile.data.monster && Profile.data.monster.loot) || {}, el = f.elx || {};
+  const stash = Object.keys(loot).filter((k) => loot[k] > 0).sort();
+  const act = Elixirs.ORDER.filter((k) => el[k] && el[k].left > 0);
+  const key = stash.map((k) => k + 'x' + loot[k]).join(',') + '|' + act.map((k) => k + el[k].tier + ':' + el[k].left).join(',');
+  let row = box.querySelector('.elx-enemy');
+  if (key === enemyElxKey && (row || key === '|')) return;
+  enemyElxKey = key;
+  if (key === '|') { if (row) row.remove(); return; }
+  if (!row) { row = document.createElement('div'); row.className = 'elx-badges elx-enemy'; box.appendChild(row); }
+  const held = stash.map((k) => { const { kind, tier } = Trophy.split(k); return `<span class="elx-badge held" title="${_t("{0}: отнят у героя, победите существо — вернётся", [Elixirs.KINDS[kind].name])}">${Elixirs.icon(kind, tier)}<i>${loot[k]}</i></span>`; });
+  const on = act.map((k) => `<span class="elx-badge" title="${Elixirs.KINDS[k].name}: ${Elixirs.describe(k, el[k].tier)} · ${_t("осталось: {0}", [_nn(el[k].left, 'ход', 'хода', 'ходов')])}">${Elixirs.icon(k, el[k].tier)}<i>${el[k].left}</i></span>`);
+  row.innerHTML = held.concat(on).join('');
+}
 // Меню эликсиров в бою: кнопка-флакон в панели сумки открывает список всех эликсиров из сумки.
 let elxMenuEl = null;
 function renderElxMenu() {
@@ -1525,7 +1589,7 @@ function openElxMenu() {
   if (!elxMenuEl) {
     elxMenuEl = document.createElement('div');
     elxMenuEl.className = 'elx-menu'; elxMenuEl.hidden = true;
-    elxMenuEl.innerHTML = `<div class="elx-menu-box" role="dialog" aria-label="${_t("Эликсиры")}"><div class="elx-menu-head"><b>${_t("Эликсиры")}</b><button type="button" data-elx-close aria-label="${_t("Закрыть")}">✕</button></div><p class="hint">${_t("Пьются в свой ход бесплатно: ход не тратится. Сила — перед ударом, на этот ход; остальные — на 10 ходов; Жизнь, Камни и Превращение — раз в 3 хода.")}</p><div class="elx-menu-list"></div></div>`;
+    elxMenuEl.innerHTML = `<div class="elx-menu-box" role="dialog" aria-label="${_t("Эликсиры")}"><div class="elx-menu-head"><b>${_t("Эликсиры")}</b><button type="button" data-elx-close aria-label="${_t("Закрыть")}">✕</button></div><p class="hint">${_t("Пьются в свой ход бесплатно: ход не тратится. Сила — перед ударом, на этот ход; остальные — на 10 ходов; Жизнь — раз в ход, Камни и Превращение — раз в 3 хода.")}</p><div class="elx-menu-list"></div></div>`;
     elxMenuEl.addEventListener('click', (e) => {
       if (e.target === elxMenuEl || e.target.closest('[data-elx-close]')) { elxMenuEl.hidden = true; return; }
       const b = e.target.closest('[data-elx]');
@@ -1698,7 +1762,7 @@ function setTurn(side) {
   turnSide = side;
   if (side === 'left' && side !== prevTurn) rec.turns++;
   if (side === 'left' && fighters.left.skillCd > 0 && side !== prevTurn) fighters.left.skillCd--;
-  if (side === 'left' && fighters.left.elxCd > 0 && side !== prevTurn) fighters.left.elxCd--;
+  if (side === 'left' && side !== prevTurn) for (const k of Object.keys(fighters.left.elxCds || {})) if (fighters.left.elxCds[k] > 0) fighters.left.elxCds[k]--;
   if (side === 'left') fighters.left.ammoShot = false;     // боеприпас: один выстрел за свой ход
   fEl('left').classList.toggle('active', side === 'left');
   fEl('right').classList.toggle('active', side === 'right');
@@ -2273,8 +2337,8 @@ function startGame() {
   veiled.clear();
   fighters.left.charge = 0; fighters.right.charge = 0;
   rec = newRec();
-  Object.assign(fighters.right, { tempMax: 0, tempDef: 0, turnNo: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
-  Object.assign(fighters.left, { revived2: false, secondWind: false, elx: {}, elxCd: 0, elxUsed: {}, tempMax: 0, tempDef: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
+  Object.assign(fighters.right, { stoneMode: true, mobTypes: MAGIC_TYPES, tempMax: 0, tempDef: 0, turnNo: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
+  Object.assign(fighters.left, { revived2: false, secondWind: false, elx: {}, elxCds: {}, elxUsed: {}, tempMax: 0, tempDef: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
   elxArm();                                          // 1.5.1: эффекты эликсиров на новый бой
   for (const s of ['left', 'right']) {
     fighters[s].buffs = [];
@@ -2283,6 +2347,7 @@ function startGame() {
     fighters[s].hp = fighters[s].max;
     fighters[s].magic = false;
     fighters[s].counts = Object.fromEntries(GEM_TYPES.map((t) => [t, 0]));
+    if (s === 'right') Combat.startStones(fighters.right);   // 2.2.7: камни на первый приём
     buildFighter(s);
   }
   if (!isChallenge() && !PET && !cardFight()) {   // 1.6.3: умения за комплекты медалей
@@ -3499,8 +3564,8 @@ async function enemyTurn() {
 
     const f = fighters.right;
     const v = Combat.aiView(f, fighters.left);          // ХП в «камнях» с учётом роста урона, Силы и Брони
-    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, softLevel(f.level), softWins0() ? {} : f.magic ? aimOnly() : affordability('right'),
-      { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: lightningMult(f) });
+    const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, softLevel(f.level) + Combat.intelBonus(f), softWins0() ? {} : f.magic ? aimOnly() : affordability('right'),
+      { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: lightningMult(f), want: Combat.wantGems(f) });
     if (!mv) { note(_t("{0} не нашёл хода", [f.name])); break; }
 
     let res;
@@ -3621,7 +3686,7 @@ async function enemyTurnStart() {
       break;
     case 'weaken':
       if (elxImmune('weaken')) break;
-      showFloat('left', _t("Морок"), 'debuff'); say(_t("Морок: на ваш следующий ход урон слабее")); renderMagic();
+      showFloat('left', _t("Морок"), 'debuff'); say(act.turns > 1 ? _t("Морок: урон слабее на {0}", [`${act.turns} ${turnsWord(act.turns)}`]) : _t("Морок: на ваш следующий ход урон слабее")); renderMagic();
       break;
     case 'pinch':
       renderGear('right');
@@ -3629,11 +3694,11 @@ async function enemyTurnStart() {
       break;
     case 'mire':
       if (elxImmune('mire')) break;
-      showFloat('left', _t("Трясина"), 'debuff'); say(_t("Трясина: ошибётесь на этот ход — штраф ХП будет двойным")); renderMagic();
+      showFloat('left', _t("Трясина"), 'debuff'); say(act.turns > 1 ? _t("Трясина: штраф ХП за ошибку будет двойным {0}", [`${act.turns} ${turnsWord(act.turns)}`]) : _t("Трясина: ошибётесь на этот ход — штраф ХП будет двойным")); renderMagic();
       break;
     case 'sap':
       if (elxImmune('sap')) break;
-      showFloat('left', _t("Липкость"), 'debuff'); say(_t("Липкость: заклинание на ваш следующий ход дороже на {0} каждого цвета", [_nn(act.extra, 'камень', 'камня', 'камней')])); renderMagic();
+      showFloat('left', _t("Липкость"), 'debuff'); say(act.turns > 1 ? _t("Липкость: заклинания дороже на {0} каждого цвета — {1}", [_nn(act.extra, 'камень', 'камня', 'камней'), `${act.turns} ${turnsWord(act.turns)}`]) : _t("Липкость: заклинание на ваш следующий ход дороже на {0} каждого цвета", [_nn(act.extra, 'камень', 'камня', 'камней')])); renderMagic();
       break;
     case 'clone':
       showFloat('right', _t("Двойник!"), 'buff'); renderFighters(); renderMagic(); say(_t("Спороносец: из облака спор встаёт двойник с {0} ХП", [act.hp]));
@@ -4007,7 +4072,31 @@ function renderUiSkin() {
   renderEnemyColumn();
   if (host.main) setTimeout(fitBattleHeight, 0);
 }
+// Оформление боя «золото» (2.2.9): рамки из art/ui/battle3-*. Выбор хранится в браузере, на сохранение игры не влияет.
+const BT3_ART = { 'bt3-board': 'ui/battle3-board-full', 'bt3-card': 'ui/battle3-card-frame', 'bt3-panel': 'ui/battle3-panel',
+  'bt3-slot-magic': 'ui/battle3-slot-magic', 'bt3-slot-item': 'ui/battle3-slot-item', 'bt3-turn': 'ui/battle3-turn-plate' };
+function battleSkinOn() { try { return localStorage.getItem('gm-battle-skin') === 'gold'; } catch (e) { return false; } }
+function renderBattleSkin() {
+  const b = document.body, skinBtn = $('skin-btn');
+  let on = battleSkinOn();
+  try {
+    if (on && typeof Art !== 'undefined' && Object.values(BT3_ART).every((k) => Art.has(k))) {
+      for (const [v, k] of Object.entries(BT3_ART)) b.style.setProperty('--' + v, `url('${new URL(Art.url(k), location.href).href}')`);
+    } else on = false;
+  } catch (e) { on = false; }
+  b.classList.toggle('bt-gold', on);
+  const label = on ? _t("Оформление: золото") : _t("Оформление: классика");
+  if (skinBtn) { skinBtn.textContent = label; skinBtn.setAttribute('aria-pressed', String(on)); }
+  const skinMenu = document.querySelector('#more-menu [data-do=skin]'); if (skinMenu) skinMenu.textContent = label;
+  if (host.main) setTimeout(fitBattleHeight, 0);
+}
+function toggleBattleSkin() {
+  try { localStorage.setItem('gm-battle-skin', battleSkinOn() ? 'classic' : 'gold'); } catch (e) { /* без хранилища выбор не запомнится */ }
+  renderBattleSkin();
+}
 renderUiSkin();
+renderBattleSkin();
+if ($('skin-btn')) $('skin-btn').addEventListener('click', toggleBattleSkin);
 
 // Настройки для проверки баланса. ХП теперь задают уровень героя и цвет существа; ручная правка ХП
 // действует только в текущем бою и не сохраняется.
@@ -4076,7 +4165,6 @@ const restartBtn = $('restart');
 restartBtn.addEventListener('click', () => {
   const duoOn = !!(host.coord && host.coord.on());
   if (over && !duoOn) return MapView.returnFromBattle(Combat.enemyDefeated(fighters.right) ? 'win' : 'loss');
-  if (busy && !duoOn && !LIVE) return;
   if (!fleeArmed) {
     restartBtn.textContent = _t("Точно отступить?");
     restartBtn.classList.add('armed');
@@ -4087,13 +4175,22 @@ restartBtn.addEventListener('click', () => {
   fleeArmed = null;
   restartBtn.textContent = _t("Отступить");
   restartBtn.classList.remove('armed');
-  stopTurnTimer();
-  if (LIVE && !LIVE.reported) { LIVE.reported = true; LIVE.net.forfeit(); }    // сдаться живому сопернику — поражение
-  if (duoOn) host.coord.flee();                    // награда за уже убитых противников — и при отступлении
-  const fled = host.main ? Profile.battleEnd('flee', { noWear: tourneyFight() }) : null;      // 1.6.6: сдача после первого хода — поражение (−1 прочность); до первого хода — просто уход
-  MapView.returnFromBattle('flee');
-  if (fled) Profile.huntLoss();
-  if (fled && fled.worn) setTimeout(() => MapView.toast(_t("Отступление после первого хода — поражение: прочность надетых вещей −1") + (fled.broken.length ? _t(". Сломались: {0}", [fled.broken.join(', ')]) : '')), 700);
+  // 2.2.8: подтверждение, нажатое посреди анимации хода, раньше молча терялось — теперь отступление выполняется, как только ход доигран
+  const go = () => {
+    stopTurnTimer();
+    if (LIVE && !LIVE.reported) { LIVE.reported = true; LIVE.net.forfeit(); }    // сдаться живому сопернику — поражение
+    if (duoOn) host.coord.flee();                    // награда за уже убитых противников — и при отступлении
+    const fled = host.main ? Profile.battleEnd('flee', { noWear: tourneyFight() }) : null;      // 1.6.6: сдача после первого хода — поражение (−1 прочность); 
+    MapView.returnFromBattle('flee');
+    if (fled) Profile.huntLoss();
+    if (fled && fled.worn) setTimeout(() => MapView.toast(_t("Отступление после первого хода — поражение: прочность надетых вещей −1") + (fled.broken.length ? _t(". Сломались: {0}", [fled.broken.join(', ')]) : '')), 700);
+  };
+  if (busy && !duoOn && !LIVE) {
+    let tries = 0;
+    const wait = setInterval(() => { if (!inBattle || over) return clearInterval(wait); if (!busy || ++tries > 40) { clearInterval(wait); go(); } }, 150);
+    return;
+  }
+  go();
 });
 
 // Полноэкранный режим. Где браузер не умеет (например, iPhone Safari) — запасной режим:
@@ -4142,6 +4239,7 @@ if (host.main) {
     moreMenu.hidden = true;
     if (b.dataset.do === 'log') { const d = $('log-wrap'); d.open = !d.open; d.scrollIntoView({ block: 'nearest' }); }
     else if (b.dataset.do === 'anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); note(AnimSpeed.label()); }     // 1.6.4
+    else if (b.dataset.do === 'skin') { toggleBattleSkin(); }
     else if (b.dataset.do === 'timer') { TurnTimerSetting.toggle(); note(TurnTimerSetting.label()); }     // 1.6.5
     else $(b.dataset.do).click();
   });
@@ -4583,7 +4681,8 @@ const Duo = (() => {
       const ab = mainEl().querySelector('.fighter.right .ability-line'), A = Bestiary.ability(M().fighters.right.monsterId);
       const what = A && A.name ? `${A.name}: ${A.desc}` : (ab ? ab.textContent.trim() : '');
       const info = ((label ? label + ' · ' : '') + what).trim();
-      setHtml(tm.row, `<div class="pq-info">${esc(info)}</div>`);
+      const fr = M().fighters.right, mm = typeof window.mobMagicHtml === 'function' && fr && fr.hp > 0 ? window.mobMagicHtml(fr) : '';
+      setHtml(tm.row, mm || `<div class="pq-info">${esc(info)}</div>`);
     }
     syncBarH();
   }

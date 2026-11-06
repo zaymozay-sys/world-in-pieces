@@ -224,6 +224,7 @@ const Tutorial = (() => {
     if (box) box.hidden = true;
     const d = Profile.data, first = !(d.tutorial && d.tutorial.rewarded);
     d.tutorial = Object.assign(d.tutorial || {}, { done: true, step: null });
+    if (typeof GAME_VERSION !== 'undefined' && d.seenVersion === undefined) d.seenVersion = GAME_VERSION;   // 2.2.7: новичку «Что нового» не показываем — он не знает, что было раньше
     if (completed && first) {
       d.tutorial.rewarded = true;
       Profile.addCoins(100);

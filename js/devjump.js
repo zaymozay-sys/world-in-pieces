@@ -22,6 +22,8 @@ const DevJump = (() => {
     try { if (typeof Screens !== 'undefined' && Screens.isOpen) Screens.close(); } catch (e) { /* окна нет */ }
     const d = Profile.data;
     if (!d.faction) { d.name = 'Тест'; d.gender = 'male'; chooseFaction('dwarf'); }
+    // питомцы открываются с 5-го уровня: тестовому герою — 6-й уровень и питомец, чтобы бои вдвоём (без «-solo») работали
+    if (!d.pet && typeof Pets !== 'undefined' && typeof Hero !== 'undefined') { d.wins = Math.max(d.wins || 0, 20); d.xp = Math.max(d.xp || 0, Hero.totalFor(6)); d.pet = Object.assign(Pets.makePet('wolf', 1), { xp: 300 }); d.petChoice = 'tamed'; }
     d.tutorial = Object.assign(d.tutorial || {}, { done: true, step: null });
     d.testX10 = true; d.testAllSpells = true;
     const coach = document.querySelector('.coach'); if (coach) coach.remove();

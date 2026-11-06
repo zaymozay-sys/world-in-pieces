@@ -18,6 +18,8 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
   await p.evaluate(() => { if (!Profile.data.faction && typeof Tutorial !== 'undefined') { Tutorial.start(); Tutorial.finish(false); } }); await p.waitForTimeout(300);
   await p.click('text=Горные кланы').catch(() => {}); await p.click('text=Мужской').catch(() => {});
   await p.fill('input', 'Тест').catch(() => {}); await p.click('text=Начать игру!').catch(() => {}); await p.waitForTimeout(1000);
+  // 2.2.7: питомцы открываются с 5-го уровня — для боя вдвоём нужен герой 6-го уровня с питомцем
+  await p.evaluate(() => { Profile.data.wins = Math.max(Profile.data.wins || 0, 20); Profile.data.xp = Math.max(Profile.data.xp || 0, Hero.totalFor(6)); if (!Profile.data.pet) { Profile.data.pet = Object.assign(Pets.makePet('wolf', 1), { xp: 300 }); Profile.data.petChoice = 'tamed'; } Profile.save(); }); await p.waitForTimeout(300);
   // Бой вдвоём. Монстр может сразу начать ходить — нам нужно только, чтобы поле героя было спокойно и его ход; для проверок поле подменяется вручную
   await p.evaluate(() => { for (const k in RULES.timing) RULES.timing[k] = 5; const m = MapView.map, me = MapView.state.pos; const a = m.spawns.filter((s) => MapView.alive(s)).sort((x, y) => HexMap.dist(m.cells[x.idx], m.cells[me]) - HexMap.dist(m.cells[y.idx], m.cells[me])); MapView.attack(a[0]); });
   await p.waitForFunction(() => document.body.classList.contains('mode-battle') && typeof Duo !== 'undefined' && Duo.on(), null, { timeout: 20000 });

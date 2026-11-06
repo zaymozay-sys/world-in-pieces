@@ -185,7 +185,7 @@ assert.strictEqual(Combat.useConsumable(f, 'luck', []), null, 'второй св
 Combat.finishAction(f, false);
 assert.strictEqual(f.luck, B.consumables.luck.pct, 'метка держится весь бой, а не несколько ходов');
 
-// Банка мёда: наугад — либо +% к максимуму ХП до конца боя, либо заряд гарантированного блока
+// Настой стойкости: наугад — либо +% к максимуму ХП до конца боя, либо заряд гарантированного блока
 f = fighter({ hp: 100, max: 100 });
 let ef = Combat.useConsumable(f, 'honeyjar', [], never);   // never() -> rand() = 0.999, hpChance не срабатывает -> блок
 assert.strictEqual(ef.mode, 'shield');
@@ -236,7 +236,8 @@ assert.ok(p0 > 0.05 && p0 < 0.95);
 assert.ok(Combat.winChance({ ...H, max: 250 }, mon, 'orc') > p0);
 assert.ok(Combat.winChance({ ...H, dmg: 3 }, mon, 'orc') > p0);
 assert.ok(Combat.winChance(H, { ...mon, ai: 70 }, 'orc') < p0);
-assert.ok(Combat.winChance(H, mon, 'rat') > Combat.winChance(H, mon, 'dragon'));
+// 2.2.8: смещения видов подогнаны под сильных существ — у крысы и дракона они почти равны, сравниваем с допуском
+assert.ok(Combat.winChance(H, mon, 'rat') > Combat.winChance(H, mon, 'dragon') - 0.01);
 assert.deepStrictEqual([0.9, 0.7, 0.4, 0.1].map(Combat.dangerBand), ['easy', 'even', 'hard', 'deadly']);
 
 // Шаровая молния держится, пока ход продолжается (линии 4+), и гаснет, когда ход реально кончается
@@ -374,4 +375,23 @@ console.log('combat: все тесты пройдены');
   assert.ok(atk.hp < 100, 'атакующий получил отражённый урон');
   const a2 = mk({}), t2 = mk({ block: 50, ricochet: 0 });
   assert.strictEqual(Combat.hit(a2, t2, 10, false, () => 0).kind, 'block');
+}
+
+// 2.2.8: длительность дебаффов существ растёт с цветом; без камней (питомцы, старые правила) — один ход
+{
+  const mk = (tier, stoneMode) => ({ tier, stoneMode, buffs: [] });
+  assert.strictEqual(Combat.effectTurns(mk(1, true), 'weaken'), 1);
+  assert.strictEqual(Combat.effectTurns(mk(10, true), 'weaken'), 3);
+  assert.strictEqual(Combat.effectTurns(mk(10, true), 'sap'), 2);
+  assert.strictEqual(Combat.effectTurns(mk(10, false), 'weaken'), 1);
+  assert.ok(Combat.effectTurns(mk(5, true), 'mire') >= 2);
+}
+
+// 2.2.8: на цветах 1–3 цена «лёгких» приёмов ниже, дальше обычная
+{
+  const mk = (tier) => ({ tier, stoneMode: true, ability: 'steal', counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, mobTypes: ['sapphire', 'ruby', 'emerald'], buffs: [] });
+  assert.strictEqual(Combat.costSpec('steal', mk(1)).n, 3);
+  assert.strictEqual(Combat.costSpec('steal', mk(3)).n, 4);
+  assert.strictEqual(Combat.costSpec('steal', mk(4)).n, 5);
+  assert.strictEqual(Combat.costSpec('steal').n, 5);
 }

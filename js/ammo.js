@@ -6,6 +6,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
    (Combat.strikeDamage) + снятие усилений; стрела — 3 удара + кража 6 камней; дротик — 2 тика яда; шашка — «Захват» без цены. */
 
 const Ammo = (() => {
+  const A_B = (typeof Balance !== 'undefined') ? Balance : require('./balance.js');
   const CATALOG = {
     // Люди: тяжёлый арбалетный болт с серебряным наконечником, освящённый в храме.
     bolt: { faction: 'human', name: _t("Освящённый болт"), short: _t("Болт"), price: 90,
@@ -49,6 +50,55 @@ const Ammo = (() => {
   };
   const forFaction = (fac) => ORDER.find((k) => CATALOG[k].faction === fac) || 'bolt';
 
+  // 2.2.9: варка. Группа (свойство заряда) по виду ресурса: hard / hunt / heal / charm / light; null — вид не годится.
+  function groupOf(resKind) {
+    const g = A_B.brew.groups;
+    return Object.keys(g).find((k) => g[k].res.includes(resKind)) || null;
+  }
+  // Сколько ресурсов вида (цена resUnit за штуку) нужно на CRAFT.out штук заряда группы group (null — обычный) при цене штуки unit в Лавке.
+  // Вход = ресурсы + комиссия кузнеца (fee·unit); цель — share·mul от цены покупки.
+  // Выход одной варки: обычный — CRAFT.out; усиленный с уровня bonusOutLevel — на 1 больше.
+  const brewOut = (group, level) => CRAFT.out + (group && (level || 1) >= A_B.brew.bonusOutLevel ? 1 : 0);
+  function brewNeed(group, unit, resUnit, level) {
+    const B = A_B.brew, mul = group ? B.groups[group].mul : 1;
+    return Math.max(CRAFT.res, Math.ceil((B.share * mul * brewOut(group, level) - B.fee) * unit / Math.max(1, resUnit)));
+  }
+  const brewUnlockLevel = (group) => A_B.brew.unlock[group] || 1;
+  const unlocked = (group, level) => !group || (level || 1) >= A_B.brew.unlock[group];
+  const brewFee = (unit) => Math.round(A_B.brew.fee * unit);
+  // Уровень мастерства варки по числу сваренных штук (1…5).
+  const brewLevel = (made) => A_B.brew.mastery.filter((n) => (made || 0) >= n).length;
+
+  // 2.2.9: усиленные заряды. Ключ запаса: «вид» (обычный) или «вид:свойство», например 'bolt:hard'.
+  const VARIANTS = ['hard', 'hunt', 'heal', 'charm', 'light'];
+  const VNAME = { hard: _t("Закалённый"), hunt: _t("Охотничий"), heal: _t("Целебный"), charm: _t("Зачарованный"), light: _t("Лёгкий") };
+  function parse(key) {
+    const parts = String(key == null ? '' : key).split(':'), kind = parts[0], v = parts[1];
+    const variant = VARIANTS.includes(v) ? v : null;
+    return { kind, variant, ok: parts.length <= 2 && !!CATALOG[kind] && (parts.length === 1 || variant !== null) };
+  }
+  const VDESC = {
+    hard: _t("Урон выстрела ×1,25."),
+    hunt: _t("Слабое семейство получает урон ×1,75, стойкое — ×0,85."),
+    heal: _t("Выстрел лечит героя на 40% лечения Эликсира жизни вашего цвета."),
+    charm: _t("Выстрел даёт по камню каждого цвета; Лунная стрела крадёт 3 камня вместо 2."),
+    light: _t("Один раз за бой выстрел не занимает выстрел хода: можно выстрелить дважды."),
+  };
+  const keyOf = (kind, variant) => (variant ? kind + ':' + variant : kind);
+  // Множитель слабости/стойкости с учётом свойства: «Охотничий» усиливает оба.
+  function multV(kind, family, variant) {
+    const m = mult(kind, family);
+    if (variant !== 'hunt') return m;
+    const M = A_B.brew.mods;
+    return m > 1 ? M.huntWeak : m < 1 ? M.huntResist : 1;
+  }
+  const dmgMul = (variant) => (variant === 'hard' ? A_B.brew.mods.hardDmg : 1);
+  // Лечение героя выстрелом «Целебным» (heal — лечение «Эликсира жизни» цвета героя).
+  const healAmount = (variant, elixirHeal) => (variant === 'heal' ? Math.max(1, Math.round(elixirHeal * A_B.brew.mods.healShare)) : 0);
+  // Камни каждого цвета игроку за «Зачарованный»; стреле вместо этого — большая кража.
+  const charmStones = (kind, variant) => (variant === 'charm' && kind !== 'moonarrow' ? A_B.brew.mods.charmStones : 0);
+  const stealCount = (kind, variant) => (variant === 'charm' && kind === 'moonarrow' ? A_B.brew.mods.charmSteal : ARROW_STEAL);
+
   // Урон «сырой» (без Силы/Брони/Блока), от базового урона героя: base = Combat.strikeDamage(f).
   const boltDamage = (base) => Math.max(1, Math.round(base * 4));
   const arrowDamage = (base) => Math.max(1, Math.round(base * 3));
@@ -66,12 +116,18 @@ const Ammo = (() => {
     moonarrow: '<path d="M10 82 L78 22" stroke="#6b4a2b" stroke-width="6" stroke-linecap="round"/><path d="M78 22 L90 10 L84 30 L70 28Z" fill="#cfe4ff" stroke="#2a3a5a" stroke-width="2"/><path d="M10 82 L4 70 M10 82 L22 88 M16 76 L8 66 M16 76 L28 82" stroke="#7bbf6a" stroke-width="4"/><circle cx="82" cy="20" r="10" fill="#cfe4ff" opacity=".35"/>',
     dart: '<path d="M12 78 L70 30" stroke="#e8dcc0" stroke-width="7" stroke-linecap="round"/><path d="M70 30 L90 14 L80 38Z" fill="#cfd8c8" stroke="#2a2e26" stroke-width="2"/><path d="M76 26 L86 18" stroke="#7fe05a" stroke-width="4"/><path d="M12 78 L4 70 L18 70Z M12 78 L20 86 L20 72Z" fill="#5a8a3a"/><circle cx="84" cy="40" r="4" fill="#7fe05a"/><circle cx="80" cy="48" r="2.6" fill="#7fe05a"/>',
   };
-  function icon(id) {
+  function icon(key) {
+    const P = parse(key), id = P.kind;
+    if (P.variant && typeof Art !== 'undefined' && Art.has('items/ammo-' + id + '-' + P.variant)) return Art.icon('items/ammo-' + id + '-' + P.variant);   // 2.2.9: значок заряда, если нарисован
     if (typeof Art !== 'undefined' && Art.has('items/ammo-' + id)) return Art.icon('items/ammo-' + id);
     return `<svg class="item-icon ammo-icon" viewBox="0 0 100 100" aria-hidden="true">${SVG[id] || ''}</svg>`;
   }
+  // Название заряда для списков: «Освящённый болт · Закалённый».
+  const stockName = (key) => { const P = parse(key); return P.ok ? CATALOG[P.kind].name + (P.variant ? ' · ' + VNAME[P.variant] : '') : String(key); };
+  // Все ключи запаса, которые есть у игрока: count(key) > 0. Сначала обычные, затем усиленные.
+  const stocks = (count) => [...ORDER, ...ORDER.flatMap((k) => VARIANTS.map((v) => keyOf(k, v)))].filter((k) => count(k) > 0);
 
-  return { WEAK, RESIST, WEAK_MULT, RESIST_MULT, mult, hint, CATALOG, ORDER, PACK, CRAFT, ARROW_STEAL, DART_TURNS, forFaction, boltDamage, arrowDamage, steal, icon };
+  return { WEAK, RESIST, WEAK_MULT, RESIST_MULT, mult, hint, CATALOG, ORDER, PACK, CRAFT, ARROW_STEAL, DART_TURNS, forFaction, VARIANTS, VNAME, VDESC, brewOut, unlocked, brewUnlockLevel, stockName, stocks, parse, keyOf, multV, dmgMul, healAmount, charmStones, stealCount, groupOf, brewNeed, brewFee, brewLevel, boltDamage, arrowDamage, steal, icon };
 })();
 
 if (typeof module !== 'undefined') module.exports = Ammo;

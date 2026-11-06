@@ -601,7 +601,7 @@ const Parts = (() => {
         <rect x="26" y="4" width="12" height="11" rx="2" fill="${dye(c, '#8b6a3e')}" stroke="${OUT}" stroke-width="1.4"/>${mark}`;
     }
     if (kind === 'honeyjar') {
-      // Банка мёда — приземистая круглая банка с плотным мёдом и перевязанной тканью крышкой.
+      // Настой стойкости — приземистая круглая банка с плотным мёдом и перевязанной тканью крышкой.
       const col = ['#ffcf3a', '#c47a10'];
       const g = def(c, 'liq-honey', (id) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col[0]}"/><stop offset="1" stop-color="${col[1]}"/></linearGradient>`);
       const jar = 'M18 24 Q16 22 18 20 H46 Q48 22 46 24 Q52 30 52 42 Q52 58 32 58 Q12 58 12 42 Q12 30 18 24Z';

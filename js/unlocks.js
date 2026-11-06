@@ -30,6 +30,8 @@ const Unlocks = (() => {
     const ready = list.find((q) => q.accepted && q.done && !q.claimed);
     if (ready) return _t("Заберите награду за «{0}»: {1}.", [ready.title, GIVERS[ready.giver] ? GIVERS[ready.giver][1] : _t("у выдавшего")]);
     const active = list.find((q) => q.accepted && !q.done && !q.claimed);
+    const wh = active && active.where ? (typeof active.where === 'function' ? active.where(d) : active.where) : null;
+    if (wh) return _t("Задание «{0}»: {1} из {2}. Загляните: {3}.", [active.title, active.value, active.goal, NAMES[wh] || (typeof HexMap !== 'undefined' && HexMap.BUILDINGS[wh] ? HexMap.BUILDINGS[wh].name : wh)]);
     if (active) return _t("Задание «{0}»: {1} из {2}.", [active.title, active.value, active.goal]);
     const fresh = list.find((q) => !q.accepted && !q.claimed && giverOk(q));
     if (fresh) return _t("Возьмите задание «{0}»: {1}.", [fresh.title, GIVERS[fresh.giver] ? GIVERS[fresh.giver][1] : _t("в посёлке")]);
@@ -46,7 +48,8 @@ const Unlocks = (() => {
     const giverOk = (q) => !GIVERS[q.giver] || isOpen(d, GIVERS[q.giver][0]);
     const ready = list.find((q) => q.accepted && q.done && !q.claimed);
     if (ready && GIVERS[ready.giver]) return { kind: 'building', id: GIVERS[ready.giver][0] };
-    if (list.find((q) => q.accepted && !q.done && !q.claimed)) return { kind: 'monster' };
+    const act = list.find((q) => q.accepted && !q.done && !q.claimed);
+    if (act) { const wh = act.where ? (typeof act.where === 'function' ? act.where(d) : act.where) : null; return wh ? { kind: 'building', id: wh } : { kind: 'monster' }; }
     const fresh = list.find((q) => !q.accepted && !q.claimed && giverOk(q));
     if (fresh && GIVERS[fresh.giver]) return { kind: 'building', id: GIVERS[fresh.giver][0] };
     return { kind: 'monster' };
