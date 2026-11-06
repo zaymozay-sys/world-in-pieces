@@ -1,0 +1,4 @@
+# Для статистики языков на GitHub: собранный одностраничный файл и документация не считаются кодом
+gem-match-preview.html linguist-generated=true
+docs/** linguist-documentation
+ 
