@@ -70,7 +70,7 @@ function makeHero(o) {
   const dmg = o.dmg != null ? o.dmg : (Hero ? Hero.dmgMult(o.level || 1) : 1);
   return { side: 'left', heroLevel: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, charge: 0, ability: null, bag: o.bag ? { ...o.bag } : {},
-    stats0: stats, elx: {}, elxUsed: {}, elxPlan: { ...elx }, elxCd: 0, turnNo: 0, noFx: o.elxFx === false, critExtra: 0 };
+    stats0: stats, elx: {}, elxUsed: {}, elxPlan: { ...elx }, elxCds: {}, turnNo: 0, noFx: o.elxFx === false, critExtra: 0 };
 }
 function makeMonster(id, tier, o = {}) {
   const m = Bestiary.MONSTERS[id];
@@ -86,10 +86,13 @@ function makeMonster(id, tier, o = {}) {
   const stats = Gear.combine(Gear.stats(gear), sc.stats);
   const max = Math.round((sc.hp + stats.health) * (o.elite ? 1.25 : 1));
   const level = o.aiLevel || sc.ai;
-  return { side: 'right', name: m.name, id, tier, gear, stats, base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
-    counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: m.ability, level, bag: Combat.enemyBag(level),
+  const mon = { side: 'right', name: m.name, id, tier, gear, stats, base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
+    counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: m.ability, level, bag: Combat.enemyBag(level), stoneMode: process.env.MOBSTONES !== '0', mobTypes: ['sapphire', 'ruby', 'emerald'],
     turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null, ward: 0, stunned: false, affixes };
+  Combat.startStones(mon);
+  return mon;
 }
+function C_B_hp() { return global.Balance && global.Balance.mobHpMul; }
 
 /* ---------- бой ---------- */
 function Battle(hero, mon, player) {
@@ -336,8 +339,8 @@ function Battle(hero, mon, player) {
     for (let guard = 0; guard < 20; guard++) {
       for (const k of Combat.enemyItemPlan(f, anyAfford('right'), rand)) useItem('right', k);
       const v = Combat.aiView(f, h);
-      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, f.level, f.magic ? aimOnly() : afford('right'),
-        { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: f.magic ? B.magic.lightning.mult : 0 });
+      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, f.level + Combat.intelBonus(f), f.magic ? aimOnly() : afford('right'),
+        { maxMe: v.maxMe, healMult: v.healMult, want: Combat.wantGems(f), locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: f.magic ? B.magic.lightning.mult : 0 });
       if (!mv) break;
       S.stats.monActions++;
       let res;
@@ -385,12 +388,12 @@ function Battle(hero, mon, player) {
 
   /* ---------- ход героя ---------- */
   // 1.6.0: эликсиры по правилам игры: длинные — в первом ходе; Сила — в первом ходе, где есть крупный ход (или в 6-м);
-  // Жизнь — при ХП ниже половины; Камни — со 2-го хода; Жизнь, Камни и Превращение делят «раз в 3 хода»
+  // Жизнь — при ХП ниже половины; Камни — со 2-го хода; Жизнь, Камни и Превращение делят «раз в ход»
   function drinkElixir(kind) {
     const h = S.f.left, t = h.elxPlan[kind]; delete h.elxPlan[kind];
     const K = Elixirs.KINDS[kind];
     if (K.mode === 'instant') {
-      h.elxCd = Elixirs.INSTANT_CD;
+      h.elxCds[kind] = Elixirs.cdOf(kind);
       if (kind === 'health') h.hp = Math.min(h.max, h.hp + Elixirs.heal(t));
       else if (kind === 'swap') {
         let hi = MAGIC_NAMES[0], lo = MAGIC_NAMES[0];
@@ -414,7 +417,7 @@ function Battle(hero, mon, player) {
       else if (kind === 'power') {
         const mv = heroMoves(S, null, false, -1);
         if ((mv.length && mv[0].dmg >= (S.bigHit || 6)) || h.turnNo >= 6) drinkElixir(kind);
-      } else if (h.elxCd <= 0) {
+      } else if (!(h.elxCds[kind] > 0)) {
         if (kind === 'health' && h.hp < h.max * 0.5) drinkElixir(kind);
         else if (kind === 'stones' && h.turnNo >= 2) drinkElixir(kind);
         else if (kind === 'swap' && h.turnNo >= 3) {                  // когда есть что менять и разница заметна
@@ -433,7 +436,7 @@ function Battle(hero, mon, player) {
   }
   function heroTurn() {
     const h = S.f.left;
-    h.turnNo++; if (h.elxCd > 0) h.elxCd--; tickPend(h); if (checkEnd()) return;
+    h.turnNo++; for (const k of Object.keys(h.elxCds)) if (h.elxCds[k] > 0) h.elxCds[k]--; tickPend(h); if (checkEnd()) return;
     for (let guard = 0; guard < 20; guard++) {
       elxStep();
       if (player.items) player.items(S, h, useItem);

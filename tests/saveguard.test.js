@@ -132,6 +132,19 @@ for (const [id, mut] of Object.entries(CASES)) {
   assert.strictEqual(r2.notes.length, 3, 'три правки: ' + r2.notes.join('; '));
 }
 
+// 2в. 2.2.9: усиленные заряды «вид:свойство» — допустимы, неизвестные свойства и виды убираются.
+{
+  const g = GOOD(); g.ammo['bolt:hard'] = 3; g.ammo['dart:heal'] = 1;
+  const before = JSON.stringify(g.ammo), r = SaveGuard.normalize(g);
+  assert.deepStrictEqual(r.notes, [], 'допустимые заряды не чинятся: ' + r.notes.join('; ')); assert.strictEqual(JSON.stringify(g.ammo), before);
+  const z = GOOD(); z.ammo['bolt:zzz'] = 2; z.ammo['gun:hard'] = 1; z.ammo['bolt:'] = 1; SaveGuard.normalize(z);
+  assert(!('bolt:zzz' in z.ammo) && !('gun:hard' in z.ammo) && !('bolt:' in z.ammo), 'неизвестные заряды убираются');
+  assert.strictEqual(z.ammo.bolt, 12);
+  const l = GOOD(); l.market = { lots: [{ id: 'a', kind: 'ammo', key: 'bolt:hard', n: 2, price: 50, fair: 40, listedAt: 1, checkedAt: 1 }, { id: 'b', kind: 'ammo', key: 'bolt:zzz', n: 2, price: 50, fair: 40, listedAt: 1, checkedAt: 1 }], log: [] };
+  SaveGuard.normalize(l);
+  assert.deepStrictEqual(l.market.lots.map((x) => x.key), ['bolt:hard'], 'лот с неизвестным зарядом убирается, с допустимым остаётся');
+}
+
 // 3. Фаззинг: случайные порчи любой глубины — не бросать исключений, инварианты выполнены, второй проход пуст.
 function mutate(v, depth = 0) {
   const r = rnd();

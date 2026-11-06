@@ -1,7 +1,7 @@
 // Клиент отчётов тестировщиков: очередь, отправка пачками, повтор после сбоя, выключатель, дедупликация ошибок.
 const assert = require('assert');
 require('../js/i18n.js');
-global.GAME_VERSION = '2.2.4';
+global.GAME_VERSION = '2.2.8';
 const store = {}; global.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
 global.Profile = { data: { name: 'Тестер', faction: 'dwarf', wins: 7, coins: 5 }, level: () => 12 };
 global.Hero = { tierFor: () => 2 };

@@ -110,7 +110,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const el = await p.evaluate(async () => { MapView.startSpecial({ id: 'wolf', tier: 3, elite: 'veil' }); await new Promise((r) => setTimeout(r, 1200)); return { max: fighters.right.max, ax: fighters.right.affixes, name: fighters.right.name }; });
   ok(el.ax[0] === 'veil' && el.max > plain * 1.2 && /★/.test(el.name), 'элитный: свойство, ХП больше, звезда в имени (' + plain + ' → ' + el.max + ')');
   // свойство срабатывает: туман на 2-м ходу
-  const veiled = await p.evaluate(async () => { fighters.right.turnNo = 1; await enemyTurnStart(); return veiled.size; });
+  const veiled = await p.evaluate(async () => { fighters.right.turnNo = 1; Object.assign(fighters.right.counts, { sapphire: 9, ruby: 9, emerald: 9 }); await enemyTurnStart(); return veiled.size; });
   ok(veiled > 0, 'свойство «Туман» прячет камни');
   await p.evaluate(() => { fighters.left.hp = 0; checkEnd(); }); await toMap(p);
   // страж b1: зов стаи

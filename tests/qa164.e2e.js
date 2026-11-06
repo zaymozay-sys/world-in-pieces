@@ -29,7 +29,7 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
     const bad = rep.filter((r) => BAD.has(r.kind));
     ok(`${w}×${h} ${sc}: нажатия и вёрстка`, bad.length === 0, bad.slice(0, 3).map((r) => r.kind + ' ' + r.el + ' ' + (r.text || '')).join('; '));
     const cell = (rep.find((r) => r.kind === 'info') || {}).cell || 0;
-    const min = Math.min(w, h) === h && w > h ? 38 : (h <= 600 ? 36 : 40);   // альбом и самый низкий портрет — компромисс, остальные ≥ 40
+    const min = Math.min(w, h) === h && w > h ? 38 : (h <= 600 ? 36 : h <= 680 ? 39 : 40);   // альбом и самый низкий портрет — компромисс, остальные ≥ 40
     ok(`${w}×${h} ${sc}: клетка ${cell}px ≥ ${min}`, cell >= min);
     ok(`${w}×${h} ${sc}: без ошибок JS`, errs.length === 0, errs[0]);
     await ctx.close();

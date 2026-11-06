@@ -41,7 +41,7 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   ok(await p.evaluate((m) => Sound.muted !== m && !document.getElementById('map-menu').hidden, m0), 'звук переключился, меню осталось');
   ok(await p.evaluate(() => document.getElementById('mm-mute').textContent === document.getElementById('m-mute').textContent), 'подпись звука одинакова в меню и в скрытой кнопке');
   await p.tap('#mm-mute'); // вернуть как было
-  await p.tap('#map-menu .mm-head >> nth=2'); await p.waitForTimeout(200);
+  await p.tap('#map-menu .mm-head >> nth=3'); await p.waitForTimeout(200);
   await p.tap('#map-menu button[data-mdo=m-help]'); await p.waitForTimeout(300);
   ok(await p.evaluate(() => document.getElementById('map-menu').hidden), 'меню закрылось после выбора');
   ok(await p.evaluate(() => !!document.querySelector('.modal, #screen:not([hidden]), .overlay:not([hidden])')), 'экран «Как играть» открылся');
@@ -79,7 +79,7 @@ const rect = (p, sel) => p.evaluate((s) => { const r = document.querySelector(s)
   for (const id of ['m-mute', 'm-fs', 'm-lang', 'm-help', 'm-credits']) ok(!(await vis(p, '#' + id)), id + ' на компьютере убран в меню');
   await p.click('#m-more'); await p.waitForTimeout(150);
   ok(await vis(p, '#map-menu'), 'меню ☰ открывается на компьютере');
-  await p.click('#map-menu .mm-head >> nth=2'); await p.waitForTimeout(200);
+  await p.click('#map-menu .mm-head >> nth=3'); await p.waitForTimeout(200);
   await p.click('#map-menu button[data-mdo=m-help]'); await p.waitForTimeout(300);
   ok(await p.evaluate(() => !!document.querySelector('.modal')), '«Как играть» из меню открывается');
   await p.keyboard.press('Escape'); await p.waitForTimeout(200);

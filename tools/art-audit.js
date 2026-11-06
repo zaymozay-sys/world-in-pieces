@@ -34,9 +34,36 @@ const arg = (k) => { const a = process.argv.find((x) => x.startsWith('--' + k + 
     add('Здания на карте', bld.map((s) => ({ key: 'map/' + s, label: s })));
     add('Шахматы', ['w', 'b'].flatMap((c) => ['k', 'q', 'r', 'b', 'n', 'p'].map((t) => ({ key: `chess/${c}-${t}`, label: c + t }))).concat([{ key: 'chess/bob', label: 'Бобёр' }, { key: 'chess/sq-light', label: 'светлая клетка' }, { key: 'chess/sq-dark', label: 'тёмная клетка' }]));
     for (const f of Object.values(fam)) for (const x of f) x.has = Art.has(x.key);
+    // 2.2.9: то, что игра пока рисует эмодзи, текстом или векторным значком; картинки для этого ждут (в коде не подключены) — в счёт «нет» не входит.
+    const soft = {};
+    const addSoft = (name, list) => { soft[name] = list; };
+    try { addSoft('Достопримечательности на карте (значки)', keys(World.LANDMARKS).map((i) => ({ key: 'map/ev-' + World.LANDMARKS[i].glyph, label: World.LANDMARKS[i].name }))); } catch (e) { /* нет */ }
+    try { addSoft('Мелкие детали карты', ['shell', 'snowpatch', 'ripple', 'wave', 'cobble'].map((i) => ({ key: 'map/' + i, label: i }))); } catch (e) { /* нет */ }
+    try { addSoft('Фоны окон без картинки', ['bank', 'sparkshop', 'best', 'wiki', 'chest', 'faction'].map((i) => ({ key: 'ui/bg-' + i, label: i }))); } catch (e) { /* нет */ }
+    try { addSoft('Дом: обстановка', Decor.ITEMS.map((i) => ({ key: 'decor/' + i.id, label: i.id }))); } catch (e) { /* нет */ }
+    try {
+      addSoft('Питомцы: лакомства, яйца, снаряжение, амулеты', [].concat(keys(Pets.TREATS).map((i) => 'treat-' + i), keys(Pets.EGGS).map((i) => 'egg-' + i), keys(Pets.GEAR).map((i) => 'gear-' + i), keys(Pets.AMULETS).map((i) => 'amulet-' + i)).map((i) => ({ key: 'items/pet-' + i, label: i })));
+      addSoft('Питомцы: таланты', keys(Pets.TALENTS).map((i) => ({ key: 'ui/talent-' + i, label: i })));
+    } catch (e) { /* нет */ }
+    try { addSoft('Трофеи редких зверей', RareHunt.SPECIES.map((i) => ({ key: 'items/trophy-' + i, label: i }))); } catch (e) { /* нет */ }
+    try {
+      const mk = [].concat(keys(Medals.STYLE), keys(Medals.WORLD), keys(Medals.SECRET), keys(Medals.MASTER), ['lines', 'strike', 'shot', 'spell', 'drunk', 'daily', 'elixir']);
+      addSoft('Медали: значки категорий', mk.map((i) => ({ key: 'ui/medal-' + i, label: i })));
+    } catch (e) { /* нет */ }
+    addSoft('Предметы заданий', ['key-sapphire', 'key-ruby', 'key-emerald', 'potion-breath'].map((i) => ({ key: 'items/' + i, label: i })));
+    addSoft('Искры', ['green', 'blue', 'red'].map((i) => ({ key: 'ui/spark-' + i, label: i })));
+    try { addSoft('Рамки портрета', Village.FRAMES.map((i) => ({ key: 'ui/frame-' + i.id, label: i.name }))); } catch (e) { /* нет */ }
+    try { addSoft('Характеристики', keys(Gear.STAT_NAMES).map((i) => ({ key: 'ui/stat-' + i, label: i }))); } catch (e) { /* нет */ }
+    addSoft('Значки эффектов в бою', ['shield', 'spikes', 'power', 'down', 'drop', 'bolt', 'sand', 'spores'].map((i) => ({ key: 'ui/fx-' + i, label: i })));
+    try { addSoft('Зоны', World.ZONE_IDS.map((i) => ({ key: 'ui/zone-' + i, label: World.ZONE_BOSSES[i].title }))); } catch (e) { /* нет */ }
+    try { const f = [...new Set(Object.values(Bestiary.MONSTERS).map((m) => m.family))]; addSoft('Семейства существ', f.map((i) => ({ key: 'ui/family-' + i, label: i }))); } catch (e) { /* нет */ }
+    try { addSoft('Приёмы существ (значок магии)', keys(Bestiary.ABILITIES).map((i) => ({ key: 'spells/mob-' + i, label: i }))); } catch (e) { /* нет */ }
+    for (const f of Object.values(soft)) for (const x of f) x.has = Art.has(x.key);
+    fam.__soft = soft;
     return fam;
   });
   await b.close();
+  const softData = data.__soft || {}; delete data.__soft;
   const reg = fs.readFileSync(path.join(__dirname, '..', 'js', 'art-files.js'), 'utf8');
   const files = Object.keys(JSON.parse(reg.match(/const ART_FILES = (\{[\s\S]*\});/)[1]));
   let missing = 0, total = 0; const report = {};
@@ -45,11 +72,18 @@ const arg = (k) => { const a = process.argv.find((x) => x.startsWith('--' + k + 
     console.log(`${miss.length ? 'НЕТ ' : 'ok  '} ${name}: ${list.length - miss.length} из ${list.length}`);
     for (const m of miss) console.log('       ' + m.key + (m.label && m.label !== m.key ? ' — ' + m.label : ''));
   }
+  // 2.2.9: ждут рисунков (игра пока показывает эмодзи/текст/векторный значок); в счёт не входят
+  const softReport = {};
+  console.log('\nЖдут рисунков (в коде ещё не подключены; на «нет» выше не влияет):');
+  for (const [name, list] of Object.entries(softData)) {
+    const miss = list.filter((x) => !x.has); softReport[name] = { всего: list.length, нет: miss.map((x) => x.key) };
+    console.log(`  ${miss.length ? 'ждёт' : 'есть'} ${name}: ${list.length - miss.length} из ${list.length}`);
+  }
   // лишние: картинка есть, но ни одна сущность её не ждёт
   const used = new Set(Object.values(data).flat().map((x) => x.key));
-  const extra = files.filter((k) => /^(monsters|resources|items|pets|runes|spells|npc|heroes)\//.test(k) && !used.has(k) && !/^(ui\/|map\/tex-|map\/ev-|map\/bridge|map\/fence|map\/boss-|map\/chest|gems\/|items\/(stone|shard|heart|sea-diary|seal|relic-|badge-|arrow-|ticket|travel)|map\/site|map\/flag|map\/gate)/.test(k));
+  const extra = files.filter((k) => /^(monsters|resources|items|pets|runes|spells|npc|heroes)\//.test(k) && !used.has(k) && !/^(ui\/|spells\/mob-|map\/tex-|map\/ev-|map\/bridge|map\/fence|map\/boss-|map\/chest|gems\/|items\/(stone|shard|heart|sea-diary|seal|relic-|badge-|arrow-|ticket|travel)|map\/site|map\/flag|map\/gate)/.test(k));
   console.log(`\nКартинки, которых игра по спискам не ждёт (проверьте, нужны ли): ${extra.length}`); if (extra.length) console.log('  ' + extra.join(', '));
   console.log(`\nИтого: нет картинки у ${missing} из ${total}; ошибок страницы: ${errs.length}`);
-  if (arg('json')) fs.writeFileSync(arg('json'), JSON.stringify({ report, extra }, null, 1));
+  if (arg('json')) fs.writeFileSync(arg('json'), JSON.stringify({ report, soft: softReport, extra }, null, 1));
   if (process.argv.includes('--strict') && missing) process.exit(1);
 })();

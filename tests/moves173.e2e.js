@@ -38,16 +38,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await fast(p);
     ok(await p.evaluate(() => fighters.right.monsterId === 'ogre'), tag + ': бой с огром');
     const txt = await p.evaluate(() => { const l = document.querySelector('#fighter-right .ability-line, .ability-line'); return l ? l.textContent : ''; });
-    ok(/Оглушение/.test(txt) && /· (через|в ближайший)/.test(txt), tag + ': строка приёма с подписью «' + txt.trim() + '»');
+    ok(/Оглушение/.test(txt) && /· (через|в ближайший|цена:)/.test(txt), tag + ': строка приёма с подписью «' + txt.trim() + '»');
     await p.evaluate(() => { fighters.right.turnNo = 4; renderBadge('right'); });
-    ok(await p.evaluate(() => !!document.querySelector('.ability-line .next.soon') && /в ближайший ход/.test(document.querySelector('.ability-line .next').textContent)), tag + ': перед срабатыванием — «в ближайший ход» (янтарным)');
+    ok(await p.evaluate(() => !!document.querySelector('.ability-line .next.soon') && /(в ближайший ход|цена:.*готов)/.test(document.querySelector('.ability-line .next').textContent)), tag + ': перед срабатыванием — «в ближайший ход» (янтарным)');
     if (vp[0] >= 700) {
       const fit = await p.evaluate(() => { const l = document.querySelector('.ability-line'); const r = l.getBoundingClientRect(); return { right: r.right, w: innerWidth, vis: r.width > 0 && getComputedStyle(l).display !== 'none' }; });
       ok(fit.vis && fit.right <= fit.w + 1, tag + ': подпись помещается в экран');
     } else {
       // телефон: строка приёма скрыта, подпись — в хвосте строки хода
       const st = await p.evaluate(() => { const e = document.getElementById('status'); const cs = getComputedStyle(e, '::after'); return { content: cs.content, display: cs.display, color: cs.color, text: e.textContent, soon: e.hasAttribute('data-soon'), over: e.scrollWidth > e.clientWidth + 1, ov: getComputedStyle(e).textOverflow }; });
-      ok(/Оглушение:? в ближайший ход/.test(st.content) && st.display === 'inline' && st.soon, tag + ': подпись в строке хода «' + st.content + '»');
+      ok(/Оглушение:? (в ближайший ход|цена: .*готов)/.test(st.content) && st.display === 'inline' && st.soon, tag + ': подпись в строке хода «' + st.content + '»');
       ok(st.text === 'Ваш ход', tag + ': текст строки хода не испорчен («' + st.text + '»)');
     }
     if (skin === '3') {

@@ -66,7 +66,7 @@ for (const [rar, b] of Object.entries(sample)) {
     const cc = Gear.craftCost(b.id, tier), resVal = cc.res.reduce((s, r) => s + r.n * Bestiary.resPrice(r.kind, r.tier), 0);
     const it = Gear.item(Gear.makeEntry(b.id, tier));
     row('E-03a', `кузница: изготовить ${rar} «${b.id}» цв.${tier} → лавка (ресурсы по цене продажи)`, cc.coins + resVal, Gear.sellValue(it.price));
-    const fair = Market.fairUnit('item', 'x', Gear.makeEntry(b.id, tier)), price = Math.round(fair * 2.3);
+    const fair = Market.fairUnit('item', 'x', Gear.makeEntry(b.id, tier)), price = Math.round(fair * Math.max(...Market.PRICE_STEPS));
     row('E-03b', `кузница: изготовить ${rar} «${b.id}» цв.${tier} → ряды ×2,3 (ресурсы по цене продажи, ратуша 0)`, cc.coins + resVal, price - Market.fee(price, Village.feeRate({})), `${Math.round(Market.meanMinutes(price, fair))} мин`);
   }
 }
@@ -75,14 +75,14 @@ for (const tier of [1, 4, 7, 9]) {
   const e = Gear.makeEntry('sword-novice', tier), uc = Gear.upgradeCost(e), resVal = uc.res.reduce((s, r) => s + r.n * Bestiary.resPrice(r.kind, r.tier), 0);
   const before = Gear.item(e), after = Gear.item({ ...e, tier: tier + 1 });
   row('E-04', `улучшить «sword-novice» ${tier}→${tier + 1}, прирост цены продажи в лавку`, uc.coins + resVal, Gear.sellValue(after.price) - Gear.sellValue(before.price));
-  const fair = Market.fairUnit('item', 'x', { ...e, tier: tier + 1 }), p2 = Math.round(fair * 2.3), fair1 = Market.fairUnit('item', 'x', e), p1 = Math.round(fair1 * 2.3);
+  const fair = Market.fairUnit('item', 'x', { ...e, tier: tier + 1 }), p2 = Math.round(fair * Math.max(...Market.PRICE_STEPS)), fair1 = Market.fairUnit('item', 'x', e), p1 = Math.round(fair1 * Math.max(...Market.PRICE_STEPS));
   row('E-04b', `улучшить ${tier}→${tier + 1}, прирост выручки в рядах ×2,3`, uc.coins + resVal, p2 - p1);
 }
 // 5. Боеприпасы: кузница 2 любых ресурса цвета героя → 3 боеприпаса, сравнение со сдачей/покупкой
 for (const tier of [1, 5, 10]) {
   const L = Hero.itemLevel(tier), unit = Hero.consumablePrice(Ammo.CATALOG.bolt.price, L), rp = Bestiary.resPrice('feather', tier);
   row('E-05', `боеприпасы: 2 ресурса (дешёвый «перо») → 3 шт. против покупки, цвет ${tier}`, rp * Ammo.CRAFT.res, buyPrice(unit) * Ammo.CRAFT.out, 'выход — стоимость покупки в лавке');
-  const fair = Market.fairUnit('ammo', 'bolt', null, unit) * Ammo.CRAFT.out, price = Math.round(fair * 2.3);
+  const fair = Market.fairUnit('ammo', 'bolt', null, unit) * Ammo.CRAFT.out, price = Math.round(fair * Math.max(...Market.PRICE_STEPS));
   row('E-05b', `боеприпасы: 2 ресурса → 3 шт. → ряды ×2,3, цвет ${tier}`, rp * Ammo.CRAFT.res, price - Market.fee(price, Village.feeRate({})), `${Math.round(Market.meanMinutes(price, fair))} мин`);
 }
 

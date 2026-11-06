@@ -17,6 +17,8 @@ async function open(b, vp, mobile) {
   await p.click('text=Горные кланы').catch(() => {}); await p.click('text=Мужской').catch(() => {});
   await p.fill('input', 'Тест').catch(() => {}); await p.click('text=Начать игру!').catch(() => {});
   await p.waitForTimeout(1000);
+  // 2.2.7: питомцы открываются с 5-го уровня — для боя вдвоём нужен герой 6-го уровня с питомцем
+  await p.evaluate(() => { Profile.data.wins = 20; Profile.data.xp = Hero.totalFor(6); Profile.data.pet = Object.assign(Pets.makePet('wolf', 1), { xp: 300 }); Profile.data.petChoice = 'tamed'; Profile.save(); }); await p.waitForTimeout(300);
   return { p, errs, ctx };
 }
 const attack = (p, fast) => p.evaluate((fast) => {
@@ -177,25 +179,25 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
       turnSide = 'left'; busy = false;
       out.before = { power: f.stats.power, defense: f.stats.defense };
       out.drank = [useElixir('power', 5), useElixir('fury', 10), useElixir('defense', 6)];
-      out.cd0 = f.elxCd;
+      out.cd0 = f.elxCds.health || 0;
       f.hp = Math.round(f.max * 0.3); const hp0 = f.hp;
       out.drankHealth = useElixir('health', 5); out.healed = f.hp - hp0;
-      out.drankStones = useElixir('stones', 3);              // общий запас «раз в 3 хода» — нельзя
-      out.cd1 = f.elxCd;
+      out.drankStones = useElixir('health', 3);              // Камни — отдельный запас: после Жизни пить можно
+      out.cd1 = f.elxCds.health;
       out.badges = document.querySelectorAll('.elx-badge').length;
       out.pct = f.elxPct; out.after = { power: f.stats.power, defense: f.stats.defense };
       out.bag = Profile.elixirBag().length;
       const lf = () => JSON.stringify(Object.fromEntries(Object.entries(f.elx).map(([k, a]) => [k, a.left]).sort()));
       out.left = lf();
       setTurn('right'); out.afterTurn = lf();
-      setTurn('left'); out.cd2 = f.elxCd;
+      setTurn('left'); out.cd2 = f.elxCds.health;
       return out;
     });
     assert.deepStrictEqual(r.drank, [true, true, true]); assert.ok(r.after.power > r.before.power && r.after.defense >= r.before.defense, 'прибавки применены');
-    assert.ok(r.healed > 0, 'Жизнь лечит цифрой'); assert.strictEqual(r.drankStones, false, 'мгновенные — раз в 3 хода, запас общий'); assert.strictEqual(r.cd1, 3);
+    assert.ok(r.healed > 0, 'Жизнь лечит цифрой'); assert.strictEqual(r.drankStones, false, 'Жизнь — не чаще раза за ход'); assert.strictEqual(r.cd1, 1);
     assert.strictEqual(r.badges, 3); assert.strictEqual(r.pct, 50, 'эликсир силы 5-го цвета: +50% к суммарной Силе (2.0.4)'); assert.strictEqual(r.bag, 1, 'из сумки расходуются');
     assert.strictEqual(r.left, '{"defense":10,"fury":10,"power":1}'); assert.strictEqual(r.afterTurn, '{"defense":9,"fury":9}', 'Сила кончилась с ходом');
-    assert.strictEqual(r.cd2, 2);
+    assert.strictEqual(r.cd2, 0);
     assert.deepStrictEqual(errs, []);
     await ctx.close();
   }
@@ -221,10 +223,11 @@ const floating = (p) => p.evaluate(() => {   // камень над пустой
     // закалка
     await p.evaluate(() => Screens.open('forge'));
     await p.click('[data-tab="temper"]'); await p.waitForSelector('[data-do-temper]');
-    const t0 = await p.evaluate(() => ({ c: Profile.data.coins, plus: Profile.data.items.slice(-1)[0].plus || 0 }));
-    await p.evaluate(() => { const e = Profile.data.items.slice(-1)[0]; document.querySelector('[data-pick="' + e.uid + '"]').click(); });
+    const tuid = await p.evaluate(() => Profile.data.items.slice(-1)[0].uid);   // 2.2.7: ищем вещь по uid — после закалки в конец списка может добавиться награда
+    const t0 = await p.evaluate((u) => ({ c: Profile.data.coins, plus: Profile.item(u).plus || 0 }), tuid);
+    await p.evaluate((u) => { document.querySelector('[data-pick="' + u + '"]').click(); }, tuid);
     await p.click('[data-do-temper]'); await p.waitForTimeout(200);
-    const t1 = await p.evaluate(() => ({ c: Profile.data.coins, plus: Profile.data.items.slice(-1)[0].plus }));
+    const t1 = await p.evaluate((u) => ({ c: Profile.data.coins, plus: Profile.item(u).plus }), tuid);
     assert.strictEqual(t1.plus, 1); assert.ok(t1.c < t0.c, 'монеты ушли на закалку');
     // кнопка слабое место: меткий выстрел по существу не падает
     assert.deepStrictEqual(errs, []);
