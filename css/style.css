@@ -903,8 +903,8 @@ html.pseudo-fs .game { overflow-y: auto; }
 .figure-box { padding: 8px; background: linear-gradient(#3a3d44, #2a2c31); border-radius: 10px; }
 .figure { display: block; width: 100%; height: auto; max-height: 52vh; }
 .stat-list { display: grid; gap: 5px; margin-top: 10px; }
-.stat-list div { display: grid; grid-template-columns: 92px minmax(52px, auto) 1fr; column-gap: 10px; align-items: baseline; padding: 5px 8px; background: var(--field); border-radius: 6px; font-size: 13px; }
-.stat-list span { color: var(--muted); }
+.stat-list div { display: grid; grid-template-columns: 112px minmax(52px, auto) 1fr; column-gap: 10px; align-items: baseline; padding: 5px 8px; background: var(--field); border-radius: 6px; font-size: 13px; }
+.stat-list span { color: var(--muted); white-space: nowrap; }
 .stat-list small { color: var(--muted); font-size: 11px; }
 
 .budget { margin-bottom: 8px; font-size: 13px; }
@@ -4626,3 +4626,13 @@ img.spark-icon{object-fit:contain}
 @media (hover: none), (max-width: 760px) {
   ::-webkit-scrollbar { width: 8px; height: 8px; }
 }
+
+/* 2.2.9: нижний ряд карточки героя без подписей — четыре равные ячейки, значки крупнее, всё по центру симметрично */
+.home-modal .df-hands .hand-cap { display: none; }
+.home-modal .doll-frame.p5 .df-hands { left: 13.5%; right: 13.5%; top: 78.6%; height: 17.4%; gap: 0; padding: 0; }
+.home-modal .df-hands .hand-cell { padding: 0; gap: 0; }
+.home-modal .doll-frame.p5 .df-hands .hand-cell .dslot, .home-modal .doll-frame.p5 .df-hands .hand-cell .dslot.beltslot { height: auto; width: 79%; max-width: 79%; max-height: none; aspect-ratio: 1; margin: 0 auto; }
+
+/* Нижний ряд: геометрия считается от размеров рамки W (460 px в десктопной карточке):
+   полоса 0.926W × 0.214W; квадрат 0.183W = 79% ячейки (ячейка 0.2315W); поля вокруг квадрата: по вертикали 0.0155W, по горизонтали 0.024W с каждой стороны, зазор между соседними 0.048W; перегородка ровно посередине зазора. Квадраты не пересекаются ни друг с другом, ни с кромкой полосы. */
+.home-modal .doll-frame.p5 .df-hands { grid-template-columns: repeat(4, 1fr); left: 3.7%; right: 3.7%; top: 77.9%; height: 18.7%; border-radius: 6px; }
