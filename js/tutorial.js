@@ -22,20 +22,13 @@ const Tutorial = (() => {
 
     { phase: 'battle', wait: 'move', cells: true, text: _t("Это поле боя: 36 волшебных камней, ты слева, я справа, ходим по очереди. Поменяй местами два подсвеченных камня: нажми на один, затем на соседний (или проведи по нему пальцем) — соберутся три чёрных обсидиана. Запомни главное: <b>урон наносит только обсидиан</b> (чёрный куб).") },
     { phase: 'battle', target: '#fighter-right .hpbar, .fighter.left .counters', text: _t("Видишь, у меня убавилось здоровья! Синие, красные и зелёные камни урона не наносят — они копятся для магии. Счётчики видны у твоего портрета.") },
-    { phase: 'battle', wait: 'move', target: '#hint', enter: () => whenIdle(showHint), text: _t("Сделай ещё один ход. Я подсветил лучший обмен — так же работает кнопка «Подсказка» внизу. Линия из 4 камней даёт дополнительный ход, из 5 — ещё и бонус ×3.") },
-    { phase: 'battle', target: '#spellbar', enter: () => giveStones(12), text: () => matchMedia('(hover: none)').matches   // 1.6.4: на сенсорном экране наведения нет — описание по долгому нажатию
-        ? _t("Дарю тебе по 12 камней каждого цвета. Это книга заклинаний: у каждого своя цена — камней каждого вида (зажми кнопку, чтобы прочитать).")
-        : _t("Дарю тебе по 12 камней каждого цвета. Это книга заклинаний: у каждого своя цена — камней каждого вида (наведи на кнопку, чтобы прочитать).") },
-    { phase: 'battle', wait: 'cast', kinds: ['fire', 'square'], target: 'button.magic.fire, button.magic.square', enter: () => giveStones(12), text: _t("«Огненный крест» собирает в копилку камни крестом в области 5×5, а «Захват» — квадратом 3×3. Удар: постоянный урон + твой базовый + номиналы обсидианов. Выбери одно из них и нажми на клетку поля.") },
-    { phase: 'battle', wait: 'lightning', target: 'button.magic.lightning', enter: () => giveStones(12), text: _t("«Шаровая молния» — самая сильная магия: весь ход каждый собранный камень, любого цвета, бьёт с силой ×1,5. Включи её!") },
-    { phase: 'battle', wait: 'move', target: '#hint', text: _t("Молния горит! Теперь собери любую линию — ударят все камни. Хитрость: Молния, а за ней Крест или Захват — самое мощное сочетание в игре.") },
+    { phase: 'battle', wait: 'cast', kinds: ['fire', 'square'], target: 'button.magic.fire, button.magic.square', enter: () => giveStones(12), text: _t("Дарю тебе по 12 камней каждого цвета: это книга заклинаний, у каждого своя цена. «Огненный крест» собирает в копилку камни крестом в области 5×5, а «Захват» — квадратом 3×3. Удар: постоянный урон + твой базовый + номиналы обсидианов. Выбери одно из них и нажми на клетку поля.") },
     { phase: 'battle', wait: 'win', target: 'button.magic.strike', enter: () => { giveStones(8); weakenBeaver(); },
       text: _t("Я почти без сил — добей меня! Собери обсидиан или примени «Удар» — он бьёт твоим базовым уроном. Победа приносит опыт, монеты, ресурсы и иногда вещи.") },
     { phase: 'battle', wait: 'map', target: '.overlay .to-map', text: _t("Победа! Нажми «На карту» — покажу деревню.") },
 
     { phase: 'village', wait: 'faction', enter: () => { if (Profile.data.faction) schedule(idx + 1, 300); else Screens.openFactions(true); }, text: '' },
-    { phase: 'village', text: () => { const F = playerFaction(), A = Ammo.CATALOG[Ammo.forFaction(Profile.data.faction)]; return _t("Ты — {0}! У каждого народа свой приём — «{1}»: {2}. Он заряжается, когда ты собираешь {3}, и хода не тратит. А в сумке лежит боеприпас твоего народа — <b>{4}</b>: выстрел хода не тратит, но за ход — только один.", [F.name, F.ability.name, F.ability.desc, gemName(), A.name]); } },
-    { phase: 'village', target: '#map-zones', text: _t("Теперь в путь! Кружки с цифрой — существа: цифра и цвет — их уровень, чем дальше от деревни, тем сильнее. Начни с крыс, ежей и гадюк у частокола. В каждом здании деревни при первом входе я оставил короткую подсказку. За обучение — 100 монет и 2 зелья здоровья. В бою можно не торопиться: таймера хода нет, «Подсказка» покажет ход, «Отступить» уведёт на карту. Удачи!"), nextLabel: _t("Начать игру") },
+    { phase: 'village', target: '#map-zones', text: () => { const F = playerFaction(); return _t("Ты — {0}! Твой приём «{1}» заряжается, когда ты собираешь {2}, и хода не тратит. ", [F.name, F.ability.name, gemName()]) + _t("Теперь в путь! Кружки с цифрой — существа: цифра и цвет — их уровень, чем дальше от деревни, тем сильнее. Начни с крыс, ежей и гадюк у частокола. В каждом здании деревни при первом входе я оставил короткую подсказку. За обучение — 100 монет и 2 зелья здоровья. В бою можно не торопиться: таймера хода нет, «Подсказка» покажет ход, «Отступить» уведёт на карту. Удачи!"); }, nextLabel: _t("Начать игру") },
   ];
 
   const cur = () => STEPS[idx];
@@ -93,6 +86,12 @@ const Tutorial = (() => {
     }
   }
 
+  // ---------- новая раскладка боя на телефоне ----------
+  const dockMenuShown = () => { const m = document.getElementById('dock-menu'); return !!(m && m.getBoundingClientRect().height); };
+  const dockText = (t) => typeof t === 'string' && dockMenuShown() && !document.body.classList.contains('old-dock')
+    ? t.replace('кнопка «Подсказка» внизу', 'кнопка «Подсказка» в меню ☰ слева вверху').replace('the Hint button below', 'the Hint button in the ☰ menu at the top left')
+    : t;
+
   // ---------- подсветка ----------
   function clearHl() {
     for (const el of hlEls) el.classList.remove('coach-hl', 'coach-cell');
@@ -108,6 +107,16 @@ const Tutorial = (() => {
       for (const p of planted) { const t = grid[p.r] && grid[p.r][p.c]; if (t && t.el) { t.el.classList.add('coach-cell'); hlEls.push(t.el); } }
     }
     if (s.target) for (const el of document.querySelectorAll(s.target)) { el.classList.add('coach-hl'); hlEls.push(el); }
+    // Новая раскладка боя на телефоне: «Подсказка» спрятана в кнопке ☰ слева вверху — подсвечиваем её вместо скрытой кнопки.
+    if (s.target && dockMenuShown()) {
+      const tiny = hlEls.filter((el) => el.getBoundingClientRect().height < 12);
+      if (tiny.length && tiny.length === hlEls.length) {
+        for (const el of tiny) el.classList.remove('coach-hl');
+        hlEls = [];
+        const m = document.getElementById('dock-menu'); m.classList.add('coach-hl'); hlEls.push(m);
+        const pe = box && box.querySelector('p'); if (pe) pe.innerHTML = dockText(pe.innerHTML);
+      }
+    }
     if (s.building && typeof MapView !== 'undefined' && MapView.coachRing) MapView.coachRing(s.building);
     place();
   }
@@ -146,7 +155,7 @@ const Tutorial = (() => {
       document.body.appendChild(box);
       box.addEventListener('click', onClick);
     }
-    const shownStep = (x) => !hiddenStep(x) && x.wait !== 'faction', total = STEPS.filter(shownStep).length, shown = STEPS.slice(0, idx + 1).filter(shownStep).length, text = typeof s.text === 'function' ? s.text() : s.text;
+    const shownStep = (x) => !hiddenStep(x) && x.wait !== 'faction', total = STEPS.filter(shownStep).length, shown = STEPS.slice(0, idx + 1).filter(shownStep).length, text = dockText(typeof s.text === 'function' ? s.text() : s.text);
     const waiting = s.wait && s.wait !== 'next';
     box.className = 'coach coach-' + s.phase;
     box.hidden = false;
@@ -232,6 +241,7 @@ const Tutorial = (() => {
       if (typeof MapView !== 'undefined' && MapView.toast) MapView.toast(_t("Бобёр вручил 100 монет и 2 зелья здоровья. В путь!"));
     }
     Profile.save();
+    if (completed && first && typeof Tips !== 'undefined') setTimeout(() => { if (Tips.fire(Profile.data, 'ammo')) Profile.save(); }, 4500);   // подсказка про боеприпас народа — на карте, не в бою
     document.body.classList.add('no-hint');                // 1.8.5: после обучения «Подсказки» в бою нет
     if (typeof MapView !== 'undefined') MapView.renderHud();
     if (!d.faction && typeof Screens !== 'undefined') setTimeout(() => Screens.openFactions(true), 50);   // 1.5.4: пропустили обучение до выбора народа

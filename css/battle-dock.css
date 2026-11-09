@@ -1,0 +1,439 @@
+/* World in Pieces 2.2.9 — responsive battle dock integration.
+ * One existing .tools element holds BOTH real spell and consumable controls.
+ * No cloned buttons / no new click handlers; game.js remains authoritative.
+ * Phone only: original map, modals, desktop, and pet control screens are untouched.
+ */
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools {
+  display: grid;
+  grid-area: dock;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  gap: 3px;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid #846539;
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(76, 56, 35, .94), rgba(30, 24, 18, .96));
+  box-shadow: inset 0 1px 0 #d8ae6755, 0 2px 10px #0007;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools > .tool-col {
+  display: block;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools > .tool-col + .tool-col {
+  border-top: 1px solid #9b78494a;
+  padding-top: 4px;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar,
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar,
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar,
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  border: 0;
+  border-image: none;
+  border-radius: 0;
+  background: none;
+  transform: none;
+  box-shadow: none;
+  justify-content: stretch;
+  align-content: start;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar button.magic {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 7px;
+  aspect-ratio: auto;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar .magic-icon {
+  width: auto;
+  height: 75%;
+  max-width: 82%;
+  aspect-ratio: 1;
+  margin: auto;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar button.bagitem {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: var(--dock-bag-h);
+  margin: 0;
+  padding: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagitem .item-icon {
+  width: min(75%, 30px);
+  height: min(75%, 30px);
+}
+/* Compact one-piece dock below full-width 6x6 field. */
+@media (orientation: portrait) {
+  body.ui-columns.phone.mode-battle {
+    --dock-gap: 3px;
+    --dock-spell-h: clamp(29px, 5.4dvh, 46px);
+    --dock-bag-h: clamp(36px, 10.2vw, 44px);
+    --dock-actions: 0px;
+    --dock-fighter: 72px;
+    --dock-pet-row: 0px;
+    --dock-top: max(42px, env(safe-area-inset-top, 0px));
+    --board: max(156px, min(100vw, calc(100dvh - var(--dock-top) - env(safe-area-inset-bottom, 0px) - var(--dock-fighter) - var(--dock-pet-row) - 21px - 2 * var(--dock-spell-h) - var(--dock-bag-rows, 2) * var(--dock-bag-h) - var(--dock-actions) - 57px)));
+  }
+  body.ui-columns.phone.mode-battle.duo-battle { --dock-pet-row: 43px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) { padding: calc(var(--dock-top) + 3px) 8px max(4px, env(safe-area-inset-bottom)); }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .arena {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: var(--dock-fighter) var(--dock-pet-row) 26px var(--board) auto var(--dock-actions) 0;
+    grid-template-areas:
+      "l l r r"
+      "pq pq pq pq"
+      "st st st tm"
+      "b b b b"
+      "dock dock dock dock"
+      "act act act act"
+      "lg lg lg lg";
+    align-items: stretch;
+    justify-content: center;
+    column-gap: 3px;
+    row-gap: 3px;
+    width: 100%;
+    height: auto;
+    min-width: 0;
+  }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter { height: var(--dock-fighter); min-width: 0; align-self: stretch; overflow: hidden; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row { grid-area: pq; height: var(--dock-pet-row); overflow: hidden; }
+  body.ui-columns.phone.mode-battle:not(.duo-battle) .game:not(.duo-pet) .pq-row { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) #status { grid-area: st; padding: 0 4px; text-align: center; font-size: 11px; line-height: 12px; white-space: normal; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) #turn-timer { grid-area: tm; text-align: right; padding-right: 6px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) #board { grid-area: b; width: var(--board); justify-self: center; margin: 0; height: var(--board); }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .mini-cnt { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar { grid-template-columns: repeat(7,minmax(0,1fr)); grid-auto-rows: var(--dock-spell-h); gap: var(--dock-gap); }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar button.magic { height: var(--dock-spell-h); }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar {
+    display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: var(--dock-bag-h); grid-template-rows: repeat(var(--dock-bag-rows, 2), var(--dock-bag-h)); gap: var(--dock-gap);
+    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar::-webkit-scrollbar { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar button.bagitem { width: var(--dock-bag-h); height: var(--dock-bag-h); aspect-ratio: 1; scroll-snap-align: start; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar { grid-area: act; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .log-wrap:not([open]) { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .log-wrap[open] { grid-area: lg; }
+}
+
+/* Portrait phone: menu is one button in the top-left corner, the opponent's move chip sits in the top-right corner (clear of the notch row). */
+.dock-menu-btn { display: none; }
+@media (orientation: portrait) {
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar {
+    position: fixed; z-index: 40; grid-area: auto; width: auto; height: auto;
+    top: max(2px, env(safe-area-inset-top, 0px)); left: 6px;
+  }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .dock-menu-btn {
+    display: block; width: 44px; height: 36px; padding: 0; border-radius: 7px; line-height: 1; font-size: 16px;
+    border: 1px solid #8a6a3a; background: rgba(30, 20, 12, .9); color: #f2d88f;
+  }
+  body.ui-columns.phone.mode-battle:not(.dock-open) .game:not(.duo-pet) .bar .btns { display: none; }
+  body.dock-open.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns {
+    display: grid; position: absolute; top: 40px; left: 0; width: min(272px, calc(100vw - 12px));
+    grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 42px; gap: 4px; padding: 4px;
+    border-radius: 9px; border: 1px solid #8a6a3a; background: rgba(24, 16, 10, .96); height: auto;
+  }
+  body.dock-open.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > button { height: 42px; }
+  body.no-hint.dock-open.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns { grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(206px, calc(100vw - 12px)); }
+  body.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row:has(.mob-magic) {
+    display: flex; position: fixed; z-index: 39; grid-area: auto; height: 22px; width: auto; max-width: calc(100vw - 58px);
+    top: max(2px, env(safe-area-inset-top, 0px)); right: 6px; left: auto; align-items: center; height: 36px; overflow: hidden;
+  }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .arena:has(.pq-row .mob-magic) { --dock-pet-row: 0px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mob-magic { flex: 0 1 auto; padding: 0 6px 0 2px; gap: 4px; border-radius: 7px; align-items: center; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-ic { width: 18px; height: 18px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-tx { flex-direction: row; align-items: center; gap: 5px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-tx > b { font-size: 11px; max-width: 34vw; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-cost { flex-wrap: nowrap; gap: 4px; font-size: 10px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-chip svg { width: 10px; height: 10px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .pq-info { display: none; }
+}
+/* Left-side status / 6x6 field / right-side combined dock. */
+@media (orientation: landscape) {
+  body.ui-columns.phone.mode-battle {
+    --dock-gap: 3px;
+    --dock-actions: 38px;
+    --dock-head: 0px;
+    --dock-top: max(5px, env(safe-area-inset-top, 0px));
+    --dock-side: clamp(110px, 19vw, 160px);
+    --dock-width: clamp(158px, 26vw, 224px);
+    --dock-spell-h: clamp(28px, calc((100dvh - var(--dock-head) - 55px) / 6.6), 42px);
+    --dock-bag-h: clamp(36px, calc((100dvh - var(--dock-head) - 55px) / 7), 38px);
+    --board: max(156px, min(calc(100dvh - var(--dock-head) - var(--dock-top) - env(safe-area-inset-bottom, 0px) - 5px), calc(100vw - var(--dock-side) - var(--dock-width) - 30px)));
+  }
+  body.ui-columns.phone.mode-battle.duo-battle { --dock-head: 42px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) { padding: calc(var(--dock-head) + var(--dock-top)) 6px 4px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .arena {
+    display: grid;
+    grid-template-columns: var(--dock-side) var(--board) minmax(0, var(--dock-width));
+    grid-template-rows: 20px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) var(--dock-actions);
+    grid-template-areas:
+      "st b dock"
+      "l b dock"
+      "r b dock"
+      "pq b dock"
+      "act b dock";
+    width: 100%;
+    height: var(--board);
+    gap: 3px;
+    align-items: stretch;
+    justify-content: center;
+  }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter { align-self: stretch; height: auto; min-height: 0; overflow: hidden; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counters { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) #status { grid-area: st; font-size: 11px; text-align: center; line-height: 20px; padding: 0 2px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) #turn-timer { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row { grid-area: pq; display: flex; min-height: 0; height: auto; overflow: hidden; }
+  body.ui-columns.phone.mode-battle:not(.duo-battle) .game:not(.duo-pet) .pq-row { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) #board { grid-area: b; grid-row: auto; width: var(--board); height: var(--board); justify-self: center; margin: 0; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar { grid-template-columns: repeat(4,minmax(0,1fr)); grid-auto-rows: var(--dock-spell-h); gap: var(--dock-gap); }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar button.magic { height: var(--dock-spell-h); }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar { grid-template-columns: repeat(5,minmax(0,1fr)); grid-auto-rows: var(--dock-bag-h); gap: var(--dock-gap); }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar { grid-area: act; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .log-wrap { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .mini-cnt { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .duo-bar { top: var(--dock-top); }
+}
+/* Shared action row, four original buttons and their original event handlers. */
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .menu { display: none; }
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  align-self: stretch;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar > span:not(.btns) { display: none; }
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  grid-auto-rows: var(--dock-actions);
+  width: 100%; height: 100%; gap: 3px;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > button {
+  grid-area: auto !important;
+  min-width: 0; min-height: 0; max-height: 100%;
+  height: var(--dock-actions);
+  transform: none !important;
+}
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > #skin-btn,
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > #timer-btn,
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > #fullscreen { display: none; }
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > #more { display: block; }
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > #hint { display: block; }
+body.no-hint.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > #hint { display: none; }
+body.no-hint.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns { grid-template-columns: repeat(3,minmax(0,1fr)); }
+/* The aesthetic gold UI must not impose its original margin or double frames on the mobile dock. */
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar { margin: 0; width: 100%; }
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar { transform: none; }
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #board { margin: 0; }
+/* вертикально: рамка выступает за поле на 7,6% его стороны, поле и отступы считаются от --board */
+@media (orientation: portrait) {
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .arena { grid-template-rows: var(--dock-fighter) var(--dock-pet-row) 36px calc(var(--board) * 1.109 + 8px) auto var(--dock-actions) 0; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #board { align-self: center; }
+}
+@media (orientation: portrait) { body.bt-gold.ui-columns.phone.mode-battle { --dock-fighter: 94px; --board: max(156px, min(calc(100vw / 1.109), calc((100dvh - var(--dock-top) - env(safe-area-inset-bottom, 0px) - var(--dock-fighter) - var(--dock-pet-row) - 2 * var(--dock-spell-h) - var(--dock-bag-rows, 2) * var(--dock-bag-h) - var(--dock-actions) - 70px) / 1.109))); } }
+/* Tiny/short landscape phones: do not let long button backgrounds force overflow. */
+@media (orientation: landscape) and (max-height: 355px) {
+  body.ui-columns.phone.mode-battle { --dock-side: clamp(94px,17vw,132px); --dock-width: clamp(146px,25vw,190px); --dock-actions: 36px; --dock-spell-h: 28px; --dock-bag-h: 36px; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .avatar { width: 26px; height: 26px; }
+}
+
+/* Tutorial card in the phone portrait battle: compact, so it covers as little of the dock as possible. */
+@media (orientation: portrait) {
+  body.ui-columns.phone.mode-battle .coach:not(.at-top) { bottom: calc(6px + env(safe-area-inset-bottom, 0px)); padding: 7px 10px; gap: 0; }
+  body.ui-columns.phone.mode-battle .coach .coach-portrait { display: none; }
+  body.ui-columns.phone.mode-battle .coach .coach-body p { margin: 3px 0 5px; font-size: 12.5px; line-height: 1.32; }
+  body.ui-columns.phone.mode-battle .coach .coach-act { gap: 6px; }
+  body.ui-columns.phone.mode-battle .coach .coach-act button { padding-block: 5px; min-height: 0; }
+}
+
+/* Early game: only the spells the hero has already opened are shown (no padlocks), and the bag column
+   appears once the hero owns any ammo, elixir or consumable. */
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar button.magic.locked { display: none; }
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .tool-col:has(> #bagbar):not(:has(.bagitem:not([data-state="empty"]))) { display: none; }
+
+/* Pet plaques row (hero + pet battle): touch-sized controls. */
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .pq-take { min-height: 36px; }
+body.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .pq { min-height: 36px; }
+
+/* Short portrait phones: one scrolling row of bag cells keeps the board at least 36px per cell. */
+@media (orientation: portrait) and (max-height: 640px) {
+  body.ui-columns.phone.mode-battle { --dock-bag-rows: 1; }
+}
+
+/* A tip banner must never block the controls under it. */
+body.ui-columns.phone.mode-battle #tip-banner { pointer-events: none; }
+
+/* Landscape: the same square, horizontally scrolling bag cells (two rows) so every cell stays touch-sized. */
+@media (orientation: landscape) {
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar {
+    display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: var(--dock-bag-h); grid-template-rows: repeat(2, var(--dock-bag-h)); gap: var(--dock-gap);
+    overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar::-webkit-scrollbar { display: none; }
+  body.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar button.bagitem { width: var(--dock-bag-h); height: var(--dock-bag-h); aspect-ratio: 1; scroll-snap-align: start; }
+}
+
+/* Landscape hero + pet battle: the plaques and the "play as the pet" button duplicate the top strip, so the cramped side row is hidden. */
+@media (orientation: landscape) {
+  body.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row { display: none; }
+}
+
+/* «золото»: плашка хода в одну строку между заострёнными краями, не вылезает за рамку */
+body.ui-columns.phone.mode-battle.bt-gold .game:not(.duo-pet) #status { display: block; padding: 0 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 26px; }
+body.ui-columns.phone.mode-battle.bt-gold .fighter .hptext { white-space: nowrap; font-size: 11px; letter-spacing: -.02em; }
+
+/* «золото», вертикально: плашка хода от края до края экрана; расходники вплотную, неполный нижний ряд по центру */
+@media (orientation: portrait) {
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #status { overflow: clip; overflow-clip-margin: 40px; --st-h: 30px; height: var(--st-h); min-height: var(--st-h); margin: 10px -8px 0; grid-column: 1 / -1; grid-row: 3; width: auto; justify-self: stretch; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #turn-timer { grid-row: 3; position: relative; z-index: 9; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 3px; overflow: visible; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar button.bagitem { flex: 0 0 auto; width: var(--dock-bag-h); height: var(--dock-bag-h); }
+}
+
+/* «золото», вертикально: единый отступ G = 8px от краёв экрана и между карточками; портреты целиком; в чипе магии только название */
+@media (orientation: portrait) {
+  body.bt-gold.ui-columns.phone.mode-battle { --dock-g: 8px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) { padding-inline: var(--dock-g); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .arena { column-gap: var(--dock-g); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter { padding: 2px 4px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .avatar { width: 34px; height: 34px; margin: 2px 0; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counter { padding: 0 6px; min-height: 18px; height: 18px; border-radius: 9px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counter svg { width: 12px; height: 12px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counter b { font-size: 12px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counters { gap: 4px; }
+  body.bt-gold.ui-columns.phone.mode-battle .mob-magic .mm-cost { display: none; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar { left: var(--dock-g); }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row:has(.mob-magic) { right: var(--dock-g); }
+}
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .name { white-space: normal; overflow: visible; }
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .name .fname { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.1; font-size: 13px; max-width: 100%; vertical-align: middle; }
+
+/* Узкие и низкие телефоны (320×568): ранец на всю ширину панели (из-за #bagbar в style.css он сжимался до ширины поля), ряды по счёту предметов. */
+@media (orientation: portrait) {
+  body.bt-gold.ui-columns.phone.mode-battle #bagbar { width: 100%; max-width: 100%; justify-self: stretch; }
+  body.bt-gold.ui-columns.phone.mode-battle { --dock-bag-rows: 2; }
+}
+@media (orientation: portrait) and (max-height: 640px) {
+  body.bt-gold.ui-columns.phone.mode-battle { --dock-spell-h: 26px; --dock-bag-h: 32px; --dock-fighter: 82px; }
+}
+
+/* Золото, горизонтальный телефон. Рамка поля — квадрат F от верхнего до нижнего края экрана и по центру; слева и справа две равные колонки
+   шириной C, пристыкованные к рамке и к краям экрана через зазор g. Всё считается от окна:
+   F = min(высота, ширина − 4g − 2·Cmin, Cmin = 140);  C = (ширина − F − 4g) / 2;  поле = F / 1,109.
+   Правая панель: ячейка s = min((C − 16 − 12) / 4, (высота − 3g − 32 − 15) / 7) — 14 магий (4 ряда) и 10 расходников (3 ряда) в одной сетке 4 столбца. */
+@media (orientation: landscape) {
+  body.bt-gold.ui-columns.phone.mode-battle {
+    --g: calc(6px * var(--u, 1)); --cmin: calc(140px * var(--u, 1)); --av: clamp(calc(32px * var(--u, 1)), calc(50dvh - calc(125px * var(--u, 1))), calc(52px * var(--u, 1)));
+    --W: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    --dock-head: 0px; --dock-top: 0px;
+    --F: max(calc(200px * var(--u, 1)), min(100dvh, calc(var(--W) - 4 * var(--g) - 2 * var(--cmin))));
+    --board: calc(var(--F) / 1.109);
+    --C: calc((var(--W) - var(--F) - 4 * var(--g)) / 2);
+    --cell: min(calc((var(--C) - calc(16px * var(--u, 1)) - calc(12px * var(--u, 1))) / 4), calc((100dvh - 3 * var(--g) - calc(32px * var(--u, 1)) - calc(15px * var(--u, 1))) / 7));
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) { padding: 0 calc(var(--g) + env(safe-area-inset-right, 0px)) 0 calc(var(--g) + env(safe-area-inset-left, 0px)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .arena {
+    grid-template-columns: var(--C) var(--F) var(--C);
+    grid-template-rows: 0 minmax(0, 1fr) minmax(0, 1fr) calc(28px * var(--u, 1)) calc(40px * var(--u, 1)) 0;
+    grid-template-areas: "l b dock" "l b dock" "r b dock" "mm b dock" "act b dock" "act b dock";
+    height: 100dvh; width: 100%; gap: var(--g); justify-content: center; align-items: stretch; align-content: stretch;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #board { grid-area: b; grid-row: 1 / -1; width: var(--board); height: var(--board); justify-self: center; align-self: center; margin: 0; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #status { display: none !important; }
+  /* карточки бойцов: портрет слева, значок уровня и имя справа, полоса здоровья, ряд из трёх счётчиков камней */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter,
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter.left,
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter.right {
+    display: grid; grid-template-columns: var(--av) minmax(0, 1fr); grid-template-areas: "av nm" "hp hp" "cn cn";
+    align-content: center; align-items: center; gap: calc(7px * var(--u, 1)) calc(8px * var(--u, 1)); padding: 0 calc(6px * var(--u, 1)); position: relative; text-align: center;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #fighter-left { grid-area: l; grid-row: 2; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) #fighter-right { grid-area: r; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .avatar { grid-area: av; width: var(--av); height: var(--av); margin: 0; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .name { display: contents; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .name .fname { grid-area: nm; min-width: 0; align-self: center; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .lv-dot { position: relative; grid-area: av; justify-self: start; align-self: start; z-index: 3; width: calc(18px * var(--u, 1)); height: calc(18px * var(--u, 1)); font-size: calc(10px * var(--u, 1)); line-height: calc(18px * var(--u, 1)); margin: -3px 0 0 -3px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .hpbar { grid-area: hp; height: calc(18px * var(--u, 1)); width: 100%; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .hptext { font-size: calc(11px * var(--u, 1)); padding: 0; text-align: center; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counters { grid-area: cn; display: flex; gap: calc(4px * var(--u, 1)); width: 100%; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counter { flex: 1 1 0; min-width: 0; padding: 0 calc(3px * var(--u, 1)); height: calc(18px * var(--u, 1)); min-height: calc(18px * var(--u, 1)); justify-content: center; gap: calc(3px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counter svg { width: calc(11px * var(--u, 1)); height: calc(11px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .counter b { font-size: calc(11px * var(--u, 1)); }
+  /* плашка приёма врага: только название */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row, body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row:has(.mob-magic) {
+    display: flex; position: static; grid-area: mm; height: calc(28px * var(--u, 1)); width: auto; max-width: none; left: auto; right: auto; top: auto; overflow: hidden; align-items: center; min-height: 0;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mob-magic { flex: 1 1 auto; min-width: 0; height: calc(28px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-tx > b { max-width: none; font-size: calc(11px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-cost, body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-chip { display: none; }
+  /* ряд кнопок */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar { grid-area: act; grid-row: 5; left: auto; width: 100%; justify-self: stretch; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g); height: calc(40px * var(--u, 1)); grid-auto-rows: calc(40px * var(--u, 1)); width: 100%; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .bar .btns > button { width: 100% !important; justify-self: stretch; }
+  /* правая панель: магии и расходники одинаковыми ячейками, 4 столбца, неполные ряды по центру */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools { grid-area: dock; grid-row: 1 / -1; display: flex; flex-direction: column; justify-content: space-between; gap: var(--g); margin: var(--g) 0; padding: 0; box-sizing: border-box; min-width: 0; background: none; border: 0; box-shadow: none; }
+  /* два отдельных блока: магии сверху, расходники снизу, между ними зазор g */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools > .tool-col { display: block; padding: calc(8px * var(--u, 1)); box-sizing: border-box; min-width: 0; background: linear-gradient(150deg, rgba(76, 56, 35, .94), rgba(30, 24, 18, .96)); border: 1px solid #846539; border-radius: calc(12px * var(--u, 1)); box-shadow: inset 0 1px 0 rgba(216, 174, 103, .33), 0 calc(2px * var(--u, 1)) calc(10px * var(--u, 1)) rgba(0, 0, 0, .47); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar, body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: calc(3px * var(--u, 1)); overflow: visible; margin: 0; padding: 0; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .spellbar button.magic, body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar button.bagitem { flex: 0 0 auto; width: var(--cell); height: var(--cell); aspect-ratio: auto; }
+  body.bt-gold.ui-columns.phone.mode-battle #bagbar, body.bt-gold.ui-columns.phone.mode-battle #spellbar { padding: 0; margin: 0; width: 100%; max-width: 100%; justify-self: stretch; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter { border-width: calc(13px * var(--u, 1)); border-image-width: calc(13px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools > .tool-col { border-radius: calc(12px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .fighter .name .fname { font-size: calc(13px * var(--u, 1)); line-height: 1.12; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-tx > b { height: auto; max-height: none; line-height: 1.2; overflow: visible; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-ic { width: calc(18px * var(--u, 1)); height: calc(18px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mob-magic { align-items: center; line-height: 1.1; padding: 0 calc(6px * var(--u, 1)); gap: calc(5px * var(--u, 1)); }
+  /* Бой с питомцем: полосы сверху нет; строка под карточками несёт питомца, его врага и кнопку «играть за питомца» */
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .duo-bar { display: none; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row { display: flex; align-items: stretch; gap: calc(3px * var(--u, 1)); height: calc(28px * var(--u, 1)); padding: 0; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .mob-magic { display: none; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-info { display: contents; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: calc(3px * var(--u, 1)); padding: calc(2px * var(--u, 1)); box-sizing: border-box; height: 100%; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-av { flex: 0 0 auto; width: calc(22px * var(--u, 1)); height: calc(22px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-av > * { width: 100%; height: 100%; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-nm, body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-st { display: none; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-hp { flex: 1 1 auto; min-width: 0; height: calc(8px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-hp b { display: none; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle:not(.solo-battle) .game:not(.duo-pet) .pq-row .pq-take { flex: 0 0 auto; min-height: 0; height: 100%; padding: 0 calc(6px * var(--u, 1)); font-size: calc(10px * var(--u, 1)); line-height: 1.1; }
+}
+
+/* Золото, телефон стоя: приём врага — одна плита в верхней полосе от кнопки меню до края, в цвете карточек */
+@media (orientation: portrait) {
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row:has(.mob-magic) { left: 58px; right: 6px; width: auto; max-width: none; height: 36px; overflow: visible; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mob-magic { flex: 1 1 auto; width: 100%; height: 36px; box-sizing: border-box; padding: 0 10px 0 4px; gap: 8px; border: 1px solid #a8823f; border-radius: 10px; background: linear-gradient(180deg, rgba(58, 40, 20, .94), rgba(28, 18, 10, .94)); box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .16); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mob-magic.ready { border-color: #ffd46a; box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .3), 0 0 8px rgba(255, 212, 106, .4); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-ic { width: 28px; height: 28px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-tx { flex: 1 1 auto; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-tx > b { max-width: none; font-size: 13px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .pq-row .mm-cost { display: flex; font-size: 12px; white-space: nowrap; }
+}
+
+/* Кнопка «Играть за …» на телефоне не нужна: поменяться местами можно касанием карточки напарника */
+body.phone.mode-battle .pq-row .pq-take { display: none; }
+
+/* Золото, телефон стоя: десять эликсиров — два ровных ряда по пять */
+@media (orientation: portrait) {
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar { width: calc(5 * var(--dock-bag-h) + 4 * 3px + 12px) !important; max-width: 100%; margin-left: auto; margin-right: auto; }
+}

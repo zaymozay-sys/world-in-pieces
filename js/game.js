@@ -236,6 +236,7 @@ function buildFighter(side) {
     if (nm && tc) nm.insertAdjacentHTML('afterbegin', `<span class="lv-dot" style="--t:${tc.color};--ti:${tc.ink}" aria-hidden="true">${side === 'right' ? f.tier : (f.level || 1)}</span>`);
   }
   miniCounters(side);
+  setTimeout(fitFighterNames, 60);   // имя в карточке: уменьшить шрифт, если не входит
   if (!host.main) for (const e of el.querySelectorAll('[id]')) { e.setAttribute('data-bid', e.id); e.id = 'pet-' + e.id; }   // 1.6.4 (WIP-07): id во втором поле уникальны
   const lvl = el.querySelector('input.level');
   if (lvl) {
@@ -1009,7 +1010,7 @@ function renderMagic() {
     const btn = spellbarEl.querySelector(`button.${kind}`);
     if (!btn) continue;
     const ready = canAffordMagic('left', kind);
-    if (ready && spellOpen(kind)) tipOnce('spell');
+    if (ready && spellOpen(kind)) tipOnce(kind === 'lightning' ? 'lightning' : 'spell');
     const on = kind === 'lightning' ? f.magic : (aiming && aimKind === kind);
     btn.classList.toggle('on', on);
     btn.classList.toggle('ready', ready && !on);
@@ -1027,7 +1028,7 @@ function renderMagic() {
       const fs = furyState();
       if (!fs.ok) btn.title += _t("\nНужно, чтобы камней вашего цвета ({0}) на поле было больше, чем любого другого, с учётом номиналов (сейчас: {1} против {2})", [GEM_NAMES[GEM_TYPES[fs.home]], fs.mine, fs.other]);
     }
-    btn.innerHTML = spellIconHtml(kind, (PET ? 'pbar-' : 'bar-') + kind) + (!locked && cost ? `<i class="sp-cost" aria-hidden="true">${cost}</i>` : '');
+    btn.innerHTML = spellIconHtml(kind, (PET ? 'pbar-' : 'bar-') + kind);   // цифры цены на значке убраны: цена — в подсказке, а доступность видна по яркости значка
     btn.classList.toggle('locked', !!locked);
     btn.classList.toggle('new-spell', !!(needLvl && !locked && Profile.data.spellSeen && !Profile.data.spellSeen[kind]));
     btn.disabled = spellDisabled(kind, on, ready);
@@ -2560,7 +2561,7 @@ function rewardFor(f, first = true, opts = {}) {
   }
   if (up.to > up.from) {
     const L = up.to, t = Hero.tierFor(L);
-    lines.unshift(_t("<b class=\"lvlup\">Новый уровень {0}!</b> ХП {1}, Сила уровня {2}, очки снаряжения {3}", [L, Hero.baseHp(L), Math.round(Hero.levelPower(L) * 10) / 10, Hero.budget(L)]) +
+    lines.unshift(_t("<b class=\"lvlup\">Новый уровень {0}!</b> ХП {1}, Сила уровня {2}", [L, Hero.baseHp(L), Math.round(Hero.levelPower(L) * 10) / 10, Hero.budget(L)]) +
       (Hero.itemLevel(t) === L ? _t(". Теперь можно надевать вещи цвета «{0}»", [Tiers.get(t).name]) : ''));
     const opened = Object.entries(Balance.spellUnlock).filter(([k, lv]) => lv > up.from && lv <= up.to && MAGICS[k]).map(([k]) => MAGICS[k].name);
     if (opened.length) lines.splice(1, 0, _t("<b class=\"lvlup\">Новое заклинание:</b> {0}", [opened.join(', ')]));   // 1.4.3: не пропустить открытие магии
@@ -4029,6 +4030,28 @@ renderMute();
 // обвязка зависит от экрана, оформления, полосы сверху и числа рядов ранца, поэтому заранее её не угадать. Меряем, на
 // сколько страница выше окна, и уменьшаем сторону поля (--board; от неё считаются и кнопки заклинаний, и столбцы), пока
 // нижний ряд кнопок не окажется на экране. Если уменьшение ничего не даёт, возвращаем как было.
+// Имя бойца в карточке: если не помещается в две строки — уменьшаем шрифт (до 8px), чтобы вошло целиком.
+const nameFitKey = new WeakMap();
+function fitFighterNames() {
+  for (const el of document.querySelectorAll('.fighter .fname')) {
+    const key = el.textContent + '|' + el.clientWidth + '|' + el.clientHeight;
+    if (nameFitKey.get(el) === key) continue;
+    const over = () => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+    el.style.removeProperty('font-size'); el.style.removeProperty('-webkit-line-clamp'); el.style.setProperty('overflow-wrap', 'normal', 'important');   // слово целиком, без разрыва посередине
+    const u = parseFloat(document.body.style.getPropertyValue('--u')) || 1;   // масштаб горизонтальной раскладки
+    let fs = parseFloat(getComputedStyle(el).fontSize) || 13;
+    const base = fs, step = 0.5 * u;
+    for (let i = 0; i < 16 && fs > 10 * u && over(); i++) { fs -= step; el.style.fontSize = fs + 'px'; }   // сначала две строки, шрифт не меньше 10px
+    if (over()) {                                          // не влезло — разрешаем три строки и снова уменьшаем (до 7px)
+      el.style.setProperty('-webkit-line-clamp', '3', 'important'); fs = Math.min(base, 12 * u); el.style.fontSize = fs + 'px';
+      for (let i = 0; i < 16 && fs > 7 * u && over(); i++) { fs -= step; el.style.fontSize = fs + 'px'; }
+    }
+    if (el.scrollWidth > el.clientWidth + 1) el.style.removeProperty('overflow-wrap');   // одно слово шире карточки даже мелким шрифтом — допускаем перенос внутри слова
+    nameFitKey.set(el, el.textContent + '|' + el.clientWidth + '|' + el.clientHeight);
+  }
+}
+// Вызывается после построения карточки и при смене размера окна; во время боя ничего не измеряет, чтобы не тормозить его.
+try { window.addEventListener('resize', () => { requestAnimationFrame(fitFighterNames); }); } catch (e) { /* нет */ }
 let fitBusy = false;
 function fitBattleHeight() {
   if (!host.main || fitBusy) return;
@@ -4036,6 +4059,9 @@ function fitBattleHeight() {
   fitBusy = true;
   try {
     b.style.removeProperty('--board');
+    // 2.2.9 mobile dock: mobile CSS already sizes the board from available viewport;
+    // the legacy scroll-height fitter must not unexpectedly shrink it.
+    if (b.classList.contains('phone') && !document.body.classList.contains('old-dock')) return;
     if (!b.classList.contains('mode-battle') || !b.classList.contains('ui-columns')) return;   // прежние оформления 1 и 2 — длинная страница с прокруткой, их не трогаем
     const H = () => Math.max(document.documentElement.scrollHeight, b.scrollHeight);
     let ov = H() - window.innerHeight;
@@ -4074,7 +4100,7 @@ function renderUiSkin() {
 }
 // Оформление боя «золото» (2.2.9): рамки из art/ui/battle3-*. Выбор хранится в браузере, на сохранение игры не влияет.
 const BT3_ART = { 'bt3-board': 'ui/battle3-board-full', 'bt3-card': 'ui/battle3-card-frame', 'bt3-panel': 'ui/battle3-panel',
-  'bt3-slot-magic': 'ui/battle3-slot-magic', 'bt3-slot-item': 'ui/battle3-slot-item', 'bt3-turn': 'ui/battle3-turn-plate' };
+  'bt3-slot-magic': 'ui/battle3-slot-magic', 'bt3-slot-item': 'ui/battle3-slot-item', 'bt3-turn': 'ui/battle3-turn-plate', 'bt3-crest': 'ui/battle3-turn-crest' };
 function battleSkinOn() { try { return localStorage.getItem('gm-battle-skin') === 'gold'; } catch (e) { return false; } }
 function renderBattleSkin() {
   const b = document.body, skinBtn = $('skin-btn');
@@ -4090,13 +4116,29 @@ function renderBattleSkin() {
   const skinMenu = document.querySelector('#more-menu [data-do=skin]'); if (skinMenu) skinMenu.textContent = label;
   if (host.main) setTimeout(fitBattleHeight, 0);
 }
+// Горизонтальная раскладка боя на компьютере (в ландшафте, только с оформлением «золото»): та же, что на горизонтальном телефоне. Хранится в браузере.
+function deskLandOn() { try { return localStorage.getItem('wip-desk-land') === '1'; } catch (e) { return false; } }
+function renderDeskLand() {
+  const label = deskLandOn() ? _t("Раскладка: горизонтальная") : _t("Раскладка: классика");
+  const lb = $('land-btn'); if (lb) { lb.textContent = label; lb.setAttribute('aria-pressed', String(deskLandOn())); }
+  const lm = document.querySelector('#more-menu [data-do=deskland]'); if (lm) lm.textContent = label;
+  try { window.dispatchEvent(new Event('resize')); } catch (e) { /* без окна */ }
+}
+function toggleDeskLand() {
+  try { localStorage.setItem('wip-desk-land', deskLandOn() ? '0' : '1'); } catch (e) { /* без хранилища выбор не запомнится */ }
+  renderDeskLand();
+}
 function toggleBattleSkin() {
   try { localStorage.setItem('gm-battle-skin', battleSkinOn() ? 'classic' : 'gold'); } catch (e) { /* без хранилища выбор не запомнится */ }
   renderBattleSkin();
+  try { window.dispatchEvent(new Event('resize')); } catch (e) { /* без окна */ }
 }
 renderUiSkin();
 renderBattleSkin();
+renderDeskLand();
+document.body.classList.toggle('no-gear-points', !Hero.pointsOn());
 if ($('skin-btn')) $('skin-btn').addEventListener('click', toggleBattleSkin);
+if ($('land-btn')) $('land-btn').addEventListener('click', toggleDeskLand);
 
 // Настройки для проверки баланса. ХП теперь задают уровень героя и цвет существа; ручная правка ХП
 // действует только в текущем бою и не сохраняется.
@@ -4166,7 +4208,7 @@ restartBtn.addEventListener('click', () => {
   const duoOn = !!(host.coord && host.coord.on());
   if (over && !duoOn) return MapView.returnFromBattle(Combat.enemyDefeated(fighters.right) ? 'win' : 'loss');
   if (!fleeArmed) {
-    restartBtn.textContent = _t("Точно отступить?");
+    restartBtn.textContent = _t("Точно?");
     restartBtn.classList.add('armed');
     fleeArmed = setTimeout(() => { restartBtn.textContent = _t("Отступить"); restartBtn.classList.remove('armed'); fleeArmed = null; }, 2500);
     return;
@@ -4228,10 +4270,31 @@ if (host.main) {
   const moreBtn = $('more'), moreMenu = $('more-menu');
   const phoneMq = () => {
     // Раскладка «телефон» по размеру окна, а не только по сенсорному вводу: узкое окно на компьютере иначе уходит за нижний край экрана
-    const small = Math.min(window.innerWidth, window.innerHeight) <= 520;
-    document.body.classList.toggle('phone', small || (typeof location !== 'undefined' && /[?&]phone\b/.test(location.search)));
+    const small = Math.min(window.innerWidth, window.innerHeight) <= 520 || (window.innerWidth <= 1100 && window.innerHeight >= window.innerWidth * 1.15);   // планшет и узкое высокое окно — тоже вертикальная раскладка
+    document.body.style.setProperty('--u', String(Math.max(0.8, Math.min(3, window.innerHeight / 390)).toFixed(3)));   // единица масштаба горизонтальной раскладки: размеры чертежа (экран 390 в высоту) растут вместе с окном
+    const deskLand = deskLandOn() && battleSkinOn() && window.innerWidth > window.innerHeight;   // компьютер в ландшафте: горизонтальная раскладка боя
+    document.body.classList.toggle('desk-land', deskLand && !small);
+    document.body.classList.toggle('phone', small || deskLand || (typeof location !== 'undefined' && /[?&]phone\b/.test(location.search)));
   };
   phoneMq(); window.addEventListener('resize', phoneMq); window.addEventListener('orientationchange', phoneMq);
+  // 2.2.9: выбор раскладки боя на телефоне — новая (одна панель) или прежняя; хранится в localStorage `wip-battle-dock`
+  const dockOld = () => { try { return localStorage.getItem('wip-battle-dock') === 'old'; } catch (e) { return false; } };
+  const layoutBtn = moreMenu.querySelector('[data-do=layout]');
+  const applyDock = () => {
+    const old = dockOld(), css = $('dock-css'), mb = $('dock-menu');
+    if (css) css.disabled = old;
+    if (mb) mb.hidden = old;
+    document.body.classList.toggle('old-dock', old);
+    document.body.classList.remove('dock-open');
+    if (layoutBtn) layoutBtn.textContent = _t("Раскладка боя: {0}", [old ? _t("прежняя") : _t("новая")]);
+    if (typeof fitBattleHeight === 'function') requestAnimationFrame(fitBattleHeight);
+  };
+  applyDock();
+  const dockBtn = $('dock-menu');   // 2.2.9: портретный телефон — кнопки боя свёрнуты в одну в левом верхнем углу
+  if (dockBtn) {
+    dockBtn.addEventListener('click', (e) => { e.stopPropagation(); document.body.classList.toggle('dock-open'); });
+    document.addEventListener('click', (e) => { if (document.body.classList.contains('dock-open') && !e.target.closest('.bar .btns')) document.body.classList.remove('dock-open'); });
+  }
   moreBtn.addEventListener('click', (e) => { e.stopPropagation(); moreMenu.hidden = !moreMenu.hidden; });
   document.addEventListener('click', (e) => { if (!moreMenu.hidden && !moreMenu.contains(e.target)) moreMenu.hidden = true; });
   moreMenu.addEventListener('click', (e) => {
@@ -4239,7 +4302,9 @@ if (host.main) {
     moreMenu.hidden = true;
     if (b.dataset.do === 'log') { const d = $('log-wrap'); d.open = !d.open; d.scrollIntoView({ block: 'nearest' }); }
     else if (b.dataset.do === 'anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); note(AnimSpeed.label()); }     // 1.6.4
+    else if (b.dataset.do === 'layout') { try { localStorage.setItem('wip-battle-dock', dockOld() ? 'new' : 'old'); } catch (e) { /* без хранилища выбор не запомнится */ } applyDock(); }
     else if (b.dataset.do === 'skin') { toggleBattleSkin(); }
+    else if (b.dataset.do === 'deskland') { toggleDeskLand(); }
     else if (b.dataset.do === 'timer') { TurnTimerSetting.toggle(); note(TurnTimerSetting.label()); }     // 1.6.5
     else $(b.dataset.do).click();
   });
@@ -4641,6 +4706,7 @@ const Duo = (() => {
   function onTeamClick(e) {
     if (!st) return;
     if (e.target.closest('.pq-take')) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }
+    if (e.target.closest('.pq.ally') && !takeState.hidden) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }   // карточка напарника: поменяться местами
     const g = e.target.closest('[data-go]');
     if (g && g.dataset.go !== st.tab) setTab(g.dataset.go);
   }

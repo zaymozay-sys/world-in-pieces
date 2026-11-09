@@ -37,6 +37,7 @@ const MapArt = (() => {
       's-mesa': ['map/mesa', 28], 's-darktree': ['map/darktree', 24], 's-shroom': ['map/shroom', 11], 's-stump': ['map/stump', 14], 's-crack': ['map/crack', 22, 1],
       's-furrow': ['map/furrow', 30, 1], 's-hay': ['map/hay', 18], 's-ford': ['map/ford', 26, 1], 's-hill': ['map/hill', 26], 's-puddle': ['map/puddle', 18, 1],
       's-grass': ['map/grass', 10], 's-flower': ['map/flowers', 11],
+      's-oak': ['map/oak-ancient', 22], 's-cobble': ['map/cobble', 16, 1], 's-wave': ['map/wave', 18, 1], 's-ripple': ['map/ripple', 14, 1], 's-shell': ['map/shell', 9], 's-snowpatch': ['map/snowpatch', 18, 1],
     };
     const sym = (id, body) => {
       const a = ART_SYM[id];

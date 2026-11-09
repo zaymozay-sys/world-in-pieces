@@ -367,7 +367,7 @@ const MapView = (() => {
     f.style.transitionDelay = (d * 110) + 'ms';
     f.classList.add('lift');
     freshIdx.add(i);
-    setTimeout(() => f.remove(), 1000 + d * 110);
+    setTimeout(() => { f.style.display = 'none'; }, 1000 + d * 110);   // 2.2.10: не remove() — удаление узла из карты пересчитывало весь SVG (~150 мс), и экран дёргался
   }
 
   function syncToolsHead() { const h = document.getElementById('m-tools'); if (h) h.classList.toggle('on', !!document.querySelector('#m-pin.on, #m-mini.on')); }
@@ -567,11 +567,19 @@ const MapView = (() => {
   }
   function refreshPlayerArt() { if (!map) return; el['l-player'].innerHTML = ''; placePlayer(false); }
 
+  // 2.2.10: линия пути — два постоянных узла, меняются только атрибуты (замена узлов на каждом шаге пересчитывала весь SVG карты)
+  let pathEls = null;
   function drawPath(path) {
-    if (!path || !path.length) { el['l-path'].innerHTML = ''; return; }
+    const root = el['l-path'];
+    if (!pathEls || !pathEls.line.isConnected || pathEls.line.parentNode !== root) {
+      root.innerHTML = '<polyline class="path" points="" style="display:none"/><circle r="9" class="path-goal" style="display:none"/>';
+      pathEls = { line: root.firstChild, goal: root.lastChild };
+    }
+    if (!path || !path.length) { pathEls.line.style.display = 'none'; pathEls.goal.style.display = 'none'; return; }
     const pts = [st.pos, ...path].map((i) => { const p = px(i); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
     const g = px(path[path.length - 1]);
-    el['l-path'].innerHTML = `<polyline points="${pts}" class="path"/><circle cx="${g.x.toFixed(1)}" cy="${g.y.toFixed(1)}" r="9" class="path-goal"/>`;
+    pathEls.line.setAttribute('points', pts); pathEls.goal.setAttribute('cx', g.x.toFixed(1)); pathEls.goal.setAttribute('cy', g.y.toFixed(1));
+    pathEls.line.style.display = ''; pathEls.goal.style.display = '';
   }
 
   /* ---------- туман войны ---------- */
@@ -600,8 +608,16 @@ const MapView = (() => {
   let lastView = null;                  // размеры поля карты с прошлого замера (cull() не должен заставлять браузер пересчитывать вёрстку)
   const view = () => (lastView = el['map-svg'].getBoundingClientRect());
   // 2.2.7: во время ходьбы (light) каждый кадр двигается только сама карта; отсечение невидимого и миникарта — не чаще раза в 180 мс
-  let heavyAt = 0, heavyTimer = 0;
-  function camHeavy() { heavyTimer = 0; heavyAt = performance.now(); el['map-svg'].classList.toggle('far', cam.s < 0.62); cull(); drawMini(); }
+  // 2.2.10: пока карта едет (шаг героя, перетаскивание, масштаб) — фоновые анимации (покачивание зверей, дым, облака, погода) стоят,
+  // иначе каждый кадр пересчитывает стили десятков тысяч узлов и картинка дёргается. Через 0,35 с покоя всё оживает.
+  let movingOn = false, movingTimer = 0;
+  function setMoving(on, hold = 350) {
+    clearTimeout(movingTimer); movingTimer = 0;
+    if (on) { if (!movingOn) { movingOn = true; document.body.classList.add('map-moving'); } return; }
+    movingTimer = setTimeout(() => { movingTimer = 0; if (stepping) return; movingOn = false; document.body.classList.remove('map-moving'); }, hold);
+  }
+  let heavyAt = 0, heavyTimer = 0, miniAt = 0;
+  function camHeavy() { heavyTimer = 0; heavyAt = performance.now(); el['map-svg'].classList.toggle('far', cam.s < 0.62); cull(); if (!movingOn || performance.now() - miniAt > 600) { miniAt = performance.now(); drawMini(); } }
   function applyCam(light) {
     if (gpuMap) el['map-world'].style.transform = `translate(${cam.x.toFixed(1)}px, ${cam.y.toFixed(1)}px) scale(${cam.s.toFixed(3)})`;
     else el['map-world'].setAttribute('transform', `translate(${cam.x.toFixed(1)} ${cam.y.toFixed(1)}) scale(${cam.s.toFixed(3)})`);
@@ -629,11 +645,12 @@ const MapView = (() => {
     cancelAnimationFrame(camAnim);
     if (!smooth) { cam.x = tx; cam.y = ty; clampCam(); applyCam(); return; }
     const x0 = cam.x, y0 = cam.y, t0 = performance.now();
+    setMoving(true);
     const stepFn = (t) => {
       const k = Math.min(1, (t - t0) / 350), e = 1 - Math.pow(1 - k, 3);
       cam.x = x0 + (tx - x0) * e; cam.y = y0 + (ty - y0) * e;
-      clampCam(); applyCam();
-      if (k < 1) camAnim = requestAnimationFrame(stepFn);
+      clampCam(); applyCam(k < 1);
+      if (k < 1) camAnim = requestAnimationFrame(stepFn); else setMoving(false);
     };
     camAnim = requestAnimationFrame(stepFn);
   }
@@ -647,7 +664,8 @@ const MapView = (() => {
     const wx = (sx - cam.x) / cam.s, wy = (sy - cam.y) / cam.s;
     cam.s = s2;
     cam.x = sx - wx * s2; cam.y = sy - wy * s2;
-    clampCam(); applyCam();
+    setMoving(true); setMoving(false, 450);
+    clampCam(); applyCam(true);
   }
   // Следим за игроком: если он ушёл к краю экрана — плавно подтягиваем камеру.
   function follow() {
@@ -705,8 +723,9 @@ const MapView = (() => {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (!drag.moved && Math.hypot(dx, dy) > 7) drag.moved = true;
       if (drag.moved) {
+        setMoving(true);
         cam.x = drag.cx + dx; cam.y = drag.cy + dy;
-        clampCam(); applyCam();
+        clampCam(); applyCam(true);
         svg.classList.add('dragging');
       }
     });
@@ -714,6 +733,7 @@ const MapView = (() => {
       if (!pointers.has(e.pointerId)) return;
       pointers.delete(e.pointerId);
       svg.classList.remove('dragging');
+      if (!pointers.size) { setMoving(false); applyCam(); }
       if (pointers.size === 1) {
         const [p] = [...pointers.values()];
         drag = { x: p.x, y: p.y, cx: cam.x, cy: cam.y, moved: true };
@@ -845,15 +865,20 @@ const MapView = (() => {
     if (!stepping) stepLoop();
   }
 
+  let monstersDirty = false;
+  function flushMonsters() { if (monstersDirty) { monstersDirty = false; renderMonsters(); } }
+
   async function stepLoop() {
     stepping = true;
     walkView = view();
+    setMoving(true);
     while (walking) {
       const w = walking;
       const arrived = w.adjacent ? HexMap.dist(map.cells[st.pos], map.cells[w.goal]) <= 1 : st.pos === w.goal;
       if (arrived) {
         walking = null;
         drawPath(null);
+        flushMonsters();
         if (w.onArrive) w.onArrive();
         break;
       }
@@ -871,10 +896,12 @@ const MapView = (() => {
       const from = px(st.pos);
       st.pos = next;
       const reveal = revealAround(next);
-      if (reveal) renderMonsters();
+      if (reveal) monstersDirty = true;   // 2.2.10: зверей перерисуем один раз по окончании пути — перерисовка слоя на каждом шаге рвала движение
       await glide(from, px(next), ms);
     }
+    flushMonsters();
     stepping = false; walkView = null;
+    setMoving(false); applyCam();
     renderHud();
     save();
   }
@@ -1833,11 +1860,11 @@ const MapView = (() => {
     d.unlockSeen = d.unlockSeen || [];
     const fresh = open.filter((id) => !d.unlockSeen.includes(id));
     if (fresh.length) { d.unlockSeen.push(...fresh); if (!first) toast(_t("Открыто: ") + fresh.map((id) => Unlocks.hint(id)).join('; ')); save(); }
-    for (const id of Object.keys(Unlocks.NEED)) { const g = el['l-village'] && el['l-village'].querySelector(`.bldg[data-b="${id}"]`); const open2 = Unlocks.isOpen(d, id); if (g) { g.classList.toggle('locked', !open2); if (open2 && fresh.includes(id) && !first) { g.classList.remove('unlock-flash'); void g.getBoundingClientRect(); g.classList.add('unlock-flash'); } } const lg = el['l-village'] && el['l-village'].querySelector(`.map-label-g[data-lb="${id}"]`); if (lg) { lg.classList.toggle('locked', !open2); const tx = lg.querySelector('text'); if (tx) { const base = tx.textContent.replace(/^🔒 /, ''); tx.textContent = open2 ? base : '🔒 ' + base; } } }
+    for (const id of Object.keys(Unlocks.NEED)) { const g = el['l-village'] && el['l-village'].querySelector(`.bldg[data-b="${id}"]`); const open2 = Unlocks.isOpen(d, id); if (g) { g.classList.toggle('locked', !open2); if (open2 && fresh.includes(id) && !first) { g.classList.remove('unlock-flash'); requestAnimationFrame(() => g.classList.add('unlock-flash')); } } const lg = el['l-village'] && el['l-village'].querySelector(`.map-label-g[data-lb="${id}"]`); if (lg) { lg.classList.toggle('locked', !open2); const tx = lg.querySelector('text'); if (tx) { const base = tx.textContent.replace(/^🔒 /, ''); tx.textContent = open2 ? base : '🔒 ' + base; } } }
     const gs = document.getElementById('goal-strip');
     if (gs) {
       const gt = Unlocks.goal(d, Quests.list(d));
-      if (gs.dataset.t !== gt) { gs.dataset.t = gt; gs.classList.remove('flash'); void gs.offsetWidth; gs.classList.add('flash'); }
+      if (gs.dataset.t !== gt) { gs.dataset.t = gt; gs.classList.remove('flash'); requestAnimationFrame(() => gs.classList.add('flash')); }   // 2.2.10: без принудительного пересчёта вёрстки (void offsetWidth)
       gs.textContent = gt;
     }
     if (!first && (d.wins || 0) >= 6 && !battleSpawn && Tips.fire(d, 'zone')) save();   // 2.2.7: после шестой победы — один раз подсказка про дальние зоны

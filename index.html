@@ -12,6 +12,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Хрупкий мир — три в ряд</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/battle-dock.css" id="dock-css">
 </head>
 <body class="mode-map">
   <div class="splash" id="splash" aria-hidden="true">
@@ -110,7 +111,7 @@
         <div class="status" id="status"></div>
         <div class="turn-timer" id="turn-timer" hidden></div>
         <div class="board" id="board" aria-label="Игровое поле 6 на 6"></div>
-        <div class="tools">
+        <div class="tools" id="battle-dock" role="group" aria-label="Боевая панель: магия и расходники">
           <div class="tool-col">
             <div class="spell-title">Магия: по 5 камней каждого вида</div>
             <div class="spellbar" id="spellbar"></div>
@@ -126,11 +127,13 @@
           <button id="credits" type="button" class="icon-btn" title="О разработчиках">ⓘ</button>
         </div>
         <footer class="bar">
+          <button id="dock-menu" type="button" class="dock-menu-btn" aria-label="Меню боя" title="Меню боя">☰</button>
           <span>Ходы: <b id="moves">0</b></span>
           <span class="btns">
             <button id="hint" type="button" title="Показать лучший обмен (H)">Подсказка</button>
             <button id="mute" type="button">Звук: вкл</button>
             <button id="skin-btn" type="button" class="desk-only" aria-pressed="false">Оформление: классика</button>
+            <button id="land-btn" type="button" class="desk-only" aria-pressed="false">Раскладка: классика</button>
             <button id="timer-btn" type="button" class="desk-only" aria-pressed="false">Таймер: выкл</button>
             <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
             <button id="restart" type="button" title="Уйти с поля боя на карту">Отступить</button>
@@ -143,7 +146,9 @@
           <button type="button" data-do="fullscreen">Полный экран</button>
           <button type="button" data-do="log">Журнал боя</button>
           <button type="button" data-do="anim">Анимации: обычные</button>
+          <button type="button" data-do="layout">Раскладка боя: новая</button>
           <button type="button" data-do="skin">Оформление: классика</button>
+          <button type="button" data-do="deskland">Раскладка: классика</button>
           <button type="button" data-do="timer">Таймер хода: выкл</button>
         </div>
         <details class="log-wrap" id="log-wrap">
@@ -170,7 +175,7 @@
         <li>У каждого вида существ свой приём (воровство, вой, туман, окаменение, огненное дыхание и другие): он указан в карточке существа и в бестиарии.</li>
         <li>Неверный ход: −5% максимума ХП (на 1-м уровне это 5–6 ХП) и ход переходит к противнику. Три неверных хода подряд — поражение.</li>
         <li>Экипировка: оружие (в одну или две руки), щит, шлем, нагрудник, наручи, поножи и амулет усиливают Силу, Здоровье, Броню, Магию, Проворство (шанс первого хода), Рикошет и Блок. Предметы одного набора дают дополнительные бонусы. Одеваться можно в оружейной вашего дома; в дорогу в сумке — только эликсиры, расходники и боеприпасы. Лимит очков растёт с уровнем героя.</li>
-        <li>Уровень героя растёт от опыта за победы (опыта на уровень нужно всё больше). С уровнем растут ХП, урон камней и лимит очков снаряжения; вещь цвета N можно надеть с уровня (N − 1) × 5 + 1. Сильнее существо и выше его цвет — больше опыта.</li>
+        <li>Уровень героя растёт от опыта за победы (опыта на уровень нужно всё больше). С уровнем растут ХП и урон камней; вещь цвета N можно надеть с уровня (N − 1) × 5 + 1. Сильнее существо и выше его цвет — больше опыта.</li>
         <li>Ранец: зелье здоровья, эликсир силы, каменная пыль и свиток спешки используются в бою, ход не тратят. Победа даёт новый предмет и расходники.</li>
         <li>Цвета-уровни (по возрастанию): Красный, Оранжевый, Жёлтый, Зелёный, Голубой, Синий, Фиолетовый, Серебро, Золото, Обсидиановый. Цвет есть у вещей, монстров и ресурсов: чем выше, тем сильнее. Оценка опасности существа (Лёгкий, Равный, Опасный, Смертельный) показывает примерный шанс победы.</li>
         <li>Деньги: медные, серебряные и золотые монеты (100 медных = 1 серебряная, 100 серебряных = 1 золотая). С существ падают монеты, ресурсы их цвета и иногда вещи.</li>

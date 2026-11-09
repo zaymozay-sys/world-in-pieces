@@ -2,6 +2,7 @@
 // Каждая проверка падала на 1.6.2 и проходит на 1.6.4. Профиль каждого контекста изолирован (новый localStorage).
 const assert = require('assert');
 const path = require('path');
+process.env.DOCK = process.env.DOCK || 'new';   // этот набор проверяет новую раскладку боя на телефоне
 const { launch } = require('../tools/browser.js');
 const { hitReport } = require('../tools/hitlib.js');
 const URL = 'file://' + path.join(__dirname, '..', 'index.html');
@@ -38,12 +39,13 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
   // WIP-01: переключение «Играть за питомца» реально меняет сторону управления на 320×568 и 390×844
   for (const [w, h] of [[320, 568], [390, 844]]) {
     const { p, ctx } = await open(w, h, '#dev-fight-goblin-3');
-    const take = (await p.$('.pq-take:not([hidden])')) || await p.$('.duo-take');   // 1.8.4: на телефоне кнопка живёт в строке плашек (pq-take), полоса duo-bar скрыта
+    await p.waitForSelector('.game:not(.duo-pet) .pq-row .pq.ally', { timeout: 15000 }).catch(() => {});
+    const take = (await p.$('.game:not(.duo-pet) .pq-row .pq.ally')) || await p.$('.duo-take');   // телефон: напарник меняется местами по касанию его карточки в строке плашек
     const r = await take.boundingBox();
-    ok(`${w}×${h}: кнопка «за питомца» внутри экрана`, r.x >= 0 && r.x + r.width <= w, JSON.stringify(r));
+    ok(`${w}×${h}: карточка питомца (или кнопка) внутри экрана`, r.x >= 0 && r.x + r.width <= w, JSON.stringify(r));
     const mine = () => p.evaluate(() => document.querySelector('.duo-tab.mine').dataset.tab);
     const before = await mine();
-    await take.tap(); await p.waitForTimeout(500);
+    await p.locator('.game .pq-row .pq.ally:visible, .duo-take:visible').first().tap(); await p.waitForTimeout(500);
     const after = await mine();
     ok(`${w}×${h}: управление перешло (${before} → ${after})`, before !== after);
     await ctx.close();
@@ -62,6 +64,7 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
   {
     const { p, ctx } = await open(390, 844, '#dev-fight-goblin-3-solo');
     const st = () => p.evaluate(() => { const m = document.getElementById('mute'); return { pressed: m.getAttribute('aria-pressed'), cls: m.classList.contains('off'), bg: getComputedStyle(m).backgroundImage, label: m.getAttribute('aria-label') }; });
+    await p.evaluate(() => { const m = document.getElementById('dock-menu'); if (m && m.offsetParent) m.click(); });
     const a = await st(); await p.tap('#mute'); await p.waitForTimeout(200); const c = await st();
     ok('mute: aria-pressed переключается', a.pressed !== c.pressed && c.pressed === 'true', JSON.stringify([a.pressed, c.pressed]));
     ok('mute: иконка «выкл» отличается от «вкл» и валидна', c.cls && c.bg.startsWith('url(') && c.bg !== a.bg);

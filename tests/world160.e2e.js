@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.evaluate(() => document.querySelector('[data-random-name]').click()); await sleep(100);
   await p.evaluate(() => document.querySelector('[data-act=start]').click()); await sleep(1200);
   ok(await p.evaluate(() => Profile.data.faction === 'human' && !document.querySelector('.coach').hidden && /Ты — /.test(document.querySelector('.coach').textContent)), 'после выбора — шаг о приёме народа');
-  for (let i = 0; i < 2; i++) { await p.evaluate(() => document.querySelector('.coach button[data-coach]:not([data-coach=skip])').click()); await sleep(600); }
+  { await p.evaluate(() => document.querySelector(".coach button[data-coach]:not([data-coach=skip])").click()); await sleep(600); }
   ok(await p.evaluate(() => Profile.data.tutorial.done && Profile.data.tutorial.rewarded), 'обучение завершено с наградой');
   await p.evaluate(() => Screens.openShop()); await sleep(200);
   ok(await p.evaluate(() => !!document.querySelector('.modal .tip-box')), 'подсказка при первом входе в Лавку');

@@ -774,6 +774,7 @@ const ART_FILES = {
  "ui/battle3-slot-item": "art/ui/battle3-slot-item.webp",
  "ui/battle3-slot-magic": "art/ui/battle3-slot-magic.webp",
  "ui/battle3-turn-plate": "art/ui/battle3-turn-plate.webp",
+ "ui/battle3-turn-crest": "art/ui/battle3-turn-crest.webp",
  "ui/bg-alchemist": "art/ui/bg-alchemist.webp",
  "ui/bg-arena": "art/ui/bg-arena.webp",
  "ui/bg-artistWorkshop": "art/ui/bg-artistWorkshop.webp",

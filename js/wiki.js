@@ -75,7 +75,7 @@ const Wiki = (() => {
         + p(_t("За рекордную глубину дают по вещи комплекта «Легенда Подземелий»: за этажи 10, 15, 20, 25 и 30.")),
       go: [] },
     { id: 'gear', sec: 'gear', title: () => _t("Снаряжение и комплекты"), keys: 'вещи слоты комплекты очки снаряжения цвет примерка',
-      body: () => p(_t("Вещи надеваются в оружейной вашего дома. Лимит — очки снаряжения, они растут с уровнем. Цвет вещи показывает, с какого уровня её можно надеть."))
+      body: () => p(_t("Вещи надеваются в оружейной вашего дома. Цвет вещи показывает, с какого уровня её можно надеть."))
         + p(_t("Слоты: {0}.", [Gear.SLOTS.map((s) => Gear.SLOT_NAMES[s]).join(', ')]))
         + p(_t("Комплекты ({0}); части комплекта вместе дают бонус. Особые комплекты ({1}) продаются не везде: их добывают особым способом.", [Object.keys(Gear.SETS).length, [...Gear.LOCKED_SETS].map((k) => { const s = Gear.SETS[k]; return typeof s.name === 'function' ? s.name() : (s.name || k); }).join(', ')]))
         + p(_t("Три уникальных комплекта — «Молот», «Бастион» и «Легенда Подземелий» — намного сильнее остальных. Молот достаётся трофеем за бой с тенью на арене, Бастион — за хранителя глубин, Легенда — за рекордную глубину подземелья."))
@@ -338,7 +338,7 @@ const Wiki = (() => {
       body: () => ul([_t("Вид: {0}", [esc(Gear.TYPE_NAMES[it.type] || it.type)]), _t("Редкость: {0}", [esc(Gear.RARITY_NAMES[it.rarity] || it.rarity)]),
         ...(Object.entries(it.stats || {}).map(([k, v]) => `<b>${esc(Gear.STAT_NAMES[k] || k)}</b>: +${v}`)),
         it.perk && typeof WEAPON_PERK_NAMES !== 'undefined' && WEAPON_PERK_NAMES[it.perk.type] ? esc(WEAPON_PERK_NAMES[it.perk.type]) : null,
-        it.cost ? _t("Очков снаряжения: {0}", [it.cost]) : null].filter(Boolean))
+        it.cost && Hero.pointsOn() ? _t("Очков снаряжения: {0}", [it.cost]) : null].filter(Boolean))
         + (it.set && Gear.SETS[it.set] ? p(`${_t("Комплект")}: ${wl('sets', Gear.SETS[it.set].name)}`) : '')
         + (it.faction ? p(_t("Подходит народу: {0}", [esc(facName(it.faction))])) : ''),
       go: [['forge', () => _t("Кузница")]] };

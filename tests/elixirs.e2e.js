@@ -58,9 +58,9 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
       f.counts = { sapphire: 9, ruby: 2, emerald: 5, onyx: 0 };
       o.drankSwap = useElixir('swap', 1); o.swapped = ['sapphire', 'ruby', 'emerald'].map((t) => f.counts[t]);
       setTurn('right'); setTurn('left');
-      f.counts = { sapphire: 4, ruby: 4, emerald: 4, onyx: 0 };
+      f.elxCds = {}; f.counts = { sapphire: 4, ruby: 4, emerald: 4, onyx: 0 };
       const before = count('swap', 1); o.swapEven = useElixir('swap', 1); o.swapEvenKept = count('swap', 1) === before; o.swapWhy = elxWhy('swap', 1);
-      f.counts = { sapphire: 3, ruby: 0, emerald: 1, onyx: 0 };       // разница 3 — переносим один (половина разницы)
+      f.elxCds = {}; f.counts = { sapphire: 3, ruby: 0, emerald: 1, onyx: 0 };       // разница 3 — переносим один (половина разницы)
       o.swapSmall = useElixir('swap', 1); o.swapSmallRes = ['sapphire', 'ruby', 'emerald'].map((t) => f.counts[t]);
 
       // 7. Броня вычитает цифры

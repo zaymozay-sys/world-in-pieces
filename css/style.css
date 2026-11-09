@@ -4397,7 +4397,9 @@ body.ui-columns .bagitem b, body.ui-columns.phone .bagitem b { font-size: 12px; 
 @media (max-width: 700px) { .item-list.tall { max-height: min(52vh, 440px); } }
 
 /* 2.2.6: телефон — подпись под шкалой опыта переносится вместо «побе…», всплывающая подсказка карты внизу (не закрывает кнопки шапки), первая вкладка не тускнеет, бонусы комплекта свёрнуты */
-body.phone .me-txt > small { font-size: 11px; letter-spacing: -.2px; white-space: nowrap; overflow: visible; text-overflow: clip; }
+body.phone .me-txt > small { font-size: 11px; letter-spacing: -.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.phone .me-txt > small:not(.me-fac) { grid-column: 1 / -1; grid-row: 3; padding-right: 58px; }
+body.phone .me-txt > :last-child:not(small):not(.xpbar):not(b) { grid-column: 2; grid-row: 3; justify-self: end; }
 body.phone .map-toast, body.ui-columns.phone .map-toast { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
 .modal .tabs:not(.sub) { -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%); mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%); }
 .set-more > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 2px 0; }
@@ -4488,14 +4490,14 @@ body.map-gpu #map-svg { transform: translateZ(0); }
 /* ===================== Оформление боя «золото» (body.bt-gold) =====================
    Рамки и панели из art/ui/battle3-*; картинки подставляет game.js через переменные --bt3-*. Раскладка не меняется. */
 body.bt-gold .board { box-shadow: none; border-radius: 6px; position: relative; overflow: visible; }
-body.bt-gold #bagbar { margin-top: 26px; }
-body.bt-gold .status { margin-bottom: 18px; }
+body.bt-gold #bagbar { margin-top: calc(var(--board) * 0.06); }
+body.bt-gold .status { margin-bottom: calc(var(--board) * 0.06); position: relative; z-index: 8; }
 body.bt-gold .board::after {
-  content: ''; position: absolute; inset: -22.5%; pointer-events: none; z-index: 5;
+  content: ''; position: absolute; inset: -19.65%; pointer-events: none; z-index: 5;
   background: var(--bt3-board) center / 100% 100% no-repeat;
 }
 body.bt-gold .fighter {
-  border: 26px solid transparent; border-image: var(--bt3-card) 60 fill / 26px stretch;
+  border: 26px solid transparent; border-image: var(--bt3-card) 110 fill / 26px stretch;
   background: transparent; padding: 4px 6px; box-sizing: border-box;
 }
 body.bt-gold .fighter.active { border-color: transparent; filter: drop-shadow(0 0 6px rgba(255, 207, 99, .55)); }
@@ -4504,21 +4506,21 @@ body.bt-gold .status {
   padding: 7px 18px; box-sizing: border-box;
 }
 body.bt-gold .spellbar, body.bt-gold .bagbar {
-  background: none; border: 10px solid transparent; border-image: var(--bt3-panel) 90 fill / 10px stretch; border-radius: 0;
+  background: none; border: 10px solid transparent; border-image: var(--bt3-panel) 70 fill / 10px stretch; border-radius: 0;
 }
 body.bt-gold .spellbar button.magic {
-  background: transparent; border: 6px solid transparent; border-image: var(--bt3-slot-magic) 140 fill / 6px stretch;
+  background: transparent; border: 6px solid transparent; border-image: var(--bt3-slot-magic) 95 fill / 6px stretch;
 }
 body.bt-gold .bagbar button, body.bt-gold .bagbar .bagitem {
-  background: transparent; border: 6px solid transparent; border-image: var(--bt3-slot-item) 140 fill / 6px stretch;
+  background: transparent; border: 6px solid transparent; border-image: var(--bt3-slot-item) 95 fill / 6px stretch;
 }
 body.bt-gold .status { min-height: 36px; display: flex; align-items: center; justify-content: center; line-height: 1.2; padding: 4px 22px; }
 @media (max-width: 700px) {
-  body.bt-gold .fighter { border-width: 13px; border-image-width: 13px; border-image-slice: 60 fill; padding: 0 2px; }
+  body.bt-gold .fighter { border-width: 13px; border-image-width: 13px; border-image-slice: 110 fill; padding: 0 2px; }
   body.bt-gold .status { min-height: 30px; font-size: 13px; }
 }
 @media (max-width: 700px) {
-  body.bt-gold .board::after { inset: -23%; }
+  body.bt-gold .board::after { inset: -19.65%; }
   body.bt-gold .board { margin: 18px 14px 20px; }
   body.bt-gold .status { margin-bottom: 4px; }
   body.bt-gold #bagbar { margin-top: 4px; }
@@ -4539,8 +4541,8 @@ body.bt-gold .bagbar .bagitem .item-icon { width: 22px; height: 22px; }
 }
 
 /* «золото»: столбец заклинаний вне рамки поля, слоты без двойных рамок; ранец по ширине поля */
-body.bt-gold.ui-columns .spellbar { border: 0; border-image: none; padding: 0; transform: translateX(-34px); }
-body.bt-gold.ui-columns .enemy-col { transform: translateX(34px); }
+body.bt-gold.ui-columns .spellbar { border: 0; border-image: none; padding: 0; transform: translateX(calc(var(--board) * -0.05)); }
+body.bt-gold.ui-columns .enemy-col { transform: translateX(calc(var(--board) * 0.05)); }
 body.bt-gold .spellbar button.magic { border: 0; border-image: none; background: var(--bt3-slot-magic) center / 100% 100% no-repeat; border-radius: 0; }
 body.bt-gold :is(#bagbar,[data-bid="bagbar"]) { width: var(--board); max-width: 100%; grid-template-columns: repeat(10, 1fr); }
 body.bt-gold .bagbar .bagitem .item-icon { width: min(26px, 70%); height: auto; aspect-ratio: 1; }
@@ -4636,3 +4638,55 @@ img.spark-icon{object-fit:contain}
 /* Нижний ряд: геометрия считается от размеров рамки W (460 px в десктопной карточке):
    полоса 0.926W × 0.214W; квадрат 0.183W = 79% ячейки (ячейка 0.2315W); поля вокруг квадрата: по вертикали 0.0155W, по горизонтали 0.024W с каждой стороны, зазор между соседними 0.048W; перегородка ровно посередине зазора. Квадраты не пересекаются ни друг с другом, ни с кромкой полосы. */
 .home-modal .doll-frame.p5 .df-hands { grid-template-columns: repeat(4, 1fr); left: 3.7%; right: 3.7%; top: 77.9%; height: 18.7%; border-radius: 6px; }
+
+/* 2.2.10: пока карта едет — фоновые анимации стоят (то же, что «Лёгкая графика», но только на время движения) */
+.map-moving #l-amb, .map-moving .map-clouds, .map-moving .map-wx i { display: none; }
+.map-moving .mon .bob, .map-moving .mon.siege .siege-ring, .map-moving .mon.looter .siege-ring, .map-moving .pl-pulse, .map-moving .smoke, .map-moving .torch-halo, .map-moving #l-ev circle, .map-moving .mon.next-step { animation: none !important; }
+
+/* Подсказка не перехватывает нажатия в бою: под ней могут быть кнопки и плашки (гаснет сама через 9 с). */
+body.mode-battle #tip-banner { pointer-events: none; }
+
+/* «золото» на телефоне (в т. ч. горизонтально): тонкая рамка карточек бойцов, плашка хода в одну строку */
+body.ui-columns.phone.mode-battle.bt-gold .fighter { border-width: 13px; border-image-width: 13px; border-image-slice: 110 fill; padding: 0 2px; }
+
+/* «золото», колонки: карточки бойцов не заходят под столбцы заклинаний и расходников */
+body.bt-gold.ui-columns:not(.phone) .fighter.left { margin-right: calc(var(--board) * 0.04); }
+body.bt-gold.ui-columns:not(.phone) .fighter.right { margin-left: calc(var(--board) * 0.04); }
+
+/* очки снаряжения выключены (Balance.hero.gearPoints = false) */
+body.no-gear-points .budget { display: none; }
+
+/* «золото»: у заклинаний и расходников только тонкая золотая рамка; декоративная рамка — вокруг поля */
+body.bt-gold .spellbar button.magic, body.bt-gold.ui-columns .spellbar button.magic,
+body.bt-gold .bagbar button, body.bt-gold .bagbar .bagitem {
+  background: rgba(24, 18, 12, .72); border: 1.5px solid #c9a24a; border-image: none; border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 224, 150, .18);
+}
+body.bt-gold .spellbar button.magic:disabled, body.bt-gold .bagbar .bagitem[data-state="empty"] { border-color: rgba(201, 162, 74, .38); }
+
+/* «золото»: корона (камень и завитки) над плашкой хода — отдельной картинкой, пропорции от высоты плашки --st-h */
+body.bt-gold .status { --st-h: 36px; }
+body.bt-gold .status::before {
+  content: ''; position: absolute; left: 50%; top: calc(var(--st-h) * -0.547); width: calc(var(--st-h) * 2.655); height: calc(var(--st-h) * 0.837);
+  transform: translateX(-50%); background: var(--bt3-crest) center / 100% 100% no-repeat; pointer-events: none; z-index: 2;
+}
+/* имя в карточке бойца: до двух строк, а не одна с многоточием; полное имя — в подсказке */
+body.bt-gold .fighter .fname { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; line-height: 1.1; }
+
+/* «золото»: на плашке хода только текст хода, без хвоста про приём противника; текст контрастный */
+body.bt-gold #status::after, body.ui-columns.phone.bt-gold #status::after { display: none !important; }
+body.bt-gold .status { color: #fff8e0; font-weight: 700; text-shadow: 0 0 2px #1a0e00, 0 0 4px #1a0e00, 0 1px 1px #000; }
+/* «золото»: надпись на плашке хода не показывается (текст остаётся для экранных читалок) */
+body.bt-gold .status { color: transparent; text-shadow: none; }
+
+/* «золото», компьютер и планшет в ландшафте: портрет + счётчики камней должны помещаться в ширину карточки (на 1024 px карточка уже, чем портрет 11vw). */
+body.bt-gold.ui-columns:not(.phone) { --av: clamp(52px, calc(24vw - 190px), 168px); }
+body.bt-gold.ui-columns:not(.phone) .fighter { column-gap: 6px; }
+body.bt-gold.ui-columns:not(.phone) .fighter .statline, body.bt-gold.ui-columns:not(.phone) .fighter .badge { overflow-wrap: anywhere; min-width: 0; }
+
+/* Компьютер: ряд кнопок под полем не выходит за свою колонку, лишнее переносится */
+body.ui-columns:not(.phone) .bar { min-width: 0; flex-wrap: wrap; }
+body.ui-columns:not(.phone) .bar .btns { min-width: 0; flex-wrap: wrap; }
+
+/* На телефоне пункт «Раскладка» не нужен: горизонтальная включается сама */
+body.phone:not(.desk-land) #more-menu [data-do=deskland] { display: none; }
