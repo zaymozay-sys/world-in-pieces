@@ -437,3 +437,109 @@ body.phone.mode-battle .pq-row .pq-take { display: none; }
 @media (orientation: portrait) {
   body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-pet) .tools .bagbar { width: calc(5 * var(--dock-bag-h) + 4 * 3px + 12px) !important; max-width: 100%; margin-left: auto; margin-right: auto; }
 }
+
+/* Золото, компьютер горизонтально. Всё считается от поля b (камни): рамка выступает на o = 0,0545·b (картинка 815 из 1024 при растяжке 139,3%), F = b + 2o = 1,109·b — высота и ширина рамки.
+   Столбцы: карточка | магии 1–7 (s) | рамка F | магии 8–14 (s) | карточка; везде один зазор g, поэтому слева и справа от магий он равен, и он же — между плашкой хода и рамкой,
+   рамкой и ранцем. Карточки бойцов и столбцы магий начинаются на верхней грани рамки; магия — квадрат s = (F − 36) / 7: семь штук ровно по высоте рамки.
+   Ранец игрока — одна строка из десяти квадратов bc = (F − 54) / 10 шириной в рамку, остальное прокручивается стрелками. Приём врага — красная плитка, затем его эликсиры.
+   Поле: по высоте (высота − 91) / 1,22, по ширине (ширина − 32 − 4g − 340) / 1,43. Ходы, «Сумка» и журнал — в нижних углах и места не занимают. */
+@media (min-aspect-ratio: 63/50) and (min-width: 700px) {
+  body.bt-gold.ui-columns:not(.phone) {
+    --o: calc(var(--board) * 0.0545);
+    --F: calc(var(--board) + 2 * var(--o));
+    --board: clamp(160px, min(calc((100dvh - 91px) / 1.22), calc((100vw - 32px - 4 * var(--g) - 340px) / 1.43)), 720px);
+    --s: calc((var(--F) - 36px) / 7);
+    --scol: var(--s);
+    --bc: calc((var(--F) - 54px) / 10);
+    --cw: calc((100vw - 32px - 4 * var(--g) - 2 * var(--s) - var(--F)) / 2);
+    --av: clamp(52px, calc(var(--cw) * 0.46), 150px);
+  }
+  body.bt-gold.ui-columns:not(.phone) .turn-timer[hidden] { display: none; }
+  body.bt-gold.ui-columns:not(.phone) .game { padding-top: 24px; padding-bottom: 16px; }
+  body.bt-gold.ui-columns:not(.phone) .arena {
+    grid-template-columns: minmax(170px, 330px) var(--s) var(--F) var(--s) minmax(170px, 330px);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas: none; row-gap: 0;
+  }
+  body.bt-gold.ui-columns:not(.phone) #status { grid-column: 3; grid-row: 1; width: 100%; margin: 0 0 var(--g); overflow: visible; }
+  body.bt-gold.ui-columns:not(.phone) .turn-timer { grid-column: 3; grid-row: 2; margin: 0 0 var(--g); }
+  body.bt-gold.ui-columns:not(.phone) :is(#board, [data-bid="board"]) { grid-column: 3; grid-row: 3 / 6; justify-self: center; align-self: start; margin: var(--o) 0; }
+  body.bt-gold.ui-columns:not(.phone) .fighter.left { grid-column: 1; grid-row: 3; align-self: start; top: 0; margin: 0; min-width: 0; max-width: 100%; box-sizing: border-box; }
+  body.bt-gold.ui-columns:not(.phone) .fighter.right { grid-column: 5; grid-row: 3; align-self: start; top: 0; margin: 0; min-width: 0; max-width: 100%; box-sizing: border-box; }
+  /* магии: два столбца по семь квадратов, каждая в своей тонкой золотой рамке */
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) {
+    grid-column: 2 / 5; grid-row: 3 / 6; align-self: start; justify-self: stretch; height: var(--F); transform: none; pointer-events: none;
+    display: grid; grid-template-columns: var(--s) minmax(0, 1fr) var(--s); grid-template-rows: repeat(7, var(--s)); gap: 6px 0;
+    background: none; border: 0; border-image: none; padding: 0; margin: 0;
+  }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(-n+7) { grid-column: 1; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(n+8) { grid-column: 3; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(7n+1) { grid-row: 1; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(7n+2) { grid-row: 2; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(7n+3) { grid-row: 3; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(7n+4) { grid-row: 4; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(7n+5) { grid-row: 5; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(7n+6) { grid-row: 6; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) > :nth-child(7n+7) { grid-row: 7; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) button.magic {
+    pointer-events: auto; width: var(--s); height: var(--s); min-height: 0; padding: 0; box-sizing: border-box; border: 3px solid #d4aa4e; border-radius: 12px;
+    background: rgba(24, 16, 8, .9); box-shadow: inset 0 0 0 1px rgba(255, 226, 150, .25), 0 0 4px rgba(212, 170, 78, .35);
+  }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) button.magic > svg { width: 88%; height: 88%; position: absolute; left: 6%; top: 6%; }
+  /* эликсиры игрока: одна строка под рамкой, стрелки прокрутки слева и справа появляются при наведении */
+  body.bt-gold.ui-columns:not(.phone) #bagbar, body.bt-gold.ui-columns:not(.phone) [data-bid="bagbar"] {
+    grid-column: 3; grid-row: 6; width: var(--F); max-width: none; margin: var(--g) 0 0; padding: 0; border: 0; border-image: none; background: none;
+    display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: var(--bc); grid-template-rows: var(--bc); gap: 6px; justify-content: start;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-behavior: smooth; touch-action: pan-x; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  body.bt-gold.ui-columns:not(.phone) #bagbar::-webkit-scrollbar { display: none; }
+  body.bt-gold.ui-columns:not(.phone) .bagbar .bagitem { width: var(--bc); height: var(--bc); min-height: 0; aspect-ratio: 1; padding: 0; box-sizing: border-box; border: 1px solid #c9a24a; border-radius: 10px; background: rgba(24, 16, 8, .9); display: grid; place-items: center; }
+  body.bt-gold.ui-columns:not(.phone) .bag-arrow { display: grid; place-items: center; grid-row: 6; align-self: start; margin-top: var(--g); width: 34px; height: var(--bc); padding: 0; border: 1px solid #c9a24a; border-radius: 10px; background: rgba(24, 16, 8, .92); color: #f1d98a; font-size: 22px; line-height: 1; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 6; }
+  body.bt-gold.ui-columns:not(.phone) .bag-arrow[hidden] { display: none; }
+  body.bt-gold.ui-columns:not(.phone) .bag-arrow.l { grid-column: 2; justify-self: end; margin-right: var(--g); }
+  body.bt-gold.ui-columns:not(.phone) .bag-arrow.r { grid-column: 4; justify-self: start; margin-left: var(--g); }
+  body.bt-gold.ui-columns:not(.phone) #bagbar:hover ~ .bag-arrow, body.bt-gold.ui-columns:not(.phone) .bag-arrow:hover { opacity: 1; pointer-events: auto; }
+  body.bt-gold.ui-columns:not(.phone) .bag-arrow:disabled { opacity: .35 !important; }
+  /* противник: под карточкой его приём (красная плитка, отделена чертой), затем его эликсиры; те же квадраты */
+  body.bt-gold.ui-columns:not(.phone) .enemy-col {
+    display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 6px; align-content: flex-start; align-items: flex-start;
+    grid-column: 5; grid-row: 4; align-self: start; justify-self: stretch; width: 100%; max-width: none; overflow: visible; transform: none; margin: var(--g) 0 0; padding: 0; row-gap: var(--g);
+  }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-group { display: contents; }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-tile { display: grid; place-items: center; flex: 0 0 var(--bc); width: var(--bc); height: var(--bc); max-height: var(--bc); margin: 0; min-height: 0; padding: 0; box-sizing: border-box; border: 1px solid #c9a24a; border-radius: 10px; background: rgba(24, 16, 8, .9); position: relative; overflow: visible; }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-tile.ability { border-color: #d2604f; background: linear-gradient(180deg, #4a1c15, #1f0d0a); box-shadow: 0 0 9px rgba(214, 84, 62, .5); }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-note { display: flex; flex-direction: column; justify-content: center; gap: 2px; flex: 1 1 0; min-width: 0; align-self: stretch; height: var(--bc); box-sizing: border-box; padding: 2px 7px; border: 1px solid #c9a24a; border-radius: 10px; background: rgba(24, 16, 8, .85); color: #ecd7c4; font-size: 10.5px; line-height: 1.2; overflow: hidden; }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-br { display: block; flex: 0 0 100%; height: 0; margin-top: calc(-1 * var(--g)); }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-note b { color: #ffd9a0; font-size: 11.5px; }
+  body.bt-gold.ui-columns:not(.phone) .bagbar .bagitem .item-icon, body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-tile .item-icon { width: 94%; height: 94%; }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-tile .ec-art { width: 92%; height: 92%; object-fit: contain; }
+  body.bt-gold.ui-columns:not(.phone) .enemy-col .ec-tile.ability.ready { box-shadow: 0 0 12px rgba(255, 150, 90, .75); }
+  /* бестиарий и сведения не нужны; ходы и «Сумка» — в левом нижнем углу, журнал — в правом */
+  body.bt-gold.ui-columns:not(.phone) #bestiary, body.bt-gold.ui-columns:not(.phone) #credits { display: none; }
+  body.bt-gold.ui-columns:not(.phone) .menu { position: fixed; left: 16px; bottom: 40px; z-index: 30; width: auto; }
+  body.bt-gold.ui-columns:not(.phone) .bar { position: fixed; left: 16px; bottom: 10px; z-index: 30; margin: 0; width: auto; }
+  body.bt-gold.ui-columns:not(.phone) .log-wrap { grid-column: 5; grid-row: 5 / 7; align-self: start; margin: var(--g) 0 0; min-height: 0; min-width: 0; box-sizing: border-box; border: 1px solid #c9a24a; border-radius: 10px; background: rgba(24, 16, 8, .85); display: flex; flex-direction: column; overflow: hidden; }
+  body.bt-gold.ui-columns:not(.phone) .log-wrap[open] { align-self: stretch; }
+  body.bt-gold.ui-columns:not(.phone) .log-wrap > summary { flex: 0 0 auto; padding: 6px 10px; cursor: pointer; color: #f1d98a; font-weight: 700; }
+  body.bt-gold.ui-columns:not(.phone) .log-wrap > .log { flex: 1 1 0; min-height: 0; margin: 0; padding: 0 10px 8px; overflow-y: auto; font-size: 12px; line-height: 1.35; overscroll-behavior: contain; touch-action: pan-y; }
+  body.bt-gold.ui-columns:not(.phone) .fighter .tier-chip .tc-name, body.bt-gold.ui-columns:not(.phone) .fighter .mob-lvl { display: none; }
+  body.bt-gold.ui-columns:not(.phone) :is(#spellbar, [data-bid="spellbar"]) button.magic[data-key]::before { left: 6px; top: 4px; font-size: 15px; line-height: 17px; }
+}
+
+/* Золото, компьютер: кнопки боя — значки в правом верхнем углу (подписи в подсказках), внизу остаётся счётчик ходов. */
+@media (min-aspect-ratio: 63/50) and (min-width: 700px) {
+  body.bt-gold.ui-columns:not(.phone) .bar .btns { position: fixed; top: 8px; right: 8px; z-index: 70; display: flex; flex-wrap: nowrap; gap: 4px; width: auto; justify-content: flex-end; }
+  body.bt-gold.ui-columns:not(.phone) .bar .btns > button { position: relative; width: 32px; height: 32px; padding: 0; font-size: 0; line-height: 0; border: 1px solid #c9a24a; border-radius: 9px; background: rgba(24, 16, 8, .88); color: #f1d98a; overflow: hidden; }
+  body.bt-gold.ui-columns:not(.phone) .bar .btns > button::before { content: ""; position: absolute; inset: 6px; background: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+  body.bt-gold.ui-columns:not(.phone) .bar .btns > button.off::before { opacity: .45; }
+  body.bt-gold.ui-columns:not(.phone) .bar .btns > button.off::after { content: ""; position: absolute; left: 5px; right: 5px; top: 50%; height: 2px; background: currentColor; transform: rotate(-45deg); }
+  body.bt-gold.ui-columns:not(.phone) #restart { color: #ff9a8a; border-color: #b4574a; }
+  body.bt-gold.ui-columns:not(.phone) #mute { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9v6h4l5 4V5L8 9z' fill='black'/%3E%3Cpath d='M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11'/%3E%3C/svg%3E"); }
+  body.bt-gold.ui-columns:not(.phone) #fullscreen { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'/%3E%3C/svg%3E"); }
+  body.bt-gold.ui-columns:not(.phone) #skin-btn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z'/%3E%3C/svg%3E"); }
+  body.bt-gold.ui-columns:not(.phone) #land-btn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M9 5v14M15 5v14'/%3E%3C/svg%3E"); }
+  body.bt-gold.ui-columns:not(.phone) #timer-btn { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13' r='8'/%3E%3Cpath d='M12 9v4l3 2M9 2h6'/%3E%3C/svg%3E"); }
+  body.bt-gold.ui-columns:not(.phone) #hint { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z'/%3E%3C/svg%3E"); }
+  body.bt-gold.ui-columns:not(.phone) #restart { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 21V4M6 5h12l-2.5 4L18 13H6'/%3E%3C/svg%3E"); }
+  body.bt-gold.ui-columns:not(.phone) #more, body.bt-gold.ui-columns:not(.phone) #dock-menu { display: none; }
+}

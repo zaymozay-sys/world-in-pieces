@@ -4690,3 +4690,8 @@ body.ui-columns:not(.phone) .bar .btns { min-width: 0; flex-wrap: wrap; }
 
 /* На телефоне пункт «Раскладка» не нужен: горизонтальная включается сама */
 body.phone:not(.desk-land) #more-menu [data-do=deskland] { display: none; }
+
+.bag-arrow { display: none; }
+
+.ec-note { display: none; }
+.ec-br { display: none; }

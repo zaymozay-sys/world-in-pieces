@@ -18,8 +18,8 @@ const ok = (n, c, x) => { if (c) console.log('  ok   ' + n); else { fails++; con
     p.on('console', (m) => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
     p.on('requestfailed', (r) => errs.push('request failed: ' + r.url().slice(-60)));
     await p.goto(URL);
-    const sp = await p.evaluate(() => { const s = document.getElementById('splash'); if (!s) return null; const c = getComputedStyle(s); return { poster: s.classList.contains('has-poster'), rep: c.backgroundRepeat, size: c.backgroundSize }; });
-    ok('заставка: картина не повторяется плиткой (no-repeat, cover)', !sp || (/^no-repeat/.test(sp.rep) && /^cover/.test(sp.size)), JSON.stringify(sp));
+    const sp = await p.evaluate(() => { const s = document.getElementById('splash'); if (!s) return null; let c = getComputedStyle(s); const poster = s.classList.contains('has-poster'); if (poster && !/^no-repeat/.test(c.backgroundRepeat)) c = getComputedStyle(s, '::after'); return { poster, rep: c.backgroundRepeat, size: c.backgroundSize }; });   // на широком экране афиша лежит на слое ::after (contain)
+    ok('заставка: картина не повторяется плиткой (no-repeat, cover)', !sp || (/^no-repeat/.test(sp.rep) && /^(cover|contain)/.test(sp.size)), JSON.stringify(sp));
     await p.waitForFunction(() => !document.getElementById('splash'), null, { timeout: 15000 });
     ok('заставка закрылась сама', true);
     await p.waitForSelector('[data-coach="skip"]', { timeout: 15000 }).catch(() => {});

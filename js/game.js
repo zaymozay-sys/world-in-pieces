@@ -706,6 +706,22 @@ function ammoDisabled() {
   if (aiming && aimKind === 'bomb') return false;            // повторное нажатие снимает прицел
   return busy || over || aiming || turnSide !== 'left' || (fighters.left.ammoShot && !(Ammo.parse(ak).variant === 'light' && !fighters.left.lightUsed)) || !(Profile.ammo(ak) > 0) || isChallenge() || !!LIVE;
 }
+// Стрелки прокрутки ранца (компьютер, золото): показываются, только если эликсиры не помещаются в строку; видны при наведении
+(function bagArrows() {
+  const L = document.querySelector('.bag-arrow.l'), R = document.querySelector('.bag-arrow.r');
+  if (!bagEl || !L || !R) return;
+  const upd = () => {
+    const can = bagEl.scrollWidth > bagEl.clientWidth + 2;
+    L.hidden = R.hidden = !can;
+    if (can) { L.disabled = bagEl.scrollLeft <= 1; R.disabled = bagEl.scrollLeft + bagEl.clientWidth >= bagEl.scrollWidth - 1; }
+  };
+  const go = (d) => { bagEl.scrollBy({ left: d * Math.max(60, bagEl.clientWidth / 2), behavior: 'smooth' }); setTimeout(upd, 400); };
+  L.addEventListener('click', () => go(-1)); R.addEventListener('click', () => go(1));
+  for (const el of [bagEl, L, R]) el.addEventListener('mouseenter', upd);
+  bagEl.addEventListener('touchstart', upd, { passive: true });   // сенсорный экран: прокрутка пальцем, стрелки тоже обновляются
+  window.addEventListener('resize', upd); setTimeout(upd, 500);
+  bagEl.addEventListener('scroll', upd);
+})();
 if (bagEl) bagEl.addEventListener('click', (e) => {
   if (e.target.closest('[data-ammocycle]')) { if (!e.target.closest('button').disabled) { Profile.cycleShot(); renderBag(); } return; }
   if (e.target.closest('[data-elxmenu]')) { if (!e.target.closest('button').disabled) openElxMenu(); return; }
@@ -1190,6 +1206,7 @@ function renderEnemyColumn() {
     const mobKey = 'spells/mob-' + f.ability;
     const glyph = (typeof Art !== 'undefined' && Art.has(mobKey)) ? `<img class="ec-art" src="${Art.url(mobKey)}" alt="" draggable="false">` : `<i class="ec-letter">${ab.name[0]}</i>`;
     top.push(tile(cls, glyph, _t("Приём: {0}\n{1}{2}", [ab.name, ab.desc, state]), num));
+    top.push(`<div class="ec-note"><b>${escText(ab.name)}</b><span>${escText(ab.desc)}</span></div><i class="ec-br"></i>`);   // компьютер, золото: рядом с плиткой — как работает приём
   }
   if (f.ward > 0) top.push(tile('buff', ecSvg('shield'), _t("Щит: примет ещё {0} урона, прежде чем существо начнёт терять ХП", [f.ward]), f.ward));
   // Споры Спороносца — пока не исчерпан лимит двойников за бой.
@@ -4128,13 +4145,21 @@ function toggleDeskLand() {
   try { localStorage.setItem('wip-desk-land', deskLandOn() ? '0' : '1'); } catch (e) { /* без хранилища выбор не запомнится */ }
   renderDeskLand();
 }
+// Компьютер, золото: журнал боя под эликсирами врага развёрнут (его можно свернуть)
+function openLogOnDesk() {
+  try {
+    const d = document.getElementById('log-wrap');
+    if (d && battleSkinOn() && window.matchMedia('(min-aspect-ratio: 63/50) and (min-width: 700px)').matches && !document.body.classList.contains('phone')) d.open = true;
+  } catch (e) { /* без окна */ }
+}
 function toggleBattleSkin() {
   try { localStorage.setItem('gm-battle-skin', battleSkinOn() ? 'classic' : 'gold'); } catch (e) { /* без хранилища выбор не запомнится */ }
-  renderBattleSkin();
+  renderBattleSkin(); openLogOnDesk();
   try { window.dispatchEvent(new Event('resize')); } catch (e) { /* без окна */ }
 }
 renderUiSkin();
 renderBattleSkin();
+openLogOnDesk();
 renderDeskLand();
 document.body.classList.toggle('no-gear-points', !Hero.pointsOn());
 if ($('skin-btn')) $('skin-btn').addEventListener('click', toggleBattleSkin);
@@ -5004,27 +5029,6 @@ MapView.marketNews();           // Торговые ряды: что купил�
     el.classList.add('hide');
     setTimeout(() => el.remove(), 500);
   };
-  // 1.7.5: сначала осколки собираются в название (SplashFx), потом — афиша; нажатие пропускает. Без canvas или при «меньше движения» — как раньше (2 с).
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (typeof SplashFx !== 'undefined' && !reduce && !!document.createElement('canvas').getContext) {
-    const poster = el.classList.contains('has-poster'), wasStyle = el.style.backgroundImage;
-    el.classList.remove('has-poster'); el.style.backgroundImage = '';
-    el.classList.add('fx');
-    let ended = false;
-    const keys = Math.random() < 0.5 ? [1, 2, 3, 4, 5, 6].map((n) => 'ui/shard-' + n) : ['gems/sapphire', 'gems/emerald', 'gems/ruby', 'gems/onyx'];   // 1.8.2: вторая заставка — те же осколки-точки, но из наших 4 камней; выбор случайный
-    const urls = keys.filter((k) => typeof Art !== 'undefined' && Art.has(k)).map((k) => Art.url(k));
-    const fx = SplashFx.play(el, {
-      title: _t('Хрупкий мир'), sub: _t('Хрупкий мир') === 'Хрупкий мир' ? 'W O R L D   I N   P I E C E S' : '', shardUrls: urls,
-      onEnd: () => {
-        if (ended) return; ended = true;
-        if (poster) el.classList.add('has-poster'); else el.style.backgroundImage = wasStyle;
-        fx.canvas.classList.add('gone');                         // золотое название растворяется, под ним — афиша
-        setTimeout(() => { fx.stop(); hideAll(); }, poster ? 1700 : 500);
-      },
-    });
-    el.addEventListener('click', () => { if (!ended) { ended = true; fx.stop(); hideAll(); } });
-    return;
-  }
   setTimeout(hideAll, 2000);
 })();
 
