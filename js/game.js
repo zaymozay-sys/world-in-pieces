@@ -1509,6 +1509,7 @@ function elxWhy(kind, tier) {                              // причина, п
   if (!host.main || PET || isChallenge()) return _t("Здесь эликсиры не пьют");
   if (over || busy || aiming || turnSide !== 'left') return _t("Эликсир пьётся в свой ход");
   if (K.mode === 'instant') {
+    if (kind === 'health' && (f.elxCds[kind] || 0) > 0) return _t("Эликсир жизни уже выпит в этот ход");
     if ((f.elxCds[kind] || 0) > 0) return _t("Этот эликсир — раз в {0}: ещё {1}", [_nn(Elixirs.cdOf(kind), 'ход', 'хода', 'ходов'), _nn(f.elxCds[kind], 'ход', 'хода', 'ходов')]);
     if (kind === 'health' && f.hp >= f.max) return _t("Здоровье и так полное");
     if (kind === 'swap' && !elxSwapPlan(f)) return _t("Камней поровну — менять нечего");

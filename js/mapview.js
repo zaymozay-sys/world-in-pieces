@@ -1143,6 +1143,16 @@ const MapView = (() => {
     card.insertAdjacentHTML('afterbegin', `<button type="button" class="mc-skin" data-mc-skin title="${_t("Вид карточки")}">${mcName(v)}</button>`);
     const abil = card.querySelector('.mc-ability'), mon = sp && Bestiary.MONSTERS[sp.species];
     if (abil && mon) abil.insertAdjacentHTML('afterbegin', Art.familyIcon(mon.family));
+    if (abil) { const w = document.createElement('span'); w.className = 'mc-ab-t'; while (abil.firstChild && !(abil.firstChild.classList && abil.firstChild.classList.contains('fam-ic'))) w.appendChild(abil.firstChild); const ic = abil.firstChild; const rest = document.createDocumentFragment(); while (ic && ic.nextSibling) rest.appendChild(ic.nextSibling); w.appendChild(rest); abil.appendChild(w); }
+    if (abil) {                                                       // плашка приёма растёт вместе с текстом: текст не обрезается
+      let ph = 80, fs = 11.5; const tx = abil.querySelector('.mc-ab-t');
+      const set = () => { abil.style.setProperty('--ph', ph + 'px'); abil.style.fontSize = fs + 'px'; };
+      const fits = () => !tx || tx.offsetHeight <= ph * 0.62;
+      set();
+      while (!fits() && ph < 112) { ph += 8; set(); }         // сначала плашка растёт, потом шрифт мельчает, потом ещё немного растёт
+      while (!fits() && fs > 9.5) { fs -= 0.5; set(); }
+      while (!fits() && ph < 144) { ph += 8; set(); }
+    }
     const ttl = card.querySelector('.mc-title');
     if (ttl && sp && sp.zone) ttl.insertAdjacentHTML('beforebegin', Art.zoneIcon(sp.zone));
     const body = card.querySelector('.mc-body'), drops = card.querySelector('.mc-drops');

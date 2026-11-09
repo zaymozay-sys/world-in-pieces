@@ -2219,7 +2219,7 @@ body.ui-columns :is(#board,[data-bid="board"]) { contain: layout; }
 .scroll[style*="--seal"] .icard .ic-close { background-color: transparent; box-shadow: none; font-size: 0; width: 46px; height: 46px; }
 .scroll[style*="--frame"] .ic-art { position: relative; }
 .scroll[style*="--frame"] .ic-art::after { content: ""; position: absolute; inset: -10px; background: var(--frame) center / 100% 100% no-repeat; pointer-events: none; }
-.scroll[style*="--divider"] .icard h3 { border-bottom: 0; padding-bottom: 12px; background: var(--divider) center bottom / 100% 10px no-repeat; }
+.scroll[style*="--divider"] .icard h3 { border-bottom: 0; padding-bottom: 22px; margin-bottom: 2px; background: url("../art/ui/mobcard-divider.webp") center bottom / min(100%, 420px) auto no-repeat; }   /* разделитель в своих пропорциях 16:1, не растягивается */
 .home-modal.has-scene { background-image: linear-gradient(180deg, rgba(14,12,10,.72), rgba(14,12,10,.9)), var(--scene); background-size: cover; background-position: center; }
 .home-modal .doll { background-image: var(--hpanel, none); background-size: 100% 100%; background-repeat: no-repeat; }
 .home-modal .dslot { background-image: var(--sframe); background-size: 100% 100%; background-repeat: no-repeat; border-color: transparent; }
@@ -4728,10 +4728,16 @@ body.phone:not(.desk-land) #more-menu [data-do=deskland] { display: none; }
 .tile.corner-bl .mult { right: -4%; left: auto; bottom: auto; top: -4%; }
 .tile.corner-tl .mult { right: -4%; bottom: -4%; }
 
-/* Карточка существа «Портрет»: оформленные рамки */
-.mcv-b { border: 28px solid transparent; border-image: url("../art/ui/mobcard-frame.webp") 330 / 28px / 0 stretch; border-radius: 0; background: rgba(20, 14, 10, .96); padding: 0 0 8px; }
-.mcv-b .mc-art { background: linear-gradient(color-mix(in srgb, var(--t, #6d8bd6) 28%, transparent), transparent 70%), url("../art/ui/mobcard-head.webp") center / cover; border-radius: 0; }
-.mcv-b .mc-ability { position: relative; display: block; min-height: 22px; margin: 8px 0 4px; padding: 0; background: none; border-style: solid; border-width: 9px 28px 9px 94px; border-color: transparent; border-image: url("../art/ui/mobcard-plate.webp") 40 130 40 430 fill / 9px 28px 9px 94px stretch; border-radius: 0; color: #e8d9b8; line-height: 1.3; }
-.mcv-b .mc-ability > .fam-ic { position: absolute; left: -76px; top: 50%; width: 34px; height: 34px; transform: translateY(-50%); object-fit: contain; }
-.mcv-b .mc-drops { position: relative; margin-top: 12px; padding-top: 14px; }
-.mcv-b .mc-drops::before { content: ""; position: absolute; left: 6%; right: 6%; top: -2px; height: 14px; background: url("../art/ui/mobcard-divider.webp") center / 100% 100% no-repeat; }
+/* Карточка существа «Портрет»: оформленные рамки. Всё считается от высоты плашки --ph (JS подбирает её по длине текста приёма) */
+.mcv-b { position: relative; border: 0; border-radius: 0; background: rgba(20, 14, 10, .96); padding: 0 0 40px; }
+.mcv-b::after { content: ""; position: absolute; inset: -17px; z-index: 5; pointer-events: none; border: 56px solid transparent; border-image: url("../art/ui/mobcard-frame.webp") 330 / 56px / 0 stretch; }
+.mcv-b::before { content: ""; position: absolute; left: 50%; top: -10px; width: 56px; aspect-ratio: 328 / 165; transform: translateX(-50%); z-index: 6; pointer-events: none; background: url("../art/ui/mobcard-gem.webp") center / 100% 100% no-repeat; }
+.mcv-b .mc-art { position: relative; width: 100%; aspect-ratio: 3 / 1; padding: 0; display: block; background: linear-gradient(color-mix(in srgb, var(--t, #6d8bd6) 28%, transparent), transparent 70%), url("../art/ui/mobcard-head.webp") center / 100% 100%; border-radius: 0; }
+.mcv-b .mc-art > * { position: absolute; left: 50%; top: 47%; width: auto; max-width: none; height: 60%; transform: translate(-50%, -50%); }
+.mcv-b .mc-ability { --ph: 80px; position: relative; box-sizing: border-box; display: block; height: var(--ph); margin: 8px 0 4px; padding: 0; background: none; border-style: solid; border-color: transparent; border-width: calc(var(--ph) * .15625) calc(var(--ph) * .5078) calc(var(--ph) * .15625) calc(var(--ph) * 1.6797); border-image: url("../art/ui/mobcard-plate.webp") 40 130 40 430 fill / calc(var(--ph) * .15625) calc(var(--ph) * .5078) calc(var(--ph) * .15625) calc(var(--ph) * 1.6797) stretch; border-radius: 0; color: #e8d9b8; font-size: 11.5px; line-height: 1.18; }
+.mcv-b .mc-ability .mc-ab-t { position: absolute; left: calc(var(--ph) * -.12); right: calc(var(--ph) * .02); top: 50%; transform: translateY(-50%); display: block; text-align: left; }
+.mcv-b .mc-ability > .fam-ic { position: absolute; left: calc(var(--ph) * -.93); top: 50%; width: calc(var(--ph) * .5); height: calc(var(--ph) * .5); margin: 0; transform: translateY(-50%); object-fit: contain; }
+.mcv-b .mc-drops { position: relative; margin-top: 12px; padding-top: 28px; }
+.mcv-b .mc-drops::before { content: ""; position: absolute; left: 8%; right: 8%; top: 0; aspect-ratio: 16 / 1; background: url("../art/ui/mobcard-divider.webp") center / 100% 100% no-repeat; }
+.mcv-b .mc-body { padding: 0 34px; }
+.mcv-b .mc-skin { z-index: 7; top: 16px; right: 28px; }

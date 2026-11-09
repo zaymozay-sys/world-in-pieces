@@ -2388,6 +2388,8 @@
  "4 и больше — ещё ход": "4 or more — extra turn",
  "с {0}-го уровня": "from level {0}",
  "Эликсир камней": "Stone Elixir",
+ "Лечит на {0} ХП. Пить можно каждый ход, но один раз за ход; ход не тратится.": "Heals {0} HP. Can be drunk every turn, but once per turn; the turn is not spent.",
+ "Эликсир жизни уже выпит в этот ход": "The life elixir has already been drunk this turn",
  "Лечит на {0} ХП. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.": "Heals {0} HP. Can be drunk once every {1 turn|turns}; the turn is not spent.",
  "Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.": "Gives {0} of each kind. Can be drunk once every {1 turn|turns}; the turn is not spent.",
  "+{0}% к Силе до конца хода. Пить перед ударом.": "+{0}% to Power until the end of the turn. Drink before a hit.",

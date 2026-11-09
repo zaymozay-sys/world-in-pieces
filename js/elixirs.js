@@ -94,7 +94,7 @@ const Elixirs = (() => {
     if (kind === 'speed') return _t("Дополнительный ход сразу и Проворство +{0} на {1 ход|хода|ходов}.", [bonus(tier, 'speed'), LONG_TURNS]);
     if (kind === 'road') return _t("Броня +{0} и максимум ХП +{1}% на этот бой и ещё {2}.", [Math.round(bonus(tier, 'road')), Math.round(ROAD_HP * 100), ROAD_FIGHTS - 1]);
     const K = KINDS[kind], st = (typeof Gear !== 'undefined' && Gear.STAT_NAMES) ? Gear.STAT_NAMES : {};
-    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [heal(tier), cdOf(kind)]);
+    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно каждый ход, но один раз за ход; ход не тратится.", [heal(tier)]);
     if (kind === 'swap') return _t("Превращает до {0 камень|камня|камней} того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [swapAmount(tier), cdOf(kind)]);
     if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), cdOf(kind)]);
     const b = bonus(tier, kind), name = st[K.stat] || K.stat, pc = (K.stat === 'defense' || K.stat === 'power') ? '' : '%';
