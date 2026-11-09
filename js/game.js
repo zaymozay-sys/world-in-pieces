@@ -1465,7 +1465,7 @@ function loseHp(side, amount) {
   if (Combat.loseHp(fighters[side], amount)) onRevived(side);
 }
 
-// Наносит урон по правилам боя (combat.js): Сила и рост урона, Натиск, Блок, Броня, Подлый удар, Рикошет,
+// Наносит урон по правилам боя (combat.js): Сила и рост урона, Натиск, Блок, Броня, Бронебойный удар, Рикошет,
 // Кровопийца, Неупокоенный. raw = true — урон без модификаторов (штраф, яд). Возвращает урон, который получила цель.
 // cover = true: по противнику сначала бьёт живой двойник Дикого гриба (Combat.enemyTarget), перебор урона на
 // оригинал не переходит; яд передаёт cover = false — он всегда жжёт того, на кого наложен (оригинал).
@@ -1695,7 +1695,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
     showFloat(target, _t("Щит −{0}", [r.absorbed]), 'block');
     if (r.amount <= 0) { renderFighters(); SND.swap(); return 0; }
   }
-  if (r.pierce) showFloat(attackerSide, _t("Подлый удар!"), 'buff');
+  if (r.pierce) showFloat(attackerSide, _t("Бронебойный удар!"), 'buff');
   if (r.shred > 0) showFloat(target, _t("Броня трещит!"), 'debuff');
   if (r.critExtra) elxMark('fury');                        // эликсир ярости: первый крит бил сильнее
   if (r.venom) { showFloat(target, _t("Яд!"), 'venom'); logEvent(attackerSide, _t("{0}: Отрава — {1} урона в начале каждого из {2 хода|ходов|ходов} противника", [attacker.name, r.venom.dmg, r.venom.turns])); }
@@ -5073,6 +5073,25 @@ MapView.marketNews();           // Торговые ряды: что купил�
     el.classList.add('hide');
     setTimeout(() => el.remove(), 500);
   };
+  // 1.7.5: сначала осколки собираются в название (SplashFx), потом — афиша; нажатие пропускает. Без canvas или при «меньше движения» — как раньше (2 с).
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (typeof SplashFx !== 'undefined' && !reduce && !!document.createElement('canvas').getContext) {
+    const poster = el.classList.contains('has-poster'), wasStyle = el.style.backgroundImage;
+    el.classList.remove('has-poster'); el.style.backgroundImage = '';
+    el.classList.add('fx');
+    let ended = false;
+    const fx = SplashFx.play(el, {
+      title: _t('Хрупкий мир'), sub: _t('Хрупкий мир') === 'Хрупкий мир' ? 'W O R L D   I N   P I E C E S' : '',
+      onEnd: () => {
+        if (ended) return; ended = true;
+        if (poster) el.classList.add('has-poster'); else el.style.backgroundImage = wasStyle;
+        fx.canvas.classList.add('gone');                         // золотое название растворяется, под ним — афиша
+        setTimeout(() => { fx.stop(); hideAll(); }, poster ? 1700 : 500);
+      },
+    });
+    el.addEventListener('click', () => { if (!ended) { ended = true; fx.stop(); hideAll(); } });
+    return;
+  }
   setTimeout(hideAll, 2000);
 })();
 

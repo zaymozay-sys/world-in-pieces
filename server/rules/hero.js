@@ -28,6 +28,8 @@ const Hero = (() => {
   // dmgMult — тот же рост в виде множителя (его читает Combat.levelPower, он же масштабирует усиления боя).
   const levelPower = (L) => Math.round(2.5 + 0.4 * (Math.min(L, 30) - 1) + 0.8 * (Math.min(Math.max(L, 30), 60) - 30) + 1.5 * Math.max(0, L - 60));   // 2.0.5: целое
   const dmgMult = (L) => Math.round((1 + levelPower(L) / (3 * H_B.damage.stone * (H_B.damage.levelMul || 1))) * 100) / 100;
+  const pointsOn = () => C.gearPoints !== false;
+  const noPts = (s) => (pointsOn() ? s : String(s).replace(/ · \d+ (?:оч\.|pts)/g, ''));   // убирает «· 12 оч.» из подписей, пока очки выключены
   const budget = (L) => Math.round(C.budget * H_T.at(H_T.POINT_MULT, tierFloat(L)));
   // С какого уровня можно надеть вещь цвета tier.
   // 1.3.9: подуровень героя внутри цвета усиливает надетые вещи — до +1% к их характеристикам.
@@ -82,7 +84,7 @@ const Hero = (() => {
   // Сколько магий (без Удара) можно взять в бой: 5 на старте, +1 на 4-м, 7-м и 10-м цвете.
   const spellSlots = (L) => { const t = tierFor(clampL(L)); return 5 + (t >= 4 ? 1 : 0) + (t >= 7 ? 1 : 0) + (t >= 10 ? 1 : 0); };
 
-  return { spellSlots, clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
+  return { spellSlots, clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, pointsOn, noPts, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

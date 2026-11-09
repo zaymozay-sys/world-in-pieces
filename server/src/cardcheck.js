@@ -26,7 +26,7 @@ const check = (card) => {
     Object.assign(gear, Gear.equip(gear, clean, s));
   }
   for (const s of slots) if (gear[s]) { gear[s] = { ...gear[s] }; delete gear[s].uid; }   // номера вещей чужому не нужны
-  if (Gear.totalCost(gear) > Hero.budget(card.level)) return { error: 'budget' };
+  if (Hero.pointsOn() && Gear.totalCost(gear) > Hero.budget(card.level)) return { error: 'budget' };
   return { gear };
 };
 module.exports = { check };

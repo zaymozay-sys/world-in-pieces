@@ -77,7 +77,7 @@ assert.strictEqual(Combat.hit(a, t, 10, false, never).amount, 10);
 a = fighter({ ability: 'rage', hp: 40 });
 assert.strictEqual(Combat.power(a), Math.round(B.abilities.rage.power * 0.045), 'Ярость орка: очки старой шкалы × 0,045 × рост урона (dmg = 1)');
 a.hp = 80; assert.strictEqual(Combat.power(a), 0);
-// Подлый удар не замечает Брони
+// Бронебойный удар не замечает Брони
 a = fighter({ ability: 'backstab' }); t = fighter({ stats: { defense: 50 } });
 assert.strictEqual(Combat.hit(a, t, 10, false, always).amount, 10);
 // Кровопийца лечится на долю урона
