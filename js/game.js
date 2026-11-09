@@ -212,7 +212,7 @@ const canAffordMagic = (side, kind = 'lightning') => !fighters[side].isPet && MA
 const anyMagicAffordable = (side) => Object.keys(MAGICS).some((k) => canAffordMagic(side, k));
 // { lightning, fire, transmute, heal, chaos } → может ли сторона позволить себе именно это заклинание (для ИИ).
 const affordability = (side) => Object.fromEntries(Object.keys(MAGICS).map((k) => [k, canAffordMagic(side, k)]));
-// Под активной Шаровой молнией ИИ может добавить только Крест или Захват (связка «Молния + Крест/Захват»)
+// Под активной Шаровой молнией Крест и Захват в том же ходу запрещены
 const aimOnly = () => ({});   // 2.0.5: под Молнией Крест и Захват в том же ходу запрещены
 const lightningMult = (f) => (f.magic ? Balance.magic.lightning.mult * Sky.spellMul(selNow(), 'lightning') : 0);
 
@@ -250,8 +250,21 @@ function buildFighter(side) {
     });
   }
 
-  el.querySelector('.avatar').addEventListener('click', () => Inventory.open(side));
-  el.querySelector('.gearrow').addEventListener('click', () => Inventory.open(side));
+  if (side === 'right') {
+    // противник: наведение — «Изучить противника», нажатие — его карточка с характеристиками (бестиарий)
+    const study = () => {
+      const f = fighters.right;
+      if (f.monsterId && Bestiary.MONSTERS[f.monsterId]) { Profile.data.seen = Profile.data.seen || {}; Profile.data.seen[f.monsterId] = 1; Screens.openBestiary(f.monsterId, f.tier); }
+      else Inventory.open(side);
+    };
+    const av = el.querySelector('.avatar'); av.title = _t("Изучить противника");
+    av.addEventListener('click', study);
+    el.querySelector('.gearrow').title = _t("Снаряжение противника");
+    el.querySelector('.gearrow').addEventListener('click', () => Inventory.open(side));
+  } else {
+    el.querySelector('.avatar').addEventListener('click', () => Inventory.open(side));
+    el.querySelector('.gearrow').addEventListener('click', () => Inventory.open(side));
+  }
   renderAvatar(side);
   renderGear(side);
   renderWallet();
@@ -597,7 +610,7 @@ function miniCounters(side) {
 
 const MAGICS = {
   lightning: { name: _t("Шаровая молния"), icon: magicIcon,
-    tip: _t("Сильнейшая магия: на один ход каждый собранный камень любого цвета бьёт с множителем x1,5. Включите до Креста или Квадрата — и их камни тоже ударят") },
+    tip: _t("Сильнейшая магия: на один ход каждый собранный камень любого цвета бьёт с множителем x1,5") },
   fire: { name: _t("Огненный крест"), icon: fireIcon,
     tip: _t("Собирает камни креста (область 5x5) в копилку. Урон: фиксированный + базовый + номиналы обсидианов; обычные камни урона не дают") },
   square: { name: _t("Захват"), icon: squareIcon,
@@ -692,9 +705,11 @@ function renderBag() {
   const cycBtn = Profile.shotStocks().length > 1 ? `<button type="button" class="bagitem ammocycle" data-ammocycle title="${_t("Сменить заряд")}" aria-label="${_t("Сменить заряд")}" ${busy || over || aiming || turnSide !== 'left' ? 'disabled' : ''}><b>⇄</b></button>` : '';
   const nElx = Profile.elixirBag().reduce((a, e) => a + e.n, 0);
   const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || cardFight() || !!LIVE || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
-  bagEl.innerHTML = ammoBtn + cycBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).map(([k, c]) =>
+  const bagHtml = ammoBtn + cycBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).map(([k, c]) =>
     `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? (bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
        ${itemIcon(k)}<b>${bag[k] || 0}</b></button>`).join('');
+  if (bagEl._html === bagHtml) return;            // ничего не изменилось — кнопки не пересоздаём (иначе значки мигают)
+  bagEl._html = bagHtml; bagEl.innerHTML = bagHtml;
   for (const bt of bagEl.querySelectorAll('button.bagitem.ammo, button.bagitem.elxmenu')) {      // 1.6.4: остальные два тоже получают состояние и подпись
     const n = (bt.querySelector('b') || {}).textContent || '0';
     bt.dataset.state = Number(n) > 0 ? (bt.disabled ? 'wait' : 'ready') : 'empty';
@@ -1121,6 +1136,12 @@ function renderAbilityLine() {
   const ea = enemyAbility(fighters.right);           // у тени приём задаёт условие дня — обновляем подпись
   const bn = line.querySelector('b');
   if (bn) { bn.textContent = (ea && ea.name) || '—'; line.title = (ea && ea.desc) || ''; }
+  // картинка приёма — в рамке противника (описание — подсказкой строки)
+  if (!line.querySelector('.al-art') && fighters.right.ability && typeof Art !== 'undefined' && Art.has('spells/mob-' + fighters.right.ability)) {
+    const im = document.createElement('img'); im.className = 'al-art'; im.alt = ''; im.draggable = false; im.src = Art.url('spells/mob-' + fighters.right.ability);
+    line.insertBefore(im, line.firstChild);
+    for (const n of [...line.childNodes]) if (n.nodeType === 3) n.remove();      // слово «Приём:» не нужно: рядом картинка
+  }
   let sp = line.querySelector('.next');
   if (!sp) { sp = document.createElement('span'); sp.className = 'next'; line.appendChild(sp); }
   const nm = fighters.right.hp > 0 ? Combat.nextMove(fighters.right) : null, t = nextMoveText(fighters.right);
@@ -1177,7 +1198,7 @@ function mobLevelHtml(tier) {
 function renderEnemyColumn() {
   applyBattleBg();
   if (!enemyColEl) return;
-  if (!document.body.classList.contains('ui-columns')) { enemyColEl.innerHTML = ''; return; }
+  if (!document.body.classList.contains('ui-columns')) { enemyColEl.innerHTML = ''; enemyColEl._html = ''; return; }
   const f = fighters.right;
   const tile = (cls, inner, title, num) =>
     `<div class="ec-tile ${cls}" title="${title.replace(/"/g, '&quot;')}">${inner}${num !== undefined && num !== '' ? `<b>${num}</b>` : ''}</div>`;
@@ -1206,7 +1227,6 @@ function renderEnemyColumn() {
     const mobKey = 'spells/mob-' + f.ability;
     const glyph = (typeof Art !== 'undefined' && Art.has(mobKey)) ? `<img class="ec-art" src="${Art.url(mobKey)}" alt="" draggable="false">` : `<i class="ec-letter">${ab.name[0]}</i>`;
     top.push(tile(cls, glyph, _t("Приём: {0}\n{1}{2}", [ab.name, ab.desc, state]), num));
-    top.push(`<div class="ec-note"><b>${escText(ab.name)}</b><span>${escText(ab.desc)}</span></div><i class="ec-br"></i>`);   // компьютер, золото: рядом с плиткой — как работает приём
   }
   if (f.ward > 0) top.push(tile('buff', ecSvg('shield'), _t("Щит: примет ещё {0} урона, прежде чем существо начнёт терять ХП", [f.ward]), f.ward));
   // Споры Спороносца — пока не исчерпан лимит двойников за бой.
@@ -1233,7 +1253,9 @@ function renderEnemyColumn() {
   // Расходники противника (Combat.enemyBag) — внизу столбца, напротив ранца героя.
   const bag = Object.entries(f.bag || {}).filter(([k, n]) => n > 0 && Gear.CONSUMABLES[k])
     .map(([k, n]) => tile('bag', itemIcon(k), _t("{0} у противника: {1} шт.\n{2}", [Gear.CONSUMABLES[k].name, n, Gear.CONSUMABLES[k].desc]), n));
-  enemyColEl.innerHTML = `<div class="ec-group">${top.join('')}</div><div class="ec-group ec-bag">${bag.join('')}</div>`;
+  const colHtml = `<div class="ec-group">${top.join('')}</div><div class="ec-group ec-bag">${bag.join('')}</div>`;
+  if (enemyColEl._html === colHtml) return;         // без изменений не пересоздаём плитки (значки не мигают)
+  enemyColEl._html = colHtml; enemyColEl.innerHTML = colHtml;
 }
 
 /* ---------- приём фракции ---------- */
@@ -1657,7 +1679,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
     turnEvents.attacker = attackerSide;
     renderFighters();
     SND.hit(r.amount);
-    shake();
+    if (hardHit(r.amount, attacker.max)) shake();
     return 0;
   }
   if (r.kind === 'block') {
@@ -1686,7 +1708,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
     turnEvents.attacker = attackerSide;
     renderFighters();
     SND.hit(r.amount);
-    shake();
+    if (hardHit(r.amount, attacker.max)) shake();
     return 0;
   }
   showDamage(target, r.amount);
@@ -1701,7 +1723,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.heal > 0) showFloat(attackerSide, '+' + r.heal, 'heal');
   renderFighters();
   SND.hit(r.amount);
-  if (r.amount >= victim.max * 0.1) shake();
+  if (hardHit(r.amount, victim.max)) shake();   // экран трясётся только от сильных ударов
   return r.amount;
 }
 
@@ -1735,6 +1757,9 @@ function flushTurnDamage() {
   return shown;
 }
 
+// Сильный удар — не меньше четверти максимального здоровья цели; ударом считаем и рикошет
+const HARD_HIT = 0.25;
+const hardHit = (amount, max) => amount >= max * HARD_HIT;
 function shake() {
   const g = root.querySelector('.game') || root;
   g.classList.remove('shake');
@@ -2204,6 +2229,12 @@ const valOf = () => grid.flat().map((t) => (t ? t.value : 0));
 
 function setPos(tile, r, c) {
   tile.el.style.transform = `translate(${c * 100}%, ${r * 100}%)`;
+  // угловые клетки: резной угол рамки закрывает номинал, поэтому значок переезжает на противоположную диагональ
+  const last = N - 1;
+  tile.el.classList.toggle('corner-br', r === last && c === last);
+  tile.el.classList.toggle('corner-tr', r === 0 && c === last);
+  tile.el.classList.toggle('corner-bl', r === last && c === 0);
+  tile.el.classList.toggle('corner-tl', r === 0 && c === 0);
 }
 
 // Ставит DOM-элемент на место по координатам grid; если клетка пуста
@@ -4118,7 +4149,12 @@ function renderUiSkin() {
 // Оформление боя «золото» (2.2.9): рамки из art/ui/battle3-*. Выбор хранится в браузере, на сохранение игры не влияет.
 const BT3_ART = { 'bt3-board': 'ui/battle3-board-full', 'bt3-card': 'ui/battle3-card-frame', 'bt3-panel': 'ui/battle3-panel',
   'bt3-slot-magic': 'ui/battle3-slot-magic', 'bt3-slot-item': 'ui/battle3-slot-item', 'bt3-turn': 'ui/battle3-turn-plate', 'bt3-crest': 'ui/battle3-turn-crest' };
-function battleSkinOn() { try { return localStorage.getItem('gm-battle-skin') === 'gold'; } catch (e) { return false; } }
+// Золотое оформление боя — основное; прежнее («классика») включается кнопкой оформления и запоминается
+function battleSkinOn() {
+  let v = null; try { v = localStorage.getItem('gm-battle-skin'); } catch (e) { /* без хранилища — по умолчанию */ }
+  if (v === 'gold' || v === 'classic') return v === 'gold';
+  return Math.min(window.innerWidth, window.innerHeight) > 520;   // выбор не сделан: на компьютере и планшете — золото, на малом телефоне прежний вид
+}
 function renderBattleSkin() {
   const b = document.body, skinBtn = $('skin-btn');
   let on = battleSkinOn();
@@ -4134,7 +4170,8 @@ function renderBattleSkin() {
   if (host.main) setTimeout(fitBattleHeight, 0);
 }
 // Горизонтальная раскладка боя на компьютере (в ландшафте, только с оформлением «золото»): та же, что на горизонтальном телефоне. Хранится в браузере.
-function deskLandOn() { try { return localStorage.getItem('wip-desk-land') === '1'; } catch (e) { return false; } }
+// Кнопка «Раскладка» убрана: на компьютере раскладка боя одна — по размеру окна
+function deskLandOn() { return false; }
 function renderDeskLand() {
   const label = deskLandOn() ? _t("Раскладка: горизонтальная") : _t("Раскладка: классика");
   const lb = $('land-btn'); if (lb) { lb.textContent = label; lb.setAttribute('aria-pressed', String(deskLandOn())); }
@@ -4320,7 +4357,14 @@ if (host.main) {
     dockBtn.addEventListener('click', (e) => { e.stopPropagation(); document.body.classList.toggle('dock-open'); });
     document.addEventListener('click', (e) => { if (document.body.classList.contains('dock-open') && !e.target.closest('.bar .btns')) document.body.classList.remove('dock-open'); });
   }
-  moreBtn.addEventListener('click', (e) => { e.stopPropagation(); moreMenu.hidden = !moreMenu.hidden; });
+  // Меню ☰ раскрывается левее своей кнопки, чтобы не наползать на панель кнопок боя
+  const placeMore = () => {
+    const r = moreBtn.getBoundingClientRect();
+    if (!r.width) { moreMenu.style.right = ''; moreMenu.style.bottom = ''; return; }
+    moreMenu.style.right = Math.round(window.innerWidth - r.left + 8) + 'px';
+    moreMenu.style.bottom = Math.max(8, Math.round(window.innerHeight - r.bottom)) + 'px';
+  };
+  moreBtn.addEventListener('click', (e) => { e.stopPropagation(); moreMenu.hidden = !moreMenu.hidden; if (!moreMenu.hidden) placeMore(); });
   document.addEventListener('click', (e) => { if (!moreMenu.hidden && !moreMenu.contains(e.target)) moreMenu.hidden = true; });
   moreMenu.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-do]'); if (!b) return;

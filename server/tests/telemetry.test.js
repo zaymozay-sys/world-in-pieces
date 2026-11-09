@@ -39,3 +39,16 @@ assert.strictEqual(tele.clean(Array.from({ length: 50 }, () => ({ kind: 'error',
   assert.strictEqual((await call('GET', '/telemetry?key=secret-key-123&kind=battle')).json.list.length, 0);
   srv.close(); console.log('telemetry: все тесты пройдены');
 })().catch((e) => { console.error(e); process.exit(1); });
+
+// скриншот к сообщению: принимается только JPEG data-URL в пределах лимита, лежит рядом с текстом
+{
+  const T = require('../src/telemetry');
+  const ok = 'data:image/jpeg;base64,' + 'A'.repeat(1000);
+  const r1 = T.clean([{ kind: 'report', ver: '1', who: 'x', at: 1, data: { note: 'hi', shot: ok } }]);
+  if (r1.length !== 1 || r1[0].data.shot !== ok || r1[0].data.note !== 'hi') throw new Error('shot: должен сохраниться');
+  const r2 = T.clean([{ kind: 'report', ver: '1', who: 'x', at: 1, data: { note: 'hi', shot: 'data:text/html;base64,AAAA' } }]);
+  if (r2.length !== 1 || 'shot' in r2[0].data) throw new Error('shot: чужой тип должен отбрасываться');
+  const r3 = T.clean([{ kind: 'report', ver: '1', who: 'x', at: 1, data: { note: 'hi', shot: 'data:image/jpeg;base64,' + 'A'.repeat(236000) } }]);
+  if ('shot' in r3[0].data) throw new Error('shot: слишком большой должен отбрасываться');
+  console.log('telemetry shot ok');
+}

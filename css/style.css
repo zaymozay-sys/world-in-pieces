@@ -2190,6 +2190,15 @@ body.ui-columns .fighter .name { flex-wrap: wrap; row-gap: 2px; }
 .ic-hole { background: radial-gradient(circle, #1a0e04 40%, #6b4a24 75%); border-color: #5a3a18; }
 .ic-act { background: transparent; border-top: 1px dashed #8a6a3a; }
 .icard .itembtn-inline { color: #3a200c; background: #fff4d260; border: 1px solid #8a6a3a; }
+/* читаемость на пергаменте: общие приглушённые цвета светлые и теряются на бумаге */
+.icard .hint, .icard p, .icard .ic-runes p { color: #4a3420; }
+.icard .hint.warn { color: #8a3a0c; }
+.icard .ic-stat.zero .ic-sv { color: #5e4630; }
+.icard .ic-stat small, .icard .ic-nums > span > small, .icard .ic-socket small, .icard h3 span { color: #54391f; }
+.icard .ic-set h3 { color: color-mix(in srgb, var(--s) 35%, #2a170a); }
+.icard .ic-set li, .icard .ic-set li b { color: #4f3b24; }
+.icard .ic-set li.on b { color: #fff; }
+.icard .ic-req li:not(.ok):not(.bad), .icard .ic-type, .icard .ic-lore { color: #4f3818; }
 @media (max-width: 600px) { .icard { margin: -12px 6px; } .scroll .roll::before { left: -8px; } .scroll .roll::after { right: -8px; } }
 
 /* ===== 1.3.6: поле с камнями стоит на одном месте ===== */
@@ -4693,5 +4702,28 @@ body.phone:not(.desk-land) #more-menu [data-do=deskland] { display: none; }
 
 .bag-arrow { display: none; }
 
-.ec-note { display: none; }
-.ec-br { display: none; }
+.fam-scroll .hint, .fam-scroll small, .fam-scroll .muted, .medal-tip .hint, .medal-tip small, .home-modal[style*="--bagbg"] .bag-pack .muted { color: #5a4026; }
+.icard button:disabled { color: #4a3420; background: #fff4d260; border: 1px solid #8a6a3a; opacity: .85; }
+#land-btn, #more-menu [data-do=deskland] { display: none !important; }
+
+/* карточка вещи: компактнее и по делу */
+.icard .ic-sum { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0 2px; font-weight: 700; font-size: 14px; }
+.icard .ic-sum .up { color: #1f6a0c; } .icard .ic-sum .down { color: #a3321c; }
+.icard .ic-stats ul { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+.icard .ic-stat { grid-template-columns: auto 1fr auto; align-items: center; gap: 0 8px; }
+.icard .ic-stat .stat-ic { width: 22px; height: 22px; }
+.icard .ic-stat small { display: none; }
+.icard .ic-stat .ic-bar { grid-column: 1 / -1; height: 3px; }
+@media (max-width: 600px) { .icard .ic-stats ul { grid-template-columns: 1fr; } }
+.icard .ic-locked { margin: 4px 0; } .icard .ic-locked .hint { margin: 0; }
+.icard .ic-set h3 { cursor: pointer; } .icard .ic-set h3::before { content: "▾ "; }
+.icard .ic-set.collapsed h3::before { content: "▸ "; }
+.icard .ic-set.collapsed ul, .icard .ic-set.collapsed .ic-lore { display: none; }
+.icard .ic-nums { margin-top: 8px; } .icard .ic-nums > span { padding: 4px 8px; }
+.icard .ic-act { position: sticky; bottom: 0; z-index: 3; padding: 10px 14px 8px; background: linear-gradient(180deg, transparent, #ecd8a8 40%); }
+
+/* номинал в угловых клетках уходит от декоративного угла рамки на противоположную диагональ */
+.tile.corner-br .mult { right: auto; bottom: auto; left: -4%; top: -4%; }
+.tile.corner-tr .mult { right: auto; left: -4%; }
+.tile.corner-bl .mult { right: -4%; left: auto; bottom: auto; top: -4%; }
+.tile.corner-tl .mult { right: -4%; bottom: -4%; }

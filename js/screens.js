@@ -3271,7 +3271,7 @@ const credits = {
   };
 
   const SCREENS = { sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
-  return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, get screen() { return cur; }, arenaTab: () => (st.arena && st.arena.tab), openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: () => open('best'),
+  return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, get screen() { return cur; }, arenaTab: () => (st.arena && st.arena.tab), openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: (id, tier) => { if (id && Bestiary.MONSTERS[id]) { st.best.sel = id; st.best.tier = Math.max(1, tier || 1); st.best.view = 'detail'; } return open('best'); },
     openTavern: () => { st.tavern.msg = ''; open('tavern'); },
     openJunker: () => { st.junker.msg = ''; open('junker'); },
     openMill: () => { st.mill.msg = ''; open('mill'); },

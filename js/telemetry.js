@@ -52,7 +52,10 @@ const Telemetry = (() => {
     try {
       for (;;) {
         const q = readQ(); if (!q.length) break;
-        const batch = q.slice(0, BATCH);
+        let batch = q.slice(0, BATCH);
+        // пачка с картинками не должна перерасти лимит тела запроса (≈300 КБ): берём записи, пока помещаются
+        let sz = 0, cut = 0; for (const it of batch) { sz += JSON.stringify(it).length; if (cut && sz > 250000) break; cut++; }
+        batch = batch.slice(0, cut);
         if (!(await remote.telemetry(batch))) return false;
         const rest = readQ().slice(batch.length); writeQ(rest);
       }
@@ -83,6 +86,23 @@ const Telemetry = (() => {
     w.addEventListener('online', () => flush());
     schedule();
   }
+  // картинка для отчёта: уменьшаем и пережимаем в JPEG, чтобы влезть в лимит сервера (≈230 КБ в виде текста)
+  const SHOT_MAX = 230000;
+  async function shrink(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = url; });
+      let side = 1280;
+      for (let k = 0; k < 6; k++) {
+        const sc = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.naturalWidth * sc)); c.height = Math.max(1, Math.round(img.naturalHeight * sc));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        for (const q of [0.7, 0.55, 0.4]) { const d = c.toDataURL('image/jpeg', q); if (d.length <= SHOT_MAX) return d; }
+        side = Math.round(side * 0.75);
+      }
+      return null;
+    } finally { URL.revokeObjectURL(url); }
+  }
   // окно «Сообщить о проблеме»: текст + переключатель отправки отчётов
   function open() {
     const old = document.getElementById('report-modal'); if (old) old.remove();
@@ -91,10 +111,20 @@ const Telemetry = (() => {
     back.innerHTML = `<div class="modal report-card" role="dialog" aria-label="${esc(_t("Сообщить о проблеме"))}"><h3>${esc(_t("Сообщить о проблеме"))}</h3>
       <p class="hint">${esc(_t("Опишите, что случилось и что вы ожидали увидеть. К сообщению автоматически приложатся версия игры, сводка о герое и журнал последнего боя."))}</p>
       <textarea class="report-text" maxlength="1500" rows="5" placeholder="${esc(_t("Например: после «Закалки» камень не поднялся на ступень"))}"></textarea>
+      <div class="report-file"><input type="file" class="report-pic" accept="image/*" hidden><button type="button" class="report-attach">${esc(_t("Приложить скриншот"))}</button> <span class="report-pic-name hint"></span></div>
       <label class="report-opt"><input type="checkbox" class="report-on"${enabled() ? ' checked' : ''}> ${esc(_t("Автоматически отправлять разработчику итоги боёв и ошибки"))}</label>
       <p class="hint report-msg" aria-live="polite"></p>
       <div class="reset"><button type="button" class="primary report-send">${esc(_t("Отправить"))}</button> <button type="button" class="report-close">${esc(_t("Закрыть"))}</button></div></div>`;
     const msg = back.querySelector('.report-msg'), ta = back.querySelector('.report-text');
+    let pic = null;
+    const fileEl = back.querySelector('.report-pic');
+    back.querySelector('.report-attach').addEventListener('click', () => fileEl.click());
+    fileEl.addEventListener('change', () => {
+      const f = fileEl.files && fileEl.files[0]; fileEl.value = '';
+      if (!f) return;
+      if (!/^image\//.test(f.type)) { msg.textContent = _t("Нужна картинка: скриншот в формате PNG, JPG или WebP. Видео принять не можем — сделайте кадр."); return; }
+      pic = f; back.querySelector('.report-pic-name').textContent = f.name; msg.textContent = '';
+    });
     back.addEventListener('click', async (ev) => {
       if (ev.target === back || ev.target.closest('.report-close')) { back.remove(); return; }
       if (ev.target.closest('.report-on')) { setEnabled(ev.target.closest('.report-on').checked); return; }
@@ -102,8 +132,9 @@ const Telemetry = (() => {
         const text = ta.value.trim();
         if (!text) { msg.textContent = _t("Напишите пару слов о проблеме."); return; }
         const was = enabled(); if (!was) setEnabled(true);          // сообщение, отправленное вручную, уходит всегда
-        report(text); if (!was) setEnabled(false);
-        msg.textContent = _t("Спасибо! Сообщение отправляется."); ta.value = '';
+        let shot = null; if (pic) { try { shot = await shrink(pic); } catch (e) { shot = null; } }
+        report(text, shot ? { shot } : null); if (!was) setEnabled(false);
+        msg.textContent = _t("Спасибо! Сообщение отправляется."); ta.value = ''; pic = null; back.querySelector('.report-pic-name').textContent = '';
         const ok = await flush(); msg.textContent = ok ? _t("Сообщение отправлено. Спасибо!") : _t("Связи с сервером нет: сообщение сохранено и уйдёт при первой возможности.");
       }
     });
