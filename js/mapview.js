@@ -1132,9 +1132,9 @@ const MapView = (() => {
     decorateMobCard(sp);
   }
 
-  // Вид карточки существа: «Компакт» (по умолчанию), «Рамка», «Шапка». Выбор — кнопка в углу карточки, хранится в браузере.
+  // Вид карточки существа: «Компакт» (по умолчанию), «Сбоку», «Портрет». Выбор — кнопка в углу карточки, хранится в браузере.
   const MC_SKINS = ['c', 'a', 'b'];
-  const mcName = (v) => (v === 'a' ? _t("Рамка") : v === 'b' ? _t("Шапка") : _t("Компакт"));
+  const mcName = (v) => (v === 'a' ? _t("Сбоку") : v === 'b' ? _t("Портрет") : _t("Компакт"));
   const mcSkin = () => { try { const v = localStorage.getItem('gm-mob-card'); return MC_SKINS.includes(v) ? v : 'b'; } catch (e) { return 'b'; } };
   function decorateMobCard(sp) {
     const card = el['map-card'].querySelector('.map-card'); if (!card) return;

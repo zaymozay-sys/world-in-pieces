@@ -2912,6 +2912,8 @@
  "{0}: отнят у героя, победите существо — вернётся": "{0}: taken from the hero; defeat the creature to get it back",
  "Рамка": "Frame",
  "Шапка": "Banner",
+ "Сбоку": "Side",
+ "Портрет": "Portrait",
  "Компакт": "Compact",
  "Вид карточки": "Card style",
  "Реликвия: {0}": "Relic: {0}",

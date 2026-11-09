@@ -4728,8 +4728,8 @@ body.phone:not(.desk-land) #more-menu [data-do=deskland] { display: none; }
 .tile.corner-bl .mult { right: -4%; left: auto; bottom: auto; top: -4%; }
 .tile.corner-tl .mult { right: -4%; bottom: -4%; }
 
-/* Карточка существа «Шапка»: оформленные рамки */
-.mcv-b { border: 0; border-image: url("../art/ui/mobcard-frame.webp") 330 / 60px / 17px stretch; border-radius: 0; margin: 17px; background: rgba(20, 14, 10, .96); padding-top: 4px; }
+/* Карточка существа «Портрет»: оформленные рамки */
+.mcv-b { border: 28px solid transparent; border-image: url("../art/ui/mobcard-frame.webp") 330 / 28px / 0 stretch; border-radius: 0; background: rgba(20, 14, 10, .96); padding: 0 0 8px; }
 .mcv-b .mc-art { background: linear-gradient(color-mix(in srgb, var(--t, #6d8bd6) 28%, transparent), transparent 70%), url("../art/ui/mobcard-head.webp") center / cover; border-radius: 0; }
 .mcv-b .mc-ability { position: relative; display: block; min-height: 22px; margin: 8px 0 4px; padding: 0; background: none; border-style: solid; border-width: 9px 28px 9px 94px; border-color: transparent; border-image: url("../art/ui/mobcard-plate.webp") 40 130 40 430 fill / 9px 28px 9px 94px stretch; border-radius: 0; color: #e8d9b8; line-height: 1.3; }
 .mcv-b .mc-ability > .fam-ic { position: absolute; left: -76px; top: 50%; width: 34px; height: 34px; transform: translateY(-50%); object-fit: contain; }
