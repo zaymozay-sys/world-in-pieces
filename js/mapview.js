@@ -251,7 +251,7 @@ const MapView = (() => {
       if (d) bucketPush(deco, p, `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
     }
 
-    { const o = oakSpot(); if (o && !lite) { const p = px(o.idx); bucketPush(deco, p, `<g class="oak" transform="translate(${p.x.toFixed(1)} ${(p.y - 8).toFixed(1)}) scale(2.9)"><use href="#s-oak"/></g>`); } }   // 2.2.7: вековой дуб — ориентир у ближайшего к деревне жука-точильщика
+    { const o = oakSpot(); if (o && !lite && Art.has('map/oak-ancient')) { const p = px(o.idx); bucketPush(deco, p, `<g class="oak" transform="translate(${p.x.toFixed(1)} ${(p.y - 8).toFixed(1)}) scale(2.9)"><use href="#s-oak"/></g>`); } }   // 2.2.7: вековой дуб — ориентир у ближайшего к деревне жука-точильщика
     const riverHtml = riverSvg();
     // дороги и мосты: отрезки между соседними дорожными сотами
     const seg = (a, b) => { const p = px(a), q = px(b); return `M${p.x.toFixed(1)} ${p.y.toFixed(1)} L${q.x.toFixed(1)} ${q.y.toFixed(1)}`; };
@@ -826,7 +826,7 @@ const MapView = (() => {
     const t = tierOfCell(i), sp = monsterAt(i);
     const zone = t ? _t(" · зона <b style=\"color:{0}\">{1}</b>", [Tiers.get(t).edge, Tiers.get(t).name]) : '';
     if (sp) return `<b>${Bestiary.MONSTERS[sp.species].name}</b> ${tierChip(sp.tier, Growth.steps(st, sp))}${zone}`;
-    { const o = oakSpot(); if (o && o.idx === i) return _t("<b>Вековой дуб</b> · рядом живёт жук-точильщик") + zone; }
+    { const o = oakSpot(); if (o && o.idx === i && Art.has('map/oak-ancient')) return _t("<b>Вековой дуб</b> · рядом живёт жук-точильщик") + zone; }
     const sg = siegeAt(i);
     if (sg) return `<b>${Bestiary.MONSTERS[sg.r.species].name}</b> ${tierChip(sg.r.tier)}${sg.looter ? _t(" · похититель") : _t(" · осада")}${zone}`;
     const lm = lmAt.get(i);
@@ -1976,7 +1976,16 @@ const MapView = (() => {
     const timerLabel = () => { document.getElementById('mm-timer').textContent = TurnTimerSetting.label(); };
     timerLabel(); window.addEventListener('turn-timer-changed', timerLabel);
     document.getElementById('map-ver').textContent = _t("Версия: {0} (Обновлено: {1})", [GAME_VERSION, GAME_UPDATED]);   // 1.6.4: мелкая надпись в меню
-    mbtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
+    // меню ☰ раскрывается слева от ряда кнопок (если слева хватает места), а не под ним
+    const placeMenu = () => {
+      const st = menu.style; st.position = st.right = st.top = st.left = st.maxHeight = '';
+      const a = (mbtn.closest('.map-btns') || mbtn).getBoundingClientRect(), w = menu.offsetWidth || 220;
+      if (!a.width || a.left < w + 16) return;                      // слева тесно — остаётся под кнопкой
+      st.position = 'fixed'; st.left = 'auto'; st.right = Math.round(window.innerWidth - a.left + 8) + 'px'; st.top = Math.max(6, Math.round(a.top)) + 'px';
+      st.maxHeight = 'calc(100dvh - ' + (Math.max(6, Math.round(a.top)) + 8) + 'px)';
+    };
+    mbtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; if (!menu.hidden) placeMenu(); });
+    window.addEventListener('resize', () => { if (!menu.hidden) placeMenu(); });
     document.addEventListener('click', (e) => { if (e.isTrusted && !menu.hidden && !menu.contains(e.target)) menu.hidden = true; });
     menu.addEventListener('click', (e) => {
       const hd = e.target.closest('.mm-head');   // 2.0.5: разделы меню сворачиваются, открыт один
