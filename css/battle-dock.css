@@ -548,3 +548,26 @@ body.phone.mode-battle .pq-row .pq-take { display: none; }
   body.bt-gold.ui-columns:not(.phone) #restart { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 21V4M6 5h12l-2.5 4L18 13H6'/%3E%3C/svg%3E"); }
   body.bt-gold.ui-columns:not(.phone) #more, body.bt-gold.ui-columns:not(.phone) #dock-menu { display: none; }
 }
+
+/* Бой вдвоём, компьютер, золото: окно питомца — под карточкой героя, окно союзника врага (копии) — под карточкой врага.
+   Нажатие на окно питомца меняет его местами с героем. Окно стоит под карточкой отдельной золотой рамкой. */
+@media (min-aspect-ratio: 63/50) and (min-width: 700px) {
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) { --pqh: 70px; }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter.left,
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter.right { overflow: visible; }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter > .pq-in {
+    display: block; position: absolute; grid-area: auto; left: 0; right: 0; top: calc(100% + var(--g) * 2.4); width: auto; height: var(--pqh); margin: 0; padding: 0; box-sizing: border-box; z-index: 3;
+    border: 2px solid #c9a24a; border-radius: 12px; background: linear-gradient(180deg, rgba(36, 24, 12, .96), rgba(16, 10, 6, .96)); box-shadow: 0 0 14px rgba(201, 162, 74, .35), inset 0 0 0 1px #00000088;
+  }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter > .pq-in .pq { height: 100%; box-sizing: border-box; border: 0; background: none; padding: 6px 10px; grid-template-columns: 44px minmax(0, 1fr); align-content: center; }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter > .pq-in .pq-av { width: 44px; height: 44px; }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter.left > .pq-in { cursor: pointer; }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter.left > .pq-in:hover { box-shadow: 0 0 18px rgba(255, 215, 120, .6), inset 0 0 0 1px #00000088; }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter.left > .pq-in .pq.foe, body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter.right > .pq-in .pq.ally { display: none; }
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .enemy-col { margin-top: calc(var(--g) * 2 + var(--pqh)); height: calc(var(--bc) * 2); }
+}
+
+/* Десктоп, новая док-раскладка: верхняя панель вкладок не нужна — окна напарников стоят под карточками */
+@media (min-aspect-ratio: 63/50) and (min-width: 700px) {
+  body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .duo-bar { display: none; }
+}

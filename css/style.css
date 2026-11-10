@@ -4741,3 +4741,27 @@ body.phone:not(.desk-land) #more-menu [data-do=deskland] { display: none; }
 .mcv-b .mc-drops::before { content: ""; position: absolute; left: 8%; right: 8%; top: 0; aspect-ratio: 16 / 1; background: url("../art/ui/mobcard-divider.webp") center / 100% 100% no-repeat; }
 .mcv-b .mc-body { padding: 0 34px; }
 .mcv-b .mc-skin { z-index: 7; top: 16px; right: 28px; }
+
+/* Карточки бойцов: значки характеристик, состояния, цена приёма, «i», полоска опыта */
+.fighter .statline { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 3px 5px; line-height: 1.2; }
+.fighter .statline .sc { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px 1px 3px; border-radius: 9px; background: #0007; border: 1px solid #ffffff22; color: #efe3c4; font-size: 11px; white-space: nowrap; }
+.fighter .statline .sc img { width: 14px; height: 14px; object-fit: contain; }
+.fighter .statline .sc.txt, .fighter .statline .sc.fam { padding-left: 6px; }
+.fighter .statline .sc.fam { border-color: #c9a24a66; }
+.fighter .statline .sc .fam-ic { width: 14px; height: 14px; margin-right: 3px; }
+.fighter .badge:not(:empty) { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.fighter .badge .st-chip { padding: 1px 7px; border-radius: 9px; background: #5a2a2a; border: 1px solid #c9726a88; color: #ffd9cf; font-size: 10.5px; white-space: nowrap; }
+.ab-gem { display: inline-flex; align-items: center; gap: 1px; margin: 0 1px; opacity: .65; vertical-align: middle; }
+.ab-gem.ok { opacity: 1; }
+.ab-gem svg { width: 12px; height: 12px; }
+.ab-gem b { font-size: 11px; }
+.fighter { position: relative; }
+.fighter .fi-btn { position: absolute; top: 6px; right: 6px; z-index: 4; width: 18px; height: 18px; min-height: 0; padding: 0; border-radius: 50%; font: italic 700 11px Georgia, serif; line-height: 16px; text-align: center; background: #1c1a16cc; color: #e0c07a; border: 1px solid #c9a24a99; cursor: pointer; }
+.fighter .fi-pop { position: absolute; z-index: 8; left: 8px; right: 8px; top: 28px; padding: 8px 10px; border-radius: 10px; background: rgba(20, 16, 12, .97); border: 1px solid #c9a24a99; box-shadow: 0 6px 20px #000a; color: #efe3c4; font-size: 12px; text-align: left; }
+.fighter .fi-pop > div { display: flex; justify-content: space-between; gap: 10px; padding: 1px 0; border-bottom: 1px dotted #ffffff18; }
+.fighter .fi-pop span { color: #b9ab8a; }
+.fighter .fi-pop p { margin: 4px 0 0; color: #cdbf9e; font-size: 11px; line-height: 1.3; }
+.fighter.left .hpbar { position: relative; }
+.fighter.left .hpbar::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: -4px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, #7fb2ff var(--xp, 0%), #ffffff1f var(--xp, 0%)); pointer-events: none; }
+.fighter .ability-line .next { white-space: normal; overflow: visible; text-overflow: clip; }
+.fighter .fi-btn { top: 8px; right: 12px; }

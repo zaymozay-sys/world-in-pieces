@@ -138,6 +138,7 @@ const MapView = (() => {
     evAt = new Map(world.events.map((e) => [e.idx, e]));
     lairAt = new Map(world.lairs.map((l) => [l.idx, l]));
     lmAt = new Map((world.landmarks || []).map((m) => [m.idx, m]));
+    oakCache = null; oakSpot();   // дуб: светлая земля вокруг него (когда местность уже разложена, после World.generate)
     const isO = (o) => o && typeof o === 'object' && !Array.isArray(o), nCells = map.cells.length;
     st.found = isO(st.found) ? st.found : {}; st.pins = (Array.isArray(st.pins) ? st.pins : []).filter((n) => Number.isInteger(n) && n >= 0 && n < nCells);
     if (!isO(st.defeated)) st.defeated = {};
@@ -224,8 +225,11 @@ const MapView = (() => {
     return `<g class="river" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="#1d4268" opacity=".6">${bank}</g><g stroke="${fill}">${water}</g><g stroke="#b7e0f3" stroke-dasharray="2 8" opacity=".55">${shine}</g></g>`;
   }
 
-  // 2.2.7: «Вековой дуб»: свободная сота рядом с ближайшим к деревне жуком-точильщиком. Только рисунок — существ не добавляем и не двигаем (номера в сохранениях прежние).
+  // «Вековой дуб»: свободная сота рядом с ближайшим к деревне жуком-точильщиком. Чтобы тёмная крона была видна на контрасте, земля вокруг
+  // дуба (сота и всё в радиусе 2) делается светлой: пески. Меняется только местность вокруг; существа не двигаются. Один раз при построении
+  // карты, после того как World.generate разложил местность.
   let oakCache = null;
+  const OAK_PAINTABLE = ['meadow', 'forest', 'hills', 'field', 'tundra', 'snow', 'ash', 'swamp', 'darkwood', 'badlands'];
   function oakSpot() {
     if (!map || map.kind || map.radius == null) return null;
     if (oakCache && oakCache.map === map) return oakCache.v;
@@ -233,8 +237,12 @@ const MapView = (() => {
     const beetles = map.spawns.filter((sp) => sp.species === 'beetle' && !sp.boss && !sp.zone && !sp.guest).sort((a, b) => (!!b.oak - !!a.oak) || (map.cells[a.idx].d - map.cells[b.idx].d) || (a.idx - b.idx));
     const busy = new Set(map.spawns.map((x) => x.idx)); for (const b of map.buildings) for (const i of b.cells || [b.idx]) busy.add(i);
     for (const sp of beetles.slice(0, 6)) {
-      const at = HexMap.neighbors(map, sp.idx).filter((n) => { const c = map.cells[n]; return !busy.has(n) && !c.road && !c.building && (c.terrain === 'meadow' || c.terrain === 'hills' || c.terrain === 'forest'); }).sort((a, b) => a - b)[0];
+      const at = HexMap.neighbors(map, sp.idx).filter((n) => { const c = map.cells[n]; return !busy.has(n) && !c.road && !c.building && OAK_PAINTABLE.includes(c.terrain); }).sort((a, b) => a - b)[0];
       if (at !== undefined) { v = { idx: at, spawn: sp.id }; break; }
+    }
+    if (v) {                                                         // светлая земля под кроной
+      const o = map.cells[v.idx];
+      for (const c of map.cells) if (HexMap.dist(o, c) <= 2 && !c.building && OAK_PAINTABLE.includes(c.terrain)) c.terrain = 'sand';
     }
     oakCache = { map, v };
     return v;
@@ -251,7 +259,6 @@ const MapView = (() => {
       if (d) bucketPush(deco, p, `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
     }
 
-    { const o = oakSpot(); if (o && !lite && Art.has('map/oak-ancient')) { const p = px(o.idx); bucketPush(deco, p, `<g class="oak" transform="translate(${p.x.toFixed(1)} ${(p.y - 8).toFixed(1)}) scale(2.9)"><use href="#s-oak"/></g>`); } }   // 2.2.7: вековой дуб — ориентир у ближайшего к деревне жука-точильщика
     const riverHtml = riverSvg();
     // дороги и мосты: отрезки между соседними дорожными сотами
     const seg = (a, b) => { const p = px(a), q = px(b); return `M${p.x.toFixed(1)} ${p.y.toFixed(1)} L${q.x.toFixed(1)} ${q.y.toFixed(1)}`; };
@@ -340,6 +347,7 @@ const MapView = (() => {
     el['l-terrain'].innerHTML = bucketHtml(terr) + riverHtml;
     el['l-deco'].innerHTML = bucketHtml(deco);
     el['l-roads'].innerHTML = roads.join('');
+    { const o = oakSpot(); if (o && !lite && Art.has('map/oak-ancient')) { const p = px(o.idx); vil.push(`<g class="oak" transform="translate(${p.x.toFixed(1)} ${(p.y - 44).toFixed(1)}) scale(5.8)"><use href="#s-oak"/></g>`); } }  
     el['l-village'].innerHTML = vil.join('') + `<g class="labels">${labels.join('')}</g>`;
     ckIndex('l-terrain'); ckIndex('l-deco');
   }
@@ -2626,7 +2634,7 @@ const MapView = (() => {
     init, reset, returnFromBattle, focusSpecies, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
     devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = (Math.random() * 2147483646 + 1) | 0; t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
-    devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland, devShowMonster: showMonster,
+    devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland, devShowMonster: showMonster, get oakCell() { return oakSpot(); },
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack, fightLord,
     // 1.5.4

@@ -227,13 +227,18 @@ function buildFighter(side) {
   // многоточием, если не помещается), чтобы строка с именем никогда не переносилась на вторую
   // строку — иначе карточки игрока и противника оказались бы разной высоты (см. .fighter .name).
   const nameRow = side === 'right'
-    ? _t("<div class=\"name\"><span class=\"fname\" style=\"color:{0}\" title=\"{1}\">{2}</span> {3}</div>", [tierColor(f.tier), f.name, f.name, tierChip(f.tier) + mobLevelHtml(f.tier)])
+    ? _t("<div class=\"name\"><span class=\"fname\" style=\"color:{0}\" title=\"{1}\">{2}</span> {3}</div>", [tierColor(f.tier), f.name, f.name, tierChip(f.tier)])
     : _t("<div class=\"name\"><span class=\"fname\" title=\"{0}\">{1}</span> <span class=\"hero-lvl\" title=\"Уровень героя\">ур. {2}</span></div>", [f.name, f.name, f.level || 1]);
   el.innerHTML = _t("\n    <div class=\"avatar\" title=\"Открыть ранец и экипировку\"></div>\n    {0}\n    <div class=\"hpbar\"><i></i><span class=\"hptext\"></span></div>\n    <div class=\"counters\">{1}</div>\n    <div class=\"gearrow\" title=\"Открыть ранец и экипировку\"></div>\n    <div class=\"statline\"></div>\n    {2}\n    <div class=\"badge\"></div>\n    {3}\n    {4}", [nameRow, counters, side === 'right' ? _t("<div class=\"ability-line\" title=\"{0}\">Приём: <b>{1}</b></div>", [(Bestiary.ability(f.monsterId) || {}).desc || '', (Bestiary.ability(f.monsterId) || {}).name || '—']) : '', side === 'left' ? '<div class="pet-panel" id="pet-panel" hidden><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div>' : '', side === 'right' ? '<div class="pet-panel clone-panel" id="clone-panel" hidden><div class="clone-av"></div><div class="clone-body"><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div></div>' : '']);
 
   { // 1.8.1: на телефоне вместо «ур. N» / «Ур.N Цвет» — цифра в кружке цвета уровня (CSS .lv-dot)
     const dotTier = side === 'right' ? f.tier : Hero.tierFor(f.level || 1), tc = Tiers.get(dotTier), nm = el.querySelector('.name');
     if (nm && tc) nm.insertAdjacentHTML('afterbegin', `<span class="lv-dot" style="--t:${tc.color};--ti:${tc.ink}" aria-hidden="true">${side === 'right' ? f.tier : (f.level || 1)}</span>`);
+  }
+  { // кнопка «i»: подробности бойца всплывающим окошком
+    const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'fi-btn'; ib.textContent = 'i'; ib.title = _t("Подробности");
+    ib.addEventListener('click', (e) => { e.stopPropagation(); toggleFighterInfo(side); });
+    el.appendChild(ib);
   }
   miniCounters(side);
   setTimeout(fitFighterNames, 60);   // имя в карточке: уменьшить шрифт, если не входит
@@ -387,14 +392,20 @@ function renderGear(side) {
     return `<span class="gslot ${it ? 'on' : ''}" title="${Gear.SLOT_NAMES[slot]}: ${it ? it.name : _t("пусто")}">${it ? itemIcon(it.type, itemColor(it), it.id) : ''}</span>`;
   }).join('');
   const st = f.stats, power = Math.round(Combat.power(f));   // Сила = вещи + уровень + усиления: столько прибавляется к каждому удару
-  const parts = [];
-  if (power) parts.push(_t("Сила +{0}", [power]));
-  if (st.defense) parts.push(_t("Броня −{0}", [Combat.armorOf(f)]));
-  if (st.block) parts.push(_t("Блок {0}%", [st.block]));
-  if (st.ricochet) parts.push(_t("Рикошет {0}%", [st.ricochet]));
-  if (st.initiative) parts.push(_t("Провор. {0}%", [st.initiative]));
-  if (f.weaponPerk) parts.push(WEAPON_PERK_NAMES[f.weaponPerk.type] || '');
-  el.querySelector('.statline').textContent = parts.join(' · ') || _t("Без снаряжения");
+  const chips = [];
+  const chip = (key, txt, tip) => { const ic = typeof Art !== 'undefined' && Art.has('ui/stat-' + key) ? `<img src="${Art.url('ui/stat-' + key)}" alt="" draggable="false">` : ''; chips.push(`<span class="sc" title="${tip}">${ic}${txt}</span>`); };
+  if (power) chip('power', '+' + power, _t("Сила: столько прибавляется к каждому удару"));
+  if (st.defense) chip('defense', '−' + Combat.armorOf(f), _t("Броня: вычитается из каждого удара"));
+  if (st.block) chip('block', st.block + '%', _t("Блок: шанс полностью отразить удар"));
+  if (st.ricochet) chip('ricochet', st.ricochet + '%', _t("Рикошет: шанс вернуть часть удара"));
+  if (st.initiative) chip('initiative', st.initiative + '%', _t("Проворство: шанс первого хода"));
+  if (f.weaponPerk) chips.push(`<span class="sc txt">${WEAPON_PERK_NAMES[f.weaponPerk.type] || ''}</span>`);
+  if (side === 'right') {                                              // семейство существа и слабое место для снаряда
+    const mon = Bestiary.MONSTERS[f.monsterId];
+    if (mon && mon.family) { const wk = (typeof Ammo !== 'undefined' && Profile.shotKind) ? Ammo.hint(Profile.shotKind(), mon.family) : ''; chips.unshift(`<span class="sc fam" title="${wk ? wk.replace(/"/g, '&quot;') : _t("Семейство существа")}">${typeof Art !== 'undefined' ? Art.familyIcon(mon.family, 'fam-ic') : ''}${mon.family}${wk ? ' · ' + _t("слабое место") : ''}</span>`); }
+  }
+  el.querySelector('.statline').innerHTML = chips.join('') || _t("Без снаряжения");
+  if (side === 'left') { try { const xp = Profile.data.xp || 0, lv = Hero.levelOf(xp), a = Hero.totalFor(lv), b = Hero.totalFor(lv + 1); el.style.setProperty('--xp', Math.max(0, Math.min(100, ((xp - a) / Math.max(1, b - a)) * 100)).toFixed(0) + '%'); el.dataset.xpTip = _t("Опыт: {0} из {1} до следующего уровня", [xp - a, b - a]); } catch (e) { /* без полоски опыта */ } }
 }
 
 // Снаряжение игрока изменилось в окне ранца.
@@ -1075,6 +1086,34 @@ function renderMagic() {
   renderBag();
 }
 
+// «i» на карточке бойца: все характеристики и эффекты одним окошком (то, что не помещается в карточку)
+function toggleFighterInfo(side) {
+  const el = fEl(side); let pop = el.querySelector('.fi-pop');
+  if (pop) { pop.remove(); return; }
+  const f = fighters[side], st = f.stats || {}, rows = [];
+  const row = (k, v) => rows.push(`<div><span>${k}</span><b>${v}</b></div>`);
+  row(_t("Здоровье"), `${Math.max(0, f.hp)} / ${f.max}`);
+  row(_t("Сила"), '+' + Math.round(Combat.power(f)));
+  row(_t("Броня"), st.defense ? '−' + Combat.armorOf(f) : '0');
+  row(_t("Блок"), (st.block || 0) + '%'); row(_t("Рикошет"), (st.ricochet || 0) + '%'); row(_t("Проворство"), (st.initiative || 0) + '%');
+  if (st.cunning) row(_t("Хитрость"), st.cunning + '%');
+  if (st.fury) row(_t("Ярость"), st.fury + '%');
+  if (side === 'right') {
+    const mon = Bestiary.MONSTERS[f.monsterId], ea = enemyAbility(f);
+    if (mon) { row(_t("Уровень существа"), mobLevelHtml(f.tier).replace(/<[^>]+>/g, '').trim()); row(_t("Семейство"), mon.family); }
+    if (ea && ea.name) row(_t("Приём"), `${ea.name}`), rows.push(`<p>${ea.desc || ''}</p>`);
+    if (mon && typeof Ammo !== 'undefined' && Profile.shotKind) { const h = Ammo.hint(Profile.shotKind(), mon.family); if (h) rows.push(`<p>${h}</p>`); }
+  } else {
+    try { const xp = Profile.data.xp || 0, lv = Hero.levelOf(xp); row(_t("Уровень"), lv); row(_t("Опыт"), `${xp - Hero.totalFor(lv)} / ${Hero.totalFor(lv + 1) - Hero.totalFor(lv)}`); } catch (e) { /* без опыта */ }
+  }
+  const ef = [...el.querySelectorAll('.badge .st-chip')].map((n) => n.textContent);
+  if (ef.length) rows.push(`<p>${_t("Сейчас действует")}: ${ef.join(', ')}</p>`);
+  pop = document.createElement('div'); pop.className = 'fi-pop'; pop.innerHTML = rows.join('');
+  pop.addEventListener('click', (e) => { e.stopPropagation(); pop.remove(); });
+  el.appendChild(pop);
+  setTimeout(() => document.addEventListener('click', () => pop.remove(), { once: true }), 0);
+}
+
 function renderBadge(side) {
   const f = fighters[side];
   const badge = fEl(side).querySelector('.badge');
@@ -1087,7 +1126,7 @@ function renderBadge(side) {
   if (f.haste) parts.push(_t("Спешка"));
   // Спороносец: счётчик спор до следующего двойника (пока лимит двойников за бой не исчерпан).
   if (side === 'right' && f.ability === 'clone' && (f.clonesMade || 0) < Balance.abilities.clone.max) parts.push(_t("Споры {0}/{1}", [f.spores || 0, Balance.abilities.clone.charge]));
-  badge.textContent = parts.join(' · ');
+  badge.innerHTML = parts.map((t) => `<span class="st-chip">${String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</span>`).join('');
   renderGear(side);
   if (side === 'right') { renderEnemyColumn(); renderAbilityLine(); }
 }
@@ -1146,6 +1185,13 @@ function renderAbilityLine() {
   if (!sp) { sp = document.createElement('span'); sp.className = 'next'; line.appendChild(sp); }
   const nm = fighters.right.hp > 0 ? Combat.nextMove(fighters.right) : null, t = nextMoveText(fighters.right);
   sp.textContent = t ? ' · ' + t : '';
+  if (nm && nm.paid && nm.spec && !nm.spent) {                         // цена камнями-значками, полный текст — в подсказке
+    const cnt = fighters.right.counts || {}, spc = nm.spec;
+    const g = (ty, n) => `<span class="ab-gem${(cnt[ty] || 0) >= n ? ' ok' : ''}">${GEM_SVG[ty] || ''}<b>${n}</b></span>`;
+    const cost = spc.mode === 'each' ? MAGIC_TYPES.map((ty) => g(ty, spc.n)).join('') : spc.mode === 'color' ? g(spc.color, spc.n) : `<span class="ab-gem any"><b>${spc.n}</b> ${_t("любых")}</span>`;
+    sp.innerHTML = ' · ' + cost + (nm.ready ? ' ' + _t("готов") : '');
+    line.title = ((ea && ea.desc) || '') + '\n' + _t("Цена: {0}", [mobCostText(spc)]);
+  }
   const soon = !!nm && (nm.paid ? nm.ready : (nm.left === 1 || (nm.kind === 'rage' && nm.hot)));
   sp.classList.toggle('soon', soon);
   // Узкий экран: строка приёма и значки скрыты, поэтому та же подпись — в хвосте строки хода (#status::after, см. CSS).
@@ -2414,7 +2460,7 @@ function startGame() {
   const duoPet = (!PET && pet && typeof Duo !== 'undefined' && Duo.wanted()) ? pet : null;
   if (duoPet) { pet = null; renderPetPanel(); }       // питомец играет на втором поле (см. Duo)
   if (pet) logEvent('left', _t("{0} выходит с вами в бой!", [petName()]));
-  if (duoPet) logEvent('left', _t("{0} выходит на второе поле — переключайтесь между вкладками", [petName()]));
+  if (duoPet) logEvent('left', _t("{0} выходит на второе поле — нажмите на его окно, чтобы поменяться местами", [petName()]));
   let trainKey = null;                             // «Отточить мастерство»: какое заклинание тренируем
   if (beaverTip) {
     const tip = beaverTip;
@@ -4776,7 +4822,7 @@ const Duo = (() => {
   function onTeamClick(e) {
     if (!st) return;
     if (e.target.closest('.pq-take')) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }
-    if (e.target.closest('.pq.ally') && !takeState.hidden) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }   // карточка напарника: поменяться местами
+    if (e.target.closest('.pq.ally') && (!takeState.hidden || !document.body.classList.contains('phone'))) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }   // карточка напарника: поменяться местами
     const g = e.target.closest('[data-go]');
     if (g && g.dataset.go !== st.tab) setTab(g.dataset.go);
   }
