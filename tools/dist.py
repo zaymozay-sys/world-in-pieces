@@ -5,7 +5,7 @@ D = os.path.join(ROOT, 'dist')
 shutil.rmtree(D, ignore_errors=True); os.makedirs(D)
 for n in ('index.html', 'manifest.webmanifest', 'LICENSE'):
     shutil.copy(os.path.join(ROOT, n), D)
-for d in ('js', 'css', 'art', 'icons'):
+for d in ('js', 'css', 'art', 'icons', 'fonts'):
     shutil.copytree(os.path.join(ROOT, d), os.path.join(D, d))
 open(os.path.join(D, '_headers'), 'w').write("""/art/*
   Cache-Control: public, max-age=2592000

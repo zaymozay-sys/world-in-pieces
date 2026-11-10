@@ -293,7 +293,7 @@ const Screens = (() => {
   };
   function addTip() {
     const t = TIPS[cur], d = Profile.data;
-    if (!t || (d.wins || 0) >= 30 || (d.tips && d.tips['b:' + cur])) return;
+    if (!t || ((d.wins || 0) >= 30 && !(d.tips && d.tips['b:' + cur]))) return;   // закрытая подсказка остаётся печатью «?»
     const body = root.querySelector('.screen-body');
     if (body) body.insertAdjacentHTML('afterbegin', tipBox('b:' + cur, t));
   }
@@ -313,6 +313,7 @@ const Screens = (() => {
     if (!b || b.disabled) return;
     if (b.dataset.act === 'close') return close();
     if (b.dataset.tryon && cur) return openTryOn(b.dataset.tryon);
+    if (b.dataset.tipShow) { if (Profile.data.tips) delete Profile.data.tips[b.dataset.tipShow]; Profile.save(); return render(); }
     if (b.dataset.tip) { Profile.data.tips = Profile.data.tips || {}; Profile.data.tips[b.dataset.tip] = true; Profile.save(); return render(); }
     if (!SCREENS[cur]) return;                    // 1.6.5 (A2-17): окно уже закрыто, а кнопка ещё жива — клик ничего не делает, а не бросает ошибку
     SCREENS[cur].click(b);
@@ -370,7 +371,7 @@ const Screens = (() => {
   const tabs = (items, active) => `<div class="tabs">${items.map((it) => !it ? '<span class="tab-sep" aria-hidden="true"></span>' : (([k, label]) => `<button type="button" class="${k === active ? 'on' : ''}" data-tab="${k}">${label}</button>`)(it)).join('')}</div>`;
   const tierPicker = (max, active, attr) => `<div class="tier-picker">${Tiers.LIST.map((t) => `<button type="button" class="tp ${t.id === active ? 'on' : ''}" data-tier="${t.id}" style="--t:${t.color};--ti:${t.ink}" ${t.id > max ? 'disabled' : ''} data-${attr}="${t.id}" title="${t.name}">${t.id}</button>`).join('')}</div>`;
   // Короткая подсказка при первом открытии окна; гаснет по кнопке «Понятно» (Profile.data.tips)
-  const tipBox = (id, text) => (Profile.data.tips && Profile.data.tips[id]) ? '' : _t("<div class=\"tip-box\"><p><b>Подсказка.</b> {0}</p><button type=\"button\" data-tip=\"{1}\">Понятно</button></div>", [text, id]);
+  const tipBox = (id, text) => (Profile.data.tips && Profile.data.tips[id]) ? `<button type="button" class="tip-q" data-tip-show="${id}" title="${_t("Подсказка")}" aria-label="${_t("Подсказка")}">?</button>` : _t("<div class=\"tip-box\"><p><b>Подсказка.</b> {0}</p><button type=\"button\" data-tip=\"{1}\">Понятно</button></div>", [text, id]);
   const changed = () => { if (typeof onEconomyChanged === 'function') onEconomyChanged(); render(); };
   // Приручение (см. pets.js): прогресс/кнопка в карточке вида бестиария, показывается только для приручаемого
   // семейства («Звери»). Текущий питомец (если это его вид) — с прочностью и кнопкой ремонта.
@@ -2727,7 +2728,8 @@ const credits = {
       if (s.tab === 'build') {
         const cards = Village.IDS.map((id) => {
           const I = Village.INFO[id], n = Village.lvl(V, id), nx = Village.next(V, id, ht);
-          const dots = '●'.repeat(n) + '○'.repeat(Village.maxOf(id) - n);
+          const dots = `<span class="vg-pips" role="img" aria-label="${n} / ${Village.maxOf(id)}">${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(Village.maxOf(id) - n)}</span>`;
+          const pic = (typeof Art !== 'undefined' && Art.url && Art.url('map/' + id)) ? `<span class="vg-pic"><img src="${Art.url('map/' + id)}" alt="" loading="lazy"></span>` : '';
           const now = n ? I.perk(n) : _t("пока без улучшений");
           let act, foot = `${I.unit}<br>${now}`;
           if (!nx) act = `<span class="hint">${_t("Максимум")}</span>`;
@@ -2738,7 +2740,7 @@ const credits = {
             if (!nx.ok) foot += `<br><span class="hint warn">${_t("Открывается с цвета «{0}»", [Tiers.get(nx.reqTier).name])}</span>`;
             else if (!can) foot += `<br><span class="hint warn">${_t("Не хватает монет")}: ${money(nx.cost - Profile.data.coins)}</span>`;
           }
-          return card(`${I.name} <small>${dots}</small>`, foot, act);
+          return card(`${I.name} ${dots}`, foot, act).replace('<div class="card"', '<div class="card vg-card"').replace('<div class="card-body">', pic + '<div class="card-body">');
         }).join('');
         body = `<p class="hint">${_t("Золото можно вложить в деревню: улучшения остаются навсегда и принадлежат только вам: в общей деревне каждый игрок пользуется своими уровнями. Уровни 1–5 открываются с 2-го, 4-го, 6-го, 8-го и 10-го цвета героя, уровни 6–10 — с обсидианового, и стоят всё дороже.")}</p>${siegeLine()}<div class="card-list">${cards}</div>`;
       } else if (s.tab === 'crafts') { body = craftsBody();
