@@ -18,7 +18,7 @@ const HeroCard = (() => {
     if (typeof RareHunt !== 'undefined' && RareHunt.trophyCount(data)) merits.push({ k: 'trophies', n: RareHunt.trophyCount(data) });
     if (typeof LHGames !== 'undefined' && data.lh) {
       const lh = LHGames.clean(data.lh), bd = LHGames.badges(lh);
-      if (lh.best.av || lh.best.py) merits.push({ k: 'lhbest', n: lh.best.av, m: lh.best.py });
+      if (lh.best.av || lh.best.dg) merits.push({ k: 'lhbest', n: lh.best.av, m: lh.best.dg });
       if (bd.length) merits.push({ k: 'badges', n: bd.length, names: bd.map((x) => x.name()) });
     }
     if (Array.isArray(data.chron) && data.chron.some((e) => e && e.k === 'lord')) merits.push({ k: 'lord', n: 1 });
@@ -31,7 +31,7 @@ const HeroCard = (() => {
     trophies: (n) => _t("Трофеев редких зверей: {0}", [n]),
     island: () => _t("Открыт сундук на Затерянном острове"),
     lord: () => _t("Победил Владыку замка"),
-    lhbest: (n, m) => _t("Рекорды у смотрителя маяка: «Обвал» {0}, «Пирамида» {1}", [n, m]),
+    lhbest: (n, m) => _t("Рекорды у смотрителя маяка: «Обвал» {0}, «Кладоискатель» {1}", [n, m]),
     badges: (n, m, names) => _t("Знаки маяка: {0}", [(names || []).join(', ')]),
   };
   const meritText = (m) => (MERIT_TEXT[m.k] ? MERIT_TEXT[m.k](m.n, m.m, m.names) : '');

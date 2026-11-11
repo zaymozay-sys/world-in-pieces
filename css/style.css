@@ -944,6 +944,12 @@ html.pseudo-fs .game { overflow-y: auto; }
 .hint.warn { color: #e0b060; }
 .gear-toast { min-height: 18px; margin: 6px 0; font-size: 13px; color: #e0b060; }
 
+/* 2.3.6: иконки награды рядом с текстом — видно, что именно получено, а не только читать */
+.rw-badges { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 6px; vertical-align: middle; }
+.rw-badge { display: inline-flex; align-items: center; gap: 2px; padding: 1px 6px 1px 2px; border-radius: 8px; background: rgba(0, 0, 0, .28); vertical-align: middle; }
+.rw-badge .item-icon, .rw-badge img { width: 22px; height: 22px; vertical-align: middle; }
+.rw-badge b { font-size: 12px; font-weight: 700; }
+
 .icon-btn { width: 34px; padding: 0; font-size: 16px; line-height: 1; flex: none; }
 .credits-list { margin: 6px 0 12px; padding-left: 18px; font-size: 14px; }
 .credits-list li { margin: 4px 0; }
@@ -3133,6 +3139,16 @@ body.ui-columns.mode-battle:not(.phone) .menu { position: relative; z-index: 5; 
 @media (max-width: 480px) {
   .tryon-body { grid-template-columns: 1fr; }
   .tryon-fig { justify-self: center; width: 130px; max-height: 170px; }
+}
+
+/* ---- 2.3.6: «Визитка героя» — фигура в доспехах рядом со сводкой ---- */
+.hc-top { display: grid; grid-template-columns: minmax(90px, 120px) 1fr; gap: 12px; align-items: start; margin-bottom: 4px; }
+.hc-fig { max-height: 180px; display: flex; justify-content: center; overflow: hidden; }
+.hc-fig svg, .hc-fig img { width: 100%; height: auto; max-height: 164px; }
+.hc-info h3 { margin: 0 0 2px; }
+@media (max-width: 480px) {
+  .hc-top { grid-template-columns: 1fr; }
+  .hc-fig { justify-self: center; width: 110px; max-height: 140px; }
 }
 
 /* ---- 1.6.5: настройка «Таймер хода» и заготовка рекламной паузы ---- */

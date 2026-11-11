@@ -36,6 +36,23 @@ const Screens = (() => {
     herocard: { msg: '' },
   };
   const money = (n) => MonsterArt.moneyHtml(n);
+  // 2.3.6: картинки награды (монеты, расходники, предмет, ключ) — чтобы награду было видно, а не только читать её текстом.
+  function rewardBadges(reward) {
+    if (!reward) return '';
+    const parts = [];
+    if (reward.coins) parts.push(`<span class="rw-badge">${money(reward.coins)}</span>`);
+    for (const [k, n] of Object.entries(reward.cons || {})) {
+      if (!Gear.CONSUMABLES[k]) continue;
+      parts.push(`<span class="rw-badge" title="${Gear.CONSUMABLES[k].name}">${itemIcon(k)}<b>× ${n}</b></span>`);
+    }
+    if (reward.item) {
+      const it = Gear.item(reward.item);
+      if (it) parts.push(`<span class="rw-badge" title="${it.name}">${itemIcon(it.type, '', it.id)}</span>`);
+    }
+    if (reward.key || reward.keyRuby) parts.push(`<span class="rw-badge" title="${_t("Ключ")}">${typeof Art !== 'undefined' && Art.has('items/key') ? Art.icon('items/key') : '🔑'}</span>`);
+    if (reward.diary) parts.push(`<span class="rw-badge" title="${_t("Морской дневник")}">${typeof Art !== 'undefined' && Art.has('items/sea-diary') ? Art.icon('items/sea-diary') : '📖'}</span>`);
+    return parts.length ? `<span class="rw-badges">${parts.join('')}</span>` : '';
+  }
   const RES_BUY_MARKUP = 3;            // ресурсы в лавке дороже, чем при продаже
   // Руны (js/runes.js): продаёт Журавль-художник в Мастерской художника (см. SCREENS.artistWorkshop
   // ниже) — раньше, пока здания не было, руны временно продавались в Лавке. Цена — между дорогим
@@ -433,8 +450,8 @@ const Screens = (() => {
       .sort((a, b) => CAT_TYPE_ORDER.indexOf(a.type) - CAT_TYPE_ORDER.indexOf(b.type) || a.cost - b.cost);
     const list = bases.map((b) => {
       const it = Gear.item({ id: b.id, tier }), price = buyPrice(it.price);
-      const bq = basketOf('shop')[b.id + ':' + tier] || 0;                 // 2.0.7: витрина с корзиной заказа
-      const act = `<button type="button" data-tryon="shop:${b.id}:${tier}">${_t("Примерить")}</button><button type="button" data-buy-cat="${b.id}:${tier}" ${Profile.data.coins >= price ? '' : 'disabled'}>${_t("Купить")}</button><span class="sh-qty">${shBtn('dec', 'shop', b.id + ':' + tier, '−', bq <= 0, 'minus')}<b class="sh-n">${bq}</b>${shBtn('inc', 'shop', b.id + ':' + tier, '+', bq >= MAX_LINE, 'plus')}</span>`;
+      // 2.3.6: надеваемая вещь — одна штука на слот, счётчик количества тут не нужен (убран; кнопка «Купить» берёт сразу 1 шт.)
+      const act = `<button type="button" data-tryon="shop:${b.id}:${tier}">${_t("Примерить")}</button><button type="button" class="primary" data-buy-cat="${b.id}:${tier}" ${Profile.data.coins >= price ? '' : 'disabled'}>${_t("Купить")}</button>`;
       return itemCard(it, _t("Цена: {0}{1}", [money(price), levelNote(it)]), act);
     }).join('');
     const searchHtml = `<input type="search" class="cat-search" data-shq="1" value="${escText(s.q || '')}" placeholder="${_t("Поиск по названию")}" aria-label="${_t("Поиск по названию")}">`;
@@ -536,11 +553,9 @@ const Screens = (() => {
       const s = st.shop;
       let body = '';
       if (s.tab === 'buy') {
+        // 2.3.6: надеваемые вещи покупаются по одной кнопкой «Купить» — корзина заказа (была нужна для счётчика ×N) здесь больше не нужна
         const top = Profile.shopTop(), cat = catalogView(s, top);
-        const bkS = basketOf('shop'), linesS = Object.entries(bkS).map(([key, q]) => { const [id, tr] = key.split(':'), it = Gear.item({ id, tier: Number(tr) });
-          return { key, qty: q, label: `${it.name} <small>${Tiers.get(it.tier).name}</small>`, cost: money(buyPrice(it.price) * q) }; });
-        const totS = Object.entries(bkS).reduce((a, [key, q]) => { const [id, tr] = key.split(':'); return a + buyPrice(Gear.item({ id, tier: Number(tr) }).price) * q; }, 0);
-        const items = basketPanel('shop', linesS, money(totS), totS > Profile.data.coins ? _t("Не хватает монет") : '') + (cat.list || _t("<p class=\"hint\">В этой вкладке нет вещей.</p>")) + lockedShelf();
+        const items = (cat.list || _t("<p class=\"hint\">В этой вкладке нет вещей.</p>")) + lockedShelf();
         const qtyPicker = (kind, key, active) => `<div class="qty-picker">${QTY_STEPS.map((n) => `<button type="button" class="qs ${n === active ? 'on' : ''}" data-qty="${kind}" data-qty-key="${key}" data-qty-n="${n}">×${n}</button>`).join('')}</div>`;
         const cons = Object.entries(Gear.CONSUMABLES).filter(([, c]) => !c.alchemy).map(([k, c]) => {
           const qty = s.consQty[k] || 1, total = buyPrice(Gear.bulkPrice(consPrice(k), qty));
@@ -1256,6 +1271,15 @@ const Screens = (() => {
     },
   };
 
+  // 2.3.6: маленькие иконки награды задания рядом с текстом (монеты, вещь, расходники) — так награду видно с одного взгляда.
+  function questRewardIcons(reward) {
+    if (!reward) return '';
+    const out = [];
+    if (reward.coins) out.push(`<span class="qr-ico">${MonsterArt.coinIcon('copper')}</span>`);
+    if (reward.item) out.push(`<span class="qr-ico">${itemIcon('', '', reward.item)}</span>`);
+    if (reward.cons) Object.keys(reward.cons).forEach((k) => out.push(`<span class="qr-ico">${itemIcon(k)}</span>`));
+    return out.length ? `<span class="quest-reward-icons">${out.join('')}</span>` : '';
+  }
   // Общий рендер карточек заданий одного собеседника (giver — 'tavern' | 'mill').
   function questCards(giver) {
     // 2.2.7: у трактирщика новичку показываем не больше двух ещё не взятых заданий; остальные открываются по мере выполнения
@@ -1271,7 +1295,7 @@ const Screens = (() => {
       else if (!q.accepted) act = _t("<button type=\"button\" class=\"primary\" data-accept=\"{0}\">Взять задание</button>", [q.id]);
       else if (q.done) act = _t("<button type=\"button\" class=\"primary\" data-claim=\"{0}\">Забрать награду</button>", [q.id]);
       else act = `<span class="quest-progress">${q.value} / ${q.goal}</span>`;
-      return _t("<div class=\"card quest-card {0}\">\n        <div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2}</span>\n          <span class=\"item-foot quest-reward\">Награда: {3}</span></div>\n        <div class=\"card-act\">{4}</div></div>", [q.claimed ? 'is-done' : '', q.title, q.desc, q.rewardText, act]);
+      return _t("<div class=\"card quest-card {0}\">\n        <div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2}</span>\n          <span class=\"item-foot quest-reward\">{5}Награда: {3}</span></div>\n        <div class=\"card-act\">{4}</div></div>", [q.claimed ? 'is-done' : '', q.title, q.desc, q.rewardText, act, questRewardIcons(q.reward)]);
     }).join('') + (hidden ? `<p class="hint">${_t("Остальные задания трактирщик покажет, когда справитесь с этими.")}</p>` : '');
   }
   // Общий обработчик клика «Взять задание» / «Забрать награду» для экранов с заданиями. giver задаёт текст ответа.
@@ -1307,7 +1331,7 @@ const Screens = (() => {
     if (!Quests.claim(d.claim)) return;
     const line = QUEST_SAY.claim[d.claim] || giver === 'lighthouse' ? (QUEST_SAY.claim[d.claim] || (q.reward.key ? _t("Вот ключ. Сундук на бригантине у восточного берега — не потеряй.") : _t("Держи — {0}. Море тебя не забудет.", [q.rewardText.toLowerCase()]))) : giver === 'mill' ? _t("Держи — {0}. И заходи ещё, дело для тебя найдётся.", [q.rewardText.toLowerCase()])
       : _t("Держи — {0}. И заглядывай ещё, дело найдётся.", [q.rewardText.toLowerCase()]);
-    st[giver].msg = line;
+    st[giver].msg = line + rewardBadges(q.reward);
     changed();
   }
 
@@ -2797,7 +2821,7 @@ const credits = {
       if (d.dcBuy) { const dd = decorState(), it = Decor.BY_ID[d.dcBuy]; if (it && Decor.buy(dd, it.id, Profile.data.coins).ok) { Profile.data.coins -= it.price; s.msg = _t("Куплено и поставлено: {0}", [it.name()]); Profile.save(); return changed(); } return; }
       if (d.dcPut) { const dd = decorState(); if (Decor.put(dd, d.dcPut)) { Profile.save(); return render(); } return; }
       if (d.dcClear) { const dd = decorState(); if (Decor.clear(dd, d.dcClear)) { Profile.save(); return render(); } return; }
-      if (d.mlClaim) { const g = Mail.claim(mailState(), d.mlClaim); if (g) { giveGift(g); s.msg = _t("Подарок получен: {0}", [giftText(g)]); Profile.save(); return changed(); } return; }
+      if (d.mlClaim) { const g = Mail.claim(mailState(), d.mlClaim); if (g) { giveGift(g); s.msg = _t("Подарок получен: {0}", [giftText(g)]) + rewardBadges({ coins: g.p ? g.p * unitP() : 0, cons: g.cons }); Profile.save(); return changed(); } return; }
       if (d.vgBuy) {
         if (Profile.buyVillage(d.vgBuy)) { const I = Village.INFO[d.vgBuy]; s.msg = _t("Улучшено: {0} — {1}", [I.name, I.perk(Village.lvl(Profile.data.village, d.vgBuy))]); return changed(); }
         return;
@@ -3131,12 +3155,16 @@ const credits = {
       const c = HeroCard.build(Profile.data, { level: Profile.level(), medalName: (id) => Medals.nameFor(id) });
       const fac = (typeof Factions !== 'undefined' && Factions.get(c.faction)) ? Factions.get(c.faction).name : '';
       const merits = c.merits.length ? c.merits.map((m) => `<li>${HeroCard.meritText(m)}</li>`).join('') : `<li class="jr-unk">${_t("Заслуг пока нет: победите стража или спуститесь в подземелье.")}</li>`;
-      const medals = c.medals.length ? `<p class="hint">${c.medals.slice(0, 40).map((m) => m.name).join(' · ')}</p>` : `<p class="hint">${_t("Медалей пока нет.")}</p>`;
+      const kind = (typeof Factions !== 'undefined') ? Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender) : null;
+      const fig = (kind && typeof Figures !== 'undefined') ? `<div class="hc-fig figure-box">${Figures.figure(kind, Profile.gear())}</div>` : '';
+      const level = Profile.level(), earnedAll = Profile.medals();
+      const medalGrid = earnedAll.length ? `<div class="medal-grid">${earnedAll.map((m) => medalTile(m.id, m, level, 0, 0)).join('')}</div>` : `<p class="hint">${_t("Медалей пока нет.")}</p>`;
       return `<div class="modal" role="dialog" aria-label="${_t("Визитка героя")}">${head(_t("Визитка героя"))}<div class="screen-body tavern-body">
-        <h3>${c.name || Profile.heroName()}</h3><p class="hint">${fac ? fac + ' · ' : ''}${_t("уровень {0}", [c.level])}</p>
-        <p>${_t("Боёв: {0}", [c.battles])}</p>
+        <div class="hc-top">${fig}<div class="hc-info">
+          <h3>${c.name || Profile.heroName()}</h3><p class="hint">${fac ? fac + ' · ' : ''}${_t("уровень {0}", [c.level])}</p>
+          <p>${_t("Боёв: {0}", [c.battles])}</p></div></div>
         <h3>${_t("Заслуги")}</h3><ul class="jr-list">${merits}</ul>
-        <h3>${_t("Медали: {0}", [c.medals.length])}</h3>${medals}
+        <h3>${_t("Медали: {0}", [c.medals.length])}</h3>${medalGrid}
         <div class="mc-act"><button type="button" data-copycard="1">${_t("Скопировать визитку")}</button></div>
         <p class="hint">${st.herocard.msg || _t("Когда появится сервер, эту визитку смогут увидеть другие игроки.")}</p></div></div>`;
     },
