@@ -2426,7 +2426,8 @@ body.duo-battle main.game { padding-top: 54px; }
 @media (min-width: 700px) and (min-aspect-ratio: 5/4) { .duo-bar.solo { width: min(560px, calc(100vw - 16px)); } }
 .duo-take { padding: 6px 14px; border-radius: 8px; border: 2px solid #e3c98a; background: #3a3220; color: #f1d98a; font-weight: 600; cursor: pointer; }
 .duo-take[hidden] { display: none; }
-.duo-pet :is(#spellbar,[data-bid="spellbar"]), .duo-pet :is(#bagbar,[data-bid="bagbar"]), .duo-pet .row-actions, .duo-pet :is(#restart,[data-bid="restart"]), .duo-pet :is(#gear,[data-bid="gear"]), .duo-pet :is(#hint,[data-bid="hint"]) { display: none; }
+/* 2.3.5: у питомца своя магия — её панель видна; ранец (эликсиры героя) на поле питомца по-прежнему скрыт */
+.duo-pet :is(#bagbar,[data-bid="bagbar"]), .duo-pet .row-actions, .duo-pet :is(#restart,[data-bid="restart"]), .duo-pet :is(#gear,[data-bid="gear"]), .duo-pet :is(#hint,[data-bid="hint"]) { display: none; }
 .pet-toggle { display: flex; gap: 8px; align-items: center; margin: 8px 0 2px; font-size: 13px; }
 .fighter .avatar > img { width: 100%; height: 100%; object-fit: cover; display: block; }
 

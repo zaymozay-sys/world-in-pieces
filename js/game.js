@@ -206,8 +206,9 @@ const fighters = {
 
 const fEl = (side) => $('fighter-' + side);
 // kind — какое заклинание ('lightning' по умолчанию): у каждого своя цена (Balance.magic.costs).
-const magicCostOf = (side, kind = 'lightning') => Combat.spellCost(fighters[side], kind);
-const canAffordMagic = (side, kind = 'lightning') => !fighters[side].isPet && MAGIC_TYPES.every((t) => fighters[side].counts[t] >= magicCostOf(side, kind));
+const magicCostOf = (side, kind = 'lightning') => (fighters[side].isPet ? ((PET_MAGICS[kind] || {}).cost || 99) : Combat.spellCost(fighters[side], kind));
+// 2.3.5: у питомца своя магия (PET_MAGICS) — магия героя ему недоступна, и наоборот.
+const canAffordMagic = (side, kind = 'lightning') => (fighters[side].isPet ? !!PET_MAGICS[kind] : !PET_MAGICS[kind]) && MAGIC_TYPES.every((t) => fighters[side].counts[t] >= magicCostOf(side, kind));
 // Может ли сторона позволить себе хоть одно из пяти заклинаний (для ИИ — решает, стоит ли вообще думать про магию).
 const anyMagicAffordable = (side) => Object.keys(MAGICS).some((k) => canAffordMagic(side, k));
 // { lightning, fire, transmute, heal, chaos } → может ли сторона позволить себе именно это заклинание (для ИИ).
@@ -650,18 +651,33 @@ const MAGICS = {
     tip: _t("Следующий удар наносит двойной урон. Только пока камней вашего цвета на поле больше (по номиналам), чем любого другого") },
 };
 
+/* ---------- Магия питомца (2.3.5) ----------
+   На втором поле вместо магии героя — три звериных заклинания. Платятся камнями с поля питомца (по cost каждого
+   вида), как магия героя; «Приём» вида-донора (кнопка раз в 3 хода) остаётся отдельно. ИИ питомца пользуется ими
+   сам (petAiSpell), под ручным управлением — кнопки. Рисованные значки — art/spells/pet-<kind>, пока их нет —
+   встроенные SVG. */
+const PET_MAGICS = {
+  fang: { name: _t("Клык"), cost: 3, icon: strikeIcon,
+    tip: _t("Укус со всей звериной силы: мгновенный урон, как за сбор девяти камней") },
+  lick: { name: _t("Зализать раны"), cost: 4, icon: healIcon,
+    tip: _t("Питомец зализывает раны и восстанавливает треть своего полного здоровья") },
+  claw: { name: _t("Коготь"), cost: 5, icon: fireIcon,
+    tip: _t("Взмах когтя сметает ряд, где больше всего камней: камни уходят в копилку питомца, а обсидианы бьют врага") },
+};
+
 // Иконка заклинания или приёма фракции: готовый рисунок из art/spells/ (ключ «spells/<kind>», для приёма —
 // «spells/ability-<id приёма>», см. Factions), если он загружен; иначе встроенный SVG из gems.js.
 // Рисунок кладётся в тот же <svg class="magic-icon">, чтобы CSS кнопок работал без изменений.
 function spellIconHtml(kind, id) {
   const fac = kind === 'faction' ? (Profile.data.faction || 'dwarf') : null;
-  const key = fac ? 'spells/ability-' + playerFaction().ability.id : 'spells/' + kind;
+  const key = fac ? 'spells/ability-' + playerFaction().ability.id : 'spells/' + (!MAGICS[kind] && PET_MAGICS[kind] ? 'pet-' + kind : kind);
   if (typeof Art !== 'undefined' && Art.has(key)) {
     return `<svg class="magic-icon" viewBox="0 0 100 100" aria-hidden="true">` +
       `<image href="${Art.url(key)}" width="100" height="100" preserveAspectRatio="xMidYMid meet"/></svg>`;
   }
   if (fac) return playerFaction().ability.id === 'growth' ? growthIcon(id) : factionIcon(fac);
-  return MAGICS[kind] ? MAGICS[kind].icon(id) : '';
+  const def = MAGICS[kind] || PET_MAGICS[kind];
+  return def ? def.icon(id) : '';
 }
 
 // Кулак ярости: господствует ли родной цвет фракции героя на поле (Engine.dominantType, с учётом номиналов).
@@ -678,6 +694,15 @@ function furyState() {
 const spellbarEl = $('spellbar');
 
 function buildSpellbar() {
+  if (PET) {   // 2.3.5: поле питомца — только его собственная магия
+    spellbarEl.innerHTML = Object.keys(PET_MAGICS).map((k) =>
+      `<button type="button" class="magic pet-cast ${k}" data-kind="${k}" title="${PET_MAGICS[k].tip}"></button>`).join('');
+    spellbarEl.addEventListener('click', (e) => {
+      const b = e.target.closest('button.magic');
+      if (b && !b.disabled) castPetSpell(b.dataset.kind);
+    });
+    return;
+  }
   spellbarEl.innerHTML = `<button type="button" class="magic fac" data-kind="faction"></button>` + Object.keys(MAGICS).map((k) =>
     `<button type="button" class="magic ${k}" data-kind="${k}" title="${MAGICS[k].tip}"></button>`).join('');
   [...spellbarEl.children].forEach((b, i) => { if (i < 10) b.dataset.key = String((i + 1) % 10); });   // 1.5.5: клавиши 1–9, 0 (на компьютере в углу кнопки)
@@ -1048,6 +1073,7 @@ function renderMagic() {
   syncHintBtn();
   const f = fighters.left;
   updatePetSkill();
+  if (PET) { renderPetMagic(); renderBadge('left'); renderBadge('right'); renderBag(); return; }
   for (const kind of Object.keys(MAGICS)) {
     const btn = spellbarEl.querySelector(`button.${kind}`);
     if (!btn) continue;
@@ -2953,6 +2979,15 @@ async function autoTurn() {
     if (over) return;
     if (!autopilot) { busy = false; renderMagic(); startTurnTimer(); return; }   // управление передали нам посреди хода
     const f = fighters.left;
+    const pk = f.isPet ? petAiSpell() : null;      // 2.3.5: ИИ питомца пользуется его собственной магией
+    if (pk) {
+      note(_t("{0}: {1}!", [f.name, PET_MAGICS[pk].name]));
+      await sleep(500);
+      const pres = await PET_CASTERS[pk]();
+      if (over) return;
+      if (pres !== 2 || fighters.left.hp <= 0) break;
+      continue;
+    }
     const v = Combat.aiView(f, fighters.right);
     const afford = f.isPet ? {} : f.magic ? Object.fromEntries(['fire', 'square'].map((k) => [k, spellOpen(k) && canAffordMagic('left', k)])) : Object.fromEntries(Object.keys(MAGICS).map((k) => [k, spellOpen(k) && canAffordMagic('left', k)]));
     const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, autoLevel, afford, { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('left'), strike: Combat.strikeDamage(f), lightning: lightningMult(f) });
@@ -3165,7 +3200,7 @@ function hideCross() {
 async function castFire(side, cell, opts = {}) {
   const shape = opts.shape || 'cross', mult = opts.mult || 1;
   const title = opts.name || (shape === 'point' ? _t("Выпад") : shape === 'square' ? _t("Захват") : _t("Огненный крест"));
-  const collect = shape !== 'row';                  // крест и квадрат собирают камни в копилку (дыхание дракона — нет)
+  const collect = !!opts.collect || shape !== 'row';   // крест и квадрат собирают камни в копилку (дыхание дракона — нет; Коготь питомца — да)
   stopAim();
   clearSelection();
   if (!opts.free) spendMagic(side, -1, shape === 'point' ? 'pierce' : shape === 'square' ? 'square' : 'fire');
@@ -3233,7 +3268,7 @@ async function castFire(side, cell, opts = {}) {
   await sleep(RULES.timing.fall);
   shiftRight();
   await sleep(RULES.timing.shift);
-  return afterSpell(side, !opts.free && shape !== 'point');   // Выпад — ход не тратится
+  return afterSpell(side, opts.forceFinish || (!opts.free && shape !== 'point'));   // Выпад — ход не тратится; Коготь (free+forceFinish) — тратится
 }
 
 // Конец действия стороны: баффы теряют по ходу, Свиток спешки даёт дополнительный ход.
@@ -3565,6 +3600,92 @@ async function playerCast(cell) {
     return;
   }
   await afterPlayerSpell(res);
+}
+
+/* ---------- Заклинания питомца (2.3.5) ---------- */
+function renderPetMagic() {
+  const f = fighters.left;
+  for (const kind of Object.keys(PET_MAGICS)) {
+    const btn = spellbarEl.querySelector('button.' + kind);
+    if (!btn) continue;
+    const P = PET_MAGICS[kind];
+    const ready = canAffordMagic('left', kind);
+    let block = busy || over || autopilot || turnSide !== 'left';
+    if (kind === 'lick' && f.hp >= f.max) block = true;
+    btn.innerHTML = spellIconHtml(kind, 'pbar-' + kind);
+    btn.title = _t("{0}: {1} (по {2} каждого вида)", [P.name, P.tip, _nn(P.cost, 'камень', 'камня', 'камней')]);
+    btn.disabled = block || !ready;
+    btn.dataset.state = !ready ? 'need' : btn.disabled ? 'wait' : 'ready';
+    btn.setAttribute('aria-label', P.name);
+  }
+}
+// Клык бьёт как сбор PET_FANG_STONES камней (та же формула удара: камни + Сила, минус броня врага).
+const PET_FANG_STONES = 9;
+const petFangDamage = () => Math.max(1, Math.round(PET_FANG_STONES + Combat.power(fighters.left)));   // оценка для ИИ (без брони)
+// Ряд, где больше всего камней (для Когтя).
+function petBestRow() {
+  let best = -1, n = 0;
+  for (let r = 0; r < N; r++) { const k = grid[r].filter(Boolean).length; if (k > n) { n = k; best = r; } }
+  return { r: best, n };
+}
+async function castPetFang() {
+  clearSelection();
+  spendMagic('left', -1, 'fang');
+  const f = fighters.left;
+  note(_t("Клык!"));
+  SND.fire();
+  const dealt = dealDamage('right', PET_FANG_STONES, false);
+  logEvent('left', _t("{0}: Клык, урон {1}", [f.name, dealt]));
+  if (sideDown('right')) {
+    if (flushTurnDamage()) await sleep(500);
+    checkEnd();
+    return 1;
+  }
+  if (flushTurnDamage()) await sleep(400);
+  return afterSpell('left');
+}
+async function castPetLick() {
+  clearSelection();
+  spendMagic('left', -1, 'lick');
+  const f = fighters.left;
+  const amount = Math.min(f.max - f.hp, Math.max(1, Math.round(f.max * 0.30)));
+  note(_t("Зализать раны!"));
+  SND.heal();
+  f.hp += amount;
+  showFloat('left', '+' + amount, 'heal');
+  logEvent('left', _t("{0}: зализывает раны, +{1}", [f.name, amount]));
+  renderFighters();
+  await sleep(500);
+  return afterSpell('left');
+}
+async function castPetClaw() {
+  const row = petBestRow();
+  if (row.r < 0) return 1;
+  spendMagic('left', -1, 'claw');
+  return castFire('left', { r: row.r, c: 0 }, { free: true, forceFinish: true, collect: true, shape: 'row', mult: 0.9, name: _t("Коготь") });
+}
+const PET_CASTERS = { fang: castPetFang, lick: castPetLick, claw: castPetClaw };
+// Ручное заклинание питомца — как playerInstant, но из PET_MAGICS.
+async function castPetSpell(kind) {
+  if (!PET || busy || over || autopilot || turnSide !== 'left' || !canAffordMagic('left', kind)) return;
+  if (kind === 'lick' && fighters.left.hp >= fighters.left.max) return;
+  stopTurnTimer();
+  skipStreak = 0;
+  busy = true;
+  renderMagic();
+  invalidStreak = 0;
+  const res = await PET_CASTERS[kind]();
+  endPlayerAction();
+  await afterPlayerSpell(res);
+}
+// Выбор заклинания ИИ питомца: добить Клыком, подлечиться, смести полный ряд Когтем (умный питомец).
+function petAiSpell() {
+  if (!PET) return null;
+  const f = fighters.left, foe = fighters.right;
+  if (canAffordMagic('left', 'fang') && foe.hp > 0 && foe.hp <= petFangDamage()) return 'fang';
+  if (canAffordMagic('left', 'lick') && f.hp < f.max * 0.45 && autoLevel >= 15) return 'lick';
+  if (canAffordMagic('left', 'claw') && autoLevel >= 40 && petBestRow().n >= N - 1) return 'claw';
+  return null;
 }
 
 // Заклинания без выбора цели (Целебный дождь, Хаос).
@@ -4200,7 +4321,7 @@ const BT3_ART = { 'bt3-board': 'ui/battle3-board-full', 'bt3-card': 'ui/battle3-
 function battleSkinOn() {
   let v = null; try { v = localStorage.getItem('gm-battle-skin'); } catch (e) { /* без хранилища — по умолчанию */ }
   if (v === 'gold' || v === 'classic') return v === 'gold';
-  return Math.min(window.innerWidth, window.innerHeight) > 520;   // выбор не сделан: на компьютере и планшете — золото, на малом телефоне прежний вид
+  return true;   // 2.3.5: выбор не сделан — золото на любом устройстве; «классика» остаётся в меню как запасной вид
 }
 function renderBattleSkin() {
   const b = document.body, skinBtn = $('skin-btn');
@@ -4734,7 +4855,7 @@ const Duo = (() => {
     end();
     const pd = Profile.pet();
     if (!BATTLE_TEMPLATE || !pd) return;
-    st = { control: 'hero', tab: 'hero', result: { hero: null, pet: null }, kills: [], petOutcomes: [], done: false, pd, help: { 'hp-h2p': 0, 'hp-p2h': 0, 'st-h2p': 0, 'st-p2h': 0 }, noHelp: !!opts.noHelp, helpOpen: false };
+    st = { control: 'hero', tab: 'hero', waiting: null, result: { hero: null, pet: null }, kills: [], petOutcomes: [], done: false, pd, help: { 'hp-h2p': 0, 'hp-p2h': 0, 'st-h2p': 0, 'st-p2h': 0 }, noHelp: !!opts.noHelp, helpOpen: false };
     const root = BATTLE_TEMPLATE.cloneNode(true);
     root.classList.add('duo-pet', 'duo-hidden');
     for (const e of root.querySelectorAll('[id]')) { e.setAttribute('data-bid', e.id); e.id = 'pet-' + e.id; }   // 1.6.4 (WIP-07): id в документе уникальны
@@ -4822,7 +4943,12 @@ const Duo = (() => {
   function onTeamClick(e) {
     if (!st) return;
     if (e.target.closest('.pq-take')) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }
-    if (e.target.closest('.pq.ally') && (!takeState.hidden || !document.body.classList.contains('phone'))) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }   // карточка напарника: поменяться местами
+    if (e.target.closest('.pq.ally')) {   // 2.3.5: нажатие на карточку напарника всегда меняет управление (на ждущего — только взгляд)
+      const go = e.target.closest('.pq.ally').dataset.go;
+      if (st.waiting === go || (st.result[go] && st.result[go].result !== 'wait')) { if (st.tab !== go) setTab(go); return; }
+      setControl(st.control === 'pet' ? 'hero' : 'pet', true);
+      return;
+    }
     const g = e.target.closest('[data-go]');
     if (g && g.dataset.go !== st.tab) setTab(g.dataset.go);
   }
@@ -4838,7 +4964,8 @@ const Duo = (() => {
     ];
     for (const x of sets) {
       const m = mountTeam(x.root); if (!m) continue;
-      const a = plaque(x.mate, x.av[0], 'ally', x.go, false), f = plaque(x.foe, x.av[1], 'foe', x.go, hide);
+      const w = st.waiting === x.go;
+      const a = plaque(x.mate, x.av[0], w ? 'ally wait' : 'ally', x.go, false), f = w ? '' : plaque(x.foe, x.av[1], 'foe', x.go, hide);
       setHtml(m.inL, a); setHtml(m.inR, f);
       setHtml(m.row, a + f + `<button type="button" class="pq-take"${takeState.hidden ? ' hidden' : ''}>${esc(takeState.text)}</button>`);
     }
@@ -4884,11 +5011,14 @@ const Duo = (() => {
     syncBarH();
     th.classList.toggle('on', st.tab === 'hero'); tp.classList.toggle('on', st.tab === 'pet');
     th.classList.toggle('mine', st.control === 'hero'); tp.classList.toggle('mine', st.control === 'pet');
-    th.classList.toggle('down', !!st.result.hero); tp.classList.toggle('down', !!st.result.pet);
+    th.classList.toggle('down', !!st.result.hero && st.result.hero.result !== 'wait'); tp.classList.toggle('down', !!st.result.pet && st.result.pet.result !== 'wait');
+    th.classList.toggle('wait', st.waiting === 'hero'); tp.classList.toggle('wait', st.waiting === 'pet');
+    if (st.waiting === 'hero') th.querySelector('small').textContent = `${Math.max(0, h.hp)}/${h.max} · ${_t("ждёт")}`;
+    if (st.waiting === 'pet') tp.querySelector('small').textContent = `${Math.max(0, p.hp)}/${p.max} · ${_t("ждёт")}`;
     const take = bar.querySelector('.duo-take');
     const petOver = !!st.result.pet, heroOver = !!st.result.hero;
     take.textContent = st.control === 'pet' ? _t("Играть за героя") : _t("Играть за питомца");
-    take.hidden = st.done || (st.control === 'hero' ? petOver || (petB.brief().hp <= 0) : heroOver);
+    take.hidden = st.done || !!st.waiting || (st.control === 'hero' ? petOver || (petB.brief().hp <= 0) : heroOver);
     takeState = { text: take.textContent, hidden: take.hidden };
     renderHelp();
     renderTeam();
@@ -4971,19 +5101,86 @@ const Duo = (() => {
       if (hp > 0 && hf && hf.hp > 0) { const add = Math.min(hf.max - hf.hp, Math.round(hf.max * hp)); if (add > 0) { hf.hp += add; M().logEvent('left', _t("Амулет целителя: герой лечится на {0}", [add])); M().renderFighters(); } }
     }
     const other = id === 'hero' ? 'pet' : 'hero';
-    if (!st.result[other]) {                              // второе поле ещё идёт — переключаем игрока на него
+    /* 2.3.5: наш боец победил, а второй монстр ещё дерётся. Монстр с равной вероятностью либо переходит на поле
+       победителя (его прежний соперник ждёт), либо остаётся где был (ждёт победитель). Ждущий вступает, когда до
+       него дойдёт очередь: его соперник пал или монстр вернулся к нему. */
+    if (result === 'win' && !st.result[other] && st.waiting !== other) {
+      if (BattleRand.next() < 0.5) { transferFoe(other, id); return; }   // боевой бросок: в бою по сети у обеих сторон одинаковый
+      st.waiting = id;
+      boards()[id].logEvent('left', _t("Второй противник не идёт сюда — {0} ждёт своего часа", [boards()[id].fighters.left.name]));
+      if (st.control === id) setControl(other, true);
+      else if (st.tab === id) setTab(other);
+      renderBar();
+      return;
+    }
+    if (result === 'win' && st.waiting === other) st.result[other] = { result: 'wait' };   // монстров больше нет — ждавший свободен
+    // Боец пал, а его напарник ждал без противника: монстр павшего переходит к ждавшему (герой ждать может только живым).
+    if (result === 'loss' && id === 'pet' && st.waiting === other) {
+      st.result[id].taken = true;
+      st.waiting = null;
+      const b = boards()[other], mine = st;
+      b.whenIdle().then(() => {
+        if (!st || st !== mine || st.done) return;
+        b.adoptFoe(foe, false);
+        b.resumeAfterAdopt();
+        b.note(_t("Противник переходит сюда!"));
+        b.logEvent('left', _t("{0} дождался: противник павшего напарника теперь здесь", [b.fighters.left.name]));
+        setControl(other, true);
+        renderBar();
+      });
+      renderBar();
+      return;
+    }
+    if (!st.result[other] && st.waiting !== other) {      // второе поле ещё идёт — переключаем игрока на него
       if (st.control === id) setControl(other, true);
       else if (st.tab === id) setTab(other);
     }
     renderBar();
     evaluate();
   }
+  // 2.3.5: переходя к победителю, монстр немного «злеет» — получает случайную прибавку к одной характеристике,
+  // чтобы первый из нас победивший не доставался второму слишком лёгкой добычей. Бросок — BattleRand (сетевой бой).
+  const TRANSFER_BUFF_STATS = ['power', 'defense', 'initiative', 'block'];
+  function angrierFoe(foe) {
+    const stat = TRANSFER_BUFF_STATS[Math.floor(BattleRand.next() * TRANSFER_BUFF_STATS.length)];
+    const base = (foe.stats && foe.stats[stat]) || (foe.innate && foe.innate[stat]) || 0;
+    const add = Math.max(1, Math.round(base * 0.12) || (stat === 'power' ? 2 : 1));
+    foe.innate = { ...(foe.innate || {}) };           // переживёт recalcStats, если он когда-то случится для этого бойца
+    foe.innate[stat] = (foe.innate[stat] || 0) + add;
+    foe.stats = { ...(foe.stats || {}) };              // но характеристики применяем и сразу — adoptFoe пересчёт не делает
+    foe.stats[stat] = (foe.stats[stat] || 0) + add;
+    foe.angrier = { stat, add };                      // для отображения в логе/карточке
+    return foe;
+  }
+  // Живой монстр переходит с поля from на поле to (к только что победившему бойцу); боец from остаётся ждать.
+  function transferFoe(from, to) {
+    const mine = st, fb = boards()[from], tb = boards()[to];
+    fb.whenIdle().then(() => {
+      if (!st || st !== mine || st.done || st.result[from]) return;   // пока ждали, поле from само закончилось — переход отменяется
+      const foe = angrierFoe(structuredClone(fb.fighters.right));
+      fb.over = true; fb.stopTurnTimer(); fb.setAutopilot(false);
+      fb.fighters.right.hp = 0;                            // на покинутом поле врага больше нет
+      st.waiting = from;
+      st.result[to] = null;
+      fb.logEvent('left', _t("{0} переходит на другое поле — {1} ждёт своего часа", [foe.name, fb.fighters.left.name]));
+      tb.whenIdle().then(() => {
+        if (!st || st !== mine || st.done) return;
+        tb.adoptFoe(foe, false);
+        tb.resumeAfterAdopt();
+        tb.note(_t("Второй противник переходит сюда — и выглядит злее!"));
+        const statName = (typeof Gear !== 'undefined' && Gear.STAT_NAMES[foe.angrier.stat]) || foe.angrier.stat;
+        tb.logEvent('left', _t("{0} переходит сюда — бой продолжается ({1} +{2})", [foe.name, statName, foe.angrier.add]));
+        setControl(to, true);
+        renderBar();
+      });
+    });
+  }
   function evaluate() {
     const r = st.result;
     // 2.0.8: победа в бою вдвоём засчитывается, только если выжил герой. Пал герой — бой проигран, питомец за него не добивает.
     if (r.hero && r.hero.result === 'loss') return finish('loss');
     if (!r.hero || !r.pet) return;
-    const alive = ['hero', 'pet'].filter((k) => r[k] && r[k].result === 'win');
+    const alive = ['hero', 'pet'].filter((k) => r[k] && (r[k].result === 'win' || r[k].result === 'wait'));
     const foesLeft = ['hero', 'pet'].filter((k) => r[k] && r[k].result === 'loss' && !r[k].taken);
     if (!foesLeft.length) return finish('win');
     if (!alive.length) return finish('loss');

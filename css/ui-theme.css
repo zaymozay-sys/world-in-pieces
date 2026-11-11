@@ -529,3 +529,139 @@ body.mode-map .map-card .mc-act button.primary {
 @media (min-width: 720px) and (min-height: 900px) {
   .modal:not(.icard-modal) { height: min(1000px, 100%); max-height: 100%; }
 }
+
+/* ═════════════ бой: плашки бойцов, панели и полоса «Герой/Питомец» в золоте (2.3.5) ═════════════ */
+body.bt-gold .pq {
+  color: var(--ui-text);
+  background: linear-gradient(180deg, rgba(58, 41, 24, .95), rgba(26, 18, 10, .96));
+  border: 1px solid var(--ui-gold-lo); border-radius: 10px;
+  box-shadow: 0 0 0 1px #140c05, inset 0 1px 0 rgba(255, 224, 160, .16), 0 3px 9px rgba(0, 0, 0, .5);
+}
+body.bt-gold .pq.ally { border-color: var(--ui-gold-mid); cursor: pointer; }
+body.bt-gold .pq.ally:hover { box-shadow: 0 0 0 1px #140c05, inset 0 1px 0 rgba(255, 224, 160, .16), 0 0 12px rgba(240, 180, 70, .4); }
+body.bt-gold .pq.foe { border-color: #7a3a2a; }
+body.bt-gold .pq-nm { font-family: var(--ui-display); font-weight: 700; letter-spacing: .02em; color: var(--ui-gold-hi); }
+body.bt-gold .pq-av { border-radius: 7px; box-shadow: 0 0 0 1px var(--ui-gold-lo); }
+body.bt-gold .pq-hp { background: #0e0905; box-shadow: inset 0 0 0 1px rgba(214, 170, 92, .25); }
+/* ждущий боец: приглушён, с подписью */
+.pq.wait { opacity: .75; }
+.pq.wait .pq-nm::after { content: " · ждёт"; font-family: var(--ui-serif); font-weight: 500; font-size: 11px; color: #d9b46a; }
+html[lang="en"] .pq.wait .pq-nm::after { content: " · waiting"; }
+.duo-tab.wait { opacity: .8; }
+/* 2.3.5: на компьютере и планшете плашка второго участника — своё отдельное окошко с зазором, не продолжение карточки героя/врага */
+body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter > .pq-in {
+  margin-top: 14px; padding-top: 0; border-top: 0;
+}
+body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .fighter > .pq-in .pq {
+  border-radius: 10px;
+}
+.duo-tab.wait .dt-name::after { content: " ⏳"; font-weight: 400; }
+
+/* полоса сверху (горизонтальный телефон и узкие экраны) */
+body.bt-gold .duo-bar {
+  background: linear-gradient(180deg, #2e2012, #1a110a); border-bottom: 2px solid var(--ui-gold-lo);
+  box-shadow: 0 1px 0 #0d0804, 0 4px 12px rgba(0, 0, 0, .5);
+}
+body.bt-gold .duo-tab {
+  color: var(--ui-text); background: linear-gradient(180deg, #33251a, #241810); border: 1px solid #5a4226; border-radius: 9px;
+}
+body.bt-gold .duo-tab .dt-name { font-family: var(--ui-display); font-weight: 700; letter-spacing: .02em; color: #d9c69c; }
+body.bt-gold .duo-tab.on { border-color: var(--ui-gold); background: linear-gradient(180deg, #4a3620, #2e2012); box-shadow: inset 0 1px 0 rgba(255, 224, 160, .2), 0 0 10px rgba(240, 180, 70, .3); }
+body.bt-gold .duo-tab.on .dt-name { color: var(--ui-gold-hi); }
+body.bt-gold .duo-tab .dt-hp { background: #0e0905; box-shadow: inset 0 0 0 1px rgba(214, 170, 92, .25); }
+body.bt-gold .duo-take, body.bt-gold .duo-help {
+  font-family: var(--ui-display); font-weight: 700; font-size: 13.5px; letter-spacing: .02em; color: #2a1704; text-shadow: 0 1px 0 rgba(255, 236, 170, .6);
+  background: linear-gradient(180deg, #f3dc9c, #d9ad4e 45%, #b07c24); border: 1px solid #ffe7a6; border-radius: 9px;
+  box-shadow: 0 0 0 1px #5a3a10, inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+body.bt-gold .duo-helpmenu {
+  color: var(--ui-text); background: #24160d var(--ui-leather-img) 0 0 / 256px 256px; border: 1px solid var(--ui-gold-mid); border-radius: 10px;
+  box-shadow: 0 0 0 1px #140c05, 0 12px 30px rgba(0, 0, 0, .7);
+}
+body.bt-gold .duo-helpmenu button { color: var(--ui-text); background: linear-gradient(180deg, rgba(64, 46, 30, .9), rgba(38, 26, 16, .92)); border: 1px solid #5a4226; border-radius: 8px; }
+body.bt-gold .duo-helpmenu button:hover:not(:disabled) { border-color: var(--ui-gold); filter: brightness(1.15); }
+
+/* телефон стоя: нижняя панель магии и ранца — в раме боя (в ландшафте свои панели .tool-col) */
+@media (orientation: portrait) {
+body.bt-gold.phone.mode-battle .tools {
+  background: linear-gradient(180deg, rgba(40, 28, 16, .92), rgba(22, 15, 9, .94));
+  border: 1px solid var(--ui-gold-lo); border-radius: 12px;
+  box-shadow: 0 0 0 1px #140c05, inset 0 1px 0 rgba(255, 224, 160, .14), 0 4px 14px rgba(0, 0, 0, .5);
+}
+}
+body.bt-gold.phone.mode-battle .dock-menu-btn {
+  color: var(--ui-gold-hi); background: linear-gradient(180deg, #3f2e1e, #261a11); border: 1px solid var(--ui-gold-mid); border-radius: 9px;
+  box-shadow: 0 0 0 1px #140c05, inset 0 1px 0 rgba(255, 224, 160, .2), 0 2px 6px rgba(0, 0, 0, .55);
+}
+body.bt-gold.phone.mode-battle .fighter { border-radius: 10px; }
+/* статус «Ход противника…» — спокойной лентой */
+body.bt-gold.phone.mode-battle #status { font-family: var(--ui-serif); font-weight: 700; color: #ffe08a; text-shadow: 0 1px 0 #000; }
+
+/* горизонтальный телефон, бой вдвоём: плашкам напарников чуть больше места, без ряда камней */
+@media (orientation: landscape) {
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .arena {
+    grid-template-rows: 0 minmax(0, 1fr) minmax(0, 1fr) calc(38px * var(--u, 1)) calc(40px * var(--u, 1)) 0;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row { height: calc(38px * var(--u, 1)); gap: var(--g); }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row .pq {
+    flex: 1 1 0; min-width: 0; min-height: 0; height: 100%; padding: 2px 6px;
+    grid-template-columns: calc(26px * var(--u, 1)) minmax(0, 1fr); grid-template-areas: "av nm" "av hp"; column-gap: 6px; row-gap: 2px; align-content: center;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row .pq .pq-st { display: none; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row .pq .pq-av { width: calc(26px * var(--u, 1)); height: calc(26px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row .pq .pq-nm { font-size: calc(11px * var(--u, 1)); line-height: 1.1; }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row .pq .pq-hp { height: calc(9px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row .pq-take { display: none; }
+}
+
+/* журнал боя (свиток сбоку) и отчёт о проблеме */
+body.bt-gold .log-wrap {
+  color: var(--ui-text); background: linear-gradient(180deg, rgba(44, 31, 18, .95), rgba(24, 16, 10, .96));
+  border: 1px solid var(--ui-gold-lo); border-radius: 10px;
+  box-shadow: 0 0 0 1px #140c05, inset 0 1px 0 rgba(255, 224, 160, .14), 0 4px 12px rgba(0, 0, 0, .5);
+}
+body.bt-gold .log-wrap summary { font-family: var(--ui-display); font-weight: 700; letter-spacing: .03em; color: var(--ui-gold-hi); }
+body.bt-gold .log { scrollbar-width: thin; scrollbar-color: var(--ui-gold-lo) transparent; }
+.modal textarea, .modal .report-text {
+  color: var(--ui-text); background: #150e08; border: 1px solid #5a4226; border-radius: 9px; padding: 8px 10px;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6); font: 14px/1.4 inherit; font-family: inherit;
+}
+.modal textarea:focus { outline: none; border-color: var(--ui-gold); box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 0 0 2px rgba(233, 189, 98, .25); }
+.modal .report-card h3:first-child { margin-top: 0; }
+/* «На карту» не наезжает на строку питомца */
+.overlay .to-map { margin-top: 14px; }
+.overlay .rw-pet { display: block; padding-bottom: 2px; }
+
+/* ───────────── доводка 2.3.5 ───────────── */
+/* «Сообщить о проблеме»: поле ввода и флажок в общем стиле */
+.modal textarea {
+  min-height: 110px; padding: 10px 12px; color: var(--ui-text); font-size: 14px; line-height: 1.4;
+  background: #150e08; border: 1px solid #5a4226; border-radius: 9px; box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6);
+}
+.modal textarea:focus { outline: none; border-color: var(--ui-gold); box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 0 0 2px rgba(233, 189, 98, .25); }
+.modal textarea::placeholder, .modal input::placeholder { color: #8d7a58; }
+.modal input[type="checkbox"] { accent-color: #c8963a; width: 17px; height: 17px; }
+
+/* журнал боя (свёрнутый список и раскрытый) */
+.log-wrap {
+  color: var(--ui-text); background: linear-gradient(180deg, rgba(52, 37, 22, .95), rgba(26, 18, 10, .96));
+  border: 1px solid var(--ui-gold-lo); border-radius: 10px; box-shadow: 0 0 0 1px #140c05, inset 0 1px 0 rgba(255, 224, 160, .14);
+}
+.log-wrap summary { font-family: var(--ui-display); font-weight: 700; letter-spacing: .05em; color: var(--ui-gold); }
+.log-wrap .log li { border-bottom: 1px dashed rgba(214, 170, 92, .16); }
+.log-wrap .log::-webkit-scrollbar { width: 7px; }
+.log-wrap .log::-webkit-scrollbar-thumb { background: var(--ui-gold-lo); border-radius: 4px; }
+
+/* итог боя: «Подробнее» и технические кнопки — тихие тёмные */
+.overlay .rw-more-btn, .overlay .rw-tech button {
+  color: #d9c69c; background: linear-gradient(180deg, #33251a, #241810); border: 1px solid #5a4226; border-radius: 9px; min-height: 34px;
+}
+.overlay .rw-more-btn:hover, .overlay .rw-tech button:hover { border-color: var(--ui-gold); color: var(--ui-gold-hi); }
+
+/* Маяк: карточки мини-игр */
+.modal .lh-game, .modal .mini-card { border-left: 3px solid var(--ui-gold-mid); }
+
+/* шахматы в Библиотеке: доска в тёмной золотой раме */
+.modal .chess-wrap, .modal #chessboard, .modal .chess-board {
+  border: 2px solid var(--ui-gold-lo); border-radius: 8px; box-shadow: 0 0 0 1px #140c05, 0 6px 16px rgba(0, 0, 0, .5);
+}
