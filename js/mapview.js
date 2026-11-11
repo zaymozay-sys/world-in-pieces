@@ -829,6 +829,18 @@ const MapView = (() => {
     el['map-tip'].innerHTML = describe(i);
   }
 
+  // 2.3.6: заметная вспышка на сете (переход из журнала к метке/достопримечательности) — туман не трогает,
+  // просто привлекает взгляд на 1.2с, чтобы переход с центровкой камеры был явно виден.
+  function flashCell(i) {
+    if (i < 0) return;
+    const p = px(i), id = 'flash' + Math.random().toString(36).slice(2, 8);
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.id = id;
+    g.innerHTML = `<polygon points="${hexPts(p.x, p.y, 0.94)}" class="jump-flash"/>`;
+    el['l-ev'].appendChild(g);
+    setTimeout(() => { const n = document.getElementById(id); if (n) n.remove(); }, 1300);
+  }
+
   function describe(i) {
     if (!known(i)) return _t("Неизведанная земля");
     const t = tierOfCell(i), sp = monsterAt(i);
@@ -1600,7 +1612,7 @@ const MapView = (() => {
     }).join('') : `<li class="jr-unk">${_t("Меток нет. Кнопка «Метка» ставит их на карту.")}</li>`;
     const chronAll = typeof Chron !== 'undefined' ? Chron.list(Profile.data) : [];
     const chronRows = chronAll.length ? chronAll.slice(0, 20).map((e) => `<li><span class="jr-unk">${Chron.dateStr(e.t)}</span> ${Chron.text(e)}</li>`).join('') + (chronAll.length > 20 ? `<li class="jr-unk">${_t("Ещё записей: {0}", [chronAll.length - 20])}</li>` : '') : `<li class="jr-unk">${_t("Пока пусто: первые события появятся после боёв и находок.")}</li>`;
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Журнал исследователя")}</b>
+    el['map-card'].innerHTML = `<div class="map-card jr-card"><div class="mc-body"><b class="mc-title">${_t("Журнал исследователя")}</b>
       <p class="hint">${_t("Исследовано: {0}% суши", [all ? Math.round(got / all * 100) : 0])}</p><div class="jr-bars">${bars}</div>
       <b class="jr-h">${_t("Победы над существами по цветам")}</b><p class="hint">${_t("Справа: побед и изучено обитателей")}</p><div class="jr-bars jr-wins">${winChart}</div>
       <b class="jr-h">${_t("Достопримечательности: {0} из {1}", [doneN, lms.length])}</b><ul class="jr-list">${lmRows}</ul>
@@ -1946,7 +1958,18 @@ const MapView = (() => {
     { const gs = document.getElementById('goal-strip'); if (gs) gs.addEventListener('click', whatNext); }
     const sx = document.getElementById('sky-x'); if (sx) sx.addEventListener('click', (e) => { e.stopPropagation(); setSkyWin(false); toast(_t("Окошко погоды скрыто: вернуть можно в меню ☰")); });
     if (el['sky-chip']) { el['sky-chip'].addEventListener('click', skyCard); el['sky-chip'].addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); skyCard(); } }); }
-    el['map-me'].style.cursor = 'pointer'; el['map-me'].addEventListener('click', () => Inventory.open('left'));
+    // 2.3.7: на телефоне в портрете кружок героя сворачивает длинную полоску прогресса — тап открывает/закрывает её;
+    // в остальных режимах (ландшафт, десктоп) полоска всегда видна, и клик по ней по-старому открывает Сумку.
+    el['map-me'].style.cursor = 'pointer';
+    el['map-me'].addEventListener('click', (e) => {
+      if (document.body.classList.contains('phone') && innerWidth <= 700 && innerHeight > 520) {
+        e.stopPropagation();
+        el['map-me'].classList.toggle('me-open');
+        return;
+      }
+      Inventory.open('left');
+    });
+    document.addEventListener('click', (e) => { if (el['map-me'].classList.contains('me-open') && !el['map-me'].contains(e.target)) el['map-me'].classList.remove('me-open'); });
     on('m-best', () => Screens.openBestiary());
     on('m-mute', () => { Sound.setMuted(!Sound.muted); renderMute(); muteLabel(); });
     on('m-fs', () => toggleFullscreen());
@@ -2072,7 +2095,7 @@ const MapView = (() => {
       if (b.dataset.ev) eventAction(b);
       if (b.dataset.lair) lairAction(b);
       if (b.dataset.lm) landmarkAction(b);
-      if (b.dataset.jump) { const i = Number(b.dataset.jump); closeCard(); centerOn(i); hover(-2); hover(i); }
+      if (b.dataset.jump) { const i = Number(b.dataset.jump); closeCard(); centerOn(i); hover(-2); hover(i); flashCell(i); }
       if (b.dataset.delpin) { togglePin(Number(b.dataset.delpin)); showJournal(); }
       if (b.dataset.act === 'srv-del') { const bx = document.getElementById('srv-box'); if (bx) bx.innerHTML = `<span class="hint">${_t("Удалить данные на сервере безвозвратно?")}</span><button type="button" data-act="srv-del-yes">${_t("Да, удалить")}</button><button type="button" data-act="srv-del-no">${_t("Отмена")}</button>`; }
       if (b.dataset.act === 'srv-del-no') { const bx = document.getElementById('srv-box'); if (bx) bx.innerHTML = `<button type="button" data-act="srv-del">${_t("Удалить мои данные на сервере")}</button>`; }

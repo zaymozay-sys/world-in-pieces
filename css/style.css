@@ -1244,6 +1244,9 @@ body.mode-battle .map-view { display: none; }
 .bones { opacity: .55; }
 .pl-pulse { fill: none; stroke: #7fa2ff; stroke-width: 2; animation: pulse 1.8s ease-out infinite; transform-origin: 0 0; }
 @keyframes pulse { from { opacity: .8; transform: scale(.8); } to { opacity: 0; transform: scale(1.35); } }
+/* 2.3.6: заметная вспышка при переходе к точке из журнала (метка/достопримечательность) — яркое кольцо, гаснет за ~1.2с */
+.jump-flash { fill: rgba(255, 224, 138, .35); stroke: #ffe08a; stroke-width: 3; pointer-events: none; animation: jump-flash 1.2s ease-in-out 1; transform-origin: center; }
+@keyframes jump-flash { 0% { opacity: 0; stroke-width: 6; } 20% { opacity: 1; stroke-width: 3; } 60% { opacity: 1; stroke-width: 3; } 100% { opacity: 0; stroke-width: 3; } }
 
 /* ---- интерфейс поверх карты ---- */
 .map-top, .map-bottom {
@@ -2656,8 +2659,23 @@ body.ui-columns.phone .elx-badges { grid-column: 1 / -1; }
    Снизу две круглые кнопки (◎ и «Домой»), «+»/«−» нет — масштаб щипком. Плашка — одна строка, нажатие раскрывает. */
 /* ID-селектор сильнее классов — поэтому перед ним .map-btns > */
 .map-btns > #m-more, .map-menu { display: none; }
-body.phone .map-top { z-index: 5; flex-direction: row; align-items: flex-start; gap: 6px; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); }
+body.phone .map-top { z-index: 5; flex-direction: row; align-items: flex-start; gap: 6px; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); flex-wrap: wrap; }
 body.phone .map-me { flex: 1 1 0; min-width: 0; }
+/* 2.3.7: в портрете — кружочек героя в один ряд с кнопками управления; длинная полоска прогресса (имя, фракция,
+   опыт, ХП, монеты) сворачена и открывается по нажатию на кружочек, как выпадающая панель под шапкой. */
+@media (max-width: 700px) {
+  body.phone .map-top { flex-wrap: nowrap; align-items: center; }
+  body.phone .map-me { order: 0; flex: 0 0 auto; padding: 0; gap: 0; position: relative; }
+  body.phone .map-me .me-av { width: 40px; height: 40px; }
+  body.phone .map-btns { order: 1; flex: 1 1 auto; justify-content: flex-end; }
+  body.phone .map-me .me-txt { display: none; }
+  body.phone .map-me.me-open .me-txt {
+    display: grid; position: fixed; left: 8px; top: calc(max(8px, env(safe-area-inset-top)) + 56px); z-index: 80;
+    width: calc(100vw - 16px);
+    background: rgba(24, 26, 30, .97); border: 1px solid #3a3d44; border-radius: 12px; padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .55); font-size: 13px; box-sizing: border-box;
+  }
+}
 body.phone .me-txt { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1px 8px; font-size: 12px; }
 body.phone .me-txt > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.phone .me-txt > .xpbar { grid-column: 1 / -1; width: auto; margin: 1px 0; }
@@ -2698,14 +2716,31 @@ body.phone .map-info.open .map-tip { white-space: normal; }
 body.phone .map-info .zones.coach-hl { display: flex; }   /* обучение показывает легенду зон */
 body.phone .map-toast { top: 74px; }
 body.phone .map-card-wrap { bottom: 106px; }
+/* 2.3.6: Журнал исследователя — самое длинное содержимое карты; в портрете растущий снизу блок
+   залезал под шапку героя (она теперь в две строки). Открываем журнал отдельно: не от низа экрана,
+   а под шапкой, с собственной прокруткой до низа экрана — высота шапки больше не имеет значения. */
+body.phone .map-card-wrap:has(.jr-card) {
+  top: 128px; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column;
+}
+body.phone .map-card-wrap:has(.jr-card) .map-card { overflow-y: auto; max-height: 100%; }
 @media (max-height: 520px) {
-  body.phone .map-me { flex: 0 1 340px; }
+  /* 2.3.6: ландшафт (мало высоты) — вернуть компактную одну строку сверху, как раньше */
+  body.phone .map-top { flex-wrap: nowrap; }
+  body.phone .map-me { flex: 0 1 340px; order: 0; padding: 6px 10px 6px 4px; gap: 8px; }
+  body.phone .map-me .me-av { width: 36px; height: 36px; }
+  body.phone .map-me .me-txt { display: flex; }
+  body.phone .map-me.me-open .me-txt { position: static; background: none; border: none; box-shadow: none; padding: 0; }
+  body.phone .map-btns { order: 0; }
   body.phone .map-top { justify-content: space-between; }
   body.phone .map-bottom { flex-direction: row; align-items: flex-end; }
   body.phone .map-ctrl { align-self: auto; }
   body.phone .map-info { max-width: 52vw; }
   body.phone .map-toast { top: 64px; }
   body.phone .map-card-wrap { bottom: 66px; }
+  /* ландшафт: шапка снова в одну строку — журнал растёт от низа экрана, как раньше (без особых правок) */
+  body.phone .map-card-wrap:has(.jr-card) { top: auto; bottom: 66px; display: block; }
+  body.phone .map-card-wrap:has(.jr-card) .map-card { max-height: 62vh; }
 }
 @media (pointer: coarse) { .test-x10 .hint a { display: inline-block; padding: 10px 0; } }   /* 1.5.3: ссылка на чек-лист — не мельче 36 px */
 
@@ -3150,6 +3185,11 @@ body.ui-columns.mode-battle:not(.phone) .menu { position: relative; z-index: 5; 
   .hc-top { grid-template-columns: 1fr; }
   .hc-fig { justify-self: center; width: 110px; max-height: 140px; }
 }
+
+/* 2.3.6: подарки на Стене доблести / Визитке — просто иконки-«брелоки» с подписью во title */
+.gift-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.gift-tile { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; background: rgba(0, 0, 0, .22); font-size: 22px; cursor: default; }
+.gift-tile img { width: 28px; height: 28px; }
 
 /* ---- 1.6.5: настройка «Таймер хода» и заготовка рекламной паузы ---- */
 body.phone .desk-only { display: none !important; }

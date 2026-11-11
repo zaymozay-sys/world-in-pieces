@@ -210,6 +210,7 @@ const Screens = (() => {
     root.addEventListener('touchstart', (e) => { const h = e.target.closest && e.target.closest('.modal > header'); sw = h && e.touches.length === 1 ? { y: e.touches[0].clientY, x: e.touches[0].clientX } : null; }, { passive: true });
     root.addEventListener('touchend', (e) => { if (!sw) return; const t = e.changedTouches[0]; const dy = t.clientY - sw.y, dx = Math.abs(t.clientX - sw.x); sw = null; if (dy > 90 && dx < 60 && !mustChoose()) close(); }, { passive: true });
     root.addEventListener('change', (e) => { const sel = e.target.dataset && e.target.dataset.catsel; if (!sel) return; if (sel === 'set') st.shop.set = e.target.value; else st.shop.kind = e.target.value; render(); });
+    root.addEventListener('change', (e) => { const id = e.target.dataset && e.target.dataset.gfNote; if (!id) return; const gg = giftsState(); if (Gifts.setNote(gg, id, e.target.value)) Profile.save(); });
     document.body.appendChild(root);
     document.addEventListener('keydown', onKey);
     ModalFocus.open(root);
@@ -2209,7 +2210,12 @@ const Screens = (() => {
       });
       const body = _t("<p class=\"hint\">Все ваши медали — постоянные бонусы характеристик за первую победу над видом,\n          за вехи линий из 5 камней и за добивания заклинанием Удар. Нажмите на значок — увидите, за что дают медаль, и прогресс;\n          цветной тир-бейдж открывается, когда герой достигает нужного уровня.</p>\n        <h3>За первую победу ({0} / {1})</h3>{15}\n        <div class=\"medal-grid\">{2}</div>\n        <h3>За линии из 5 камней ({3} / {4})</h3>{16}\n        <p class=\"hint\">Собрано всего: {5}</p>\n        <div class=\"medal-grid\">{6}</div>\n        <h3>За добивания Ударом ({7} / {8})</h3>{17}\n        <p class=\"hint\">Добито Ударом всего: {9}</p>\n        <div class=\"medal-grid\">{10}</div>\n        <h3>Меткий стрелок ({11} / {12})</h3>{18}\n        <p class=\"hint\">Добито болтом или стрелой всего: {13}</p>\n        <div class=\"medal-grid\">{14}</div>\n        <h3>Стиль боя ({19} / {20})</h3>{21}\n        <p class=\"hint\">Выдаются один раз, за победу над обычным существом.</p>\n        <div class=\"medal-grid\">{22}</div>\n        <h3>Мир ({23} / {24})</h3>{25}\n        <div class=\"medal-grid\">{26}</div>\n        <h3>Испытание дня ({32} / {33})</h3>{34}\n        <p class=\"hint\">Победа в «Испытании дня» каждый день подряд. Серия сейчас: {35}</p>\n        <div class=\"medal-grid\">{36}</div>\n        <h3>Тайны ({28} / {29})</h3>{30}\n        <p class=\"hint\">Скрытые медали: условия не показываются.</p>\n        <div class=\"medal-grid\">{31}</div>\n        <h3>Коллекции семейств</h3>\n        <p class=\"hint\">Победите всех существ семейства — получите бонус к урону по нему.</p>\n        <div class=\"coll-list\">{27}</div>", [killTiles.filter((_, i) => earnedFor(Medals.killMedalId(Bestiary.ORDER[i]))).length, Bestiary.ORDER.length, killTiles.join(''), earned.filter((m) => m.id.startsWith('streak:')).length, Medals.STREAK_MILESTONES.length, Profile.data.medals.fiveStreaks, streakTiles.join(''), earned.filter((m) => m.id.startsWith('strike:')).length, Medals.STRIKE_MILESTONES.length, Profile.strikeKills(), strikeTiles.join(''), earned.filter((m) => m.id.startsWith('shot:')).length, Medals.SHOT_MILESTONES.length, Profile.shotKills(), shotTiles.join(''), groupLine('kill'), groupLine('streak'), groupLine('strike'), groupLine('shot'), earned.filter((m) => m.id.startsWith('style:')).length, Medals.STYLE_ORDER.length, groupLine('style'), styleTiles.join(''), earned.filter((m) => m.id.startsWith('world:')).length, Medals.WORLD_ORDER.length, groupLine('world'), worldTiles.join(''), collRows, earned.filter((m) => m.id.startsWith('secret:')).length, Medals.SECRET_ORDER.length, groupLine('secret'), secretTiles.join(''), earned.filter((m) => m.id.startsWith('daily:')).length, Medals.DAILY_MILESTONES.length, groupLine('daily'), Profile.dailyStreak(), dailyTiles.join('')])
         + `<h3>${_t("Чародей: заклинания в победных боях ({0} / {1})", [earned.filter((m) => m.id.startsWith('spell:')).length, Medals.SPELL_MILESTONES.length])}</h3><p class="hint">${_t("Считаются все заклинания, применённые в боях, которые вы выиграли.")}</p><div class="medal-grid">${spellTiles.join('')}</div><h3>${_t("Выпито эликсиров ({0} / {1})", [earned.filter((m) => m.id.startsWith('drunk:')).length, Medals.DRUNK_MILESTONES.length])}</h3>${groupLine('elixir')}<p class="hint">${_t("Выпито в боях всего: {0}", [Profile.elixirsDrunk()])}</p><div class="medal-grid">${drunkTiles.join('')}</div>${masterBlock}`;
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Стена доблести\">{0}\n        <div class=\"screen-body tavern-body\">{1}</div></div>", [head(_t("Стена доблести")), favLine + body]);
+      const gd = giftsState(), giftTiles = Gifts.ITEMS.filter((it) => Gifts.owns(gd, it.id)).map((it) => {
+        const note = gd.note[it.id] ? Gifts.BY_NOTE[gd.note[it.id]].text() : '';
+        return `<span class="gift-tile" title="${it.name()}${note ? ' — ' + note : ''}">${giftIc(it)}</span>`;
+      }).join('');
+      const giftsSection = `<h3>${_t("Подарки ({0} / {1})", [giftTiles ? Object.keys(gd.own).length : 0, Gifts.ITEMS.length])}</h3><p class="hint">${_t("Коллекционные — силу не дают. Покупаются в Почте, во вкладке «Подарки».")}</p><div class="gift-row">${giftTiles || `<p class="hint">${_t("Пока ни одного.")}</p>`}</div>`;
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Стена доблести\">{0}\n        <div class=\"screen-body tavern-body\">{1}</div></div>", [head(_t("Стена доблести")), favLine + body + giftsSection]);
     },
     click() {},
   };
@@ -2653,6 +2659,8 @@ const credits = {
   const evBanner = () => { const e = evNow(); return `<p class="event-week"><b>${_t("Событие недели: {0}", [e.name()])}</b> — ${e.desc()}.</p>`; };
   const craftsState = () => (Profile.data.crafts = Crafts.clean(Profile.data.crafts));
   const decorState = () => (Profile.data.decor = Decor.clean(Profile.data.decor));
+  const giftsState = () => (Profile.data.gifts = Gifts.clean(Profile.data.gifts));
+  const giftIc = (it) => (typeof Art !== 'undefined' && Art.has('gifts/' + it.id)) ? `<img class="decor-ic" src="${Art.url('gifts/' + it.id)}" alt="" draggable="false">` : it.icon;
   const mailState = () => (Profile.data.mail = Mail.clean(Profile.data.mail));
   const traderState = () => (Profile.data.trader = Trader.clean(Profile.data.trader));
   const unitP = () => Math.max(1, Profile.consumablePrice('potion'));
@@ -2716,7 +2724,23 @@ const credits = {
       return `<div class="card letter${wasNew ? ' new' : ''}" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${esc2(l.subject())}</span><span class="item-foot"><i>${esc2(l.from())}</i><br>${esc2(l.body())}${g ? `<br>${_t("Подарок: {0}", [giftText(g)])}` : ''}</span></div>${g ? `<div class="card-act">${e.claimed ? `<button type="button" disabled>${_t("Получено")}</button>` : `<button type="button" class="primary" data-ml-claim="${e.id}">${_t("Забрать")}</button>`}</div>` : ''}</div>`;
     }).join('');
     for (const e of m.box) e.read = true;                       // открытая вкладка — все письма прочитаны (подарки остаются)
-    return `<p class="hint">${_t("Письма от жителей деревни и от самой игры. Письма между игроками появятся, когда у игры будет сервер.")}</p><div class="card-list">${list || `<p class="hint">${_t("Писем пока нет.")}</p>`}</div>`;
+    return `<p class="hint">${_t("Письма от жителей деревни и от самой игры. Письма между игроками появятся, когда у игры будет сервер.")}</p><div class="card-list">${list || `<p class="hint">${_t("Писем пока нет.")}</p>`}</div>
+      <h3>${_t("Подарки")}</h3>${giftsBody()}`;
+  }
+  // 2.3.6: Подарки — коллекционные декорации (своей стороны стены, пока без отправки другому игроку — задел на будущее).
+  // Себе за монеты, показываются на Стене доблести/Визитке героя рядом с медалями.
+  function giftsBody() {
+    const g = giftsState();
+    const row = (it) => {
+      const own = Gifts.owns(g, it.id), noteId = g.note[it.id] || 'none';
+      const noteOpts = Gifts.NOTES.map((n) => `<option value="${n.id}"${noteId === n.id ? ' selected' : ''}>${n.text()}</option>`).join('');
+      const act = own
+        ? `<label class="hint">${_t("Подпись")}: <select data-gf-note="${it.id}">${noteOpts}</select></label>`
+        : `<button type="button" ${Profile.data.coins >= it.price ? '' : 'disabled'} data-gf-buy="${it.id}">${_t("Купить")}: ${money(it.price)}</button>`;
+      return `<div class="card" style="--t:#c9b48a"><div class="card-body"><span class="item-title">${giftIc(it)} ${it.name()}${own ? ' ✓' : ''}</span></div><div class="card-act">${act}</div></div>`;
+    };
+    return `<p class="hint">${_t("Коллекционные подарки — силу не дают, просто красиво. Куплены — видны на Стене доблести и в Визитке героя. Отправить другому игроку по нику можно будет, когда появятся сетевые имена; пока подарки идут только себе.")}</p>
+      <div class="card-list">${Gifts.ITEMS.map(row).join('')}</div>`;
   }
   function traderBody() {
     const now = Date.now(), at = Trader.at(now, new Date().getTimezoneOffset()), T = Trader.sync(traderState(), at.cycle);
@@ -2822,6 +2846,7 @@ const credits = {
       if (d.dcPut) { const dd = decorState(); if (Decor.put(dd, d.dcPut)) { Profile.save(); return render(); } return; }
       if (d.dcClear) { const dd = decorState(); if (Decor.clear(dd, d.dcClear)) { Profile.save(); return render(); } return; }
       if (d.mlClaim) { const g = Mail.claim(mailState(), d.mlClaim); if (g) { giveGift(g); s.msg = _t("Подарок получен: {0}", [giftText(g)]) + rewardBadges({ coins: g.p ? g.p * unitP() : 0, cons: g.cons }); Profile.save(); return changed(); } return; }
+      if (d.gfBuy) { const gg = giftsState(), it = Gifts.BY_ID[d.gfBuy]; if (it && Gifts.buy(gg, it.id, Profile.data.coins).ok) { Profile.data.coins -= it.price; s.msg = _t("Куплено: {0}", [it.name()]); Profile.save(); return changed(); } return; }
       if (d.vgBuy) {
         if (Profile.buyVillage(d.vgBuy)) { const I = Village.INFO[d.vgBuy]; s.msg = _t("Улучшено: {0} — {1}", [I.name, I.perk(Village.lvl(Profile.data.village, d.vgBuy))]); return changed(); }
         return;
@@ -3159,12 +3184,18 @@ const credits = {
       const fig = (kind && typeof Figures !== 'undefined') ? `<div class="hc-fig figure-box">${Figures.figure(kind, Profile.gear())}</div>` : '';
       const level = Profile.level(), earnedAll = Profile.medals();
       const medalGrid = earnedAll.length ? `<div class="medal-grid">${earnedAll.map((m) => medalTile(m.id, m, level, 0, 0)).join('')}</div>` : `<p class="hint">${_t("Медалей пока нет.")}</p>`;
+      const gd = giftsState(), giftTiles = Gifts.ITEMS.filter((it) => Gifts.owns(gd, it.id)).map((it) => {
+        const note = gd.note[it.id] ? Gifts.BY_NOTE[gd.note[it.id]].text() : '';
+        return `<span class="gift-tile" title="${it.name()}${note ? ' — ' + note : ''}">${giftIc(it)}</span>`;
+      }).join('');
+      const giftsSection = `<h3>${_t("Подарки: {0}", [Object.keys(gd.own).length])}</h3><div class="gift-row">${giftTiles || `<p class="hint">${_t("Пока ни одного.")}</p>`}</div>`;
       return `<div class="modal" role="dialog" aria-label="${_t("Визитка героя")}">${head(_t("Визитка героя"))}<div class="screen-body tavern-body">
         <div class="hc-top">${fig}<div class="hc-info">
           <h3>${c.name || Profile.heroName()}</h3><p class="hint">${fac ? fac + ' · ' : ''}${_t("уровень {0}", [c.level])}</p>
           <p>${_t("Боёв: {0}", [c.battles])}</p></div></div>
         <h3>${_t("Заслуги")}</h3><ul class="jr-list">${merits}</ul>
         <h3>${_t("Медали: {0}", [c.medals.length])}</h3>${medalGrid}
+        ${giftsSection}
         <div class="mc-act"><button type="button" data-copycard="1">${_t("Скопировать визитку")}</button></div>
         <p class="hint">${st.herocard.msg || _t("Когда появится сервер, эту визитку смогут увидеть другие игроки.")}</p></div></div>`;
     },
