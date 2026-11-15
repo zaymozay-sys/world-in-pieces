@@ -1,7 +1,7 @@
 // 2.2.0: взаимовыручка героя и питомца в бою вдвоём (здоровье и камни). Запуск: NODE_PATH=$(npm root -g) node tests/help220.e2e.js (в `npm test` не входит).
 const assert = require('assert'); const path = require('path');
 const { launch } = require(path.join(__dirname, '..', 'tools', 'browser.js'));
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 (async () => {
   const b = await launch(); const ctx = await b.newContext({ viewport: { width: 900, height: 800 } }); const p = await ctx.newPage(); const errs = [];
   p.on('pageerror', (e) => errs.push(e.message));

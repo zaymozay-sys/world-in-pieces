@@ -3,7 +3,7 @@
 // Имя героя с HTML-разметкой не должно исполняться. Запуск: node tests/cleanpath.e2e.js
 const path = require('path');
 const { launch } = require('../tools/browser.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 let fails = 0;
 const ok = (n, c, x) => { if (c) console.log('  ok   ' + n); else { fails++; console.log('  FAIL ' + n + (x ? ' — ' + x : '')); } };
 

@@ -82,7 +82,7 @@ a = fighter({ ability: 'backstab' }); t = fighter({ stats: { defense: 50 } });
 assert.strictEqual(Combat.hit(a, t, 10, false, always).amount, 10);
 // Кровопийца лечится на долю урона
 a = fighter({ ability: 'vampire', hp: 50 }); Combat.hit(a, fighter(), 20, false, never);
-assert.strictEqual(a.hp, 50 + Math.ceil(20 * B.abilities.vampire.share));
+assert.strictEqual(a.hp, 50, '2.3.8: «Кровопийца» сам по себе не лечит — лечит Регенерация (статы существа)');
 // Неупокоенный встаёт один раз
 t = fighter({ ability: 'undying', hp: 10 });
 r = Combat.hit(fighter(), t, 50, false, never);

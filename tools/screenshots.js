@@ -4,7 +4,7 @@
 const path = require('path');
 const { launch } = require(path.join(__dirname, 'browser.js'));
 const D = path.resolve(__dirname, '..', 'docs') + path.sep;
-const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.resolve(__dirname, '..', 'index.html');
 (async () => {
   const b = await launch(); const errs = [];
   const shot = async (hash, name, prep, wait = 3000) => {

@@ -1,7 +1,7 @@
 // 2.0.7 (этап B+C): Кузница — выбор материала в позиции, расход = показанному, улучшение, размеры кнопок (браузер; в `npm test` не входит).
 const path = require('path');
 const { launch } = require('../tools/browser.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 let bad = 0; const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } else console.log('ok  :', m); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {

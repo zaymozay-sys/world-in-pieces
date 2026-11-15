@@ -4,7 +4,7 @@
    Профиль для проверки наполняется «богатым»: открыт весь бестиарий, есть питомцы, деньги, снаряжение. */
 const path = require('path');
 const { launch } = require('./browser.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 const VPS = (process.env.VPS ? JSON.parse(process.env.VPS) : [[1021, 658], [1280, 720], [817, 526], [820, 1180], [390, 844], [360, 640]]);
 const SKIP = new Set(['login', 'credits']);
 const measure = () => {

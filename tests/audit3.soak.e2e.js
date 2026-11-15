@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { launch } = require('../tools/browser.js');
 const { seedScript, installBot, timerInit, runBattle } = require('../tools/auditlib.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith('--' + k + '=')); return a ? a.slice(k.length + 3) : d; };
 const BATTLES = Number(arg('battles', 200)), SEED = Number(arg('seed', 1)), VP = arg('vp', 'desktop'), CHORES = Number(arg('chores', 0.5)), FUZZ = Number(arg('fuzz', 0.12)), RELOAD = Number(arg('reload', 0.04)), MOUSE = Number(arg('mouse', 0.35)), SPAM = Number(arg('spam', 4));
 const viewport = VP === 'phone' ? { width: 390, height: 844 } : { width: 1280, height: 800 };

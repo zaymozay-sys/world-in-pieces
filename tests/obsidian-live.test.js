@@ -18,14 +18,7 @@ const order = [...fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf
 let src = '';
 for (const f of order) {
   let s = fs.readFileSync(J(f), 'utf8');
-  if (f === 'game.js') {
-    // Отрезаем хвост загрузки страницы (buildSpellbar(); ... MapView.init(); заставка) - нужны только
-    // определения функций/констант, без реального DOM-тяжёлого запуска игры.
-    const lines = s.split('\n');
-    const idx = lines.findIndex((l) => l.startsWith('buildSpellbar();'));
-    if (idx < 0) throw new Error('маркер начала загрузки не найден в game.js — файл изменился, поправь тест');
-    s = lines.slice(0, idx).join('\n');
-  }
+  if (f === 'boot.js') continue;   // 2.3.9: запуск страницы (панель заклинаний, карта, заставка) вынесен в boot.js — тесту нужны только определения
   src += `\n//== ${f} ==\n${s}\n`;
 }
 

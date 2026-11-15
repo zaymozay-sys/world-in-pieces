@@ -1,6 +1,6 @@
 // 2.0.7: витрины с корзиной (Алхимик, Бобёр, Лавка). Браузер; в `npm test` не входит.
 const { launch } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
-const path = require('path'); const URL = 'file://' + path.join(__dirname, '..', 'index.html#dev-map');
+const path = require('path'); const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html#dev-map');
 let bad = 0; const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } else console.log('ok  :', m); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {

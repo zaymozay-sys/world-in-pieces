@@ -1,6 +1,6 @@
 // 2.0.6: вкладка «Обмен» в Кузнице: выбор количества, минимум, потеря ≥10% (браузер; в `npm test` не входит).
 const { launch } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
-const URL = 'file://' + require('path').join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + require('path').join(__dirname, '..', 'index.html');
 let bad = 0; const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } else console.log('ok  :', m); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {

@@ -5,7 +5,7 @@
    контраст ≥ 4,5:1 для обычного текста и ≥ 3:1 для крупного (WCAG 1.4.3); шрифт ≥ 12 px считаем читаемым минимумом на телефоне. */
 const path = require('path'), fs = require('fs');
 const { launch } = require('./browser.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 const arg = (n, d) => { const a = process.argv.find((x) => x.startsWith('--' + n + '=')); return a ? a.slice(n.length + 3) : d; };
 const VP = arg('vp', '390x844').split('x').map(Number), LANG = arg('lang', 'ru');
 

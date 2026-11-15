@@ -34,7 +34,7 @@ function slotPrice(slot, tier, rarity) {
 for (let t = 1; t <= 10; t++) {
   const L0 = Hero.itemLevel(t), Lmid = L0 + 4;
   // Монеты за победу над существом ЭТОГО цвета (герой на уровне цвета): среднее по видам, множитель разброса 0.8–1.2 даёт 1.0
-  const coinsAvg = species.reduce((s, id) => s + Bestiary.MONSTERS[id].coins * R.coinK * Tiers.PRICE_MULT[t - 1], 0) / species.length;
+  const coinsAvg = species.reduce((s, id) => s + Bestiary.MONSTERS[id].coins * R.coinK * Tiers.PRICE_MULT[t - 1] * Balance.economy.coinTier[t - 1], 0) / species.length;
   const coinsWin = coinsAvg * coinPerk;
   // Опыт за победу и боёв на 10 уровней цвета (из реальных need/xpReward для героя на каждом уровне цвета)
   let winsTier = 0, xpTier = 0;
@@ -44,11 +44,11 @@ for (let t = 1; t <= 10; t++) {
   }
   // Ресурсы за победу (в «лавочных» монетах продажи 1×) и ожидаемая вещь (цена продажи 0.4)
   let resVal = 0;
-  for (const id of species) for (const [kind, chance, mn, mx] of Bestiary.MONSTERS[id].drops) resVal += chance / R.coinK * R.coinK * ((mn + mx) / 2) * Bestiary.resPrice(kind, t);
+  for (const id of species) for (const [kind, chance, mn, mx] of Bestiary.MONSTERS[id].drops) resVal += chance / R.coinK * R.coinK * ((mn + mx) / 2) * Bestiary.resSellPrice(kind, t);
   resVal /= species.length;
   const itemsAvg = Gear.ITEMS.filter((i) => !i.relic && !i.faction && i.set !== 'sea');
   const itemPriceAvg = itemsAvg.reduce((s, i) => s + Gear.item(Gear.makeEntry(i.id, t)).price, 0) / itemsAvg.length;
-  const itemDropSell = R.itemChance * Gear.sellValue(itemPriceAvg);
+  const itemDropSell = R.itemChance * Gear.sellValue(itemPriceAvg, t);
   // Комплект цвета
   const kinds = { main: 'main', off: 'off', head: 'head', shoulders: 'shoulders', chest: 'chest', arms: 'arms', gloves: 'gloves', legs: 'legs', amulet: 'amulet' };
   let setCommon = 0, setAll = 0, nSlots = 0;

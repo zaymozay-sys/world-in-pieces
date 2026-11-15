@@ -5,7 +5,7 @@
 const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const path = require('path'), fs = require('fs');
 const { hitReport } = require('./hitlib.js');   // 1.6.4 (WIP-11): пятиточечная проверка нажатий, перекрытые кнопки — дефект, а не «пропуск»
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 const OUT = (process.argv.find((a) => a.startsWith('--out=')) || '--out=/tmp/audit').slice(6);
 const QUICK = process.argv.includes('--quick');
 const arg = (n) => { const a = process.argv.find((x) => x.startsWith('--' + n + '=')); return a ? a.slice(n.length + 3).split(',') : null; };

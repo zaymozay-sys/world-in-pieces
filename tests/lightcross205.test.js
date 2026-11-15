@@ -1,5 +1,5 @@
 const fs = require('fs');
-const g = fs.readFileSync(__dirname + '/../js/game.js', 'utf8');
+const g = require('./_gamesrc.js').text();
 const assert = require('assert');
 assert(/aimOnly = \(\) => \(\{\}\)/.test(g), 'ИИ под Молнией не добавляет Крест/Захват');
 assert(/\(kind === 'fire' \|\| kind === 'square'\) && f\.magic\) return true/.test(g), 'кнопки Креста/Захвата блокируются при Молнии');

@@ -1,7 +1,7 @@
 // 2.2.9: усиленные заряды в сохранении и в Торговых рядах. Запуск: node tests/brewmarket.e2e.js
 const path = require('path');
 const { launch } = require('../tools/browser.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 let fails = 0;
 const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); else { fails++; console.log('  FAIL ' + name + (extra ? ' — ' + extra : '')); } };
 (async () => {

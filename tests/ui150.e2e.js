@@ -4,7 +4,7 @@
 const assert = require('assert');
 const path = require('path');
 const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 
 async function open(b, vp, mobile) {
   const ctx = await b.newContext({ viewport: vp, isMobile: !!mobile, hasTouch: !!mobile, deviceScaleFactor: 1 });

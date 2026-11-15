@@ -141,14 +141,22 @@ console.log('medals 1.6.2: комплекты ok');
 
 /* ---------- 1.6.2: ступени медали за вид ---------- */
 {
-  assert.deepStrictEqual([0, 1, 24, 25, 99, 100, 500].map(Medals.rankFor), [0, 1, 1, 2, 2, 3, 3]);
-  assert.strictEqual(Medals.nextRankWins(1), 25); assert.strictEqual(Medals.nextRankWins(100), null);
-  const id = Medals.killMedalId('wolf'), stat = Medals.KILL_STAT.wolf, one = Medals.bonusFor(id)[stat];
-  assert.strictEqual(Medals.bonusFor(id, { wolf: { wins: 1 } })[stat], one);
-  assert.strictEqual(Medals.bonusFor(id, { wolf: { wins: 30 } })[stat], one * 2);
-  assert.strictEqual(Medals.bonusFor(id, { wolf: { wins: 120 } })[stat], one * 3);
-  const earned = [{ id }];
-  assert.strictEqual(Medals.bonusStats(earned, { wolf: { wins: 120 } })[stat], one * 3);
+  // 2.3.8: лесенка из 10 ступеней; у боссов пороги ниже; простые ступени — здоровье и броня, главный стат — только на 10-й
+  assert.deepStrictEqual([0, 2, 3, 10, 899, 900, 5000].map((w) => Medals.rankFor(w, 'wolf')), [0, 0, 1, 2, 9, 10, 10]);
+  assert.strictEqual(Medals.nextRankWins(3, 'wolf'), 10); assert.strictEqual(Medals.nextRankWins(900, 'wolf'), null);
+  const boss = Bestiary.ORDER.find((sp) => Bestiary.MONSTERS[sp].boss);
+  assert.strictEqual(Medals.rankFor(1, boss), 1); assert.strictEqual(Medals.rankFor(60, boss), 10);
+  const id = Medals.killMedalId('wolf'), b0 = Medals.bonusFor(id, { wolf: { wins: 1 } });
+  assert.deepStrictEqual(b0, { health: 2 });
+  const b5 = Medals.bonusFor(id, { wolf: { wins: 90 } });
+  assert.strictEqual(b5.health, 7); assert.strictEqual(b5.defense, 1); assert.ok(!b5.power);
+  const b10 = Medals.bonusFor(id, { wolf: { wins: 900 } });
+  assert.strictEqual(b10.health, 12); assert.strictEqual(b10.defense, 2); assert.strictEqual(b10.power, 1);
+  for (const sp of Bestiary.ORDER) {                                        // сила — только с 10-й ступени
+    const w = Medals.winsLadder(sp), bb = Medals.bonusFor(Medals.killMedalId(sp), { [sp]: { wins: w[8] } });
+    assert.ok(!bb.power && !bb.fury && !bb.ricochet && !bb.block, sp);
+  }
+  assert.strictEqual(Medals.bonusStats([{ id }], { wolf: { wins: 900 } }).power, 1);
 }
 console.log('medals 1.6.2: ступени ok');
 
@@ -234,3 +242,31 @@ console.log('medals 1.6.2: серия дней ok');
   assert.deepStrictEqual(Medals.perksOf(all), ['daily']);
 }
 console.log('medals 1.6.3: ok');
+
+/* ---------- 2.3.8: регресс — линия из 6+ камней (bonusFor: x10) тоже должна засчитываться в счётчик «Мастер линий»,
+   не только ровно 5 (bonusFor: x3). Раньше game.js сравнивал bon[i] === 3, и 6+ молча не считались. */
+{
+  const fs = require('fs');
+  const g = require('./_gamesrc.js').text();
+  assert.ok(/if \(bon\[i\] >= 3\) has5 = true;/.test(g), '2.3.8: has5 должна ловить bon[i] >= 3 (5 ИЛИ БОЛЬШЕ камней), не только === 3');
+  assert.ok(!/if \(bon\[i\] === 3\) has5 = true;/.test(g), '2.3.8: регресс — сравнение не должно вернуться к строгому === 3');
+}
+console.log('medals 2.3.8: регресс линии из 6+ — ok');
+
+/* ---------- 2.3.8: «Ближайшие медали» ---------- */
+{
+  const d = { bestiary: { rat: { wins: 8 }, wolf: { wins: 2 } }, medals: { fiveStreaks: 40, strikeKills: 0, cnt: { elite: 2 } } };
+  const n = Medals.nearest(d, 3);
+  assert.ok(n.length === 3 && n.every((e) => e.cur > 0 && e.cur < e.need && e.text));
+  assert.ok(n[0].cur / n[0].need >= n[1].cur / n[1].need && n[1].cur / n[1].need >= n[2].cur / n[2].need);
+  assert.deepStrictEqual(Medals.nearest({ bestiary: {}, medals: {} }, 3), []);
+  console.log('medals 2.3.8: ближайшие ok');
+}
+
+/* ---------- 2.3.8: «Победитель живых» — боевые награды без здоровья и брони; Сила не ограничена потолком, её просто не дают за простое ---------- */
+{
+  for (const n of Medals.MASTER.pvp.ms) { const b = Medals.bonusFor(Medals.masterMedalId('pvp', n)); assert.ok(!b.health && !b.defense && Object.keys(b).length, 'pvp ' + n); }
+  const pv = Medals.MASTER.pvp.ms.map((n) => ({ id: Medals.masterMedalId('pvp', n), tier: 1 }));
+  assert.strictEqual(Medals.bonusStats(pv).power, 10, 'Сила pvp: 6 за медали + 4 за комплект');
+  console.log('medals 2.3.8: pvp ok');
+}

@@ -10,7 +10,7 @@
 const path = require('path');
 const { launch } = require('../tools/browser.js');
 const { installBot } = require('../tools/auditlib.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 const STRICT = process.argv.includes('--strict');
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 let okN = 0, openN = 0, failN = 0;

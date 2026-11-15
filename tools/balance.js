@@ -11,7 +11,8 @@ const fs = require('fs');
 // на 7 слотов (Сила самоцвета за каждую) и все медали-наборы. Питомцы и улучшения вещей в модель не входят.
 function strongExtra(tier) {
   const g = global.Tiers.HERO_DMG[tier - 1], cut = Math.max(1, Math.round(tier * 0.045 * g));   // Сила самоцвета цвета tier (Stones.cutBonus)
-  return { power: 6 * 2 + 7 * cut + Math.round(7 * 0.045 * g), defense: 4 * 2 + 3 + 4, fury: 4 * 4 + 6, ricochet: 3, health: 10 };
+  const lc = (process.env.LEECH || '0,0').split(',').map(Number);   // 2.3.8: проба Регенерации: LEECH=шанс,сила (например 30,15)
+  return { power: 6 * 2 + 7 * cut + Math.round(7 * 0.045 * g), defense: 4 * 2 + 3 + 4, fury: 4 * 4 + 6, ricochet: 3, health: 10, leech: lc[0], leechPower: lc[1] };
 }
 // 'full' — сильные вещи + все медали (убийства существ и награды групп), эликсиры всех видов цвета героя, умения медалей и бонус коллекций.
 // 'medals' — только бонусы за победы над видами и 5% коллекции, без умений и эликсиров. Не учтены: руны, огранка, питомец, алтарь.

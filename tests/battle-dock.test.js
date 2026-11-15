@@ -6,7 +6,7 @@ const assert = require('assert');
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'css', 'battle-dock.css'), 'utf8');
-const game = fs.readFileSync(path.join(root, 'js', 'game.js'), 'utf8');
+const game = require('./_gamesrc.js').text();
 assert.match(html, /<link rel="stylesheet" href="css\/battle-dock\.css"( id="dock-css")?>/);
 assert.match(html, /class="tools" id="battle-dock"/);
 for (const id of ['board','spellbar','bagbar','hint','mute','more','restart'])

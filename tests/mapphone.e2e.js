@@ -2,7 +2,7 @@
 // Запуск: NODE_PATH=$(npm root -g) node tests/mapphone.e2e.js   (Playwright нельзя запускать параллельно с другими e2e)
 const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const path = require('path');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html') + '#dev-map-meadow';
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html') + '#dev-map-meadow';
 let bad = 0;
 const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
 const vis = (p, sel) => p.evaluate((s) => { const e = document.querySelector(s); if (!e) return false; const r = e.getBoundingClientRect(), c = getComputedStyle(e); return c.display !== 'none' && c.visibility !== 'hidden' && r.width > 1 && r.height > 1; }, sel);

@@ -2,7 +2,7 @@
 // Запуск: node tests/elixirs.e2e.js   (Playwright — не параллельно с другими e2e)
 const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 const path = require('path');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 let bad = 0;
 const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
 (async () => {

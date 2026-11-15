@@ -4,7 +4,7 @@
 const path = require('path'), fs = require('fs');
 const { launch } = require('./browser.js');
 const { hitReport } = require('./hitlib.js');
-const URL = 'file://' + path.join(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index.html');
 const arg = (n, d) => { const a = process.argv.find((x) => x.startsWith('--' + n + '=')); return a ? a.slice(n.length + 3) : d; };
 const OUT = arg('out', '/tmp/hit'); fs.mkdirSync(OUT, { recursive: true });
 const LANG = arg('lang', 'ru'), SHOTS = process.argv.includes('--shots');

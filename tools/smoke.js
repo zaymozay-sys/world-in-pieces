@@ -1,7 +1,7 @@
 // Проверка в браузере (Playwright): страница открывается без ошибок в консоли.
 // Запуск из папки игры:  node tools/smoke.js   (нужен playwright: npm i -g playwright)
 const path = require('path');
-const URL = 'file://' + path.resolve(__dirname, '..', 'index.html');
+const URL = process.env.WIP_URL || 'file://' + path.resolve(__dirname, '..', 'index.html');
 const { launch: launchBrowser } = require(require('path').join(__dirname, '..', 'tools', 'browser.js'));
 (async () => {
   const b = await launchBrowser();
