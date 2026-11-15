@@ -7,6 +7,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 
 const W_HM = (typeof HexMap !== 'undefined') ? HexMap : require('./hexmap.js');
 const W_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
+const CT_W = (t) => ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).economy.coinTier[Math.max(1, Math.min(10, Math.round(t))) - 1];   // 2.3.8: кривая монет по цветам
 const CK_W = ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinBase;   // 1.6.0: доходы и траты вместе с монетами с мобов
 
 const World = (() => {
@@ -87,7 +88,7 @@ const World = (() => {
   // Трофей за первую победу: монеты и опыт (вещь выдаёт игра, см. game.js rewardFor).
   const zoneReward = (zoneId) => {
     const Z = ZONE_BOSSES[zoneId];
-    return { coins: Math.round(180 * CK_W * W_T.PRICE_MULT[Z.tier - 1]), xp: 60 * Math.ceil(Z.tier / 2) };
+    return { coins: Math.round(180 * CK_W * W_T.PRICE_MULT[Z.tier - 1] * CT_W(Z.tier)), xp: 60 * Math.ceil(Z.tier / 2) };
   };
 
   /* ---------- события ---------- */
@@ -223,10 +224,10 @@ const World = (() => {
   /* ---------- логова ---------- */
   const lairLength = (tier) => 3 + (tier >= 6 ? 1 : 0) + (tier >= 9 ? 1 : 0);
   // Сундук логова: монеты по цвету и длине вылазки. Вещь цвета логова выдаёт game.js/mapview.js.
-  const lairChestCoins = (tier, len) => Math.round(90 * CK_W * W_T.PRICE_MULT[tier - 1] * len);
+  const lairChestCoins = (tier, len) => Math.round(90 * CK_W * W_T.PRICE_MULT[tier - 1] * CT_W(tier) * len);
 
   /* ---------- тайник ---------- */
-  const cacheCoins = (tier, rand = Math.random) => Math.round(60 * CK_W * W_T.PRICE_MULT[tier - 1] * (0.8 + rand() * 0.4));
+  const cacheCoins = (tier, rand = Math.random) => Math.round(60 * CK_W * W_T.PRICE_MULT[tier - 1] * CT_W(tier) * (0.8 + rand() * 0.4));
 
   /* ---------- Арена теней ---------- */
   // 1.8.4: десять рангов — по цветам уровней (Tiers): от красного до обсидианового
@@ -263,8 +264,8 @@ const World = (() => {
     const level = Math.max(1, Math.min(100, heroLevel + (rank - 3)));
     return { faction: F[Math.floor(rand() * F.length)], gender: rand() < 0.5 ? 'm' : 'f', level, ai: Math.min(100, 30 + rank * 7), seed: Math.floor(rand() * 1e9) };
   }
-  const arenaCoins = (tier, rank) => Math.round(30 * CK_W * W_T.PRICE_MULT[tier - 1] * (1 + rank * 0.15));
-  const rankCoins = (tier, rank) => Math.round(150 * CK_W * W_T.PRICE_MULT[tier - 1] * (rank + 1));
+  const arenaCoins = (tier, rank) => Math.round(30 * CK_W * W_T.PRICE_MULT[tier - 1] * CT_W(tier) * (1 + rank * 0.15));
+  const rankCoins = (tier, rank) => Math.round(150 * CK_W * W_T.PRICE_MULT[tier - 1] * CT_W(tier) * (rank + 1));
 
   /* ---------- 1.7.4: условие дня, реванш, сезоны ---------- */
   // Условие дня — правило боя с тенями, одно на всех в этот календарный день (по дате, по кругу). Приёмы берутся из
@@ -287,7 +288,7 @@ const World = (() => {
     const f = (n) => { const x = new Date(n * 86400000); return `${String(x.getUTCDate()).padStart(2, '0')}.${String(x.getUTCMonth() + 1).padStart(2, '0')}`; };
     return `${f(season * 7 - 3)} – ${f(season * 7 + 3)}`;
   };
-  const seasonCoins = (tier, best) => Math.round(120 * CK_W * W_T.PRICE_MULT[tier - 1] * best);
+  const seasonCoins = (tier, best) => Math.round(120 * CK_W * W_T.PRICE_MULT[tier - 1] * CT_W(tier) * best);
   const SEASON_TITLE_RANK = 6;
   // Смена дня и недели: новый день — счётчик боёв с наградой и реванши заново; новая неделя — итог прошлой записывается
   // в таблицу (history), награда за лучший ранг недели ждёт в a.pending (выдаёт окно арены), ранг опускается на 2 ступени.

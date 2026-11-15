@@ -98,52 +98,52 @@ h1 {
      свет виден именно в шве вокруг камня, а не поверх его рисунка. */
   pointer-events: none;
 }
+/* 2.3.9: искра в шве едет через transform, а не через background-position. Сдвиг фона браузер перерисовывал на процессоре
+   каждый кадр (в бою в покое: ~15 перерисовок и ~12 растровых задач на кадр); transform и opacity идут на видеокарте.
+   Математика прежняя: искра длиной 34% шва проходит от −22,4% до 88,4% его длины (то же, что background-position −34% → 134%),
+   шов обрезает её по краям поля (clip-path), свечение по толщине не обрезается. */
 .turn-glow .seam {
   position: absolute;
   mix-blend-mode: screen;
   opacity: 0;
 }
+.turn-glow .seam > b { position: absolute; display: block; filter: drop-shadow(0 0 3px rgba(195, 225, 255, .8)); opacity: 0; }
 .turn-glow .seam-h {
   left: 0;
   right: 0;
   height: 3px;
   margin-top: -1.5px;
-  background: linear-gradient(90deg, transparent, rgba(215, 235, 255, .95), transparent);
-  background-size: 34% 100%;
-  background-repeat: no-repeat;
-  background-position: -34% 0;
-  filter: drop-shadow(0 0 3px rgba(195, 225, 255, .8));
+  clip-path: inset(-8px 0);
 }
+.turn-glow .seam-h > b { left: 0; top: 0; width: 34%; height: 100%; background: linear-gradient(90deg, transparent, rgba(215, 235, 255, .95), transparent); transform: translateX(-66%); }
 .turn-glow .seam-v {
   top: 0;
   bottom: 0;
   width: 3px;
   margin-left: -1.5px;
-  background: linear-gradient(180deg, transparent, rgba(215, 235, 255, .95), transparent);
-  background-size: 100% 34%;
-  background-repeat: no-repeat;
-  background-position: 0 -34%;
-  filter: drop-shadow(0 0 3px rgba(195, 225, 255, .8));
+  clip-path: inset(0 -8px);
 }
-.board:not(.enemy-turn) .turn-glow .seam-h { opacity: 1; animation: seamRunH 2.6s linear infinite; }
-.board:not(.enemy-turn) .turn-glow .seam-v { opacity: 1; animation: seamRunV 2.6s linear infinite; }
+.turn-glow .seam-v > b { left: 0; top: 0; width: 100%; height: 34%; background: linear-gradient(180deg, transparent, rgba(215, 235, 255, .95), transparent); transform: translateY(-66%); }
+.board:not(.enemy-turn) .turn-glow .seam { opacity: 1; }
+.board:not(.enemy-turn) .turn-glow .seam-h > b { animation: seamRunH 2.6s linear infinite; }
+.board:not(.enemy-turn) .turn-glow .seam-v > b { animation: seamRunV 2.6s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .board:not(.enemy-turn) .turn-glow .seam-h,
-  .board:not(.enemy-turn) .turn-glow .seam-v { animation: none; opacity: 0; }
+  .board:not(.enemy-turn) .turn-glow .seam { opacity: 0; }
+  .board:not(.enemy-turn) .turn-glow .seam > b { animation: none; }
 }
 @keyframes seamRunH {
-  0%, 6%   { background-position: -34% 0; opacity: 0; }
+  0%, 6%   { transform: translateX(-66%); opacity: 0; }
   16%      { opacity: .85; }
   50%      { opacity: .85; }
   84%      { opacity: 0; }
-  100%     { background-position: 134% 0; opacity: 0; }
+  100%     { transform: translateX(260.1%); opacity: 0; }
 }
 @keyframes seamRunV {
-  0%, 6%   { background-position: 0 -34%; opacity: 0; }
+  0%, 6%   { transform: translateY(-66%); opacity: 0; }
   16%      { opacity: .85; }
   50%      { opacity: .85; }
   84%      { opacity: 0; }
-  100%     { background-position: 0 134%; opacity: 0; }
+  100%     { transform: translateY(260.1%); opacity: 0; }
 }
 
 .cell-bg {
@@ -363,6 +363,12 @@ button:hover { border-color: var(--accent); }
   letter-spacing: .05em;
   z-index: 5;
 }
+
+/* 2.3.7: бой вдвоём — поле ждёт, пока решится судьба второго поля (см. Duo.ended/transferFoe в game.js).
+   Лёгкий оверлей поверх застывших камней ТОЛЬКО этого поля (не всего экрана, как у итогового .overlay),
+   без кнопки «На карту» — бой ещё не закончен. */
+.wait-overlay.overlay { position: absolute; inset: 0; z-index: 5; font-size: 18px; font-weight: 500; text-align: center; background: rgba(15, 16, 18, .8); }
+.wait-overlay > div { padding: 0 20px; max-width: 86%; }
 
 .status {
   height: 32px;
@@ -1106,21 +1112,23 @@ html.pseudo-fs .game { overflow-y: auto; }
    добавляем пульсирующее свечение (только box-shadow/opacity, без влияния на раскладку).
    Серебро — холодный бело-голубой блеск, Золото — яркая тёплая искра, Обсидиан — дополняет уже имеющуюся
    светло-лиловую обводку (edge) своим же пульсом, не убирая её. */
-@keyframes tier-glow-silver {
-  0%, 100% { box-shadow: 0 0 3px 0 rgba(214, 226, 255, .35), inset 0 0 0 1px rgba(255, 255, 255, .22); }
-  50%      { box-shadow: 0 0 9px 2px rgba(214, 226, 255, .8), inset 0 0 0 1px rgba(255, 255, 255, .4); }
-}
-@keyframes tier-glow-gold {
-  0%, 100% { box-shadow: 0 0 4px 0 rgba(255, 250, 210, .4), inset 0 0 0 1px rgba(255, 255, 255, .25); }
-  50%      { box-shadow: 0 0 12px 3px rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .5); }
-}
-@keyframes tier-glow-obsidian {
-  0%, 100% { box-shadow: 0 0 4px 0 rgba(182, 165, 222, .4); }
-  50%      { box-shadow: 0 0 11px 3px rgba(182, 165, 222, .85); }
-}
-.tier-chip[data-tier="8"], .tp[data-tier="8"], .card[data-tier="8"] { animation: tier-glow-silver 2.4s ease-in-out infinite; will-change: box-shadow; }
-.tier-chip[data-tier="9"], .tp[data-tier="9"], .card[data-tier="9"] { animation: tier-glow-gold 1.7s ease-in-out infinite; will-change: box-shadow; position: relative; }
-.tier-chip[data-tier="10"], .tp[data-tier="10"], .card[data-tier="10"] { animation: tier-glow-obsidian 2.6s ease-in-out infinite; will-change: box-shadow; }
+/* 2.3.9: раньше пульсировала сама тень (box-shadow) — браузер каждый кадр заново рисовал окно и пересчитывал раскладку:
+   Стена доблести в покое занимала процессор целиком (97% на телефоне). Теперь слабая тень неподвижна, а сильная лежит
+   на ::before и плавно проявляется (opacity) — это делает видеокарта. Крайние состояния и ритм прежние: слабая тень в
+   начале, сильная на пике (прозрачность внутренней кромки подобрана так, чтобы сумма слоёв совпала с прежним пиком). */
+@keyframes tier-glow { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+.tier-chip[data-tier="8"], .tp[data-tier="8"], .card[data-tier="8"] { position: relative; box-shadow: 0 0 3px 0 rgba(214, 226, 255, .35), inset 0 0 0 1px rgba(255, 255, 255, .22) !important; }
+.tier-chip[data-tier="9"], .tp[data-tier="9"], .card[data-tier="9"] { position: relative; box-shadow: 0 0 4px 0 rgba(255, 250, 210, .4), inset 0 0 0 1px rgba(255, 255, 255, .25) !important; }
+.tier-chip[data-tier="10"], .tp[data-tier="10"], .card[data-tier="10"] { position: relative; box-shadow: 0 0 4px 0 rgba(182, 165, 222, .4) !important; }
+.tier-chip[data-tier="8"]::before, .tp[data-tier="8"]::before, .card[data-tier="8"]::before,
+.tier-chip[data-tier="9"]::before, .tp[data-tier="9"]::before, .card[data-tier="9"]::before,
+.tier-chip[data-tier="10"]::before, .tp[data-tier="10"]::before, .card[data-tier="10"]::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; will-change: opacity; }
+.card[data-tier="8"]::before, .card[data-tier="9"]::before, .card[data-tier="10"]::before { left: -4px; }   /* у карточки слева цветная кромка 4px: слой растянут на всю карточку */
+.tp[data-tier="8"]::before, .tp[data-tier="9"]::before, .tp[data-tier="10"]::before { inset: -2px; }       /* у кнопки цвета рамка 2px */
+.tier-chip[data-tier="8"]::before, .tp[data-tier="8"]::before, .card[data-tier="8"]::before { box-shadow: 0 0 9px 2px rgba(214, 226, 255, .8), inset 0 0 0 1px rgba(255, 255, 255, .23); animation: tier-glow 2.4s ease-in-out infinite; }
+.tier-chip[data-tier="9"]::before, .tp[data-tier="9"]::before, .card[data-tier="9"]::before { box-shadow: 0 0 12px 3px rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .33); animation: tier-glow 1.7s ease-in-out infinite; }
+.tier-chip[data-tier="10"]::before, .tp[data-tier="10"]::before, .card[data-tier="10"]::before { box-shadow: 0 0 11px 3px rgba(182, 165, 222, .85); animation: tier-glow 2.6s ease-in-out infinite; }
 
 /* Золото дополнительно мерцает мелкими искрами поверх свечения — декоративный слой без влияния на раскладку. */
 @keyframes tier-sparkle-twinkle { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
@@ -2663,16 +2671,20 @@ body.phone .map-top { z-index: 5; flex-direction: row; align-items: flex-start; 
 body.phone .map-me { flex: 1 1 0; min-width: 0; }
 /* 2.3.7: в портрете — кружочек героя в один ряд с кнопками управления; длинная полоска прогресса (имя, фракция,
    опыт, ХП, монеты) сворачена и открывается по нажатию на кружочек, как выпадающая панель под шапкой. */
+/* 2.3.7 (правка): панель прогресса стыкуется СПРАВА от кружка-портрета, в той же строке (растёт вправо, до
+   свободного места); кнопки управления съезжают на следующую строку, когда панели не хватает места рядом с ними
+   (.map-top сам переносит .map-btns переносом строки — порядок и flex-basis это обеспечивают без доп. классов). */
 @media (max-width: 700px) {
-  body.phone .map-top { flex-wrap: nowrap; align-items: center; }
-  body.phone .map-me { order: 0; flex: 0 0 auto; padding: 0; gap: 0; position: relative; }
-  body.phone .map-me .me-av { width: 40px; height: 40px; }
+  body.phone .map-top { flex-wrap: wrap; align-items: flex-start; }
+  body.phone .map-me { order: 0; flex: 0 0 auto; padding: 0; gap: 0; display: flex; align-items: center; }
+  body.phone .map-me .me-av { width: 40px; height: 40px; flex: 0 0 auto; }
   body.phone .map-btns { order: 1; flex: 1 1 auto; justify-content: flex-end; }
   body.phone .map-me .me-txt { display: none; }
+  body.phone .map-me.me-open { flex: 1 1 auto; min-width: 0; }
+  body.phone .map-me.me-open ~ .map-btns, body.phone .map-me.me-open + .map-btns { order: 2; flex: 1 1 100%; }
   body.phone .map-me.me-open .me-txt {
-    display: grid; position: fixed; left: 8px; top: calc(max(8px, env(safe-area-inset-top)) + 56px); z-index: 80;
-    width: calc(100vw - 16px);
-    background: rgba(24, 26, 30, .97); border: 1px solid #3a3d44; border-radius: 12px; padding: 10px 12px;
+    display: grid; margin-left: 8px; flex: 1 1 auto; min-width: 0;
+    background: rgba(24, 26, 30, .97); border: 1px solid #3a3d44; border-radius: 12px; padding: 8px 10px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, .55); font-size: 13px; box-sizing: border-box;
   }
 }
@@ -2748,7 +2760,9 @@ body.phone .map-card-wrap:has(.jr-card) .map-card { overflow-y: auto; max-height
 #l-ev .ev { cursor: pointer; }
 #l-ev .ev.lair.cold { opacity: .45; }
 #l-ev .ev:not(.cold) > circle:nth-child(2) { animation: evGlow 2.4s ease-in-out infinite alternate; }
-@keyframes evGlow { from { stroke-opacity: .55; } to { stroke-opacity: 1; } }
+/* 2.3.9: opacity вместо stroke-opacity — у кольца нет заливки, вид тот же, но такую анимацию браузер ведёт на видеокарте,
+   а не перерисовывает карту каждый кадр (было ~25% времени процессора в покое) */
+@keyframes evGlow { from { opacity: .55; } to { opacity: 1; } }
 .mon.elite .elite-star { filter: drop-shadow(0 0 3px #f2c94c); }
 .elite-note { color: #f1d98a; }
 .mc-result { margin: 6px 0 2px; font-size: 13px; line-height: 1.45; }
@@ -3507,14 +3521,21 @@ body.no-skywin .sky-win { display: none; }
 /* 1.7.7: компактная панель карты слева внизу, искрящиеся цвета зон 8–10 */
 body:not(.phone) .map-info { width: min(430px, 52vw); height: 118px; }
 body:not(.phone) .map-info .map-tip { height: 40px; -webkit-line-clamp: 2; }
-.zones i.zsp { position: relative; overflow: hidden; animation: zspGlow 1.8s ease-in-out infinite; }
-.zones i.zsp::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 40%; left: -60%;
+/* 2.3.9: значки зон 8–10. Раньше мерцала сама тень (box-shadow) и ехала координата left — из-за трёх крошечных значков браузер
+   перерисовывал всю карту каждый кадр (на компьютере карта в покое занимала ~80% процессора и шла 15–40 кадров/с).
+   Теперь слабая тень неподвижна, сильная лежит на ::before и плавно проявляется (opacity), блик едет через transform
+   внутри вложенного <b> (он же обрезает блик по краям значка). Крайние состояния и ритм прежние. */
+.zones i.zsp { position: relative; isolation: isolate; box-shadow: 0 0 2px 0 var(--t); }
+.zones i.zsp::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 7px 2px #fff8, 0 0 9px 2px var(--t); opacity: 0; animation: zspGlow 1.8s ease-in-out infinite; }
+.zones i.zsp > b { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.zones i.zsp > b::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 40%; left: -60%;
   background: linear-gradient(100deg, transparent, rgba(255,255,255,.85), transparent); animation: zspSweep 2.2s linear infinite; }
-.zones i.zsp:nth-of-type(9)::after { animation-delay: .3s; }
-.zones i.zsp:nth-of-type(10)::after { animation-delay: .6s; }
-@keyframes zspSweep { 0% { left: -60%; } 60%, 100% { left: 130%; } }
-@keyframes zspGlow { 0%, 100% { box-shadow: 0 0 2px 0 var(--t); } 50% { box-shadow: 0 0 7px 2px #fff8, 0 0 9px 2px var(--t); } }
-@media (prefers-reduced-motion: reduce) { .zones i.zsp, .zones i.zsp::after { animation: none; } }
+.zones i.zsp:nth-of-type(9) > b::after { animation-delay: .3s; }
+.zones i.zsp:nth-of-type(10) > b::after { animation-delay: .6s; }
+@keyframes zspSweep { 0% { transform: translateX(0); } 60%, 100% { transform: translateX(475%); } }   /* то же, что left: −60% → 130% */
+@keyframes zspGlow { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .zones i.zsp { box-shadow: none; } .zones i.zsp::before, .zones i.zsp > b::after { animation: none; } }
 
 /* 1.7.7: график побед по цветам в журнале исследователя */
 .jr-wins .jr-row { position: relative; padding: 2px 0; cursor: help; }
@@ -3715,13 +3736,27 @@ body.ui-columns.phone .status:has(+ .turn-timer[hidden]) { grid-column: 1 / -1; 
 }
 
 /* ===================== 1.8.3: «живой» моб — псевдообъём из картинки (качание, тень на земле, блик, наклон при ударе) ===================== */
+/* 2.3.9: качание — только transform (его ведёт видеокарта). Тень под мобом — отдельный слой .mob-shadow перед портретом
+   (ставит js/boot.js, mobShadow): качается той же анимацией, а две его части с крайними тенями сменяют друг друга
+   прозрачностью. Значения и кривая прежние. Пока слоя нет (первый миг, старый браузер) — неподвижная тень начала цикла. */
 .fighter.right .avatar { position: relative; transform-origin: 50% 92%; animation: mob-bob 3.6s ease-in-out infinite; will-change: transform; }
+.mob-shadow { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  body .fighter.right:not(.dead) .avatar:not(.hurt):not(.has-sh) { box-shadow: 0 7px 9px -5px rgba(0, 0, 0, .75); }
+  .fighter.right:not(.dead) .avatar.has-sh { box-shadow: none !important; }   /* пока есть слой тени, своя тень портрета скрыта (как при прежней анимации тени) */
+  .fighter.right:not(.dead) .mob-shadow.on { display: block; position: absolute; margin: 0; border-radius: 50%; pointer-events: none; transform-origin: 50% 92%; animation: mob-bob 3.6s ease-in-out infinite; will-change: transform; }
+  .mob-shadow::before, .mob-shadow::after { content: ""; position: absolute; inset: 0; border-radius: inherit; will-change: opacity; }
+  .mob-shadow::before { box-shadow: 0 7px 9px -5px rgba(0, 0, 0, .75); animation: mob-sh-near 3.6s ease-in-out infinite; }
+  .mob-shadow::after { box-shadow: 0 11px 12px -7px rgba(0, 0, 0, .5); opacity: 0; animation: mob-sh-far 3.6s ease-in-out infinite; }
+}
+@keyframes mob-sh-near { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes mob-sh-far { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
 .fighter.right .avatar::before { content: ""; position: absolute; inset: -40% -60%; z-index: 2; pointer-events: none; background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .26) 50%, transparent 58%); transform: translateX(-100%); animation: mob-glint 7.5s ease-in-out 1.2s infinite; }
 .fighter.right .avatar.hurt { animation: mob-hurt .5s ease-out; }
 .fighter.right.dead .avatar { animation: none; }
 @keyframes mob-bob {
-  0%, 100% { transform: translateY(0) rotate(-.7deg) scale(1); box-shadow: 0 7px 9px -5px rgba(0, 0, 0, .75); }
-  50% { transform: translateY(-3px) rotate(.7deg) scale(1.012); box-shadow: 0 11px 12px -7px rgba(0, 0, 0, .5); }
+  0%, 100% { transform: translateY(0) rotate(-.7deg) scale(1); }
+  50% { transform: translateY(-3px) rotate(.7deg) scale(1.012); }
 }
 @keyframes mob-glint { 0%, 55% { transform: translateX(-100%); } 85%, 100% { transform: translateX(100%); } }
 @keyframes mob-hurt {
@@ -3733,9 +3768,15 @@ body.ui-columns.phone .status:has(+ .turn-timer[hidden]) { grid-column: 1 / -1; 
 }
 @media (prefers-reduced-motion: reduce) { .fighter.right .avatar, .fighter.right .avatar::before, .fighter.right .avatar.hurt { animation: none; } }
 /* 1.8.3: свечение «сделайте это» на карте (ближайший зверь до первой победы, здание с заданием) */
-.next-step { animation: next-pulse 1.8s ease-in-out infinite; }
-@keyframes next-pulse { 0%, 100% { filter: drop-shadow(0 0 2px #ffe08a) drop-shadow(0 0 4px #f2c94c); } 50% { filter: drop-shadow(0 0 3px #fff3c4) drop-shadow(0 0 11px #f2c94c) brightness(1.12); } }
-@media (prefers-reduced-motion: reduce) { .next-step { animation: none; filter: drop-shadow(0 0 4px #f2c94c) drop-shadow(0 0 8px #f2c94c); } }
+/* 2.3.9: свечение «следующего шага». Раньше анимировался сам фильтр — браузер пересчитывал его на процессоре 60 раз в секунду
+   (в покое на карте это съедало ~30% времени главного потока). Теперь два неподвижных состояния: слабое свечение на самой
+   фигурке (.next-step) и её копия с сильным свечением поверх (.next-glow, создаёт js/mapview.js: syncNextGlow), у которой плавно
+   меняется только прозрачность — это браузер делает на видеокарте. Начало цикла совпадает с прежним точно, пик — на глаз
+   неотличим (ореол на несколько процентов плотнее), ритм прежний (1,8 с, ease-in-out). */
+.next-step { filter: drop-shadow(0 0 2px #ffe08a) drop-shadow(0 0 4px #f2c94c); }
+.next-glow { filter: drop-shadow(0 0 3px #fff3c4) drop-shadow(0 0 11px #f2c94c) brightness(1.12); opacity: 0; pointer-events: none; animation: next-glow 1.8s ease-in-out infinite; }
+@keyframes next-glow { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .next-step { filter: drop-shadow(0 0 4px #f2c94c) drop-shadow(0 0 8px #f2c94c); } .next-glow { display: none; } }
 
 /* 1.8.4: колонка «обитателей» справа от полосы побед */
 .jr-wins .jr-row { grid-template-columns: 22px 1fr 34px 34px; }
@@ -3938,7 +3979,7 @@ body.no-hint.ui-columns.phone :is(#more,[data-bid="more"]) { grid-area: p3; }
   body.phone .me-txt > small, body.phone .me-txt > b { line-height: 1.2; }
 }
 /* пока на экране подсказка обучения, строка цели под ней не нужна (раньше выглядывала из-под окна) */
-body:has(.coach:not([hidden])) #goal-strip { visibility: hidden; }
+body.coach-on #goal-strip { visibility: hidden; }   /* 2.3.9: класс ставит js/tutorial.js (coachShown) — без :has на body */
 .ch-board .ch-cell.hint { box-shadow: inset 0 0 0 3px #4cc0ee; }
 .ch-promo { display: flex; gap: 8px; align-items: center; justify-content: center; margin: 6px 0; }
 .ch-promo button { font-size: 28px; padding: 2px 10px; line-height: 1.2; }
@@ -4012,7 +4053,7 @@ body.phone.mode-battle .bagbar button.bagitem::after { content: ''; position: ab
 .item-info-back:has(.res-card) { align-items: center; }
 .res-card.icard-modal { width: min(380px, calc(100% - 24px)); height: auto; min-height: 0; max-height: calc(100% - 24px); padding: 12px 16px; overflow-y: auto; }
 .res-card .loot-card { margin-bottom: 4px; }
-.res-card .reset { margin-top: 8px; }
+.res-card .reset { margin-top: 8px; text-align: center; }
 .res-link { color: #6b3d0b; font-weight: 700; text-decoration: underline dotted; cursor: pointer; }
 .res-link:hover, .res-link:focus { color: #3b1f00; text-decoration: underline; }
 .res-tip { background: rgba(60,38,12,.10); border-left: 3px solid #7a5a2c; padding: 6px 8px; border-radius: 4px; font-size: 13px; }
@@ -4707,7 +4748,7 @@ img.spark-icon{object-fit:contain}
 
 /* 2.2.10: пока карта едет — фоновые анимации стоят (то же, что «Лёгкая графика», но только на время движения) */
 .map-moving #l-amb, .map-moving .map-clouds, .map-moving .map-wx i { display: none; }
-.map-moving .mon .bob, .map-moving .mon.siege .siege-ring, .map-moving .mon.looter .siege-ring, .map-moving .pl-pulse, .map-moving .smoke, .map-moving .torch-halo, .map-moving #l-ev circle, .map-moving .mon.next-step { animation: none !important; }
+.map-moving .mon .bob, .map-moving .mon.siege .siege-ring, .map-moving .mon.looter .siege-ring, .map-moving .pl-pulse, .map-moving .smoke, .map-moving .torch-halo, .map-moving #l-ev circle, .map-moving .next-step { filter: none; } .map-moving .next-glow { display: none; }   /* как и раньше: пока камера едет, свечения нет */
 
 /* Подсказка не перехватывает нажатия в бою: под ней могут быть кнопки и плашки (гаснет сама через 9 с). */
 body.mode-battle #tip-banner { pointer-events: none; }
@@ -4822,3 +4863,9 @@ body.phone:not(.desk-land) #more-menu [data-do=deskland] { display: none; }
 .fighter.left .hpbar::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: -4px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, #7fb2ff var(--xp, 0%), #ffffff1f var(--xp, 0%)); pointer-events: none; }
 .fighter .ability-line .next { white-space: normal; overflow: visible; text-overflow: clip; }
 .fighter .fi-btn { top: 8px; right: 12px; }
+
+.altar-wait { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(15, 16, 18, .92); text-align: center; color: #fff; }
+.altar-box { max-width: 86%; } .altar-box img { width: min(60vw, 260px); height: auto; }
+.altar-t { font-size: 22px; font-weight: 600; }
+
+.medal-near { list-style: none; padding: 0; margin: 4px 0 10px; } .medal-near li { margin: 4px 0; } .medal-near progress { width: 40%; vertical-align: middle; }

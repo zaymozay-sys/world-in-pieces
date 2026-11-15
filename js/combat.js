@@ -203,6 +203,7 @@ const Combat = (() => {
       out.absorbed = take; out.amount = amount;
       if (amount <= 0) return out;
     }
+    const hpBefore = target.hp;
     out.revived = loseHp(target, amount);
     // 2.0.9: Отрава (бонус комплекта): с шансом venom% удар отравляет цель — в начале каждого из её ходов она теряет урон яда
     if (target.hp > 0 && attacker.stats && attacker.stats.venom > 0 && chance(attacker.stats.venom, rand)) {
@@ -210,10 +211,11 @@ const Combat = (() => {
       target.poison = { turns: V.turns, dmg: Math.max(dmg, (target.poison && target.poison.turns > 0 && target.poison.dmg) || 0) };
       out.venom = { dmg, turns: V.turns };
     }
-    if (attacker.ability === 'vampire' && attacker.hp > 0 && (!paidMode(attacker) || canPay(attacker))) {
-      if (paidMode(attacker)) payStones(attacker);
-      out.heal = Math.min(attacker.max - attacker.hp, Math.ceil(amount * A.vampire.share));
-      attacker.hp += out.heal;
+    // 2.3.8: Регенерация — с шансом leech% удар возвращает бойцу leechPower% урона, реально снятого со здоровья цели
+    // (после Брони, Блока и Щита; рикошет, отрава и заклинания не лечат). Здоровье не поднимается выше максимума.
+    if (attacker.hp > 0 && attacker.stats && attacker.stats.leech > 0 && attacker.stats.leechPower > 0 && chance(attacker.stats.leech, rand)) {
+      const taken = Math.min(amount, hpBefore), h = Math.min(attacker.max - attacker.hp, Math.max(1, Math.round(taken * attacker.stats.leechPower / 100)));
+      if (taken > 0 && h > 0) { attacker.hp += h; out.leech = h; }
     }
     // Утренняя звезда: каждый удар крошит Броню цели на armorShred.amount, не больше cap суммарно за бой.
     if (attacker.weaponPerk && attacker.weaponPerk.type === 'armorShred') {

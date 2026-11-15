@@ -113,23 +113,32 @@ const Medals = (() => {
 
   /* 1.6.2: ступени медали за вид — бронза (1 победа), серебро (25), золото (100). Бонус медали растёт ×1, ×2, ×3.
      Ступень считается по Profile.data.bestiary[вид].wins, отдельно в сейве ничего не хранится. */
-  const RANK_WINS = [1, 25, 100];
-  const RANK_NAMES = [_t("Бронза"), _t("Серебро"), _t("Золото")];
-  const rankFor = (wins) => RANK_WINS.filter((w) => (wins || 0) >= w).length;           // 0..3
-  const nextRankWins = (wins) => RANK_WINS.find((w) => (wins || 0) < w) || null;
-  const rankOf = (species, bestiary) => Math.max(1, rankFor(bestiary && bestiary[species] && bestiary[species].wins));
+  // 2.3.8: лесенка по виду — 10 ступеней (цвета игры от красного до обсидианового) по числу побед над видом.
+  // Сама медаль выдаётся за первую победу (ступень 0); дальше цвет кружка растёт. У боссов пороги ниже.
+  const RANK_WINS_COMMON = [3, 10, 25, 50, 90, 150, 250, 400, 600, 900];
+  const RANK_WINS_BOSS = [1, 2, 4, 7, 11, 16, 23, 32, 45, 60];
+  const RANK_WINS = RANK_WINS_COMMON;
+  const isBossSpecies = (sp) => !!(ME_B.MONSTERS[sp] && ME_B.MONSTERS[sp].boss);
+  const winsLadder = (sp) => (isBossSpecies(sp) ? RANK_WINS_BOSS : RANK_WINS_COMMON);
+  const rankNames = () => ((typeof Tiers !== 'undefined' ? Tiers : require('./tiers.js')).LIST.map((t) => t.name));
+  const rankFor = (wins, sp) => winsLadder(sp).filter((w) => (wins || 0) >= w).length;             // 0..10
+  const nextRankWins = (wins, sp) => winsLadder(sp).find((w) => (wins || 0) < w) || null;
+  const rankOf = (species, bestiary) => rankFor(bestiary && bestiary[species] && bestiary[species].wins, species);
 
   // Бонус характеристик одной медали: { стат: значение }. bestiary — Profile.data.bestiary (для ступени медали за вид).
   function bonusFor(id, bestiary) {
     const species = killSpecies(id);
     if (species) {
-      const stat = KILL_STAT[species] || 'power';
-      return { [stat]: KILL_AMOUNT[stat] * (bestiary ? rankOf(species, bestiary) : 1) };
+      // 2.3.8: на простых ступенях — здоровье и броня; главная характеристика вида (Сила, Ярость, Блок, Рикошет) — только на 10-й
+      const L = bestiary ? rankOf(species, bestiary) : 0, out = { health: 2 + L };
+      if (L >= 5) out.defense = Math.floor(L / 5);
+      if (L >= 10) { const st = KILL_STAT[species] || 'defense'; out[st] = (out[st] || 0) + (st === 'health' || st === 'defense' ? 2 : 1); }
+      return out;
     }
     if (id.startsWith('streak:')) {
       const n = Number(id.slice(7)), idx = Math.max(0, STREAK_MILESTONES.indexOf(n));
       const amt = 2 + idx;                        // дальние вехи редки — награда за них весомее
-      return { power: amt, defense: amt };
+      return idx >= 5 ? { power: idx - 4, defense: amt, health: 4 * amt } : { defense: amt, health: 4 * amt };   // 2.3.8: Сила только на дальних вехах
     }
     if (id.startsWith('strike:')) {
       const n = Number(id.slice(7)), idx = Math.max(0, STRIKE_MILESTONES.indexOf(n));
@@ -175,7 +184,7 @@ const Medals = (() => {
   /* 1.6.2: разделы Стены доблести и бонус за комплект. Когда в разделе получены ВСЕ медали, к бонусам
      добавляется награда раздела (она весомее одной медали, но сумма по-прежнему меньше, чем даёт хорошая вещь). */
   const GROUPS = {
-    kill:   { name: _t("Охотник"),         ids: () => ME_B.ORDER.map(killMedalId),            bonus: { power: P(3), defense: 3, health: 10 } },
+    kill:   { name: _t("Охотник"),         ids: () => ME_B.ORDER.map(killMedalId),            bonus: { power: P(3), defense: 3, health: 10, leech: 5, leechPower: 4 } },
     streak: { name: _t("Мастер линий"),    ids: () => STREAK_MILESTONES.map(streakMedalId),    bonus: { power: P(4), defense: 4 } },
     strike: { name: _t("Мастер Удара"),    ids: () => STRIKE_MILESTONES.map(strikeMedalId),    bonus: { fury: 6 } },
     style:  { name: _t("Мастер боя"),        ids: () => STYLE_ORDER.map(styleMedalId),        bonus: { power: P(8), ricochet: 3 } },
@@ -289,8 +298,14 @@ const Medals = (() => {
     depth: { name: _t("Глубина"),     ms: [2, 4, 6, 8, 10, 13, 16, 20, 25, 30],            bonus: (i) => ({ health: 4 * (1 + i) }),                                  group: { defense: 4, block: 2 } },
     cut:   { name: _t("Огранщик"),    ms: [1, 3, 6, 10, 16, 24, 34, 46, 60, 80],           bonus: (i) => ({ cunning: 1 + Math.floor(i / 3), health: 2 * (1 + i) }),  group: { cunning: 4 } },
     rune:  { name: _t("Рунописец"),   ms: [2, 6, 12, 22, 36, 54, 76, 100, 130, 170],       bonus: (i) => ({ initiative: 1 + Math.floor(i / 2) }),                   group: { power: P(4) } },
+    // 2.3.8: новые лесенки — простые ступени дают здоровье и броню, Сила только на последней
+    elite: { name: _t("Охотник на элиту"), ms: [3, 10, 25, 50, 90, 150, 250, 400, 650, 1000], bonus: (i) => (i === 9 ? { health: 40, defense: 3, power: 1 } : { health: 4 * (1 + i), ...(i >= 3 ? { defense: Math.floor(i / 3) } : {}) }), group: { health: 30, defense: 3 } },
+    hatch: { name: _t("Зверовод"),         ms: [1, 2, 4, 7, 11, 16, 23, 32, 45, 60],     bonus: (i) => ({ health: 3 * (1 + i), ...(i >= 4 ? { defense: Math.floor(i / 4) } : {}) }),                                group: { health: 25, defense: 4 } },
+    arena: { name: _t("Гладиатор"),        ms: [3, 8, 15, 30, 50, 80, 120, 180, 260, 400], bonus: (i) => (i === 9 ? { health: 40, defense: 3, power: 1 } : { health: 4 * (1 + i), ...(i >= 3 ? { defense: Math.floor(i / 3) } : {}) }), group: { health: 30, defense: 3 } },
+    // 2.3.8: победы над живыми игроками (счёт ведёт сервер через выдачу наград) — шаг крупнее, награды боевые, без здоровья и брони
+    pvp:   { name: _t("Победитель живых"),  ms: [3, 10, 25, 50, 100, 175, 275, 400, 600, 900], bonus: (i) => [{ initiative: 1 }, { cunning: 1 }, { fury: 1 }, { ricochet: 1 }, { power: 1 }, { fury: 2 }, { ricochet: 2 }, { power: 2 }, { fury: 3, cunning: 1 }, { power: 3, fury: 2 }][i], group: { power: 4, fury: 3, ricochet: 2 } },
   };
-  const MASTER_ORDER = ['craft', 'depth', 'cut', 'rune'];
+  const MASTER_ORDER = ['craft', 'depth', 'cut', 'rune', 'elite', 'hatch', 'arena', 'pvp'];
   const masterMedalId = (s, n) => 'm:' + s + ':' + n;
   function masterOf(id) {
     const m = /^m:(\w+):(\d+)$/.exec(id || ''), d = m && MASTER[m[1]];
@@ -303,7 +318,10 @@ const Medals = (() => {
   const masterDone = (s, earned = []) => MASTER[s].ms.every((n) => earned.some((m) => m.id === masterMedalId(s, n)));
   function masterText(s, n) {
     return s === 'craft' ? _t("{0 изделие|изделия|изделий} в Кузнице (создано и закалено)", [n]) : s === 'depth' ? _t("Этаж подземелья: {0}", [n])
-      : s === 'cut' ? _t("{0 огранка|огранки|огранок} и вставленных самоцветов", [n]) : _t("{0 руна|руны|рун} нанесено и обновлено", [n]);
+      : s === 'cut' ? _t("{0 огранка|огранки|огранок} и вставленных самоцветов", [n]) : s === 'elite' ? _t("{0 победа|победы|побед} над элитными существами", [n])
+      : s === 'pvp' ? _t("{0 победа|победы|побед} над живыми игроками", [n])
+      : s === 'arena' ? _t("{0 победа|победы|побед} на арене", [n])
+      : s === 'hatch' ? _t("{0 питомец|питомца|питомцев} выведено из яиц", [n]) : _t("{0 руна|руны|рун} нанесено и обновлено", [n]);
   }
 
   const MEDAL_CAPS = { block: 10 };   // суммарно по всем медалям
@@ -315,6 +333,26 @@ const Medals = (() => {
     for (const k of MASTER_ORDER) if (masterDone(k, earned)) s = ME_G.combine(s, { ...ME_G.blankStats(), ...MASTER[k].group });
     for (const k in MEDAL_CAPS) if (s[k] > MEDAL_CAPS[k]) s[k] = MEDAL_CAPS[k];   // 2.0.7 (D2): потолок вещей остаётся вещам
     return s;
+  }
+
+  // 2.3.8: ближайшие к получению медали с долей прогресса — для панели на Стене доблести.
+  // d — Profile.data. Возвращает до n записей { text, cur, need } по убыванию доли cur/need (доля < 1).
+  function nearest(d, n = 3) {
+    const m = (d && d.medals) || {}, out = [];
+    const ladder = (list, cur, label) => { const need = list.find((x) => cur < x); if (need) out.push({ text: label(need), cur, need }); };
+    for (const sp of ME_B.ORDER) {
+      const w = (d && d.bestiary && d.bestiary[sp] && d.bestiary[sp].wins) || 0;
+      if (w < 1) continue;
+      const lv = rankFor(w, sp), need = nextRankWins(w, sp);
+      if (need) out.push({ text: _t("{0}: ступень {1}", [ME_B.MONSTERS[sp].name, lv + 1]), cur: w, need });
+    }
+    ladder(STREAK_MILESTONES, m.fiveStreaks || 0, (x) => nameFor(streakMedalId(x)));
+    ladder(STRIKE_MILESTONES, m.strikeKills || 0, (x) => nameFor(strikeMedalId(x)));
+    ladder(SHOT_MILESTONES, m.shotKills || 0, (x) => nameFor(shotMedalId(x)));
+    ladder(SPELL_MILESTONES, m.spellWins || 0, (x) => nameFor(spellMedalId(x)));
+    ladder(DRUNK_MILESTONES, m.drunk || 0, (x) => nameFor(drunkMedalId(x)));
+    for (const k of MASTER_ORDER) ladder(MASTER[k].ms, (m.cnt && m.cnt[k]) || 0, (x) => nameFor(masterMedalId(k, x)));
+    return out.filter((e) => e.cur > 0).sort((a, b) => b.cur / b.need - a.cur / a.need).slice(0, n);
   }
 
   // Человекочитаемое название медали (для окна медалей).
@@ -335,8 +373,8 @@ const Medals = (() => {
     return id;
   }
 
-  return { MASTER, MASTER_ORDER, masterMedalId, masterOf, checkMaster, masterDone, SPELL_MILESTONES, spellMedalId, checkSpellMedal, DRUNK_MILESTONES, ENDURE_AT, drunkMedalId, checkDrunkMedal, ELIXIR_ORDER, ELIXIR_BONUS, elixirMedalId, elixirKey, checkElixirMedal, PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_NAMES, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
-    strikeMedalId, checkKillMedal, checkFiveStreakMedal, checkStrikeMedal, bonusFor, bonusStats, nameFor, tierUnlockLevel };
+  return { MASTER, MASTER_ORDER, masterMedalId, masterOf, checkMaster, masterDone, SPELL_MILESTONES, spellMedalId, checkSpellMedal, DRUNK_MILESTONES, ENDURE_AT, drunkMedalId, checkDrunkMedal, ELIXIR_ORDER, ELIXIR_BONUS, elixirMedalId, elixirKey, checkElixirMedal, PERKS, perksOf, hasPerk, relicId, DAILY_MILESTONES, dailyMedalId, dailyStep, checkDailyMedal, SECRET, SECRET_ORDER, secretMedalId, secretKey, checkSecretMedals, collections, collectionProgress, familyBonus, WORLD, WORLD_ORDER, worldMedalId, worldKey, checkWorldMedals, STYLE, STYLE_ORDER, styleMedalId, styleKey, checkStyleMedals, RANK_WINS, RANK_WINS_COMMON, RANK_WINS_BOSS, winsLadder, rankNames, rankFor, nextRankWins, rankOf, GROUPS, GROUP_ORDER, groupProgress, groupDone, SHOT_MILESTONES, shotMedalId, checkShotMedal, KILL_STAT, KILL_AMOUNT, STREAK_MILESTONES, STRIKE_MILESTONES, killMedalId, killSpecies, streakMedalId,
+    strikeMedalId, checkKillMedal, checkFiveStreakMedal, checkStrikeMedal, bonusFor, bonusStats, nameFor, nearest, tierUnlockLevel };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

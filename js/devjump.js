@@ -26,7 +26,7 @@ const DevJump = (() => {
     if (!d.pet && typeof Pets !== 'undefined' && typeof Hero !== 'undefined') { d.wins = Math.max(d.wins || 0, 20); d.xp = Math.max(d.xp || 0, Hero.totalFor(6)); d.pet = Object.assign(Pets.makePet('wolf', 1), { xp: 300 }); d.petChoice = 'tamed'; }
     d.tutorial = Object.assign(d.tutorial || {}, { done: true, step: null });
     d.testX10 = true; d.testAllSpells = true;
-    const coach = document.querySelector('.coach'); if (coach) coach.remove();
+    const coach = document.querySelector('.coach'); if (coach) coach.remove(); document.body.classList.remove('coach-on');
   }
   const toMap = () => { document.body.classList.add('mode-map'); document.body.classList.remove('mode-battle'); };
 

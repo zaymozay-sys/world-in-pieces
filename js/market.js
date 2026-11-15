@@ -21,10 +21,10 @@ const Market = (() => {
 
   // Справедливая цена одной штуки — ориентир купцов (дороже продажи в Лавку, дешевле покупки в Лавке).
   function fairUnit(kind, key, entry, unitPrice) {
-    if (kind === 'item') { const it = MK_G.item(entry); return Math.max(1, Math.round(it.price * 0.7 * MK_G.wearFactor(entry))); }   // 1.6.6: изношенная вещь дешевле
-    if (kind === 'res') { const [k, t] = key.split(':'); return Math.max(1, Math.round(MK_B.resPrice(k, Number(t)) * 1.8)); }
-    if (kind === 'ammo') return Math.max(1, Math.round((unitPrice || 1) * 0.5));   // 2.2.9: боеприпасы делаются в Кузнице — ниже, чтобы «изготовить → в ряды» не давало прибыли
-    return Math.max(1, Math.round((unitPrice || 1) * 0.75));     // cons: от цены в Лавке
+    if (kind === 'item') { const it = MK_G.item(entry); return Math.max(1, Math.round(it.price * 0.45 * MK_G.wearFactor(entry) * MK_G.sellTierK(it.tier))); }   // 2.3.8: × кривая продажи по цвету   // 1.6.6: изношенная вещь дешевле
+    if (kind === 'res') { const [k, t] = key.split(':'); return Math.max(1, Math.round(MK_B.resSellPrice(k, Number(t)) * 1.8)); }   // 2.3.8: от цены продажи в Лавку, а не от полной
+    if (kind === 'ammo') return Math.max(1, Math.round((unitPrice || 1) * 0.45));   // 2.3.8: 0,5 → 0,45; 2.2.9: боеприпасы делаются в Кузнице — ниже, чтобы «изготовить → в ряды» не давало прибыли
+    return Math.max(1, Math.round((unitPrice || 1) * 0.7));     // 2.3.8: 0,75 → 0,7 (иначе «Лавка → ряды» с Ратушей даёт прибыль); cons: от цены в Лавке
   }
   const fee = (price, rate = FEE) => Math.max(1, Math.round(price * rate));
 

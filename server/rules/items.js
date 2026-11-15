@@ -25,7 +25,7 @@ const Gear = (() => {
     main: _t("Правая рука"), off: _t("Левая рука"), head: _t("Шлем"), chest: _t("Нагрудник"),
     arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"), shoulders: _t("Наплечники"), gloves: _t("Перчатки"), bag: _t("Сумка"), leash: _t("Поводок"), compass: _t("Компас"), ranged: _t("Метательное"), belt: _t("Пояс"),
   };
-  const STAT_NAMES = { power: _t("Сила"), health: _t("Здоровье"), defense: _t("Броня"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), fury: _t("Ярость"), cunning: _t("Хитрость"), venom: _t("Отрава") };
+  const STAT_NAMES = { power: _t("Сила"), health: _t("Здоровье"), defense: _t("Броня"), initiative: _t("Проворство"), ricochet: _t("Рикошет"), block: _t("Блок"), fury: _t("Ярость"), cunning: _t("Хитрость"), venom: _t("Отрава"), leech: _t("Шанс регенерации"), leechPower: _t("Сила регенерации") };
   const TYPE_NAMES = {
     weapon1: _t("Одноручное оружие"), weapon2: _t("Двуручное оружие"), shield: _t("Щит"),
     head: _t("Шлем"), chest: _t("Нагрудник"), arms: _t("Наручи"), legs: _t("Поножи"), amulet: _t("Амулет"),
@@ -33,7 +33,7 @@ const Gear = (() => {
   };
   const RARITY_NAMES = { common: _t("Обычный"), rare: _t("Редкий"), epic: _t("Эпический") };
   // Потолки характеристик (не «ломают» бой)
-  const CAPS = { initiative: 50, ricochet: 40, block: 50, fury: 35, cunning: 30, venom: 30 };
+  const CAPS = { initiative: 50, ricochet: 40, block: 50, fury: 35, cunning: 30, venom: 30, leech: 50, leechPower: 30 };   // 2.3.8: Регенерация (шанс и сила); потолки предварительные, подбираются по прогону баланса
 
   // Комплекты: бонус действует, когда надето не меньше указанного числа предметов набора.
   // Бонусы комплектов: Сила — число, прибавляемое к удару (старые очки × 0,22, не меньше 1).
@@ -55,7 +55,7 @@ const Gear = (() => {
     tracker:  { name: _t("Следопыт"), color: '#7a8f4a', bonuses: { 2: { health: 18 }, 3: { cunning: 6, health: 8 }, 4: { power: 1, initiative: 6, health: 16 }, 5: { pet: 1, cunning: 4, power: 2, defense: 4, health: 18}, 6: { power: 2, defense: 3, health: 20 }, 7: { power: 4, cunning: 5, defense: 6, health: 30 } } },   // 2.0.9: усилен
     hammer:   { name: _t("Молот"),    color: '#d2562c', unique: true, bonuses: { 2: { power: 4, health: 18 }, 3: { fury: 11, power: 2 }, 4: { power: 5, health: 27 }, 5: { fury: 18, power: 7, health: 27}, 6: { power: 10, fury: 8, health: 30 }, 7: { fury: 25, power: 20, block: 12, health: 200 } } },   // 2.0.9: уникальные комплекты (Молот, Бастион, Легенда) намного сильнее остальных; Молот — сильнейший
     bastion:  { name: _t("Бастион"),  color: '#6a86b8', unique: true, bonuses: { 2: { block: 10, health: 19 }, 3: { ricochet: 10 }, 4: { block: 11, health: 23 }, 5: { ricochet: 13, block: 8, defense: 6}, 6: { block: 8, health: 14 }, 7: { ricochet: 10, block: 8, defense: 6 } } },   // 2.0.9: усилен
-    legend:   { name: _t("Легенда Подземелий"), color: '#a77be8', unique: true, bonuses: { 2: { health: 25 }, 3: { power: 3, venom: 10 }, 4: { defense: 9, block: 7 }, 5: { power: 5, cunning: 10, health: 35, venom: 10}, 6: { power: 3, health: 20 }, 7: { power: 4, cunning: 8, health: 25, venom: 8 } } },
+    legend:   { name: _t("Легенда Подземелий"), color: '#a77be8', unique: true, bonuses: { 2: { health: 25 }, 3: { power: 3, venom: 10, leech: 10, leechPower: 8 }, 4: { defense: 9, block: 7 }, 5: { power: 5, cunning: 10, health: 35, venom: 10, leech: 10, leechPower: 8 }, 6: { power: 3, health: 20 }, 7: { power: 4, cunning: 8, health: 25, venom: 8 } } },
     // 2.0.7: глубинные комплекты — делаются только в Кузнице (с цвета 8) из минералов подземелья; не продаются, не выпадают
     moon:     { name: _t("Лунный"),   color: '#b9c4f0', forge: true, minTier: 8, bonuses: { 2: { initiative: 6 }, 3: { cunning: 4, health: 12 }, 4: { initiative: 6, defense: 3, health: 10 }, 5: { initiative: 8, cunning: 5, health: 24 }, 6: { initiative: 6, health: 22 }, 7: { initiative: 6, cunning: 4, defense: 3, health: 45 } } },
     granite:  { name: _t("Гранитный"), color: '#9a9690', forge: true, minTier: 8, bonuses: { 2: { health: 12 }, 3: { defense: 4 }, 4: { block: 3, health: 14 }, 5: { defense: 5, block: 3}, 6: { health: 10 }, 7: { defense: 3, block: 2 } } },
@@ -300,7 +300,9 @@ const Gear = (() => {
   /* 1.6.0: уровни идут медленнее, поэтому вещи дороже к высоким цветам */
   const ITEM_K = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.7, 1.7, 1.7];   // 2.0.5: хвост 2,6…2,9 убран — боёв на вещь ≈26 на цветах 7–10
   const priceAt = (cost1, tier) => Math.round(cost1 * 10 * T.PRICE_MULT[tier - 1] * ITEM_K[tier - 1]);
-  const sellValue = (price) => Math.round(price * 0.4);
+  // 2.3.8: вторым аргументом — цвет вещи: выручка с продажи на высоких цветах снижается кривой Balance.economy.sellTier
+  const sellValue = (price, tier) => Math.round(price * 0.4 * (tier ? sellTierK(tier) : 1));
+  const sellTierK = (t) => ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).economy.sellTier[Math.max(1, Math.min(10, Math.round(t))) - 1];
   // Старьёвщик платит меньше Лавки — зато скупает всё разом, одной кнопкой (см. Screens.openJunker).
   const junkValue = (price) => Math.round(price * 0.25);
 
@@ -427,7 +429,7 @@ const Gear = (() => {
   // 2.0.7: «Следопыт» (5 вещей) усиливает питомца: сумма бонусов pet активных комплектов
   const petBonus = (gear) => setProgress(gear).reduce((n, p) => n + p.active.reduce((m, a) => m + (a.bonus.pet || 0), 0), 0);
 
-  const blankStats = () => ({ power: 0, health: 0, defense: 0, initiative: 0, ricochet: 0, block: 0, fury: 0, cunning: 0, venom: 0 });
+  const blankStats = () => ({ power: 0, health: 0, defense: 0, initiative: 0, ricochet: 0, block: 0, fury: 0, cunning: 0, venom: 0, leech: 0, leechPower: 0 });
   const capStats = (s) => { for (const k in CAPS) s[k] = Math.max(0, Math.min(CAPS[k], s[k])); return s; };
 
   // Итоговые характеристики: предметы + бонусы наборов.
@@ -566,7 +568,7 @@ const Gear = (() => {
 
   return {
     itemsFor, craftFor, isForgeOnly, RELICS, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, LOCKED_SETS, LATE_MIN_TIER, SET_WINDOWS, petBonus, ITEMS, CONSUMABLES, FORGE_KINDS,
-    DUR_BASE, DUR_STEP, REPAIR_SHARE, WEAR_SLOTS_SKIP, durMax, durOf, repairCost, wearFactor, durAfterTier, setTier, TEMPER_MAX, FIT_K, fitCost, temperCost, temperStats, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
+    sellTierK, DUR_BASE, DUR_STEP, REPAIR_SHARE, WEAR_SLOTS_SKIP, durMax, durOf, repairCost, wearFactor, durAfterTier, setTier, TEMPER_MAX, FIT_K, fitCost, temperCost, temperStats, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
     equipped, totalCost, setProgress, stats, statsFor, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, upgradeCostLegacy, craftCost, bulkPrice,
   };
 })();

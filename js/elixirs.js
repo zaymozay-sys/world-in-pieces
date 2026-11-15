@@ -11,6 +11,7 @@ const Elixirs = (() => {
     defense:    { name: _t("Эликсир брони"),       stat: 'defense',    second: 'block',   mode: 'long' },
     block:      { name: _t("Эликсир блока"),       stat: 'block',      second: 'defense', mode: 'long' },
     ricochet:   { name: _t("Эликсир рикошета"),    stat: 'ricochet',   second: 'power',   mode: 'long' },
+    leech:      { name: _t("Эликсир регенерации"), stat: 'leech', second: null, mode: 'turn' },   // 2.3.8: шанс; сила регенерации — половина шанса (см. LEECH_POWER). Иконка пока от рикошета
     fury:       { name: _t("Эликсир ярости"),      stat: 'fury',       second: 'power',   mode: 'long' },
     cunning:    { name: _t("Эликсир хитрости"),    stat: 'cunning',    second: 'block',    mode: 'long' },   // 1.6.0: вместо Проворства (оно решает лишь первый ход, а эликсиры пьются уже в бою)
     health:     { name: _t("Эликсир жизни"),       stat: null,         second: null,      mode: 'instant' },
@@ -40,9 +41,9 @@ const Elixirs = (() => {
   // 1.5.1: защитные виды +2 за цвет (по симулятору +3 давало около +30 пунктов шанса победы на 10-м цвете), остальные +3
   // 1.6.0: эликсир действует ОДИН бой; прибавка подобрана симулятором так, чтобы один эликсир на любом цвете давал сопоставимый
   // прирост шанса победы: боевые виды +5 за цвет, защитные +2 (отдача +1,5), остальные +4.
-  const PER_TIER = { power: 12.5, fury: 3.6, cunning: 3, defense: 3.4, block: 1.6, ricochet: 0.9, wit: 3, speed: 3.2, road: 1.7 };   // 1.8.0: подобрано симулятором (tools/elixir-tune.js): один эликсир на 3-м…10-м цвете даёт +2…+11 п.п.
+  const PER_TIER = { power: 12.5, fury: 3.6, cunning: 3, defense: 3.4, block: 1.6, ricochet: 0.9, leech: 7.5, wit: 3, speed: 3.2, road: 1.7 };   // 1.8.0: подобрано симулятором (tools/elixir-tune.js): один эликсир на 3-м…10-м цвете даёт +2…+11 п.п.
   // 1.8.0: низкие цвета получают добавку, сходящую на нет к 6-му цвету (на 1-м прибавка в единицы процентов героя не двигала)
-  const LOW = { power: 60, fury: 15, cunning: 13, defense: 15, block: 7, ricochet: 3, wit: 13, speed: 12, road: 7 };   // не больше 5 × PER_TIER, иначе эликсир 2-го цвета слабее 1-го
+  const LOW = { power: 60, fury: 15, cunning: 13, defense: 15, block: 7, ricochet: 3, leech: 25, wit: 13, speed: 12, road: 7 };   // не больше 5 × PER_TIER, иначе эликсир 2-го цвета слабее 1-го
   const rawBonus = (tier, kind) => (KINDS[kind] && KINDS[kind].stat === null) ? 0 : Math.round((PER_TIER[kind] || 4) * tier + (LOW[kind] || 0) * Math.max(0, 6 - tier) / 5);
   // Сила — число, прибавляемое к удару: очки таблицы выше переводятся в число так же, как очки Силы вещей (0,045 × рост урона героя цвета).
   const HERO_DMG = [1.67, 2.17, 2.83, 3.63, 4.59, 5.75, 7.22, 9.09, 11.61, 14.93];   // = Tiers.HERO_DMG
@@ -50,6 +51,7 @@ const Elixirs = (() => {
   const bonus = (tier, kind) => (kind === 'power' ? powerPct(tier) : KINDS[kind] ? asStat(KINDS[kind].stat, rawBonus(tier, kind), tier) : rawBonus(tier, kind));
   // 2.0.4: эликсир силы — проценты от СУММАРНОЙ Силы бойца (уровень + вещи + медали + усиления): 10% × цвет, 10-й цвет — +100%.
   // Улучшение Алхимика (+5% за уровень) умножает прибавку. Считается в Combat.power (поле бойца elxPct), прибавкой к стату не является.
+  const LEECH_POWER = 0.4;                                            // сила регенерации эликсира = шанс × эта доля (1-й цвет 13%/7%, 10-й 30%/15%)
   const ROAD_FIGHTS = 3;                                              // «Тоник дороги» действует этот бой и ещё два
   const ROAD_HP = 0.08;                                               // + к максимуму ХП (доля)
   const FOOD_MULT = (tier) => (tier >= 10 ? 1.25 : 1.15);              // «Вкусный корм»: удары питомца сильнее
@@ -97,6 +99,7 @@ const Elixirs = (() => {
     if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно каждый ход, но один раз за ход; ход не тратится.", [heal(tier)]);
     if (kind === 'swap') return _t("Превращает до {0 камень|камня|камней} того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [swapAmount(tier), cdOf(kind)]);
     if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), cdOf(kind)]);
+    if (kind === 'leech') return _t("Шанс регенерации +{0}%, сила регенерации +{1}% до конца хода. Пить перед ударом.", [bonus(tier, kind), Math.round(bonus(tier, kind) * LEECH_POWER)]);
     const b = bonus(tier, kind), name = st[K.stat] || K.stat, pc = (K.stat === 'defense' || K.stat === 'power') ? '' : '%';
     // Броня — цифры: показываем, сколько вычитается из каждого удара у героя середины этого цвета.
     const flat = kind === 'defense' ? b : null;
@@ -104,7 +107,8 @@ const Elixirs = (() => {
       ? (kind === 'power' ? _t("+{0}% к Силе до конца хода. Пить перед ударом.", [b]) : _t("+{0} {1} до конца хода. Пить перед ударом.", [b, name]))
       : flat !== null ? _t("{1} +{0} (−{0} к каждому удару) на {2 ход|хода|ходов}", [flat, name, LONG_TURNS])
       : _t("+{0}{2} {1} на {3 ход|хода|ходов}.", [b, name, pc, LONG_TURNS]);
-    if (tier >= 10) t += `; +${Math.round(asStat(K.second, rawBonus(tier, kind), tier) * GREAT.k)} ${st[K.second] || K.second}`;
+    t = t.replace(/\.$/, '');
+    if (tier >= 10 && K.second) t += `; +${Math.round(asStat(K.second, rawBonus(tier, kind), tier) * GREAT.k)} ${st[K.second] || K.second}`;
     if (tier >= FX_MIN && sideText(kind, tier)) t += `; ${sideText(kind, tier)}`;
     return t;
   };
@@ -116,6 +120,7 @@ const Elixirs = (() => {
       const K = KINDS[kind];
       const m = 1 + (a.pct || 0) / 100;
       if (kind !== 'power') out[K.stat] = (out[K.stat] || 0) + Math.round(bonus(a.tier, kind) * m);   // 2.0.4: Сила — проценты (activePct)
+      if (kind === 'leech') out.leechPower = (out.leechPower || 0) + Math.round(bonus(a.tier, kind) * m * LEECH_POWER);
       if (a.tier >= 10 && K.second) out[K.second] = (out[K.second] || 0) + Math.round(asStat(K.second, rawBonus(a.tier, kind), a.tier) * m * GREAT.k);
     }
     return out;

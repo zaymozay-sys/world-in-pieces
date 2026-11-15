@@ -140,7 +140,8 @@ const Balance = {
   mobAbilityStats: {
     steal: { cunning: 6 }, howl: { power: 12 }, backstab: { fury: 6 }, prank: { initiative: 6 }, undying: { defense: 6 }, charge: { power: 10 },
     regen: { defense: 5 }, petrify: { defense: 6 }, veil: { block: 5 }, breath: { power: 12, ricochet: 3 }, rage: { power: 12, fury: 4 },
-    drum: { power: 10 }, vampire: { fury: 6 }, weaken: { block: 5 }, pinch: { defense: 8 }, mire: { block: 5 }, sap: { defense: 6 },
+    drum: { power: 10 }, vampire: { fury: 6, leech: 120, leechPower: 55 },   // 2.3.8: «Кровопийца» лечится через Регенерацию (шанс и сила растут с цветом)
+     weaken: { block: 5 }, pinch: { defense: 8 }, mire: { block: 5 }, sap: { defense: 6 },
     evasion: { block: 6 }, retribution: { ricochet: 6 }, stun: { power: 12 }, toxin: { power: 10 }, ward: { defense: 8 },
   },
   mobStartStones: true,   // на старте боя у существа камни на один приём (по трети цены на цвет)
@@ -154,7 +155,7 @@ const Balance = {
   abilityStones: {
     steal: { any: 5 }, howl: { each: 2 }, backstab: { color: 'ruby', n: 3 }, prank: { any: 5 }, undying: { each: 3 }, charge: { each: 1 },
     regen: { color: 'emerald', n: 2 }, petrify: { each: 2 }, veil: { color: 'sapphire', n: 3 }, breath: { color: 'ruby', n: 5 },
-    rage: { color: 'ruby', n: 2 }, drum: { each: 2 }, vampire: { color: 'ruby', n: 2 }, weaken: { color: 'sapphire', n: 5 },
+    rage: { color: 'ruby', n: 2 }, drum: { each: 2 }, weaken: { color: 'sapphire', n: 5 },
     pinch: { any: 5 }, mire: { color: 'emerald', n: 3 }, sap: { color: 'emerald', n: 5 }, evasion: { any: 5 }, retribution: { any: 5 },
     stun: { each: 3 }, toxin: { color: 'emerald', n: 6 }, ward: { color: 'sapphire', n: 6 },
   },
@@ -171,7 +172,6 @@ const Balance = {
     breath:   { every: 4, mult: 2 },
     rage:     { below: 0.5, power: 40 },
     drum:     { every: 3 },
-    vampire:  { share: 0.5 },
     weaken:   { every: 3, power: -25 },     // Тень: на 1 ваш ход урон слабее на 25 (см. Combat.power)
     pinch:    { every: 3, block: 4 },       // Рак: +4 Блока за раз, копится до потолка Gear.CAPS.block
     mire:     { every: 2 },                 // Болотник: на 1 ваш ход штраф за ошибку ×2
@@ -227,6 +227,13 @@ const Balance = {
   },
 
   // Награды за победу.
+  /* 2.3.8: кривые экономики по цветам 1–10. Цены в Лавке, Кузнице и т.д. остаются прежними (на них завязаны рецепты), а доход на высоких цветах
+     урезается, чтобы монеты не копились горой. Цвета 1–3 не тронуты: новичок ничего не теряет.
+     coinTier — монеты с существ, сундуков, тайников, арены, сюжета; sellTier — выручка от продажи добычи (ресурсы и вещи) в Лавку. */
+  economy: {
+    coinTier: [1, 1, 1, 0.6, 0.43, 0.275, 0.215, 0.165, 0.13, 0.1],     // монеты с моба на 10-м цвете в ~80 раз больше, чем на 1-м (было ~780)
+    sellTier: [1, 1, 1, 0.77, 0.63, 0.55, 0.51, 0.44, 0.39, 0.37],
+  },
   rewards: {
     coinBase: 0.4,                 // доходы и траты «за уровень» (сундуки, арена, сюжет, деревня)
     coinK: 0.4 / GAME_LENGTH,      // монеты с монстров и цена эликсиров — «за бой»

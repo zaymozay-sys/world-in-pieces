@@ -26,7 +26,18 @@ const MapArt = (() => {
     ash:      ['#8d8883', '#6a6560', '#46423e'],
   };
 
-  function defs() {
+  // 2.3.8: какие рисунки нужны местностям (из функции deco ниже). Без аргумента defs() подключает всё, как раньше.
+  const CORE = ['village', 'castle', 'castle-grass', 'cobble', 'road', 'river', 'water', 'sea'];
+  const TERRAIN_SYMS = {
+    forest: ['s-pine', 's-tree'], hills: ['s-hill'], mountain: ['s-peak'], sea: ['s-wave'], beach: ['s-rock', 's-shell', 's-wave'], water: ['s-wave'],
+    swamp: ['s-puddle', 's-reed'], meadow: ['s-flower', 's-grass', 's-rock'], river: ['s-ford'], field: ['s-furrow', 's-hay'],
+    tundra: ['s-rock', 's-snowpatch', 's-tuft'], snow: ['s-drift', 's-snowpine'], sand: ['s-cactus', 's-dune', 's-rock'], badlands: ['s-dune', 's-mesa', 's-rock'],
+    darkwood: ['s-darktree', 's-shroom'], ash: ['s-crack', 's-rock', 's-stump', 's-tuft'], village: ['s-cobble'],
+  };
+  // terrains — Set местностей, рисунки которых подключить сейчас (ядро — всегда); null — все.
+  function defs(terrains) {
+    const need = terrains ? new Set([...CORE, ...terrains]) : null;
+    const symOk = new Set(['s-oak']); if (need) for (const t of need) for (const x of TERRAIN_SYMS[t] || []) symOk.add(x);
     const grads = Object.entries(T).map(([k, [l, m, d]]) =>
       `<radialGradient id="t-${k}" cx=".42" cy=".38" r=".75"><stop offset="0" stop-color="${l}"/><stop offset=".6" stop-color="${m}"/><stop offset="1" stop-color="${d}"/></radialGradient>`).join('');
     // Настоящие рисунки из art/map/ вместо встроенных SVG, если файл есть.
@@ -41,7 +52,7 @@ const MapArt = (() => {
     };
     const sym = (id, body) => {
       const a = ART_SYM[id];
-      if (a && typeof Art !== 'undefined' && Art.has(a[0])) {
+      if (a && typeof Art !== 'undefined' && Art.has(a[0]) && (!need || symOk.has(id))) {
         const z = a[1];
         body = a[2]
           ? `<image href="${Art.url(a[0])}" x="${-z / 2}" y="${-z / 2}" width="${z}" height="${z}" preserveAspectRatio="xMidYMid meet"/>`
@@ -55,7 +66,7 @@ const MapArt = (() => {
       field: 200, castle: 160, 'castle-grass': 200, tundra: 200, snow: 200, sand: 200, badlands: 200, darkwood: 200, ash: 200, 'cave-floor': 200, 'cave-wall': 200 };   // 1.7.1: подключены луг, лес, холмы, горы и дорога; новые местности — по мере появления файлов
     let tex = '', drop = [];
     for (const [k, z] of Object.entries(TEX)) {
-      if (typeof Art === 'undefined' || !Art.has('map/tex-' + k)) continue;
+      if (typeof Art === 'undefined' || !Art.has('map/tex-' + k) || (need && !need.has(k))) continue;
       drop.push(k);
       tex += `<pattern id="t-${k}" patternUnits="userSpaceOnUse" width="${z}" height="${z}"><image href="${Art.url('map/tex-' + k)}" width="${z}" height="${z}"/></pattern>`;
     }

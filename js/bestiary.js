@@ -41,6 +41,8 @@ const Bestiary = (() => {
   const DEEP_RESOURCES = Object.freeze(['selenite', 'nugget', 'fluorite', 'granite', 'malachite', 'mica', 'quartz', 'graphite']);
   // 2.0.7: призы лотереи и разведки питомца — все 16 видов (решение владельца: смола, рог и хитин тоже в призах). Список заморожен, новые виды дописываются в конец
   const PRIZE_RESOURCES = Object.freeze(['hide', 'fang', 'bone', 'scrap', 'ore', 'crystal', 'essence', 'scale', 'splinter', 'honey', 'silk', 'feather', 'shell', 'resin', 'horn', 'chitin']);
+  // 2.3.8: цена, за которую Лавка покупает ресурс: прежняя цена × кривая Balance.economy.sellTier (на цветах 4–10 ниже)
+  const resSellPrice = (kind, tier) => Math.round(resPrice(kind, tier) * B_B.economy.sellTier[B_T.clamp(tier) - 1]);
   const resPrice = (kind, tier) => Math.round(RESOURCES[kind].base * B_T.PRICE_MULT[B_T.clamp(tier) - 1]);
 
   // Приёмы существ в бою (см. game.js). Делают бои с разными видами непохожими друг на друга.
@@ -57,7 +59,7 @@ const Bestiary = (() => {
     breath:  { name: _t("Огненное дыхание"), desc: _t("Каждый четвёртый ход сжигает ряд камней; урон — двойные номиналы") },
     rage:    { name: _t("Ярость"),           desc: _t("Раненый (меньше половины здоровья) бьёт на 40% сильнее") },
     drum:    { name: _t("Шаманский бубен"),  desc: _t("Каждый третий ход все собранные им камни наносят урон") },
-    vampire: { name: _t("Кровопийца"),       desc: _t("Лечится на половину нанесённого урона") },
+    vampire: { name: _t("Кровопийца"),       desc: _t("Лечится от своих ударов (регенерация)") },
     weaken:  { name: _t("Морок"),            desc: _t("Каждый третий ход насылает морок: урон слабее на ваш следующий ход (у старших цветов — на несколько ходов)") },
     pinch:   { name: _t("Панцирь"),          desc: _t("Каждый третий ход отращивает новый шип: Блок растёт и остаётся до конца боя") },
     mire:    { name: _t("Трясина"),          desc: _t("Каждый второй ход затягивает поле топью: ошибётесь — штраф ХП будет двойным (у старших цветов — несколько ходов)") },
@@ -387,7 +389,7 @@ const Bestiary = (() => {
       name: _t("Гигантская пиявка"), unlock: 3, hp: 70, ai: 24, coins: 28, gear: 0,
       stats: { power: 34, defense: 6 },
       drops: [['hide', 0.5, 1, 1], ['essence', 0.3, 1, 1]],
-      desc: _t("Размером с телёнка. Лечится на половину нанесённого вам урона."),
+      desc: _t("Размером с телёнка. Лечится от своих укусов."),
     },
     // --- 1.8.7: выдуманные существа Затерянного острова (встречаются только там) ---
     glowmaw: {
@@ -607,9 +609,9 @@ const Bestiary = (() => {
     selenebat: {
       family: _t("Твари"), ability: 'evasion', xp: 1.5,
       name: _t("Селенитовая мышь"), unlock: 10, hp: 66, ai: 30, coins: 46, gear: 0,
-      stats: { initiative: 24, power: 38 },
+      stats: { initiative: 24, power: 38, leech: 25, leechPower: 20 },
       drops: [['selenite', 0.8, 1, 2], ['fang', 0.4, 1, 1]],
-      desc: _t("Летучая мышь с лунными кристаллами в крыльях. Бьёт первой и ловко уходит от ударов."),
+      desc: _t("Летучая мышь с лунными кристаллами в крыльях. Бьёт первой, ловко уходит от ударов и лечится от своих укусов."),
     },
     nuggetmole: {
       family: _t("Твари"), ability: 'backstab', xp: 1.5,
@@ -769,7 +771,8 @@ const Bestiary = (() => {
     return {
       hp: Math.round(m.hp * B_T.GROWTH[t - 1] * sw.hp * B_B.monsters.hpBoost[t - 1] * grow * (B_B.mobStones && B_B.mobHpMul ? (B_B.mobHpMulMin || 1) + (B_B.mobHpMul - (B_B.mobHpMulMin || 1)) * (t - 1) / 9 : 1)),   // 2.2.7: существа крепче с цветом: ×mobHpMulMin на 1-м, ×mobHpMul на 10-м
       dmg,
-      stats: B_G.combine(stats, {}),
+      // 2.3.8: у существ Регенерация не режется потолками героя (50%/30%), а своими: шанс до 100%, сила до 50% — иначе пиявка и упырь слабее прежнего лечения
+      stats: Object.assign(B_G.combine(stats, {}), { leech: Math.min(100, stats.leech || 0), leechPower: Math.min(50, stats.leechPower || 0) }),
       ai: Math.max(1, Math.min(100, m.ai + (t - 1) * B_B.monsters.aiPerTier)),
       gearBudget: Math.round(m.gear * B_T.POINT_MULT[t - 1]),
     };
@@ -786,7 +789,7 @@ const Bestiary = (() => {
     for (const [kind, chance, min, max] of weak ? [] : m.drops) {
       if (rand() < chance / (B_B.gameLength || 1)) resources.push({ kind, tier: t, n: min + Math.floor(rand() * (max - min + 1)) });
     }
-    const coins = Math.round(m.coins * B_B.rewards.coinK * B_T.PRICE_MULT[t - 1] * (0.8 + rand() * 0.4));
+    const coins = Math.round(m.coins * B_B.rewards.coinK * B_T.PRICE_MULT[t - 1] * B_B.economy.coinTier[t - 1] * (0.8 + rand() * 0.4));
     // Предмет: шанс Balance.rewards.itemChance; чаще выпадают обычные вещи, реже редкие и эпические.
     let entry = null;
     if (m.setDrop && rand() < 0.5) {                                   // босс: часть редкого набора (Gear.SETS[setDrop])
@@ -827,7 +830,7 @@ const Bestiary = (() => {
   }
   // 1.7.5: «где добыть» — виды существ, у которых выпадает ресурс (по порядку бестиария).
   const sourcesOf = (kind) => ORDER.filter((id) => MONSTERS[id].drops.some((d) => d[0] === kind));
-  return { EXCHANGE, exchangeQuote, sourcesOf, RESOURCES, DEEP_RESOURCES, PRIZE_RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, rollDrops, resourcesWeak, unlockedSpecies, rollSwarmSize, swarmMult };
+  return { EXCHANGE, resSellPrice, exchangeQuote, sourcesOf, RESOURCES, DEEP_RESOURCES, PRIZE_RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, rollDrops, resourcesWeak, unlockedSpecies, rollSwarmSize, swarmMult };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

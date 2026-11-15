@@ -65,7 +65,7 @@ const Tiers = (() => {
     return table[i] * Math.pow(table[i + 1] / table[i], f);
   }
   // Множитель характеристики stat на уровне-цвете tier.
-  const STAT_TABLE = { health: GROWTH, power: POWER_ABS, defense: ARMOR_ABS, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT };
+  const STAT_TABLE = { health: GROWTH, power: POWER_ABS, defense: ARMOR_ABS, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT, leech: PCT_MULT, leechPower: PCT_MULT };
   const statMult = (stat, tier) => (STAT_TABLE[stat] || POWER_MULT)[clamp(tier) - 1];
 
   /* ---------- деньги ---------- */

@@ -526,7 +526,12 @@ const Profile = (() => {
     // После победы: если это первая победа над видом, выдаёт медаль. Возвращает медаль или null.
     checkKillMedal(id, tier) {
       const wonId = Medals.checkKillMedal(id, data.bestiary, data.medals.earned);
-      return wonId ? api.grantMedal(wonId, tier) : null;
+      if (wonId) { const m = api.grantMedal(wonId, tier); data.medals.killLv = data.medals.killLv || {}; data.medals.killLv[id] = Medals.rankOf(id, data.bestiary); return m; }
+      // 2.3.8: новая ступень лесенки по виду (цвет кружка) — только уведомление, медаль уже выдана
+      const lv = Medals.rankOf(id, data.bestiary), kl = data.medals.killLv = data.medals.killLv || {};
+      if (kl[id] == null) { kl[id] = lv; return null; }
+      if (lv > kl[id]) { kl[id] = lv; save(); return { id: Medals.killMedalId(id), level: lv }; }
+      return null;
     },
     // Вызывается при сборе линии из 5 камней (см. resolveBoard в game.js). Считает и, если пройдена
     // очередная веха, выдаёт медаль. Возвращает медаль или null.
@@ -668,7 +673,7 @@ const Profile = (() => {
     // Вылупившийся питомец заменяет прирученного.
     collectHatch(tier) {
       const inc = data.incubator; if (!inc || inc.left > 0) return null;
-      api.stashPet(); data.pet = I_PT.makePet(I_PT.EGGS[inc.egg].species, tier, Math.random); data.incubator = null; data.petChoice = 'tamed'; api.chron('pet', I_PT.petDisplayName(data.pet.speciesId)); save(); return data.pet;
+      api.stashPet(); data.pet = I_PT.makePet(I_PT.EGGS[inc.egg].species, tier, Math.random); data.incubator = null; data.petChoice = 'tamed'; api.noteMaster('hatch', 1); api.chron('pet', I_PT.petDisplayName(data.pet.speciesId)); save(); return data.pet;
     },
     // Приручает вид (заменяет текущего питомца, если был). Возвращает false, если условия ещё не выполнены.
     tame(id, tier) {
@@ -757,7 +762,7 @@ const num1 = (x) => String(Math.round(x * 10) / 10).replace('.', (typeof I18N !=
 const fmtStat = (k, v) => ({
   power: _t("+{0} Сила", [Math.round(v)]), health: _t("+{0} Здоровье", [v]), defense: _t("+{0} Броня", [v]),
   initiative: _t("+{0}% Проворство", [v]), ricochet: _t("+{0}% Рикошет", [v]), block: _t("+{0}% Блок", [v]), fury: _t("+{0}% Ярость", [v]),
-  cunning: _t("+{0}% Хитрость", [v]), venom: _t("+{0}% Отрава", [v]),
+  cunning: _t("+{0}% Хитрость", [v]), venom: _t("+{0}% Отрава", [v]), leech: _t("+{0}% Шанс регенерации", [v]), leechPower: _t("+{0}% Сила регенерации", [v]),
 }[k]);
 const fmtBonus = (b) => Object.entries(b).map(([k, v]) => fmtStat(k, v)).join(', ');
 const statChips = (stats) => Object.entries(stats).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
@@ -786,7 +791,9 @@ function itemCard(it, foot = '', actions = '', cls = '') {
     ${actions ? `<div class="card-act">${actions}</div>` : ''}${info}</div>`;
 }
 
-const resLabel = (kind, tier) => `${Bestiary.RESOURCES[kind].name} · ${Tiers.get(tier).name}`;
+// 2.3.6: название цвета — в своём <span class="tc-name"> вместе с разделителем, чтобы на телефоне всё спрятать разом
+// (цвет и так виден по обводке карточки/значка), не оставляя висящую точку «·».
+const resLabel = (kind, tier) => `${Bestiary.RESOURCES[kind].name}<span class="tc-name"> · ${Tiers.get(tier).name}</span>`;
 
 /* ---------- всплывающие подробности о предмете (значок «i» на карточке) + вставка рун ---------- */
 
@@ -837,9 +844,10 @@ const ItemInfo = (() => {
  initiative: _t("шанс ходить первым (потолок 50%)"),
     ricochet: _t("шанс отразить удар в нападающего (потолок 40%)"), block: _t("шанс полностью отбить удар (потолок 50%)"),
     fury: _t("шанс нанести двойной урон (потолок 35%)"), cunning: _t("шанс забрать половину магических камней врага (потолок 30%)"), venom: _t("шанс, что удар отравит врага: он теряет ХП несколько ходов (потолок 30%)"),
+    leech: _t("шанс, что удар вернёт вам часть нанесённого урона здоровьем (потолок 50%)"), leechPower: _t("какая доля нанесённого урона возвращается здоровьем (потолок 30%)"),
   };
-  const STAT_SCALE = { power: 30, health: 30, defense: 20, initiative: 15, ricochet: 12, block: 15, fury: 15, cunning: 12, venom: 12 };
-  const STAT_ORDER = ['power', 'health', 'defense', 'block', 'initiative', 'ricochet', 'fury', 'cunning', 'venom'];
+  const STAT_SCALE = { power: 30, health: 30, defense: 20, initiative: 15, ricochet: 12, block: 15, fury: 15, cunning: 12, venom: 12, leech: 12, leechPower: 12 };
+  const STAT_ORDER = ['power', 'health', 'defense', 'block', 'initiative', 'ricochet', 'fury', 'cunning', 'venom', 'leech', 'leechPower'];
   const SET_LORE = {
     crown: _t("Знамёна Вольных городов: сталь, позолота и синяя эмаль."), rune: _t("Кованое железо подгорных кланов; руны тлеют, как угли горна."),
     grove: _t("Кора, листья и серебряная нить Лесных домов — лёгкое, как утро."), scale: _t("Панцири, кости и болотный яд племён Чешуи."),
@@ -1126,7 +1134,7 @@ const Inventory = (() => {
       row(N.block, `${stats.block}%`, stats.block > 0 ? _t("≈ каждый {0}-й удар по вам блокируется полностью", [nth(stats.block)]) : _t("полный блок удара: пока нет"), 'block'),
       row(N.fury, `${stats.fury}%`, stats.fury > 0 ? _t("≈ каждый {0}-й ваш удар двойной", [nth(stats.fury)]) : _t("двойной урон: пока нет"), 'fury'),
       row(N.cunning, `${stats.cunning || 0}%`, stats.cunning > 0 ? _t("≈ раз в {0} отнимает половину магических камней противника", [_nn(nth(stats.cunning), 'ход', 'хода', 'ходов')]) : _t("кража магических камней противника: пока нет"), 'cunning'),
-    ].concat(stats.venom > 0 ? [row(N.venom, `${stats.venom}%`, _t("≈ каждый {0}-й ваш удар отравляет противника", [nth(stats.venom)]), 'venom')] : []).join('')}</div>`;
+    ].concat(stats.leech > 0 || stats.leechPower > 0 ? [row(N.leech, `${stats.leech || 0}%`, _t("≈ каждый {0}-й ваш удар лечит вас", [nth(stats.leech || 0)]), 'leech'), row(N.leechPower, `${stats.leechPower || 0}%`, _t("от нанесённого урона возвращается здоровьем"), 'leechPower')] : []).concat(stats.venom > 0 ? [row(N.venom, `${stats.venom}%`, _t("≈ каждый {0}-й ваш удар отравляет противника", [nth(stats.venom)]), 'venom')] : []).join('')}</div>`;
   }
 
   // Уровень, опыт, ХП и урон героя.

@@ -34,6 +34,24 @@ const MapView = (() => {
   const gpuLabel = () => (gpuMap ? _t("Ускорение карты: вкл") : _t("Ускорение карты: выкл"));
   const liteLabel = () => (lite ? _t("Графика карты: упрощённая") : _t("Графика карты: высокая"));
   // 1.8.6: после поражения герой приходит в себя у Алтаря воскрешения (свободная сота рядом с ним), иначе — в центре деревни.
+  // 2.3.8: после гибели герой отдыхает у Алтаря: минута ожидания (бесплатно) или символическая плата за мгновенное появление.
+  // AD_HOOK: сюда можно подключить показ рекламы (Яндекс/ВК Игры) вместо ожидания; пока заглушка, реклама не подключена.
+  const ALTAR_WAIT_S = 60;
+  const altarFee = () => Math.max(1, Math.round(World.reviveCost(Hero.tierFloat(Profile.level())) / 4));
+  function altarWait() {
+    if (document.getElementById('altar-wait')) return;
+    const fee = altarFee(); let left = ALTAR_WAIT_S;
+    const o = document.createElement('div'); o.id = 'altar-wait'; o.className = 'overlay altar-wait';
+    o.innerHTML = `<div class="altar-box"><img src="${Art.url('map/altar')}" alt=""><p>${_t("Вы отдыхаете у Алтаря воскрешения")}</p><p class="altar-t"></p>` +
+      `<button type="button" class="revive-btn altar-pay">${_t("Появиться сразу — {0}", [MonsterArt.moneyHtml(fee)])}</button></div>`;
+    document.body.appendChild(o);
+    const t = o.querySelector('.altar-t'), b = o.querySelector('.altar-pay');
+    b.disabled = Profile.data.coins < fee;
+    const done = () => { clearInterval(iv); o.remove(); };
+    const tick = () => { t.textContent = _t("Осталось: {0} с", [left]); if (left <= 0) done(); left--; };
+    const iv = setInterval(tick, 1000); tick();
+    b.addEventListener('click', () => { if (Profile.spend(fee)) done(); });
+  }
   function respawnPos() {
     const a = map.buildings.find((b) => b.id === 'altar');
     if (!a) return HexMap.center(map);
@@ -95,17 +113,37 @@ const MapView = (() => {
   const myView = () => { const L = Profile.level(), st = myStats(), t = (typeof testMult === 'function') ? testMult() : 1; return { max: (Hero.baseHp(L) + st.health) * t, dmg: Hero.dmgMult(L) * t, stats: st }; };   // t — тестовый режим ×10
 
   /* ---------- запуск и сохранение ---------- */
+  /* 2.3.9: рисунки карты (<defs>) обновляются точечно. Раньше весь блок заменялся целиком трижды за запуск, и каждый раз
+     браузер заново собирал все копии рисунков на карте (тысячи <use>). Теперь меняются только те рисунки, чей текст изменился. */
+  function setDefs(html) {
+    const d = el['map-defs'];
+    if (!d.firstElementChild) { d.innerHTML = html; return; }
+    const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    tmp.innerHTML = html;
+    const cur = new Map(); for (const ch of d.children) if (ch.id) cur.set(ch.id, ch);
+    const keep = new Set(); let anon = false;
+    for (const ch of [...tmp.children]) {
+      if (!ch.id) { anon = true; break; }
+      keep.add(ch.id);
+      const old = cur.get(ch.id);
+      if (!old) d.appendChild(ch);
+      else if (old.outerHTML !== ch.outerHTML) d.replaceChild(ch, old);
+    }
+    if (anon) { d.innerHTML = html; return; }               // на случай безымянных узлов — прежний способ
+    for (const [id, old] of cur) if (!keep.has(id)) old.remove();
+  }
   function init() {
     for (const id of ['map-view', 'map-svg', 'map-defs', 'map-world', 'l-terrain', 'l-roads', 'l-deco', 'l-village', 'l-fog', 'l-hover', 'l-path', 'l-ev', 'l-mon', 'l-player', 'l-amb', 'sky-tint', 'sky-chip', 'siege-strip', 'map-me', 'map-toast', 'map-tip', 'map-zones', 'map-card']) {
       el[id] = document.getElementById(id);
     }
-    el['map-defs'].innerHTML = MapArt.defs();
-    el['map-zones'].innerHTML = _t("<span class=\"zl\">Цвет зон:</span>") + Tiers.LIST.map((t) => `<i${t.id >= 8 ? ' class="zsp"' : ''} style="--t:${t.color};--ti:${t.ink}" title="${t.id}: ${t.name}">${t.id}</i>`).join('');
+    setDefs(MapArt.defs(new Set()));                       // 2.3.8: сначала только нужное для старта; остальное — после загрузки (см. ниже)
+    el['map-zones'].innerHTML = _t("<span class=\"zl\">Цвет зон:</span>") + Tiers.LIST.map((t) => `<i${t.id >= 8 ? ' class="zsp"' : ''} style="--t:${t.color};--ti:${t.ink}" title="${t.id}: ${t.name}">${t.id >= 8 ? '<b></b>' : ''}${t.id}</i>`).join('');   // 2.3.9: <b> — окошко для блика (см. .zones i.zsp > b в css)
     bindInput();
     bindHud();
     initMini();
     load();
     setMode('map');
+    syncDefs();                                            // рисунки местностей, открытых сейчас; остальные подгружаются по мере открытия земель
     // 1.5.4: новичок без народа сначала идёт в учебный бой (Tutorial.boot); народ выбирается после него.
     if (!Profile.data.faction && ((Profile.data.tutorial && Profile.data.tutorial.done) || Profile.data.wins > 0)) Screens.openFactions(true);
     if (Profile.data.faction && typeof Whatsnew !== 'undefined' && Whatsnew.check(Profile.data, GAME_VERSION)) { Profile.save(); setTimeout(() => Screens.open('whatsnew'), 900); }   // 2.0.9: «Что нового» один раз после обновления
@@ -171,7 +209,33 @@ const MapView = (() => {
     mini.dirty = true; drawMini();
   }
 
+  /* 2.3.9: рисунки местности подгружаются по мере открытия карты. Раньше через полторы секунды после запуска скачивались и
+     распаковывались в память все ~100 картинок карты (около 5 МБ), даже для земель под туманом, до которых игрок дойдёт
+     через недели. Теперь берутся местности открытых клеток и двух колец вокруг них (туман на границе полупрозрачен —
+     под ним должна быть настоящая текстура, а не запасная заливка). Качество картинок не меняется. */
+  let defsMap = null, defsTerr = null, defsDone = null, defsNear = new Set();
+  function syncDefs() {
+    if (!map || !revealed) return;
+    if (defsMap !== map) { defsMap = map; defsTerr = new Set(); defsDone = new Set(); defsNear = new Set(); }
+    if (defsDone.size === revealed.size) return;
+    const before = defsTerr.size;
+    for (const i of revealed) {
+      if (defsDone.has(i)) continue;
+      defsDone.add(i);
+      for (const n of HexMap.area(map, i, 2)) { defsTerr.add(map.cells[n].terrain); defsNear.add(n); }
+    }
+    if (defsTerr.size !== before || !el['map-defs'].firstElementChild) setDefs(MapArt.defs(defsTerr));
+    // здания под туманом ждут без картинки (см. renderTerrain); как только земля рядом открыта — картинка подключается
+    for (const g of el['l-village'].querySelectorAll('g.bldg[data-wait]')) {
+      if (!String(g.dataset.wait).split(',').some((i) => defsNear.has(+i))) continue;
+      for (const im of g.querySelectorAll('image[data-href]')) { im.setAttribute('href', im.dataset.href); im.removeAttribute('data-href'); }
+      g.removeAttribute('data-wait');
+    }
+  }
+  const bldNear = (b) => defsNear.has(b.idx) || (b.cells || []).some((c) => defsNear.has(c));
+
   function save() {
+    syncDefs();
     st.revealed = [...revealed];
     Profile.save();
   }
@@ -194,6 +258,7 @@ const MapView = (() => {
   }
 
   function setMode(mode) {
+    viewDirty();
     document.body.classList.toggle('mode-map', mode === 'map');
     document.body.classList.toggle('mode-battle', mode === 'battle');
   }
@@ -247,7 +312,47 @@ const MapView = (() => {
     oakCache = { map, v };
     return v;
   }
+  /* 2.3.9: украшения земли (деревья, камни, трава — около 5 тысяч <use>, с их копиями рисунков это половина всех узлов карты)
+     рисуются только у открытых сот и на 2 соты вокруг них: под непрозрачным туманом они не видны. При открытии новых земель
+     недостающие украшения добавляются в свой лоскут на своё место (порядок внутри лоскута — по номеру соты, как раньше). */
+  const decoSeen = new Set(), decoDone = new Set();
+  let decoCaves = false, decoQueued = false;
+  function decoHtml(c) {
+    if (lite || (decoCaves && c.terrain === 'mountain')) return '';
+    const d = MapArt.deco(c, HexMap.rng((st.seed ^ Math.imul(c.idx + 1, 2654435761)) >>> 0));
+    if (!d) return '';
+    const p = px(c.idx);
+    return `<g data-i="${c.idx}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`;
+  }
+  function syncDeco() {
+    decoQueued = false;
+    if (!map || !el['l-deco'] || lite) return;
+    const add = [];
+    for (const i of revealed) {
+      if (decoSeen.has(i)) continue;
+      decoSeen.add(i);
+      for (const n of HexMap.area(map, i, 2)) if (!decoDone.has(n)) { decoDone.add(n); add.push(n); }
+    }
+    if (!add.length) return;
+    add.sort((a, b) => a - b);
+    const byCk = new Map();
+    for (const n of add) { const h = decoHtml(map.cells[n]); if (!h) continue; const p = px(n), k = Math.floor(p.x / CK) + ',' + Math.floor(p.y / CK); let a = byCk.get(k); if (!a) byCk.set(k, a = []); a.push([n, h]); }
+    for (const [k, list] of byCk) {
+      const g = el['l-deco'].querySelector(`g.ck[data-ck="${k}"]`);
+      if (!g) continue;
+      if (!g.firstElementChild) { g.innerHTML = list.map((x) => x[1]).join(''); continue; }
+      const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      for (const [n, h] of list) {
+        tmp.innerHTML = h;
+        let before = null;
+        for (const ch of g.children) if (Number(ch.getAttribute('data-i')) > n) { before = ch; break; }
+        g.insertBefore(tmp.firstElementChild, before);
+      }
+    }
+  }
+  const queueDeco = () => { if (!decoQueued) { decoQueued = true; Promise.resolve().then(syncDeco); } };
   function renderStatic() {
+    syncDefs();                                            // 2.3.9: какие земли открыты — от этого зависит, какие картинки подключать
     const terr = new Map(), deco = new Map(), roads = [], vil = [], labels = [];
     const caves = map.kind === 'tower' && typeof Art !== 'undefined' && Art.has('map/tex-cave-floor') && Art.has('map/tex-cave-wall');   // 2.0.9: плитки подземелья (art/map/tex-cave-floor, tex-cave-wall)
     for (const c of map.cells) {
@@ -255,9 +360,9 @@ const MapView = (() => {
       // 1.3.0: маленький город — земля деревни, а главная улица и площадь вокруг Ратуши вымощены
       const paved = (c.terrain === 'village' || c.terrain === 'castle') && (c.street || c.d <= 2);
       bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${caves ? (c.terrain === 'mountain' ? 'cave-wall' : 'cave-floor') : c.terrain === 'castle' && hasArt('map/tex-castle') ? (paved || !hasArt('map/tex-castle-grass') ? 'castle' : 'castle-grass') : paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
-      const d = lite || (caves && c.terrain === 'mountain') ? '' : MapArt.deco(c, HexMap.rng((st.seed ^ Math.imul(c.idx + 1, 2654435761)) >>> 0));
-      if (d) bucketPush(deco, p, `<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})">${d}</g>`);
+      bucketPush(deco, p, '');                             // 2.3.9: лоскуты украшений создаются все и в прежнем порядке, а наполняются по мере открытия земель (syncDeco)
     }
+    decoCaves = caves; decoSeen.clear(); decoDone.clear();
 
     const riverHtml = riverSvg();
     // дороги и мосты: отрезки между соседними дорожными сотами
@@ -340,7 +445,8 @@ const MapView = (() => {
     for (const b of map.buildings) {
       const info = HexMap.BUILDINGS[b.id], p = bCenter(b), k = (info.scale || 1.35) / 1.35;
       if ((b.cells || []).length > 1) for (const c of b.cells) { const q = px(c); vil.push(`<polygon points="${hexPts(q.x, q.y, 0.97)}" class="yard"/>`); }
-      vil.push(`<g class="bldg" data-b="${b.id}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) scale(${k.toFixed(3)})">${MapArt.building(b.id, info.soon)}</g>`);
+      const far = !bldNear(b), art = MapArt.building(b.id, info.soon);   // 2.3.9: картинка здания под туманом не скачивается, пока земля не открыта
+      vil.push(`<g class="bldg" data-b="${b.id}"${far ? ` data-wait="${[b.idx, ...(b.cells || [])].join(',')}"` : ''} transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) scale(${k.toFixed(3)})">${far ? art.replace(/<image href="/g, '<image data-href="') : art}</g>`);
       labels.push(MapArt.label(info.label || info.name, p.x, p.y + 21 * (k - 1)).replace('class="map-label-g"', `class="map-label-g" data-lb="${b.id}"`));
     }
 
@@ -349,7 +455,7 @@ const MapView = (() => {
     el['l-roads'].innerHTML = roads.join('');
     { const o = oakSpot(); if (o && !lite && Art.has('map/oak-ancient')) { const p = px(o.idx); vil.push(`<g class="oak" transform="translate(${p.x.toFixed(1)} ${(p.y - 44).toFixed(1)}) scale(5.8)"><use href="#s-oak"/></g>`); } }  
     el['l-village'].innerHTML = vil.join('') + `<g class="labels">${labels.join('')}</g>`;
-    ckIndex('l-terrain'); ckIndex('l-deco');
+    ckIndex('l-terrain'); ckIndex('l-deco'); syncDeco();
   }
 
   function renderFog() {
@@ -360,6 +466,7 @@ const MapView = (() => {
       const p = px(c.idx);
       bucketPush(out, p, `<polygon data-i="${c.idx}" points="${hexPts(p.x, p.y, 1.04)}"/>`);
     }
+    syncDeco();
     el['l-fog'].innerHTML = bucketHtml(out);
     for (const f of el['l-fog'].querySelectorAll('polygon')) fogEls.set(Number(f.getAttribute('data-i')), f);
     ckIndex('l-fog');
@@ -373,6 +480,7 @@ const MapView = (() => {
     fogEls.delete(i);
     const d = from != null && map.cells[from] ? Math.max(0, Math.round(HexMap.dist ? HexMap.dist(map.cells[from], map.cells[i]) : 0)) : 0;
     f.style.transitionDelay = (d * 110) + 'ms';
+    queueDeco();
     f.classList.add('lift');
     freshIdx.add(i);
     setTimeout(() => { f.style.display = 'none'; }, 1000 + d * 110);   // 2.2.10: не remove() — удаление узла из карты пересчитывало весь SVG (~150 мс), и экран дёргался
@@ -417,6 +525,7 @@ const MapView = (() => {
   }
 
   function renderMonsters() {
+    syncDeco();
     const out = [], mb = new Map();
     const now = Date.now();
     for (const sp of [...map.spawns, ...guestList, ...(rareSp ? [rareSp] : [])]) {
@@ -439,6 +548,7 @@ const MapView = (() => {
     }
     renderSiegeTokens(out);
     el['l-mon'].innerHTML = bucketHtml(mb) + out.join('');
+    syncNextGlow();
     setTimeout(() => freshIdx.clear(), 1600);
     ckIndex('l-mon');
     renderEvents();
@@ -614,7 +724,13 @@ const MapView = (() => {
 
   /* ---------- камера ---------- */
   let lastView = null;                  // размеры поля карты с прошлого замера (cull() не должен заставлять браузер пересчитывать вёрстку)
-  const view = () => (lastView = el['map-svg'].getBoundingClientRect());
+  /* 2.3.9: размеры поля карты запоминаются. Раньше они измерялись при каждом движении пальца или мыши — сразу после сдвига
+     карты, и браузер был вынужден тут же пересчитывать страницу (при перетаскивании на это уходила заметная часть кадра).
+     Замер сбрасывается, когда поле действительно может измениться: размер окна, поворот, полный экран, смена режима,
+     начало нового жеста. */
+  let viewOk = false;
+  const viewDirty = () => { viewOk = false; };
+  const view = () => { if (!viewOk || !lastView) { lastView = el['map-svg'].getBoundingClientRect(); viewOk = lastView.width > 0; } return lastView; };
   // 2.2.7: во время ходьбы (light) каждый кадр двигается только сама карта; отсечение невидимого и миникарта — не чаще раза в 180 мс
   // 2.2.10: пока карта едет (шаг героя, перетаскивание, масштаб) — фоновые анимации (покачивание зверей, дым, облака, погода) стоят,
   // иначе каждый кадр пересчитывает стили десятков тысяч узлов и картинка дёргается. Через 0,35 с покоя всё оживает.
@@ -705,7 +821,11 @@ const MapView = (() => {
     const pointers = new Map();
     let drag = null, pinch = null;
 
+    for (const ev of ['resize', 'orientationchange']) window.addEventListener(ev, viewDirty);
+    for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, viewDirty);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(viewDirty).observe(svg);
     svg.addEventListener('pointerdown', (e) => {
+      viewDirty();
       svg.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 1) drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false };
@@ -1283,7 +1403,7 @@ const MapView = (() => {
       st.defeated[sp.id] = Date.now() + (sp.guest ? GUEST_REST_MS : RESPAWN_MS);
       if (st.swarm) delete st.swarm[sp.id];
       renderMonsters(); renderHud(); marketNews(); save();
-      if (typeof SND !== 'undefined' && SND.win) SND.win();
+      if (typeof Sound !== 'undefined' && Sound.win) Sound.win();   // 2.3.9: было SND — имя из js/game.js, здесь его нет, и звук победы в быстром бою не играл
       resultCard(_t("Быстрый бой: {0} повержен", [Bestiary.MONSTERS[sp.species].name]), html);
     });
   }
@@ -1748,7 +1868,7 @@ const MapView = (() => {
     if (sel.lord) {
       if (result === 'win' && sel.lordId != null) { Profile.chron('lord', 1); st.defeated[sel.lordId] = Date.now() + 20 * 3600000; toast(_t("Хозяин замка повержен!"), 4500); }
       else if (result === 'loss' && fromLoc) { /* герой уже у ворот замка (gateReturn) */ }
-      else if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); }
+      else if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait(); }
       refreshPlayerArt(); renderMonsters(); renderHud(); save();
       requestAnimationFrame(() => centerOn(st.pos, false));
       return;
@@ -1768,7 +1888,7 @@ const MapView = (() => {
           else { save(); showLair(l); }
         } else {
           endLair(l);
-          if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); }
+          if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait(); }
           else toast(_t("Вы покинули логово с добычей"));
         }
       }
@@ -1797,7 +1917,7 @@ const MapView = (() => {
     } else if (result === 'loss') {
       st.pos = respawnPos();
       revealAround(st.pos);
-      toast(_t("Вы проиграли и очнулись у Алтаря воскрешения"));
+      toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait();
     } else {
       toast(_t("Вы отступили"));
     }
@@ -1919,6 +2039,23 @@ const MapView = (() => {
       if (q) target = el['l-village'].querySelector(`.bldg[data-b="${(Unlocks.GIVERS && Unlocks.GIVERS[q.giver]) ? Unlocks.GIVERS[q.giver][0] : q.giver}"]`);
     }
     if (target) target.classList.add('next-step');
+    syncNextGlow();
+  }
+  // 2.3.9: копия подсвеченной фигурки с сильным свечением поверх оригинала (см. .next-glow в css/style.css).
+  // Копия не ловит нажатия и не несёт data-i/data-b; её покачивание выставляется в такт оригиналу, иначе фигурка двоится.
+  function syncNextGlow() {
+    for (const g of document.querySelectorAll('.next-glow')) g.remove();
+    for (const t of document.querySelectorAll('.next-step')) {
+      let c = null;
+      try {
+        c = t.cloneNode(true);
+        c.classList.remove('next-step', 'fresh'); c.classList.add('next-glow');
+        c.removeAttribute('data-i'); c.removeAttribute('data-b'); c.setAttribute('aria-hidden', 'true');
+        t.after(c);
+        const A = t.getAnimations({ subtree: true }), B = c.getAnimations({ subtree: true }).filter((x) => x.animationName !== 'next-glow');
+        for (let i = 0; i < Math.min(A.length, B.length); i++) if (A[i].animationName === B[i].animationName) B[i].currentTime = A[i].currentTime;
+      } catch (e) { if (c) c.remove(); }                     // старый браузер без getAnimations — остаётся неподвижное слабое свечение
+    }
   }
 
   function renderHud() {

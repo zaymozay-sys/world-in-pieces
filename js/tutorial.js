@@ -141,12 +141,16 @@ const Tutorial = (() => {
     return (typeof Art !== 'undefined' && Art.hasNpc('beaver-library')) ? Art.npcPortrait('beaver-library')
       : '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#241d15"/><ellipse cx="50" cy="60" rx="30" ry="26" fill="#8a6a42"/><circle cx="38" cy="52" r="9" fill="none" stroke="#e3c98a" stroke-width="2"/><circle cx="62" cy="52" r="9" fill="none" stroke="#e3c98a" stroke-width="2"/></svg>';
   }
+  // 2.3.9: видимость подсказки дублируется классом body.coach-on. Раньше строку цели прятало правило body:has(.coach…),
+  // а :has на body заставляет браузер пересчитывать стили ВСЕЙ страницы (30 тысяч элементов карты) при любой вставке узла.
+  function coachShown(on) { if (box) box.hidden = !on; document.body.classList.toggle('coach-on', !!(on && box)); }
+
   function render() {
-    if (!active) { if (box) box.hidden = true; clearHl(); return; }
+    if (!active) { coachShown(false); clearHl(); return; }
     const s = cur();
     // На карте и в деревне окно прячется, пока идёт обычный бой (оно вернётся при возврате на карту).
-    if (s && s.phase !== 'battle' && !inMapMode()) { if (box) box.hidden = true; clearHl(); return; }
-    if (s && s.wait === 'faction') { if (box) box.hidden = true; clearHl(); return; }   // 1.5.4: ждём выбора народа
+    if (s && s.phase !== 'battle' && !inMapMode()) { coachShown(false); clearHl(); return; }
+    if (s && s.wait === 'faction') { coachShown(false); clearHl(); return; }   // 1.5.4: ждём выбора народа
     if (!box) {
       box = document.createElement('div');
       box.className = 'coach';
@@ -158,7 +162,7 @@ const Tutorial = (() => {
     const shownStep = (x) => !hiddenStep(x) && x.wait !== 'faction', total = STEPS.filter(shownStep).length, shown = STEPS.slice(0, idx + 1).filter(shownStep).length, text = dockText(typeof s.text === 'function' ? s.text() : s.text);
     const waiting = s.wait && s.wait !== 'next';
     box.className = 'coach coach-' + s.phase;
-    box.hidden = false;
+    coachShown(true);
     box.innerHTML = _t("<span class=\"coach-portrait\">{0}</span>\n      <div class=\"coach-body\"><b class=\"coach-name\">Бобёр-хранитель <small>{1} / {2}</small></b>\n        <p>{3}</p>\n        <div class=\"coach-act\">\n          {4}\n          <button type=\"button\" class=\"coach-skip\" data-coach=\"skip\">Пропустить обучение</button>\n        </div></div>", [portrait(), shown, total, text, waiting ? _t("<span class=\"coach-wait\">Жду твоего действия…</span>") : `<button type="button" class="primary" data-coach="next">${s.nextLabel || _t("Далее")}</button>`]);
     setTimeout(highlight, 60);
   }
@@ -230,7 +234,7 @@ const Tutorial = (() => {
     active = false;
     clearTimeout(pending); pending = null;
     clearHl();
-    if (box) box.hidden = true;
+    coachShown(false);
     const d = Profile.data, first = !(d.tutorial && d.tutorial.rewarded);
     d.tutorial = Object.assign(d.tutorial || {}, { done: true, step: null });
     if (typeof GAME_VERSION !== 'undefined' && d.seenVersion === undefined) d.seenVersion = GAME_VERSION;   // 2.2.7: новичку «Что нового» не показываем — он не знает, что было раньше

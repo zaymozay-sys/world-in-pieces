@@ -104,19 +104,19 @@ const Screens = (() => {
     if ((k = Medals.styleKey(id))) return part(k);
     if ((k = Medals.worldKey(id)) === 'altars') return part('altars');
     if ((k = Medals.secretKey(id)) && got) return part(k);
-    if (id.startsWith('m:')) { const mm = Medals.masterOf(id); return mm && ['cut', 'craft', 'depth'].includes(mm.s) ? part(mm.s, mm.n) : ''; }
+    if (id.startsWith('m:')) { const mm = Medals.masterOf(id); return mm && ['cut', 'craft', 'depth', 'elite', 'hatch', 'arena', 'pvp'].includes(mm.s) ? part(mm.s, mm.n) : ''; }
     return '';
   };
   function medalTile(id, earned, level, progress, need) {
     const unlockLvl = Medals.tierUnlockLevel(id);
     const tierOpen = level >= unlockLvl;
-    const tier = earned ? earned.tier : 1;
+    const tier = earned ? (Medals.killSpecies(id) ? Math.max(1, Medals.rankOf(Medals.killSpecies(id), Profile.data.bestiary)) : earned.tier) : 1;
     const got = !!earned;
     const bonusText = got ? Object.entries(Medals.bonusFor(id, Profile.data.bestiary) || {}).map(([k, v]) => `${STAT_NAMES_RU[k] || k} +${v}`).join(', ') : '';
     // 1.6.2: ступень медали за вид (бронза/серебро/золото) — по числу побед над видом
     const sp0 = Medals.killSpecies(id), wins0 = sp0 ? ((Profile.data.bestiary[sp0] && Profile.data.bestiary[sp0].wins) || 0) : 0;
-    const rank = sp0 && got ? Medals.rankOf(sp0, Profile.data.bestiary) : 0, nxt = sp0 && got ? Medals.nextRankWins(wins0) : null;
-    const rankText = rank ? ' ' + _t("Ступень: {0}.", [Medals.RANK_NAMES[rank - 1]]) + (nxt ? ' ' + _t("До следующей: {0 победа|победы|побед}.", [nxt - wins0]) : '') : '';
+    const rank = sp0 && got ? Medals.rankOf(sp0, Profile.data.bestiary) : 0, nxt = sp0 && got ? Medals.nextRankWins(wins0, sp0) : null;
+    const rankText = rank ? ' ' + _t("Ступень: {0}.", [Medals.rankNames()[rank - 1]]) + (nxt ? ' ' + _t("До следующей: {0 победа|победы|побед}.", [nxt - wins0]) : '') : '';
     const hiddenSecret = Medals.secretKey(id) && !got;                           // 1.6.2: скрытая медаль до получения
     const title = hiddenSecret ? _t("Скрытая медаль — условие неизвестно") : Medals.nameFor(id) + rankText + ' — ' + (got
       ? (_t("получена") + (tierOpen ? '' : _t("; цвет откроется на уровне {0} (сейчас {1})", [unlockLvl, level])) + (bonusText ? _t(". Бонус: {0}", [bonusText]) : ''))
@@ -129,7 +129,7 @@ const Screens = (() => {
     else if (Medals.styleKey(id)) glyph = `<span class="mg-num mg-style">${{ flawless: '✚', swift: '⚡', nomagic: '✋', onespell: '◎', alchemist: '⚗' }[Medals.styleKey(id)] || '★'}</span>`;
     else if (id.startsWith('daily:')) glyph = _t("<span class=\"mg-num\">{0}<small>дней</small></span>", [id.slice(6)]);
     else if (id.startsWith('spell:')) glyph = _t("<span class=\"mg-num\">{0}<small>закл.</small></span>", [id.slice(6) >= 1000 ? (id.slice(6) / 1000) + 'k' : id.slice(6)]);
-    else if (id.startsWith('m:')) { const mm = Medals.masterOf(id); glyph = `<span class="mg-num">${mm ? mm.n : ''}<small>${{ craft: '⚒', depth: '▼', cut: '◆', rune: 'ᚱ' }[mm && mm.s] || ''}</small></span>`; }
+    else if (id.startsWith('m:')) { const mm = Medals.masterOf(id); glyph = `<span class="mg-num">${mm ? mm.n : ''}<small>${{ craft: '⚒', depth: '▼', cut: '◆', rune: 'ᚱ', elite: '★', hatch: '🥚', arena: '⚔', pvp: '♛' }[mm && mm.s] || ''}</small></span>`; }
     else if (id.startsWith('drunk:')) glyph = _t("<span class=\"mg-num\">{0}<small>эликс.</small></span>", [id.slice(6)]);
     else if (Medals.elixirKey(id)) glyph = `<span class="mg-num mg-style">⚗</span>`;
     else if (Medals.secretKey(id)) glyph = `<span class="mg-num mg-style">${got ? '✧' : '?'}</span>`;
@@ -183,7 +183,7 @@ const Screens = (() => {
     const how = medalHow(id, got);
     const bonus = Object.entries(Medals.bonusFor(id, Profile.data.bestiary) || {}).map(([k, v]) => `${STAT_NAMES_RU[k] || k} +${v}`).join(', ');
     const status = got ? _t("Получена") : _t("Прогресс: {0} / {1}", [prog, need]);
-    const rankLine = species ? `<p class="hint">${_t("Ступени: бронза — 1 победа, серебро — {0} (бонус ×2), золото — {1} (бонус ×3). Сейчас побед: {2}.", [Medals.RANK_WINS[1], Medals.RANK_WINS[2], (Profile.data.bestiary[species] && Profile.data.bestiary[species].wins) || 0])}</p>` : '';
+    const rankLine = species ? `<p class="hint">${_t("Ступени по победам над видом (цвет кружка): {0}. Сейчас побед: {1}.", [Medals.winsLadder(species).join(', '), (Profile.data.bestiary[species] && Profile.data.bestiary[species].wins) || 0])}</p>` : '';
     const favBtn = (mid) => { const isFav = Profile.favMedals().includes(mid), full = !isFav && Profile.favMedals().length >= 3; return `<button type="button" data-act="medal-fav" data-mid="${mid}" ${full ? 'disabled' : ''}>${isFav ? _t("Убрать из избранного") : full ? _t("Избранное занято (3 из 3)") : _t("★ В избранное")}</button> `; };
     const lock = got && level < unlockLvl ? `<p class="hint">${_t("Цвет значка откроется на уровне {0} (сейчас {1}).", [unlockLvl, level])}</p>` : '';
     const html = `<div class="medal-pop-back"><div class="medal-pop" role="dialog" aria-label="${Medals.nameFor(id).replace(/"/g, '&quot;')}">
@@ -573,10 +573,10 @@ const Screens = (() => {
       } else {
         const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e))
           .sort((a, b) => b.tier - a.tier).map((it) =>
-            itemCard(it, _t("Продать за: {0}", [money(Gear.sellValue(Math.round(it.price * Gear.wearFactor(Profile.item(it.uid)))))]), _t("<button type=\"button\" data-sell-item=\"{0}\">Продать</button>", [it.uid]))).join('') || _t("<p class=\"hint\">Нет вещей на продажу (надетые не продаются).</p>");
+            itemCard(it, _t("Продать за: {0}", [money(Gear.sellValue(Math.round(it.price * Gear.wearFactor(Profile.item(it.uid))), it.tier))]), _t("<button type=\"button\" data-sell-item=\"{0}\">Продать</button>", [it.uid]))).join('') || _t("<p class=\"hint\">Нет вещей на продажу (надетые не продаются).</p>");
         const cons = Object.entries(Gear.CONSUMABLES).filter(([k]) => Profile.data.backpack[k] > 0).map(([k, c]) => _t("\n          <div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}</span><span class=\"item-foot\">За штуку: {3}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-sell-cons=\"{4}\">Продать 1</button></div></div>", [itemIcon(k), c.name, Profile.data.backpack[k], money(Gear.sellValue(consPrice(k))), k])).join('') || EmptyArt.html('flask', _t("Расходников нет"));
         const res = Profile.resList().map((r) => {
-          const p = Bestiary.resPrice(r.kind, r.tier);
+          const p = Bestiary.resSellPrice(r.kind, r.tier);
           return _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2} × {3}</span><span class=\"item-foot\">За штуку: {4}</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-sell-res=\"{5}:{6}\" data-n=\"1\">×1</button><button type=\"button\" data-sell-res=\"{7}:{8}\" data-n=\"all\">Все</button></div></div>", [tierColor(r.tier), MonsterArt.resIcon(r.kind, r.tier), resLabel(r.kind, r.tier), r.n, money(p), r.kind, r.tier, r.kind, r.tier]);
         }).join('') || _t("<p class=\"hint\">Ресурсов нет. Они выпадают из монстров.</p>");
         body = _t("<h3>Вещи</h3><div class=\"card-list\">{0}</div><h3>Расходники</h3><div class=\"card-list\">{1}</div><h3>Ресурсы</h3><div class=\"card-list\">{2}</div>", [items, cons, res]);
@@ -663,7 +663,7 @@ const Screens = (() => {
         if (!Profile.item(d.sellItem)) return;   // 1.6.4: повторный (устаревший) клик по уже проданной вещи не платит второй раз
         const ent = Profile.item(d.sellItem), it = Gear.item(ent), wf = Gear.wearFactor(ent);     // 1.6.6: изношенная вещь дешевле
         Profile.removeItem(d.sellItem);
-        Profile.addCoins(Gear.sellValue(Math.round(it.price * wf)));
+        Profile.addCoins(Gear.sellValue(Math.round(it.price * wf), it.tier));
         s.msg = _t("Продано: {0}", [it.name]);
         return changed();
       }
@@ -679,7 +679,7 @@ const Screens = (() => {
         const [kind, tier] = d.sellRes.split(':'), have = Profile.res(kind, Number(tier));
         const n = d.n === 'all' ? have : 1;
         if (!Profile.takeRes(kind, Number(tier), n)) return;
-        Profile.addCoins(Bestiary.resPrice(kind, Number(tier)) * n);
+        Profile.addCoins(Bestiary.resSellPrice(kind, Number(tier)) * n);
         s.msg = _t("Продано: {0} × {1}", [resLabel(kind, Number(tier)), n]);
         return changed();
       }
@@ -1139,7 +1139,7 @@ const Screens = (() => {
       const m = Bestiary.MONSTERS[s.sel], sc = Bestiary.scaled(s.sel, s.tier);
       const art = MonsterArt.has(s.sel) ? MonsterArt.bust(s.sel, s.tier) : `<div class="dragon-art" style="--t:${tierColor(s.tier)}">${Figures.avatar('dragon', null)}</div>`;
       const drops = m.drops.map(([kind, chance, min, max]) => _t("<div class=\"bag-row\">{0}<span><b>{1}</b> · {2}% · {3} шт.</span></div>", [MonsterArt.resIcon(kind, s.tier), resLabel(kind, s.tier), Math.round(chance * 100), min === max ? min : min + '–' + max]) + alsoDrops(kind, s.sel, known)).join('');
-      const coins = Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[s.tier - 1]);
+      const coins = Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[s.tier - 1] * Balance.economy.coinTier[s.tier - 1]);
       const innate = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('') || _t("<span class=\"hint\">нет</span>");
       const onMap = !inBattle;
       const L = Profile.level(), myS = Gear.combine(Gear.combine(Gear.statsFor(Profile.gear(), Profile.level()), Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(L))), Runes.bonusForGear(Profile.gear()));
@@ -2186,6 +2186,8 @@ const Screens = (() => {
         const bonus = Object.entries(g.bonus).map(([k, v]) => `+${v} ${Gear.STAT_NAMES[k] || k}`).join(', ');
         return `<p class="hint group-line ${done ? 'done' : ''}">${done ? '✓ ' : ''}${_t("Комплект «{0}»: {1}", [g.name, bonus])} — ${done ? _t("собран") : _t("осталось {0}", [pr.total - pr.done])}</p><p class="hint group-perk ${done ? 'done' : ''}">${Medals.PERKS[key] ? _t("Умение «{0}»: {1}. Реликвия: {2}", [Medals.PERKS[key].name, Medals.PERKS[key].desc, Gear.item({ id: Medals.relicId(key), tier: 1 }).name]) : _t("Реликвия: {0}", [Gear.item({ id: Medals.relicId(key), tier: 1 }).name])}</p>`;
       };
+      const nearList = Medals.nearest(Profile.data, 3);
+      const nearBlock = nearList.length ? `<h3>${_t("Ближайшие медали")}</h3><ul class="medal-near">${nearList.map((e) => `<li>${e.text} <progress value="${e.cur}" max="${e.need}"></progress> <small>${e.cur} / ${e.need}</small></li>`).join('')}</ul>` : '';
       const favLine = Profile.favMedals().length ? `<p class="hint">${_t("Избранные медали (видны рядом с именем героя): {0}", [Profile.favMedals().map((id) => Medals.nameFor(id)).join(', ')])}</p>` : `<p class="hint">${_t("Нажмите на полученную медаль и выберите «В избранное» — до трёх значков будут стоять рядом с именем героя.")}</p>`;
       const styleTiles = Medals.STYLE_ORDER.map((k) => {
         const mid = Medals.styleMedalId(k);
@@ -2215,7 +2217,7 @@ const Screens = (() => {
         return `<span class="gift-tile" title="${it.name()}${note ? ' — ' + note : ''}">${giftIc(it)}</span>`;
       }).join('');
       const giftsSection = `<h3>${_t("Подарки ({0} / {1})", [giftTiles ? Object.keys(gd.own).length : 0, Gifts.ITEMS.length])}</h3><p class="hint">${_t("Коллекционные — силу не дают. Покупаются в Почте, во вкладке «Подарки».")}</p><div class="gift-row">${giftTiles || `<p class="hint">${_t("Пока ни одного.")}</p>`}</div>`;
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Стена доблести\">{0}\n        <div class=\"screen-body tavern-body\">{1}</div></div>", [head(_t("Стена доблести")), favLine + body + giftsSection]);
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Стена доблести\">{0}\n        <div class=\"screen-body tavern-body\">{1}</div></div>", [head(_t("Стена доблести")), nearBlock + favLine + body + giftsSection]);
     },
     click() {},
   };

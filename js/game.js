@@ -3,91 +3,6 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
    правила боя (урон, приёмы, расходники) — в combat.js, все числа баланса — в balance.js,
    уровни героя — в hero.js. Здесь — ход боя, анимации и интерфейс. */
 
-const RULES = {
-  size: 6,               // поле 6x6
-  defaultHp: 100,
-  firstMove: null,       // для отладки: 'left' или 'right' — кто ходит первым (обычно решает Проворство)
-  defaultLevel: 30,      // уровень противника 1..100
-  timing: { swap: 200, clear: 230, fall: 280, shift: 280, spawn: 320, think: 600, burn: 650 },
-};
-
-// 1.6.4: скорость анимаций — настройка устройства (не профиль): быстро ×0.6, обычно ×1, медленно ×1.5. Меняет только паузы и
-// плавность движения камней (RULES.timing и CSS-переменная --anim); правила, баланс и таймер хода не затрагивает.
-const AnimSpeed = (() => {
-  const KEY = 'wip-anim', F = { normal: 1, fast: 0.6, slow: 1.5 }, ORDER = ['normal', 'fast', 'slow'], BASE = { ...RULES.timing };
-  let cur = 'normal';
-  try { const v = localStorage.getItem(KEY); if (F[v]) cur = v; } catch (e) { /* без хранилища — обычная */ }
-  const apply = () => {
-    for (const k in BASE) RULES.timing[k] = Math.round(BASE[k] * F[cur]);
-    try { document.documentElement.style.setProperty('--anim', String(F[cur])); } catch (e) { /* нет страницы */ }
-  };
-  const label = () => cur === 'fast' ? _t("Анимации: быстрые") : cur === 'slow' ? _t("Анимации: медленные") : _t("Анимации: обычные");
-  const cycle = () => { cur = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length]; try { localStorage.setItem(KEY, cur); } catch (e) { /* не страшно */ } apply(); return cur; };
-  apply();
-  return { label, cycle, apply, get mode() { return cur; } };
-})();
-
-// 2.0.9: размер текста в окнах и подсказках — настройка устройства: обычный / крупный (поле боя и карта не меняются)
-const TextSize = (() => {
-  const KEY = 'wip-text';
-  let large = false;
-  try { large = localStorage.getItem(KEY) === 'large'; } catch (e) { /* без хранилища — обычный */ }
-  const apply = () => { try { document.documentElement.classList.toggle('text-large', large); } catch (e) { /* нет страницы */ } };
-  const label = () => large ? _t("Текст: крупный") : _t("Текст: обычный");
-  const toggle = () => { large = !large; try { localStorage.setItem(KEY, large ? 'large' : 'normal'); } catch (e) { /* не страшно */ } apply(); return large; };
-  apply();
-  return { label, toggle, apply };
-})();
-
-// 1.6.5: таймер хода — настройка устройства (не профиль). По умолчанию ВЫКЛ: в боях с существами можно думать сколько угодно.
-// Включённый таймер — Combat.TURN_TIMER.seconds (30 с) на ход, три пропуска подряд — поражение; пока открыто окно (ранец, справка,
-// карточки), время стоит. Бой против живого игрока (PvP, позже) вёл бы таймер всегда и без пауз: host.pvp === true (на сервере).
-const TurnTimerSetting = (() => {
-  const KEY = 'wip-turn-timer';
-  let on = false;
-  try { on = localStorage.getItem(KEY) === '30'; } catch (e) { /* без хранилища — выключен */ }
-  const set = (v) => {
-    on = !!v;
-    try { localStorage.setItem(KEY, on ? '30' : 'off'); } catch (e) { /* не страшно */ }
-    try { window.dispatchEvent(new Event('turn-timer-changed')); } catch (e) { /* нет страницы */ }
-    return on;
-  };
-  return {
-    get on() { return on; }, set, toggle: () => set(!on),
-    label: () => on ? _t("Таймер хода: 30 с") : _t("Таймер хода: выкл"),
-    short: () => on ? _t("Таймер: 30 с") : _t("Таймер: выкл"),
-  };
-})();
-
-// 1.6.5 (заготовка, ВЫКЛЮЧЕНА: AdPause.enabled = false): когда появится реклама, при долгом раздумье над ходом (idleMs, по умолчанию 2 мин
-// без нажатий) игроку предлагается пауза на рекламу. Кнопка «Нет, продолжаем игру» закрывает сообщение и начинает отсчёт заново.
-// Сама реклама подключается через AdPause.onAccept (пока пусто — кнопка согласия закрывает сообщение).
-const AdPause = (() => {
-  const cfg = { enabled: false, idleMs: 120000, onAccept: null };
-  let timer = null, pop = null;
-  const clear = () => { if (timer) clearTimeout(timer); timer = null; };
-  const hide = () => { if (pop) { pop.remove(); pop = null; } };
-  const show = () => {
-    timer = null;
-    if (!cfg.enabled || pop || typeof document === 'undefined') return;
-    pop = document.createElement('div');
-    pop.className = 'modal-back adpause-back';
-    pop.innerHTML = `<div class="modal adpause" role="dialog" aria-label="${_t("Пауза на рекламу")}"><p>${_t("Пока думаете над ходом, можно сделать паузу на рекламу")}</p><div class="adpause-act"><button type="button" class="primary" data-adpause="yes">${_t("Сделать паузу")}</button><button type="button" data-adpause="no">${_t("Нет, продолжаем игру")}</button></div></div>`;
-    pop.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-adpause]'); if (!b) return;
-      const yes = b.dataset.adpause === 'yes'; hide();
-      if (yes && typeof cfg.onAccept === 'function') { try { cfg.onAccept(); } catch (err) { /* реклама не должна ломать бой */ } }
-      arm();
-    });
-    document.body.appendChild(pop);
-  };
-  function arm() { clear(); if (cfg.enabled && !pop) timer = setTimeout(show, cfg.idleMs); }
-  const touch = () => { if (timer) arm(); };       // любое нажатие игрока — отсчёт заново
-  if (typeof document !== 'undefined') { document.addEventListener('pointerdown', touch, true); document.addEventListener('keydown', touch, true); }
-  return { cfg, arm, disarm() { clear(); hide(); }, get shown() { return !!pop; },
-    get enabled() { return cfg.enabled; }, set enabled(v) { cfg.enabled = !!v; if (!v) { clear(); hide(); } } };
-})();
-
 const N = RULES.size;
 const ONYX = GEM_TYPES.indexOf('onyx');
 const MAGIC_TYPES = ['sapphire', 'ruby', 'emerald'];
@@ -399,6 +314,7 @@ function renderGear(side) {
   if (st.defense) chip('defense', '−' + Combat.armorOf(f), _t("Броня: вычитается из каждого удара"));
   if (st.block) chip('block', st.block + '%', _t("Блок: шанс полностью отразить удар"));
   if (st.ricochet) chip('ricochet', st.ricochet + '%', _t("Рикошет: шанс вернуть часть удара"));
+  if (st.leech && st.leechPower) chip('leech', st.leech + '%/' + st.leechPower + '%', _t("Регенерация: шанс и доля нанесённого урона, возвращаемая здоровьем"));
   if (st.initiative) chip('initiative', st.initiative + '%', _t("Проворство: шанс первого хода"));
   if (f.weaponPerk) chips.push(`<span class="sc txt">${WEAPON_PERK_NAMES[f.weaponPerk.type] || ''}</span>`);
   if (side === 'right') {                                              // семейство существа и слабое место для снаряда
@@ -1123,6 +1039,7 @@ function toggleFighterInfo(side) {
   row(_t("Броня"), st.defense ? '−' + Combat.armorOf(f) : '0');
   row(_t("Блок"), (st.block || 0) + '%'); row(_t("Рикошет"), (st.ricochet || 0) + '%'); row(_t("Проворство"), (st.initiative || 0) + '%');
   if (st.cunning) row(_t("Хитрость"), st.cunning + '%');
+  if (st.leech && st.leechPower) row(_t("Регенерация"), st.leech + '% / ' + st.leechPower + '%');
   if (st.fury) row(_t("Ярость"), st.fury + '%');
   if (side === 'right') {
     const mon = Bestiary.MONSTERS[f.monsterId], ea = enemyAbility(f);
@@ -1772,6 +1689,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.shred > 0) showFloat(target, _t("Броня трещит!"), 'debuff');
   if (r.critExtra) elxMark('fury');                        // эликсир ярости: первый крит бил сильнее
   if (r.venom) { showFloat(target, _t("Яд!"), 'venom'); logEvent(attackerSide, _t("{0}: Отрава — {1} урона в начале каждого из {2 хода|ходов|ходов} противника", [attacker.name, r.venom.dmg, r.venom.turns])); }
+  if (r.leech > 0) { SND.heal(); showFloat(attackerSide, '+' + r.leech, 'heal'); logEvent(attackerSide, _t("{0}: Регенерация — восстанавливает {1} здоровья", [attacker.name, r.leech])); }
   if (r.crit) { showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
   if (r.kind === 'reflect') {
     showFloat(target, _t("Рикошет!"), 'ricochet');
@@ -1880,6 +1798,9 @@ function setTurn(side) {
   if (side === 'left' && fighters.left.skillCd > 0 && side !== prevTurn) fighters.left.skillCd--;
   if (side === 'left' && side !== prevTurn) for (const k of Object.keys(fighters.left.elxCds || {})) if (fighters.left.elxCds[k] > 0) fighters.left.elxCds[k]--;
   if (side === 'left') fighters.left.ammoShot = false;     // боеприпас: один выстрел за свой ход
+  // 2.3.8: бой вдвоём — победитель ждёт, пока решится судьба второго поля. Если это поле (пета) ещё не закончено,
+  // при каждой смене хода даём шанс, что его противник прямо сейчас перескочит к ждущему, не дожидаясь исхода боя.
+  if (host.coord && !over && side !== prevTurn) host.coord.turnChanged(host.id);
   fEl('left').classList.toggle('active', side === 'left');
   fEl('right').classList.toggle('active', side === 'right');
   statusEl.textContent = side === 'left' ? (PET && !autopilot ? _t("Ход питомца — ваш") : PET ? _t("Ход питомца") : _t("Ваш ход")) : _t("Противник думает…");
@@ -2217,6 +2138,21 @@ function hideOverlay() {
   if (o) o.remove();
   over = false;
 }
+// 2.3.7: бой вдвоём — один из бойцов добил своего противника, а второй ещё жив. Поле держит старые камни
+// побеждённого боя (это сбивало с толку: казалось, что поле «зависло»). Показываем явный лёгкий оверлей вместо
+// итогового (showOverlay/hideOverlay — те закрывают весь бой); не трогает `over`, который уже true (finishBoard).
+function showWaitOverlay(text) {
+  const prev = $('overlay'); if (prev) prev.remove();
+  const o = document.createElement('div');
+  o.className = 'overlay wait-overlay';
+  o.id = 'overlay';
+  o.innerHTML = `<div><p>${text}</p></div>`;
+  boardEl.appendChild(o);
+}
+function hideWaitOverlay() {
+  const o = $('overlay');
+  if (o && o.classList.contains('wait-overlay')) o.remove();
+}
 
 /* ---------- поле ---------- */
 
@@ -2235,12 +2171,12 @@ function buildBoard() {
     const h = document.createElement('i');
     h.className = 'seam seam-h';
     h.style.top = (i * 100 / N) + '%';
-    h.style.animationDelay = (i * 0.22).toFixed(2) + 's';
+    h.appendChild(document.createElement('b')).style.animationDelay = (i * 0.22).toFixed(2) + 's';   // 2.3.9: искра — отдельный узел, едет через transform (см. css)
     glow.appendChild(h);
     const v = document.createElement('i');
     v.className = 'seam seam-v';
     v.style.left = (i * 100 / N) + '%';
-    v.style.animationDelay = (i * 0.22 + 0.5).toFixed(2) + 's';
+    v.appendChild(document.createElement('b')).style.animationDelay = (i * 0.22 + 0.5).toFixed(2) + 's';
     glow.appendChild(v);
   }
   boardEl.appendChild(glow);
@@ -2636,6 +2572,7 @@ function rewardFor(f, first = true, opts = {}) {
   Profile.addCoins(drops.coins);
   if (drops.fortune) MapView.toast(_t("Амулет удачи: монет вдвое больше!"), 2500);
   const up = Profile.addXp(xp);
+  if (first && f.elite && !opts.quick) Profile.noteMaster('elite', 1);   // 2.3.8: лесенка «Охотник на элиту»
   const killMedal = Profile.checkKillMedal(f.monsterId, Hero.tierFor(Profile.level()));   // первая победа над видом
   const shotMedal = first && shotKilledMonster ? Profile.registerShotKill(Hero.tierFor(Profile.level())) : null;
   const spellMedal = first && !opts.quick ? Profile.registerSpellWins(battleStyle.spells, Hero.tierFor(Profile.level())) : null;   // 2.0.4: «Чародей»
@@ -2646,7 +2583,8 @@ function rewardFor(f, first = true, opts = {}) {
   const lines = [_t("Опыт: +{0}", [xp]), _t("Монеты: {0}{1}", [MonsterArt.moneyHtml(drops.coins), luckPct ? _t(" (со Свитком удачи)") : ''])];
   const eggKind = opts.quick ? null : Profile.rollEgg(f.monsterId);
   if (eggKind) lines.push(_t("<b class=\"lvlup\">Находка!</b> {0} — высиживается в Питомнике", [Pets.EGGS[eggKind].name]));
-  if (killMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(killMedal.id)]));
+  if (killMedal && killMedal.level) lines.push(_t("<b class=\"lvlup\">Новая ступень медали!</b> {0} — {1}", [Medals.nameFor(killMedal.id), Medals.rankNames()[killMedal.level - 1]]));
+  else if (killMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(killMedal.id)]));
   if (shotMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(shotMedal.id)]));
   if (spellMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(spellMedal.id)]));
   if (strikeMedal) lines.push(_t("<b class=\"lvlup\">Медаль!</b> {0}", [Medals.nameFor(strikeMedal.id)]));
@@ -2802,6 +2740,7 @@ function specialResult(win) {
     World.arenaLog(a, { day: Daily.today(), nick: sh.nick, f: sh.faction, win, rule: sh.rule || '', rev, rank: before });
     if (!win && !rev) a.revenge = { ...sh, rev: true, rule: sh.rule };       // реванш: тот же противник, поражение не снимает звезду
     if (win && rev) a.revenge = null;
+    if (win) Profile.noteMaster('arena', a.wins, false);   // 2.3.8: лесенка «Гладиатор» (всего побед на арене)
     if (win) {
       if (a.fights < World.ARENA_DAILY) {
         a.fights++;
@@ -4045,7 +3984,7 @@ async function resolveBoard(side) {
       tile.el.classList.add('pop');
     }
     let cleared = 0, has5 = false;
-    for (let i = 0; i < N * N; i++) { if (bon[i]) cleared++; if (bon[i] === 3) has5 = true; }
+    for (let i = 0; i < N * N; i++) { if (bon[i]) cleared++; if (bon[i] >= 3) has5 = true; }   // 2.3.7: линия из 5 ИЛИ БОЛЬШЕ камней (bonusFor: 5→x3, 6+→x10) — раньше 6+ не засчитывалась в медаль
     turnStats.stones += cleared;
     turnStats.bonus = Math.max(turnStats.bonus, maxBonus);
     SND.match(cleared, maxBonus, step);
@@ -4672,6 +4611,8 @@ if (host.main) {
   hasMatches: { get: () => hasMatches, enumerable: true, configurable: true },
   hideCross: { get: () => hideCross, enumerable: true, configurable: true },
   hideOverlay: { get: () => hideOverlay, enumerable: true, configurable: true },
+  showWaitOverlay: { get: () => showWaitOverlay, enumerable: true, configurable: true },
+  hideWaitOverlay: { get: () => hideWaitOverlay, enumerable: true, configurable: true },
   inBattle: { get: () => inBattle, set: (v) => { inBattle = v; }, enumerable: true, configurable: true },
   invalidStreak: { get: () => invalidStreak, set: (v) => { invalidStreak = v; }, enumerable: true, configurable: true },
   isArena: { get: () => isArena, enumerable: true, configurable: true },
@@ -4826,698 +4767,3 @@ const BATTLE_TEMPLATE = (typeof document !== 'undefined' && document.querySelect
 const MAIN_HOST = { main: true, id: 'hero', root: (typeof document !== 'undefined' && document.querySelector('main.game')) || document };
 const MAIN_BATTLE = createBattle(MAIN_HOST);
 Object.defineProperties(globalThis, Object.getOwnPropertyDescriptors(MAIN_BATTLE));
-
-/* ---------- Бой вдвоём: два поля одновременно (1.4.8) ----------
-   Герой дерётся со своим противником на основном поле, питомец — с точной копией того же противника на втором
-   (createBattle с role 'pet'). Питомца ведёт ИИ с «умом» из его опыта (Pets.intellect); игрок может переключиться
-   на вкладку «Питомец» и взять его под себя («Играть за питомца») — тогда героя ведёт ИИ на полную силу.
-   Итог подводит Duo: убитые противники дают награду при победе, поражении и отступлении; если один из наших пал,
-   а другой выжил, выживший добивает оставшегося противника на своём поле. */
-const Duo = (() => {
-  let petB = null, petHost = null, bar = null, tick = null, st = null;
-  const M = () => MAIN_BATTLE;
-  const mainEl = () => MAIN_HOST.root;
-  const silent = new Proxy({}, { get: (_, k) => {
-    const real = typeof Sound !== 'undefined' ? Sound[k] : undefined;
-    if (typeof real !== 'function') return real;
-    return (...a) => (st && st.tab === 'pet' ? real.apply(Sound, a) : undefined);
-  } });
-
-  const on = () => !!st;
-  function wanted() {
-    const sel = Profile.data.monster || {};
-    return !isTrainingNow() && !(typeof Tutorial !== 'undefined' && Tutorial.inBattle()) && !sel.boss && !sel.arena && !sel.challenge && Profile.petInBattle();
-  }
-  const isTrainingNow = () => MAIN_BATTLE.fighters.right.monsterId === 'beaver';
-  const boards = () => ({ hero: M(), pet: petB });
-
-  function begin(petF, opts = {}) {
-    end();
-    const pd = Profile.pet();
-    if (!BATTLE_TEMPLATE || !pd) return;
-    st = { control: 'hero', tab: 'hero', waiting: null, result: { hero: null, pet: null }, kills: [], petOutcomes: [], done: false, pd, help: { 'hp-h2p': 0, 'hp-p2h': 0, 'st-h2p': 0, 'st-p2h': 0 }, noHelp: !!opts.noHelp, helpOpen: false };
-    const root = BATTLE_TEMPLATE.cloneNode(true);
-    root.classList.add('duo-pet', 'duo-hidden');
-    for (const e of root.querySelectorAll('[id]')) { e.setAttribute('data-bid', e.id); e.id = 'pet-' + e.id; }   // 1.6.4 (WIP-07): id в документе уникальны
-    mainEl().after(root);
-    petHost = { role: 'pet', id: 'pet', root, sound: silent, autopilot: true, autoLevel: Pets.dopedIntellect(pd, petF.intBonus), coord: Duo };
-    MAIN_HOST.coord = Duo;
-    petB = createBattle(petHost);
-    petB.buildSpellbar();
-    petB.startPetGame({
-      fighter: petF, foe: structuredClone(M().fighters.right), level: Pets.dopedIntellect(pd, petF.intBonus),
-      name: Pets.petTitle(pd), speciesId: pd.speciesId, tier: pd.tier, hpMult: Pets.boardHp(pd), dmgMult: Pets.boardDmg(pd),
-    });
-    buildBar();
-    document.body.classList.add('duo-battle');
-    tick = setInterval(renderBar, 400);
-  }
-
-  function buildBar() {
-    bar = document.createElement('div');
-    bar.className = 'duo-bar';
-    bar.innerHTML = '<button type="button" class="duo-tab on" data-tab="hero"><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small><span class="dt-st"></span></button>' +
-      '<button type="button" class="duo-tab" data-tab="pet"><span class="dt-av"></span><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small><span class="dt-st"></span></button>' +
-      '<button type="button" class="duo-take"></button><button type="button" class="duo-help" hidden></button><div class="duo-helpmenu" hidden></div>';
-    bar.querySelector('[data-tab=pet] .dt-av').innerHTML = petB.petPortrait(petB.fighters.left);
-    bar.addEventListener('click', (e) => {
-      const t = e.target.closest('.duo-tab'), k = e.target.closest('.duo-take'), hb = e.target.closest('.duo-help'), ha = e.target.closest('[data-help]');
-      if (ha) { if (!ha.disabled) help(ha.dataset.help); }
-      else if (hb) { st.helpOpen = !st.helpOpen; renderBar(); }
-      else if (t) setTab(t.dataset.tab);
-      else if (k) setControl(st.control === 'pet' ? 'hero' : 'pet', true);
-    });
-    mainEl().before(bar);
-    renderBar();
-  }
-
-  // 1.5.2: бой без питомца — та же полоса сверху (имя и цвет противника, у стража — подпись), чтобы поле стояло на месте
-  // в любом бою: с питомцем, без него и со стражем.
-  function solo() {
-    end();
-    bar = document.createElement('div');
-    bar.className = 'duo-bar solo';
-    bar.innerHTML = '<div class="duo-tab solo-tab"><span class="dt-name"></span><span class="dt-hp"><i></i></span><small></small><span class="dt-st"></span></div>';
-    mainEl().before(bar);
-    document.body.classList.add('duo-battle', 'solo-battle');
-    renderSolo();
-    tick = setInterval(renderSolo, 400);
-    if (typeof fitBattleHeight === 'function') fitBattleHeight();
-  }
-  // 1.7.1: в густом тумане ХП врага не видно и в сводке над полем
-  // 1.7.7: камни, собранные каждым участником боя, видны всегда — своя и вражеская горсть рядом (в тумане у врага «?»).
-  const stoneChips = (f, hide) => MAGIC_TYPES.map((t) => `<i class="sc" title="${GEM_NAMES[t]}">${GEM_SVG[t]}<b>${hide ? '?' : (f.counts && f.counts[t]) || 0}</b></i>`).join('');
-  const stonesRow = (own, foe) => {
-    const hide = typeof Sky !== 'undefined' && Sky.hidesEnemy(Profile.data.monster);
-    return `<span class="sg own">${stoneChips(own, false)}</span><span class="sv">⚔</span><span class="sg foe">${stoneChips(foe, hide)}</span>`;
-  };
-  const setStones = (tab, own, foe) => {
-    const el = tab.querySelector('.dt-st'); if (!el) return;
-    const html = stonesRow(own, foe);
-    if (el.dataset.k !== html) { el.dataset.k = html; el.innerHTML = html; }
-  };
-  // 1.7.7 (эскизы А и Б): плашки участников боя. У каждого — портрет, имя, ХП и свои камни. Бойцы второго поля (питомец и
-  // копия врага; на втором поле — герой и его враг) стоят под карточками (компьютер, Б) или отдельной строкой над полем
-  // (телефон, А); нажатие на плашку открывает то поле. В бою один на один строка — подпись приёма врага (и стража).
-  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const avatarOf = (root, side) => { const a = root.querySelector(`.fighter.${side} .avatar`); return a ? a.innerHTML : ''; };
-  function plaque(f, av, kind, go, hideNums) {
-    const pct = hideNums ? 100 : Math.max(0, Math.min(100, f.hp / Math.max(1, f.max) * 100));
-    const txt = hideNums ? '?' : `${Math.max(0, f.hp)}/${f.max}`;
-    return `<div class="pq ${kind}${f.hp <= 0 ? ' down' : ''}" data-go="${go}" role="button" tabindex="0" title="${esc(f.name)}"><span class="pq-av">${av}</span><span class="pq-nm">${esc(f.name)}</span><span class="pq-hp"><i style="width:${pct.toFixed(1)}%"></i><b>${txt}</b></span><span class="pq-st">${stoneChips(f, hideNums)}</span></div>`;
-  }
-  function mountTeam(root) {
-    const ar = root.querySelector('.arena'), L = root.querySelector('.fighter.left'), R = root.querySelector('.fighter.right');
-    if (!ar || !L || !R) return null;
-    const make = (parent, cls) => {
-      let e = parent.querySelector(':scope > .' + cls);
-      if (!e) {
-        e = document.createElement('div'); e.className = cls; parent.appendChild(e);
-        e.addEventListener('click', onTeamClick);
-        e.addEventListener('keydown', (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.closest('.pq')) { ev.preventDefault(); onTeamClick(ev); } });
-      }
-      return e;
-    };
-    return { row: make(ar, 'pq-row'), inL: make(L, 'pq-in'), inR: make(R, 'pq-in') };
-  }
-  function onTeamClick(e) {
-    if (!st) return;
-    if (e.target.closest('.pq-take')) { setControl(st.control === 'pet' ? 'hero' : 'pet', true); return; }
-    if (e.target.closest('.pq.ally')) {   // 2.3.5: нажатие на карточку напарника всегда меняет управление (на ждущего — только взгляд)
-      const go = e.target.closest('.pq.ally').dataset.go;
-      if (st.waiting === go || (st.result[go] && st.result[go].result !== 'wait')) { if (st.tab !== go) setTab(go); return; }
-      setControl(st.control === 'pet' ? 'hero' : 'pet', true);
-      return;
-    }
-    const g = e.target.closest('[data-go]');
-    if (g && g.dataset.go !== st.tab) setTab(g.dataset.go);
-  }
-  const setHtml = (el, html) => { if (el.dataset.k !== html) { el.dataset.k = html; el.innerHTML = html; } };
-  let takeState = { text: '', hidden: true };
-  function renderTeam() {
-    if (!st || !petB || !petHost) return;
-    const hide = typeof Sky !== 'undefined' && Sky.hidesEnemy(Profile.data.monster);
-    const mainR = mainEl(), petR = petHost.root;
-    const sets = [
-      { root: mainR, mate: petB.fighters.left, foe: petB.fighters.right, av: [avatarOf(petR, 'left'), avatarOf(petR, 'right')], go: 'pet' },
-      { root: petR, mate: M().fighters.left, foe: M().fighters.right, av: [avatarOf(mainR, 'left'), avatarOf(mainR, 'right')], go: 'hero' },
-    ];
-    for (const x of sets) {
-      const m = mountTeam(x.root); if (!m) continue;
-      const w = st.waiting === x.go;
-      const a = plaque(x.mate, x.av[0], w ? 'ally wait' : 'ally', x.go, false), f = w ? '' : plaque(x.foe, x.av[1], 'foe', x.go, hide);
-      setHtml(m.inL, a); setHtml(m.inR, f);
-      setHtml(m.row, a + f + `<button type="button" class="pq-take"${takeState.hidden ? ' hidden' : ''}>${esc(takeState.text)}</button>`);
-    }
-  }
-  const foeNum = (b) => (typeof Sky !== 'undefined' && Sky.hidesEnemy(Profile.data.monster) ? '?' : `${Math.max(0, b.foeHp)}/${b.foeMax}`);
-  function renderSolo() {
-    if (!bar || st) return;
-    const b = M().brief(), f = b.foe, boss = Profile.data.monster && Profile.data.monster.boss, ch = boss && typeof Story !== 'undefined' ? Story.BY_ID[boss] : null;
-    const nm = bar.querySelector('.dt-name');
-    const label = ch ? (ch.id === 'b5' ? _t("Последний осколок") : _t("Страж осколка {0}", [ch.id.slice(1)])) : '';
-    const gr = (Profile.data.monster && Profile.data.monster.grow) || 0, key = f.name + '|' + f.tier + '|' + label + '|' + gr;
-    if (nm.dataset.key !== key) {
-      nm.dataset.key = key; nm.textContent = f.name + (label ? ' · ' + label + ' ' : ' ');
-      nm.insertAdjacentHTML('beforeend', tierChip(f.tier, gr));
-    }
-    bar.querySelector('.dt-hp i').style.width = Math.max(0, b.foeHp / b.foeMax * 100) + '%';
-    const pt = b.pet ? ` · ${b.pet.name}${b.pet.alive ? '' : _t(" (пал в бою)")} ${Math.max(0, b.pet.hp)}/${b.pet.max}` : '';
-    bar.querySelector('small').textContent = `${_t("Герой")} ${Math.max(0, b.hp)}/${b.max}${pt} · ${_t("враг")} ${foeNum(b)}`;
-    setStones(bar.querySelector('.solo-tab'), M().fighters.left, M().fighters.right);
-    const tm = mountTeam(mainEl());
-    if (tm) {
-      const ab = mainEl().querySelector('.fighter.right .ability-line'), A = Bestiary.ability(M().fighters.right.monsterId);
-      const what = A && A.name ? `${A.name}: ${A.desc}` : (ab ? ab.textContent.trim() : '');
-      const info = ((label ? label + ' · ' : '') + what).trim();
-      const fr = M().fighters.right, mm = typeof window.mobMagicHtml === 'function' && fr && fr.hp > 0 ? window.mobMagicHtml(fr) : '';
-      setHtml(tm.row, mm || `<div class="pq-info">${esc(info)}</div>`);
-    }
-    syncBarH();
-  }
-
-  function renderBar() {
-    if (!st || !bar) return;
-    const h = M().brief(), p = petB.brief();
-    const fill = (b, f, o) => { b.querySelector('.dt-hp i').style.width = Math.max(0, f.hp / f.max * 100) + '%'; };
-    const th = bar.querySelector('[data-tab=hero]'), tp = bar.querySelector('[data-tab=pet]');
-    th.querySelector('.dt-name').textContent = _t("Герой");
-    th.querySelector('small').textContent = `${Math.max(0, h.hp)}/${h.max} · ${_t("враг")} ${foeNum(h)}`;
-    tp.querySelector('.dt-name').textContent = _t("Питомец");
-    tp.querySelector('small').textContent = `${Math.max(0, p.hp)}/${p.max} · ${_t("враг")} ${foeNum(p)}`;
-    fill(th, h); fill(tp, p);
-    setStones(th, M().fighters.left, M().fighters.right);
-    setStones(tp, petB.fighters.left, petB.fighters.right);
-    syncBarH();
-    th.classList.toggle('on', st.tab === 'hero'); tp.classList.toggle('on', st.tab === 'pet');
-    th.classList.toggle('mine', st.control === 'hero'); tp.classList.toggle('mine', st.control === 'pet');
-    th.classList.toggle('down', !!st.result.hero && st.result.hero.result !== 'wait'); tp.classList.toggle('down', !!st.result.pet && st.result.pet.result !== 'wait');
-    th.classList.toggle('wait', st.waiting === 'hero'); tp.classList.toggle('wait', st.waiting === 'pet');
-    if (st.waiting === 'hero') th.querySelector('small').textContent = `${Math.max(0, h.hp)}/${h.max} · ${_t("ждёт")}`;
-    if (st.waiting === 'pet') tp.querySelector('small').textContent = `${Math.max(0, p.hp)}/${p.max} · ${_t("ждёт")}`;
-    const take = bar.querySelector('.duo-take');
-    const petOver = !!st.result.pet, heroOver = !!st.result.hero;
-    take.textContent = st.control === 'pet' ? _t("Играть за героя") : _t("Играть за питомца");
-    take.hidden = st.done || !!st.waiting || (st.control === 'hero' ? petOver || (petB.brief().hp <= 0) : heroOver);
-    takeState = { text: take.textContent, hidden: take.hidden };
-    renderHelp();
-    renderTeam();
-  }
-
-  /* ---------- Взаимовыручка (2.2.0): герой и питомец делятся здоровьем и камнями ----------
-     Отдающий теряет 10% своего здоровья, получающий восстанавливает столько же единиц своего здоровья (не выше максимума).
-     Камни: отдаётся до 2 каждого вида. Питомец делится здоровьем с доверия «Друг» (50), камнями — «Верный» (75). Каждое действие — до 2 раз за бой.
-     Каждая помощь укрепляет доверие (+1). В бою по сети отключено. */
-  const HELP = { lose: 0.10, stones: 2, uses: 2, trustHp: 50, trustSt: 75 };
-  const helpWho = (act) => { const h2p = act.endsWith('h2p'); return { giver: h2p ? M().fighters.left : petB.fighters.left, recv: h2p ? petB.fighters.left : M().fighters.left, h2p }; };
-  function helpCheck(act) {
-    if (!st || !petB || st.noHelp || st.done) return _t("Сейчас недоступно");
-    if (st.help[act] >= HELP.uses) return _t("Исчерпано: {0 раз|раза|раз} за бой", [HELP.uses]);
-    const { giver, recv, h2p } = helpWho(act), over = h2p ? st.result.pet : st.result.hero;
-    if (over || giver.hp <= 0 || recv.hp <= 0) return _t("Участник уже выбыл");
-    if (act.startsWith('hp')) {
-      if (!h2p && Pets.trustOf(st.pd) < HELP.trustHp) return _t("Питомец доверяет вам недостаточно: нужен уровень «{0}»", [Pets.trustName({ trust: HELP.trustHp })]);
-      if (giver.hp <= giver.max * 0.4) return _t("Отдающему нужно больше 40% здоровья");
-      if (recv.hp >= recv.max) return _t("Здоровье уже полное");
-    } else {
-      if (!h2p && Pets.trustOf(st.pd) < HELP.trustSt) return _t("Питомец доверяет вам недостаточно: нужен уровень «{0}»", [Pets.trustName({ trust: HELP.trustSt })]);
-      if (!MAGIC_TYPES.some((x) => (giver.counts && giver.counts[x]) > 0)) return _t("Нет камней для передачи");
-    }
-    return '';
-  }
-  function help(act) {
-    if (helpCheck(act)) return;
-    const { giver, recv, h2p } = helpWho(act), gb = h2p ? M() : petB, rb = h2p ? petB : M();
-    const gName = h2p ? Profile.data.name || _t("Герой") : Pets.petTitle(st.pd), rName = h2p ? Pets.petTitle(st.pd) : Profile.data.name || _t("Герой");
-    if (act.startsWith('hp')) {
-      const lose = Math.min(giver.hp - 1, Math.round(giver.max * HELP.lose)), gain = Math.min(recv.max - recv.hp, lose);
-      giver.hp -= lose; recv.hp += gain;
-      gb.logEvent('left', _t("{0} делится здоровьем: −{1}", [gName, lose])); rb.logEvent('left', _t("{0} получает от друга здоровье: +{1}", [rName, gain]));
-    } else {
-      let n = 0;
-      for (const x of MAGIC_TYPES) { const k = Math.min(HELP.stones, (giver.counts && giver.counts[x]) || 0); giver.counts[x] -= k; recv.counts[x] = (recv.counts[x] || 0) + k; n += k; }
-      gb.logEvent('left', _t("{0} передаёт камни: {1}", [gName, n])); rb.logEvent('left', _t("{0} получает камни: {1}", [rName, n]));
-    }
-    st.help[act]++; Pets.addTrust(st.pd, 1); Profile.save();
-    gb.renderFighters(); rb.renderFighters(); gb.renderCounters('left'); rb.renderCounters('left');
-    renderBar();
-  }
-  function renderHelp() {
-    const hb = bar.querySelector('.duo-help'), hm = bar.querySelector('.duo-helpmenu');
-    if (!hb || !hm) return;
-    hb.hidden = st.noHelp || st.done; hb.textContent = _t("Помощь");
-    hm.hidden = hb.hidden || !st.helpOpen;
-    if (hm.hidden) return;
-    const row = (act, label) => { const why = helpCheck(act); return `<button type="button" data-help="${act}" ${why ? 'disabled' : ''} title="${esc(why)}">${label}${why ? `<small>${esc(why)}</small>` : ''}</button>`; };
-    setHtml(hm, row('hp-h2p', _t("Отдать питомцу здоровье")) + row('hp-p2h', _t("Взять здоровье у питомца")) + row('st-h2p', _t("Передать питомцу камни")) + row('st-p2h', _t("Взять камни у питомца")));
-  }
-
-  function setTab(t) {
-    if (!st) return;
-    st.tab = t;
-    mainEl().classList.toggle('duo-hidden', t === 'pet');
-    petHost.root.classList.toggle('duo-hidden', t !== 'pet');
-    renderBar();
-  }
-  function setControl(c, follow) {
-    if (!st) return;
-    st.control = c;
-    M().setAutopilot(c === 'pet', 100);
-    petB.setAutopilot(c === 'hero', Pets.dopedIntellect(st.pd, petB.fighters.left.intBonus));
-    if (follow) setTab(c);
-    renderBar();
-  }
-
-  // Поле id закончилось: 'win' — противник повержен, 'loss' — наш боец пал.
-  function ended(id, result) {
-    if (!st) return;
-    const b = boards()[id];
-    const foe = structuredClone(b.fighters.right);
-    st.result[id] = { result, foe };
-    if (result === 'win') st.kills.push(foe);
-    if (id === 'pet') st.petOutcomes.push({ tier: foe.tier, won: result === 'win' });
-    if (id === 'pet' && result === 'win' && st.pd) {            // «Амулет целителя»: победа питомца лечит героя
-      const hp = Pets.amuletPower(st.pd, 'healer'), hf = M().fighters.left;
-      if (hp > 0 && hf && hf.hp > 0) { const add = Math.min(hf.max - hf.hp, Math.round(hf.max * hp)); if (add > 0) { hf.hp += add; M().logEvent('left', _t("Амулет целителя: герой лечится на {0}", [add])); M().renderFighters(); } }
-    }
-    const other = id === 'hero' ? 'pet' : 'hero';
-    /* 2.3.5: наш боец победил, а второй монстр ещё дерётся. Монстр с равной вероятностью либо переходит на поле
-       победителя (его прежний соперник ждёт), либо остаётся где был (ждёт победитель). Ждущий вступает, когда до
-       него дойдёт очередь: его соперник пал или монстр вернулся к нему. */
-    if (result === 'win' && !st.result[other] && st.waiting !== other) {
-      if (BattleRand.next() < 0.5) { transferFoe(other, id); return; }   // боевой бросок: в бою по сети у обеих сторон одинаковый
-      st.waiting = id;
-      boards()[id].logEvent('left', _t("Второй противник не идёт сюда — {0} ждёт своего часа", [boards()[id].fighters.left.name]));
-      if (st.control === id) setControl(other, true);
-      else if (st.tab === id) setTab(other);
-      renderBar();
-      return;
-    }
-    if (result === 'win' && st.waiting === other) st.result[other] = { result: 'wait' };   // монстров больше нет — ждавший свободен
-    // Боец пал, а его напарник ждал без противника: монстр павшего переходит к ждавшему (герой ждать может только живым).
-    if (result === 'loss' && id === 'pet' && st.waiting === other) {
-      st.result[id].taken = true;
-      st.waiting = null;
-      const b = boards()[other], mine = st;
-      b.whenIdle().then(() => {
-        if (!st || st !== mine || st.done) return;
-        b.adoptFoe(foe, false);
-        b.resumeAfterAdopt();
-        b.note(_t("Противник переходит сюда!"));
-        b.logEvent('left', _t("{0} дождался: противник павшего напарника теперь здесь", [b.fighters.left.name]));
-        setControl(other, true);
-        renderBar();
-      });
-      renderBar();
-      return;
-    }
-    if (!st.result[other] && st.waiting !== other) {      // второе поле ещё идёт — переключаем игрока на него
-      if (st.control === id) setControl(other, true);
-      else if (st.tab === id) setTab(other);
-    }
-    renderBar();
-    evaluate();
-  }
-  // 2.3.5: переходя к победителю, монстр немного «злеет» — получает случайную прибавку к одной характеристике,
-  // чтобы первый из нас победивший не доставался второму слишком лёгкой добычей. Бросок — BattleRand (сетевой бой).
-  const TRANSFER_BUFF_STATS = ['power', 'defense', 'initiative', 'block'];
-  function angrierFoe(foe) {
-    const stat = TRANSFER_BUFF_STATS[Math.floor(BattleRand.next() * TRANSFER_BUFF_STATS.length)];
-    const base = (foe.stats && foe.stats[stat]) || (foe.innate && foe.innate[stat]) || 0;
-    const add = Math.max(1, Math.round(base * 0.12) || (stat === 'power' ? 2 : 1));
-    foe.innate = { ...(foe.innate || {}) };           // переживёт recalcStats, если он когда-то случится для этого бойца
-    foe.innate[stat] = (foe.innate[stat] || 0) + add;
-    foe.stats = { ...(foe.stats || {}) };              // но характеристики применяем и сразу — adoptFoe пересчёт не делает
-    foe.stats[stat] = (foe.stats[stat] || 0) + add;
-    foe.angrier = { stat, add };                      // для отображения в логе/карточке
-    return foe;
-  }
-  // Живой монстр переходит с поля from на поле to (к только что победившему бойцу); боец from остаётся ждать.
-  function transferFoe(from, to) {
-    const mine = st, fb = boards()[from], tb = boards()[to];
-    fb.whenIdle().then(() => {
-      if (!st || st !== mine || st.done || st.result[from]) return;   // пока ждали, поле from само закончилось — переход отменяется
-      const foe = angrierFoe(structuredClone(fb.fighters.right));
-      fb.over = true; fb.stopTurnTimer(); fb.setAutopilot(false);
-      fb.fighters.right.hp = 0;                            // на покинутом поле врага больше нет
-      st.waiting = from;
-      st.result[to] = null;
-      fb.logEvent('left', _t("{0} переходит на другое поле — {1} ждёт своего часа", [foe.name, fb.fighters.left.name]));
-      tb.whenIdle().then(() => {
-        if (!st || st !== mine || st.done) return;
-        tb.adoptFoe(foe, false);
-        tb.resumeAfterAdopt();
-        tb.note(_t("Второй противник переходит сюда — и выглядит злее!"));
-        const statName = (typeof Gear !== 'undefined' && Gear.STAT_NAMES[foe.angrier.stat]) || foe.angrier.stat;
-        tb.logEvent('left', _t("{0} переходит сюда — бой продолжается ({1} +{2})", [foe.name, statName, foe.angrier.add]));
-        setControl(to, true);
-        renderBar();
-      });
-    });
-  }
-  function evaluate() {
-    const r = st.result;
-    // 2.0.8: победа в бою вдвоём засчитывается, только если выжил герой. Пал герой — бой проигран, питомец за него не добивает.
-    if (r.hero && r.hero.result === 'loss') return finish('loss');
-    if (!r.hero || !r.pet) return;
-    const alive = ['hero', 'pet'].filter((k) => r[k] && (r[k].result === 'win' || r[k].result === 'wait'));
-    const foesLeft = ['hero', 'pet'].filter((k) => r[k] && r[k].result === 'loss' && !r[k].taken);
-    if (!foesLeft.length) return finish('win');
-    if (!alive.length) return finish('loss');
-    const k = alive[0], src = r[foesLeft[0]], foe = src.foe;       // герой добивает противника павшего питомца
-    src.taken = true;
-    r[k] = null;
-    // 1.6.5 (A2-21): если победа выжившего пришла посреди его же каскада, ждём, пока поле доиграет ход (whenIdle), и только потом принимаем чужого противника
-    const mine = st, b = boards()[k];
-    b.whenIdle().then(() => {
-      if (!st || st !== mine || st.done) return;
-      b.adoptFoe(foe, false);
-      b.resumeAfterAdopt();
-      b.note(k === 'hero' ? _t("Добиваем врага питомца!") : _t("Добиваем врага героя!"));
-      b.logEvent('left', _t("Бой продолжается: впереди ещё один противник"));
-      setControl(k, true);
-      renderBar();
-    });
-  }
-  function finish(result) {
-    st.done = true;
-    const m = M();
-    if (result === 'loss' && st.result.pet && st.petOutcomes.some((o) => !o.won)) Profile.petLoseDurability();
-    // 2.0.8: поражение героя не даёт ничего, как в обычном бою (раньше за убитого питомцем врага платили и при поражении)
-    let txt = result === 'win' ? m.grantDuoRewards(st.kills, true) : '';
-    txt += petGrowth();
-    setTab('hero');
-    m.showOverlay(result === 'win' ? _t("Победа!") : _t("Поражение"), txt);
-    renderBar();
-  }
-  // Питомец копит опыт: растут ум и цвет.
-  function petGrowth() {
-    const pd = Profile.pet();
-    if (!pd || !st.petOutcomes.length) return '';
-    const before = Pets.intellect(pd), heroTier = Hero.tierFor(Profile.level());
-    let gain = 0;
-    for (const o of st.petOutcomes) gain += Pets.xpGain(o.tier, o.won);
-    const up = Pets.addXp(pd, gain, heroTier);
-    for (const o of st.petOutcomes) Pets.addTrust(pd, o.won ? 2 : -2);      // 2.1.6: доверие растёт от побед вместе и падает от поражений
-    Profile.save();
-    const name = Pets.petTitle(pd), after = Pets.intellect(pd);
-    let line = _t("<br>{0}: опыт +{1}, ум {2} → {3}", [name, gain, before, after]).replace(/^<br>/, '');
-    line += _t(" Доверие: {0}/{1}.", [Pets.trustOf(pd), Pets.TRUST_MAX]);
-    if (up) line += _t(". <b class=\"lvlup\">Новый цвет: {0}!</b>", [Tiers.get(pd.tier).name]);
-    if (!pd.firstWin && st.petOutcomes.some((o) => o.won)) { pd.firstWin = true; line += `<br><i>${Story.PET_LINES.firstWin}</i>`; Profile.save(); }
-    return `<div class="rw-pet">${line}</div>`;
-  }
-  // Отступление: награда за уже убитых противников.
-  function flee() {
-    if (!st || st.done) return;
-    st.done = true;
-    petGrowth();     // 2.0.8: отступление, как и поражение, добычи не даёт
-  }
-  // 1.6.9: высота полосы сверху нужна CSS, чтобы карточки бойцов и поле не уезжали под неё (на телефонах с вырезом и при крупном шрифте)
-  function syncBarH() {
-    if (!bar) return;
-    const h = Math.ceil(bar.getBoundingClientRect().height);
-    if (h > 0 && document.documentElement.style.getPropertyValue('--duo-h') !== h + 'px') document.documentElement.style.setProperty('--duo-h', h + 'px');
-  }
-  window.addEventListener('resize', () => syncBarH());
-  function end() {
-    document.documentElement.style.removeProperty('--duo-h');
-    if (tick) { clearInterval(tick); tick = null; }
-    if (petB) { petB.over = true; petB.stopTurnTimer(); petB.setAutopilot(false); }
-    if (petHost) petHost.root.remove();
-    if (bar) bar.remove();
-    for (const e of mainEl().querySelectorAll('.pq-row, .pq-in')) e.remove();
-    bar = null; petB = null; petHost = null; st = null;
-    MAIN_HOST.coord = null;
-    mainEl().classList.remove('duo-hidden');
-    document.body.classList.remove('duo-battle', 'solo-battle');
-    if (typeof fitBattleHeight === 'function') fitBattleHeight();
-    if (MAIN_BATTLE.autopilot) MAIN_BATTLE.setAutopilot(false);
-  }
-  return { wanted, begin, solo, end, ended, flee, on, setTab, setControl, get state() { return st; }, get pet() { return petB; } };
-})();
-buildSpellbar();
-loadSettings();
-onGearChanged();
-// 1.9.10: лента заходов — отмечаем заход; награду предлагаем, когда обучение позади, есть хотя бы одна победа и на экране
-// ничего не открыто (повторяем попытку, пока игрок не освободит экран)
-setTimeout(() => {
-  let can = false;
-  try { const d = Profile.data; d.streak = Streak.clean(d.streak); can = Streak.visit(d.streak, Daily.today()); Profile.save(); } catch (e) { return; }
-  let tries = 0;
-  const offer = () => {
-    try {
-      const d = Profile.data, tut = d.tutorial || {};
-      if (!can || !tut.done || (d.wins || 0) < 1 || Streak.available(d.streak, Daily.today()) === false) return;
-      const busy = Screens.isOpen || (typeof Tutorial !== 'undefined' && Tutorial.active) || document.body.classList.contains('mode-battle');
-      if (!busy) return Screens.openLogin();
-      if (++tries < 20) setTimeout(offer, 3000);
-    } catch (e) { /* лента не должна мешать игре */ }
-  };
-  offer();
-}, 2500);
-MapView.init();                 // игра начинается на карте; бой — при нападении на существо
-if (typeof Tutorial !== 'undefined') Tutorial.boot();   // 1.5.4: новичок — сразу в учебный бой; перезагрузка посреди обучения — заново
-MapView.marketNews();           // Торговые ряды: что купили, пока игра была закрыта
-
-// Заставка на 2 секунды при запуске (поверх карты/регистрации — см. z-index в CSS). Фон зависит от
-// ориентации экрана; если картинки нет (art/ui/bg-splash-*), остаётся CSS-градиент из style.css.
-(function initSplash() {
-  const el = document.getElementById('splash');
-  if (!el) return;
-  const mq = window.matchMedia('(orientation: portrait)');
-  const applyOrientation = () => {
-    const portrait = mq.matches;
-    el.classList.toggle('splash-portrait', portrait);
-    el.classList.toggle('splash-landscape', !portrait);
-    const key = 'ui/bg-splash-' + (portrait ? 'portrait' : 'landscape');
-    // 1.2.7: афиша с названием игры — пара героев по полу героя (новичку — случайная); название уже на картинке.
-    // 1.2.8: в альбомной ориентации — широкая картина (bg-splash-landscape), если есть; афиши — для портретной.
-    const g = (typeof Profile !== 'undefined' && Profile.data && Profile.data.gender) || (Math.random() < 0.5 ? 'm' : 'f');
-    const posters = (g === 'f' ? ['f'] : ['m', 'm2']).map((x) => 'ui/bg-splash-poster-' + x).filter((k) => typeof Art !== 'undefined' && Art.has(k));
-    const anyPoster = ['m', 'm2', 'f'].map((x) => 'ui/bg-splash-poster-' + x).filter((k) => typeof Art !== 'undefined' && Art.has(k));   // нет афиши своего пола — любая есть
-    const pool = posters.length ? posters : anyPoster;
-    const poster = pool[Math.floor(Math.random() * pool.length)];
-    const wide = !portrait && typeof Art !== 'undefined' && Art.has(key);
-    el.classList.remove('has-poster');
-    if (poster && !wide) {
-      el.classList.add('has-poster');
-      el.style.setProperty('--poster', `url('${new URL(Art.url(poster), document.baseURI).href}')`);   // абсолютный адрес: url() в переменной считается от css/
-      el.style.backgroundImage = '';
-    } else if (typeof Art !== 'undefined' && Art.has(key)) {
-      el.style.backgroundImage = `linear-gradient(180deg, rgba(10,10,12,.3), rgba(10,10,12,.7)), url('${Art.url(key)}')`;
-    } else {
-      el.style.backgroundImage = '';
-    }
-  };
-  applyOrientation();
-  if (mq.addEventListener) mq.addEventListener('change', applyOrientation); else mq.addListener(applyOrientation);
-  const hideAll = () => {
-    if (mq.removeEventListener) mq.removeEventListener('change', applyOrientation); else mq.removeListener(applyOrientation);
-    el.classList.add('hide');
-    setTimeout(() => el.remove(), 500);
-  };
-  // 1.7.5: сначала осколки собираются в название (SplashFx), потом — афиша; нажатие пропускает. Без canvas или при «меньше движения» — как раньше (2 с).
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (typeof SplashFx !== 'undefined' && !reduce && !!document.createElement('canvas').getContext) {
-    const poster = el.classList.contains('has-poster'), wasStyle = el.style.backgroundImage;
-    el.classList.remove('has-poster'); el.style.backgroundImage = '';
-    el.classList.add('fx');
-    let ended = false;
-    const fx = SplashFx.play(el, {
-      title: _t('Хрупкий мир'), sub: _t('Хрупкий мир') === 'Хрупкий мир' ? 'W O R L D   I N   P I E C E S' : '',
-      onEnd: () => {
-        if (ended) return; ended = true;
-        if (poster) el.classList.add('has-poster'); else el.style.backgroundImage = wasStyle;
-        fx.canvas.classList.add('gone');                         // золотое название растворяется, под ним — афиша
-        setTimeout(() => { fx.stop(); hideAll(); }, poster ? 1700 : 500);
-      },
-    });
-    el.addEventListener('click', () => { if (!ended) { ended = true; fx.stop(); hideAll(); } });
-    return;
-  }
-  setTimeout(hideAll, 2000);
-})();
-
-// 1.9.0: слой связи с площадкой (js/net.js): определяет сайт / Яндекс Игры / ВКонтакте; без сервера игра работает как раньше
-(function () {
-  try {
-    if (typeof Net === 'undefined') return;
-    const w = typeof window !== 'undefined' ? window : {};
-    const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
-    // гостевой токен сайта: придумываем один раз и храним у себя (на сервере — только его хеш)
-    let guest = ls('wip-guest');
-    if (!guest || guest.length < 32) { guest = ''; const a = '0123456789abcdefghijklmnopqrstuvwxyz'; for (let i = 0; i < 40; i++) guest += a[Math.floor((w.crypto && w.crypto.getRandomValues ? w.crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296 : Math.random()) * a.length)]; ls('wip-guest', guest); }
-    Net.boot({
-      YaGames: w.YaGames, vkBridge: w.vkBridge, search: typeof location !== 'undefined' ? location.search : '',
-      serverUrl: ls('wip-sync-off') === '1' ? '' : (w.GEM_SERVER || ''), onDeleted: () => ls('wip-sync-off', '1'), fetch: typeof fetch === 'function' ? fetch.bind(w) : undefined, guest,
-      getPid: () => (Profile.data ? Profile.data.pid : null),
-      getCard: () => Duel.makeCard({ nick: Profile.data.name || '', faction: Profile.data.faction, gender: Profile.data.gender, level: Profile.level(), rank: (Profile.data.arena && Profile.data.arena.rank) || 0, gear: Profile.gear() }, Gear.SLOTS),
-      lastVersion: Number(ls('wip-sync-ver')) || 0, saveVersion: (v) => ls('wip-sync-ver', String(v)),
-      onNewer: (n, remote) => {
-        // на сервере есть более новое сохранение: спрашиваем в окне, а не заменяем молча; своё сохранение откладываем в запас
-        if (typeof document === 'undefined') return;
-        const back = document.createElement('div'); back.className = 'modal-back'; back.style.display = 'flex';
-        back.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><header><h2>' + _t("Сохранение на сервере") + '</h2></header><div style="padding:14px 16px"><p>' + _t("На сервере есть более новое сохранение, например с другого устройства. Загрузить его? Текущее сохранение останется в запасе.") + '</p><div class="card-act" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="primary" data-x="yes">' + _t("Загрузить с сервера") + '</button><button type="button" data-x="no">' + _t("Оставить моё") + '</button></div></div></div>';
-        back.addEventListener('click', (e) => {
-          const b = e.target.closest && e.target.closest('button'); if (!b) return;
-          back.remove();
-          if (b.dataset.x !== 'yes') { remote.accept(n.version); return; }   // «оставить моё»: больше не спрашиваем про эту версию
-          const cur = ls('gem-match-profile-v2'); if (cur) ls('gem-match-profile-v2-device-bak', cur);
-          ls('gem-match-profile-v2', n.snapshot); remote.accept(n.version);
-          if (typeof location !== 'undefined') location.reload();
-        });
-        document.body.appendChild(back);
-      },
-    });
-    // турнир живых игроков: клиент создаётся, когда есть связь с сервером; опрос включается при открытии вкладки или после записи
-    if (typeof Tourney !== 'undefined' && typeof Live !== 'undefined' && w.WebSocket) {
-      const ensure = () => {
-        const cur = Net.current; if (!cur || !cur.remote || !cur.remote.enabled || w.TourneyClient) return;
-        const T = Tourney.create({
-          remote: cur.remote, Live, WS: w.WebSocket,
-          onBattle: (net, m) => {
-            const c = cur.env.getCard();
-            const sh = liveBegin({ net, role: m.role, first: m.first, seed: m.seed, opp: m.opp, myCard: { nick: c.nick, faction: c.faction, gender: c.gender }, fixed: { level: m.tourney.level, seed: m.tourney.seed } });
-            if (!sh) return;
-            MapView.startSpecial({ id: 'bandit', tier: Hero.tierFor(sh.level), arena: sh });
-          },
-          onChange: (S) => {
-            if (S.last && S.last.state === 'done') {
-              const d = Profile.data; d.tourney = d.tourney || { claimed: [] }; const lid = S.last.id;
-              // награду определяет и выдаёт сервер (один раз на игрока); у нас запоминаем только, что уже спрашивали
-              if (!d.tourney.claimed.includes(lid) && !T.claiming) {
-                T.claiming = true;
-                Promise.resolve(Net.current && Net.current.remote && Net.current.remote.tourneyClaim ? Net.current.remote.tourneyClaim(lid) : null).then((cl) => {
-                  T.claiming = false; if (!cl) return;             // нет связи — спросим при следующем обновлении
-                  d.tourney.claimed.push(lid); if (d.tourney.claimed.length > 20) d.tourney.claimed.shift();
-                  if (!cl.view) { Profile.save(); return; }        // уже выдано ранее
-                  const r = Tourney.reward(cl.view, d.pid, World.arenaCoins(Hero.tierFor(Profile.level()), 2));
-                  if (r && (r.coins || r.title)) {
-                    if (r.coins) Profile.addCoins(r.coins);
-                    d.cosmetics = d.cosmetics || Village.fresh();
-                    if (r.title && !d.cosmetics.titles.includes(r.title)) d.cosmetics.titles.push(r.title);
-                    Profile.save();
-                  try { MapView.toast(r.champion ? _t("Вы победили в турнире! Монеты: {0}, титул «Победитель турнира» — в Гардеробе Ратуши", [r.coins]) : _t("Турнир окончен. Выиграно раундов: {0}. Монеты: {1}", [r.roundsWon, r.coins]), 6000); } catch (e) { /* карты может не быть */ }
-                  }
-                }).catch(() => { T.claiming = false; });
-              }
-            }
-            try { if (typeof Screens !== 'undefined' && Screens.isOpen && Screens.screen === 'arena' && Screens.arenaTab() === 'tourney') Screens.refresh(); } catch (e) { /* экран закрыт */ }
-          },
-        });
-        T.started = false; const st0 = T.start; T.start = () => { T.started = true; st0(); };
-        w.TourneyClient = T;
-        // награды сезона: спрашиваем у сервера, берём каждую один раз (локально помним только, что уже брали)
-        // квитанции за живые бои: каждая гасится на сервере один раз; монеты — только если сервер счёл бой оплачиваемым
-        w.claimLiveRewards = async () => {
-          const rem = Net.current && Net.current.remote; if (!rem || !rem.rewardsClaim || w.__voucherBusy) return;
-          w.__voucherBusy = true;
-          try {
-            const list = (await rem.rewardsClaim()) || [];
-            for (const v of list) {
-              const d = Profile.data, T = Hero.tierFor(Profile.level());
-              const a = d.arena = Object.assign(World.freshArena(), d.arena || {});
-              World.arenaSync(a, Daily.today(), T);
-              const before = a.rank, r = World.arenaResult(a, !!v.win, false);
-              World.arenaLog(a, { day: Daily.today(), nick: _t("Живой игрок"), f: '', win: !!v.win, rule: '', rev: false, rank: before });
-              let coins = 0;
-              const pv = d.pvp = Object.assign({ wins: 0, losses: 0 }, d.pvp || {});
-              let pvpUp = null;
-              if (v.win) {
-                const rk0 = Tourney.pvpRank(pv.wins).index; pv.wins++; const rk1 = Tourney.pvpRank(pv.wins);
-                if (rk1.index > rk0) { pvpUp = rk1.rank; const c = World.arenaCoins(T, 2) * pvpUp.mult; Profile.addCoins(c); coins += c; d.cosmetics = d.cosmetics || Village.fresh(); if (!d.cosmetics.titles.includes(pvpUp.id)) d.cosmetics.titles.push(pvpUp.id); }
-              } else pv.losses++;
-              if (v.win) { if (v.paid) { const c0 = World.arenaCoins(T, a.rank); Profile.addCoins(c0); coins += c0; } Profile.data.wins++; Daily.registerWin(); }
-              if (r.rankUp) {
-                const c = World.rankCoins(T, a.rank); Profile.addCoins(c); coins += c;
-                const tid = World.RANK_TITLES[a.rank]; d.cosmetics = d.cosmetics || Village.fresh();
-                if (tid && !d.cosmetics.titles.includes(tid)) d.cosmetics.titles.push(tid);
-              }
-              Profile.save();
-              if (pvpUp) { try { MapView.toast(_t("Новый ранг живых боёв: {0}! Титул — в Гардеробе Ратуши", [_t(pvpUp.name)]), 6000); } catch (e) { /* карта закрыта */ } }
-              try { MapView.toast(v.win ? (coins ? _t("Живой бой: победа! Монеты: {0}", [coins]) : _t("Живой бой: победа засчитана (монеты за сегодня выданы)")) : _t("Живой бой: поражение засчитано"), 4500); } catch (e) { /* карта закрыта */ }
-            }
-          } catch (e) { /* нет связи — заберём позже */ } finally { w.__voucherBusy = false; }
-        };
-        w.claimSeasonRewards = async () => {
-          const rem = Net.current && Net.current.remote; if (!rem || !rem.seasonList || w.__seasonBusy) return;
-          w.__seasonBusy = true;
-          try {
-            const d = Profile.data; d.season = d.season || { claimed: [] };
-            const list = (await rem.seasonList()) || [];
-            for (const it of list) {
-              if (d.season.claimed.includes(it.id)) continue;
-              const cl = await rem.seasonClaim(it.id); if (!cl) continue;
-              d.season.claimed.push(it.id); if (d.season.claimed.length > 30) d.season.claimed.shift();
-              if (!cl.reward) { Profile.save(); continue; }
-              const r = Tourney.seasonReward(cl.reward, World.arenaCoins(Hero.tierFor(Profile.level()), 2));
-              if (!r) continue;
-              Profile.addCoins(r.coins);
-              d.cosmetics = d.cosmetics || Village.fresh();
-              if (r.title && !d.cosmetics.titles.includes(r.title)) d.cosmetics.titles.push(r.title);
-              Profile.save();
-              try { MapView.toast(_t(r.kind === 'week' ? "Рейтинг прошлой недели: место {0}! Монеты: {1}" : "Рейтинг прошлого месяца: место {0}! Монеты: {1}", [r.place, r.coins]), 6000); } catch (e) { /* карта закрыта */ }
-            }
-            // 1.9.4: «Битва народов» — награда бойцам победившего народа прошлой недели
-            if (rem.factions && rem.factionClaim) {
-              const fw = await rem.factions();
-              if (fw && fw.prev && fw.prev.eligible && !d.season.claimed.includes('f:' + fw.prev.id)) {
-                const cl = await rem.factionClaim(fw.prev.id);
-                if (cl) {
-                  d.season.claimed.push('f:' + fw.prev.id); if (d.season.claimed.length > 30) d.season.claimed.shift();
-                  if (cl.reward) {
-                    const coins = Tourney.folkReward(World.arenaCoins(Hero.tierFor(Profile.level()), 2));
-                    Profile.addCoins(coins); Profile.save();
-                    try { MapView.toast(_t("Ваш народ — «{0}» — победил в Битве народов! Монеты: {1}", [Factions.get(cl.reward.faction).name, coins]), 6000); } catch (e) { /* без карты */ }
-                  } else Profile.save();
-                }
-              }
-            }
-          } catch (e) { /* нет связи — спросим позже */ } finally { w.__seasonBusy = false; }
-        };
-        if (ls('wip-tourney') === '1') T.start();
-        const j = T.join; T.join = async (info) => { const r = await j(info); if (r && r.tour) { ls('wip-tourney', '1'); if (!T.started) T.start(); } return r; };
-        const l = T.leave; T.leave = async () => { await l(); ls('wip-tourney', '0'); };
-      };
-      const t0 = setInterval(() => { ensure(); if (w.TourneyClient) clearInterval(t0); }, 1000);
-    }
-  } catch (e) { /* связь с площадкой не критична */ }
-})();
-
-// 2.0.9: имя бойца обрезано — полное имя в подсказке и по нажатию
-document.addEventListener('click', (e) => {
-  const n = e.target.closest && e.target.closest('.fighter .fname');
-  if (!n || n.scrollWidth <= n.clientWidth) return;
-  n.title = n.textContent;
-  let t = document.getElementById('name-pop');
-  if (!t) { t = document.createElement('div'); t.id = 'name-pop'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
-  t.textContent = n.textContent; t.hidden = false;
-  const r = n.getBoundingClientRect();
-  t.style.left = Math.max(8, Math.min(window.innerWidth - t.offsetWidth - 8, r.left)) + 'px'; t.style.top = (r.bottom + 6) + 'px';
-  clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 2500);
-});
-
-// 2.0.9: отклик интерфейса — недоступная кнопка «качается», кошелёк подпрыгивает при изменении суммы
-document.addEventListener('pointerdown', (e) => {
-  const b = e.target.closest && e.target.closest('button:disabled');
-  if (!b || b.classList.contains('nope')) return;
-  b.classList.add('nope'); setTimeout(() => b.classList.remove('nope'), 320);
-}, true);
-(() => {
-  if (typeof MutationObserver !== 'function' || typeof document === 'undefined') return;
-  let lastW;
-  const mo = new MutationObserver((ms) => {
-    if (!document.querySelector('.modal-back .wallet-head')) { lastW = undefined; return; }
-    for (const m of ms) {
-      const n = m.target.nodeType === 1 ? m.target : m.target.parentElement;
-      const w = n && n.closest && (n.closest('.wallet-head') || (n.querySelector && n.querySelector('.wallet-head')));
-      if (!w) continue;
-      const t = w.textContent;
-      if (lastW !== undefined && lastW !== t) { w.classList.remove('bump'); void w.offsetWidth; w.classList.add('bump'); }
-      lastW = t;
-    }
-  });
-  const start = () => mo.observe(document.body, { childList: true, subtree: true, characterData: true });
-  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
-})();
