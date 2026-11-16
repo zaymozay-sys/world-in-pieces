@@ -93,7 +93,7 @@ const Balance = {
   // 2.0.9 Таланты: очко за каждые every уровней героя, до rankMax ступеней в каждую характеристику; бонус за ступень — per; сброс стоит respec (в ценах 1-го уровня).
   talents: { every: 5, rankMax: 5, per: { power: 2, fury: 1, cunning: 1, health: 30, defense: 1, block: 1, initiative: 1, ricochet: 1 }, respec: 300 },
   spellUnlock: { temper: 1, heal: 1, fire: 1, square: 11, transmute: 11, chaos: 21, fury: 31, tide: 41, mirror: 41, sacrifice: 51, pierce: 61 },   // 2.0.9: магии открываются по цвету (уровень = начало цвета); слоты в бою — Hero.spellSlots   // 1.4.1: новое заклинание каждые 4 уровня — максимально рано, по одному за раз
-  unlockAll: false,   // тест: true — все заклинания открыты (переключатель в «О разработчиках»: Profile.data.testAllSpells)
+  unlockAll: true,   // ВРЕМЕННО true на время тестов (вернуть false вместе с ограничениями локаций); тест: true — все заклинания открыты (переключатель в «О разработчиках»: Profile.data.testAllSpells)
 
   // Расходники ранца.
   consumables: {

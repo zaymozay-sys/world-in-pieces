@@ -1140,7 +1140,7 @@ const Screens = (() => {
       const m = Bestiary.MONSTERS[s.sel], sc = Bestiary.scaled(s.sel, s.tier);
       const art = MonsterArt.has(s.sel) ? MonsterArt.bust(s.sel, s.tier) : `<div class="dragon-art" style="--t:${tierColor(s.tier)}">${Figures.avatar('dragon', null)}</div>`;
       const drops = m.drops.map(([kind, chance, min, max]) => _t("<div class=\"bag-row\">{0}<span><b>{1}</b> · {2}% · {3} шт.</span></div>", [MonsterArt.resIcon(kind, s.tier), resLabel(kind, s.tier), Math.round(chance * 100), min === max ? min : min + '–' + max]) + alsoDrops(kind, s.sel, known)).join('');
-      const coins = Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[s.tier - 1] * Balance.economy.coinTier[s.tier - 1]);
+      const coins = Math.round(Bestiary.coinsAt(s.sel, s.tier));
       const innate = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('') || _t("<span class=\"hint\">нет</span>");
       const onMap = !inBattle;
       const L = Profile.level(), myS = Gear.combine(Gear.combine(Gear.statsFor(Profile.gear(), Profile.level()), Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(L))), Runes.bonusForGear(Profile.gear()));

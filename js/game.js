@@ -330,7 +330,7 @@ function renderGear(side) {
     if (mon && mon.family) { const wk = (typeof Ammo !== 'undefined' && Profile.shotKind) ? Ammo.hint(Profile.shotKind(), mon.family) : ''; chips.unshift(`<span class="sc fam" title="${wk ? wk.replace(/"/g, '&quot;') : _t("Семейство существа")}">${typeof Art !== 'undefined' ? Art.familyIcon(mon.family, 'fam-ic') : ''}${mon.family}${wk ? ' · ' + _t("слабое место") : ''}</span>`); }
   }
   el.querySelector('.statline').innerHTML = chips.join('') || _t("Без снаряжения");
-  if (side === 'left') { try { const xp = Profile.data.xp || 0, lv = Hero.levelOf(xp), a = Hero.totalFor(lv), b = Hero.totalFor(lv + 1); el.style.setProperty('--xp', Math.max(0, Math.min(100, ((xp - a) / Math.max(1, b - a)) * 100)).toFixed(0) + '%'); el.dataset.xpTip = _t("Опыт: {0} из {1} до следующего уровня", [xp - a, b - a]); } catch (e) { /* без полоски опыта */ } }
+  if (side === 'left') { try { const xp = Profile.data.xp || 0, lv = Hero.levelOf(xp).level, a = Hero.totalFor(lv), b = Hero.totalFor(lv + 1); el.style.setProperty('--xp', Math.max(0, Math.min(100, ((xp - a) / Math.max(1, b - a)) * 100)).toFixed(0) + '%'); el.dataset.xpTip = _t("Опыт: {0} из {1} до следующего уровня", [xp - a, b - a]); } catch (e) { /* без полоски опыта */ } }
 }
 
 // Снаряжение игрока изменилось в окне ранца.
@@ -667,7 +667,8 @@ function renderBag() {
   const cycBtn = Profile.shotStocks().length > 1 ? `<button type="button" class="bagitem ammocycle" data-ammocycle title="${_t("Сменить заряд")}" aria-label="${_t("Сменить заряд")}" ${busy || over || aiming || turnSide !== 'left' ? 'disabled' : ''}><b>⇄</b></button>` : '';
   const nElx = Profile.elixirBag().reduce((a, e) => a + e.n, 0);
   const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || cardFight() || !!LIVE || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
-  const bagHtml = ammoBtn + cycBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).filter(([k]) => (bag[k] || 0) > 0).map(([k, c]) =>   /* 2.4.0: пустые предметы не показываем */
+  const bagHtml = (an > 0 ? ammoBtn : '') + cycBtn + (nElx > 0 ? elxBtn : '') +   /* 2.4.2: пустые заряды и эликсиры тоже скрыты */
+     Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).filter(([k]) => (bag[k] || 0) > 0).map(([k, c]) =>   /* 2.4.0: пустые предметы не показываем */
     `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? ((fighters.left.itemsUsed || {})[k] ? 'used' : bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
        ${itemIcon(k)}<b>${bag[k] || 0}</b></button>`).join('');
   if (bagEl._html === bagHtml) return;            // ничего не изменилось — кнопки не пересоздаём (иначе значки мигают)
@@ -1051,7 +1052,7 @@ function renderMagic() {
 
 // «i» на карточке бойца: все характеристики и эффекты одним окошком (то, что не помещается в карточку)
 function toggleFighterInfo(side) {
-  const el = fEl(side); let pop = el.querySelector('.fi-pop');
+  const el = fEl(side), onPhone = true; let pop = (onPhone ? document : el).querySelector('.fi-pop');
   if (pop) { pop.remove(); return; }
   const f = fighters[side], st = f.stats || {}, rows = [];
   const row = (k, v) => rows.push(`<div><span>${k}</span><b>${v}</b></div>`);
@@ -1068,13 +1069,13 @@ function toggleFighterInfo(side) {
     if (ea && ea.name) row(_t("Приём"), `${ea.name}`), rows.push(`<p>${ea.desc || ''}</p>`);
     if (mon && typeof Ammo !== 'undefined' && Profile.shotKind) { const h = Ammo.hint(Profile.shotKind(), mon.family); if (h) rows.push(`<p>${h}</p>`); }
   } else {
-    try { const xp = Profile.data.xp || 0, lv = Hero.levelOf(xp); row(_t("Уровень"), lv); row(_t("Опыт"), `${xp - Hero.totalFor(lv)} / ${Hero.totalFor(lv + 1) - Hero.totalFor(lv)}`); } catch (e) { /* без опыта */ }
+    try { const lv = Profile.levelInfo(); row(_t("Уровень"), lv.level); row(_t("Опыт"), lv.need === Infinity ? _t("максимум") : `${lv.into} / ${lv.need}`); } catch (e) { /* без опыта */ }
   }
   const ef = [...el.querySelectorAll('.badge .st-chip')].map((n) => n.textContent);
   if (ef.length) rows.push(`<p>${_t("Сейчас действует")}: ${ef.join(', ')}</p>`);
   pop = document.createElement('div'); pop.className = 'fi-pop'; pop.innerHTML = rows.join('');
   pop.addEventListener('click', (e) => { e.stopPropagation(); pop.remove(); });
-  el.appendChild(pop);
+  (onPhone ? document.body : el).appendChild(pop);   // 2.4.2: везде — карточкой по центру экрана (в панели бойца не помещается)
   setTimeout(() => document.addEventListener('click', () => pop.remove(), { once: true }), 0);
 }
 

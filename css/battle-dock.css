@@ -91,7 +91,7 @@ body.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools .bagitem .item-i
     --dock-actions: 0px;
     --dock-fighter: 72px;
     --dock-pet-row: 0px;
-    --dock-top: max(42px, env(safe-area-inset-top, 0px));
+    --dock-top: calc(40px + max(2px, env(safe-area-inset-top, 0px)));
     --board: max(156px, min(100vw, calc(100dvh - var(--dock-top) - env(safe-area-inset-bottom, 0px) - var(--dock-fighter) - var(--dock-pet-row) - 21px - 2 * var(--dock-spell-h) - var(--dock-bag-rows, 2) * var(--dock-bag-h) - var(--dock-actions) - 57px)));
   }
   body.ui-columns.phone.mode-battle.duo-battle { --dock-pet-row: 43px; }
@@ -667,3 +667,6 @@ body.phone.mode-battle .pq-row .pq-take { display: none; }
   /* расходники: прокрутка, если не помещаются; тень снизу подсказывает, что список длиннее */
   body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools > .tool-col:has(> :is(#bagbar, #pet-bagbar)) { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 }
+
+/* 2.4.2: имя бойца — в одну строку (шрифт подгоняет js/boot.js); справа место под кнопку «i» */
+body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter .name .fname { display: block !important; -webkit-line-clamp: none; white-space: nowrap !important; overflow-wrap: normal !important; overflow: hidden; text-overflow: clip; box-sizing: border-box; padding-right: calc(14px * var(--u, 1)); }

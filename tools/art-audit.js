@@ -56,7 +56,7 @@ const arg = (k) => { const a = process.argv.find((x) => x.startsWith('--' + k + 
     try { addSoft('Характеристики', keys(Gear.STAT_NAMES).map((i) => ({ key: 'ui/stat-' + i, label: i }))); } catch (e) { /* нет */ }
     addSoft('Значки эффектов в бою', ['shield', 'spikes', 'power', 'down', 'drop', 'bolt', 'sand', 'spores'].map((i) => ({ key: 'ui/fx-' + i, label: i })));
     try { addSoft('Зоны', World.ZONE_IDS.map((i) => ({ key: 'ui/zone-' + i, label: World.ZONE_BOSSES[i].title }))); } catch (e) { /* нет */ }
-    try { const f = [...new Set(Object.values(Bestiary.MONSTERS).map((m) => m.family))]; addSoft('Семейства существ', f.map((i) => ({ key: 'ui/family-' + i, label: i }))); } catch (e) { /* нет */ }
+    try { const f = [...new Set(Object.values(Bestiary.MONSTERS).map((m) => m.family))]; addSoft('Семейства существ', f.map((i) => ({ key: 'ui/family-' + (({ 'Звери': 'beasts', 'Разбойники': 'bandits', 'Пчёлы': 'bees', 'Твари': 'creatures', 'Драконы': 'dragons', 'Лесные стражи': 'foresters', 'Великаны': 'giants', 'Гоблины': 'goblins', 'Чудовища': 'monsters', 'Орки': 'orcs', 'Тени': 'shadows', 'Духи': 'spirits', 'Каменные стражи': 'stoneguards', 'Болотные твари': 'swamp', 'Нежить': 'undead' })[i] || ({ Beasts: 'beasts', Bandits: 'bandits', Bees: 'bees', Creatures: 'creatures', Dragons: 'dragons', 'Forest Guardians': 'foresters', 'Forest guardians': 'foresters', Giants: 'giants', Goblins: 'goblins', Monsters: 'monsters', Orcs: 'orcs', Shadows: 'shadows', Spirits: 'spirits', 'Stone Guardians': 'stoneguards', 'Bog Creatures': 'swamp', Undead: 'undead' })[i] || i), label: i }))); } catch (e) { /* нет */ }
     try { addSoft('Приёмы существ (значок магии)', keys(Bestiary.ABILITIES).map((i) => ({ key: 'spells/mob-' + i, label: i }))); } catch (e) { /* нет */ }
     for (const f of Object.values(soft)) for (const x of f) x.has = Art.has(x.key);
     fam.__soft = soft;
@@ -77,6 +77,7 @@ const arg = (k) => { const a = process.argv.find((x) => x.startsWith('--' + k + 
   console.log('\nЖдут рисунков (в коде ещё не подключены; на «нет» выше не влияет):');
   for (const [name, list] of Object.entries(softData)) {
     const miss = list.filter((x) => !x.has); softReport[name] = { всего: list.length, нет: miss.map((x) => x.key) };
+    if (miss.length) console.log('   нет:', miss.slice(0, 3).map((x) => x.key).join(', '));
     console.log(`  ${miss.length ? 'ждёт' : 'есть'} ${name}: ${list.length - miss.length} из ${list.length}`);
   }
   // лишние: картинка есть, но ни одна сущность её не ждёт

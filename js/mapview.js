@@ -38,19 +38,19 @@ const MapView = (() => {
   // AD_HOOK: сюда можно подключить показ рекламы (Яндекс/ВК Игры) вместо ожидания; пока заглушка, реклама не подключена.
   const ALTAR_WAIT_S = 60;
   const altarFee = () => Math.max(1, Math.round(World.reviveCost(Hero.tierFloat(Profile.level())) / 4));
-  function altarWait() {
+  function altarWait(back) {
     if (document.getElementById('altar-wait')) return;
     const fee = altarFee(); let left = ALTAR_WAIT_S;
     const o = document.createElement('div'); o.id = 'altar-wait'; o.className = 'overlay altar-wait';
     o.innerHTML = `<div class="altar-box"><img src="${Art.url('map/altar')}" alt=""><p>${_t("Вы отдыхаете у Алтаря воскрешения")}</p><p class="altar-t"></p>` +
-      `<button type="button" class="revive-btn altar-pay">${_t("Появиться сразу — {0}", [MonsterArt.moneyHtml(fee)])}</button></div>`;
+      `<button type="button" class="revive-btn altar-pay">${_t("Вернуться к месту боя — {0}", [MonsterArt.moneyHtml(fee)])}</button></div>`;
     document.body.appendChild(o);
     const t = o.querySelector('.altar-t'), b = o.querySelector('.altar-pay');
     b.disabled = Profile.data.coins < fee;
     const done = () => { clearInterval(iv); o.remove(); };
     const tick = () => { t.textContent = _t("Осталось: {0} с", [left]); if (left <= 0) done(); left--; };
     const iv = setInterval(tick, 1000); tick();
-    b.addEventListener('click', () => { if (Profile.spend(fee)) done(); });
+    b.addEventListener('click', () => { if (Profile.spend(fee)) { done(); if (back != null && back !== st.pos) { st.pos = back; revealAround(st.pos); renderHud(); save(); centerOn(st.pos, false); refreshPlayerArt(); } } });
   }
   function respawnPos() {
     const a = map.buildings.find((b) => b.id === 'altar');
@@ -224,6 +224,7 @@ const MapView = (() => {
       defsDone.add(i);
       for (const n of HexMap.area(map, i, 2)) { defsTerr.add(map.cells[n].terrain); defsNear.add(n); }
     }
+    if (map.kind === 'tower') { defsTerr.add('cave-floor'); defsTerr.add('cave-wall'); }   // 2.4.2: плитки пола и стен подземелья (с 2.3.9 не подключались — пол и стены были чёрными)
     if (defsTerr.size !== before || !el['map-defs'].firstElementChild) setDefs(MapArt.defs(defsTerr));
     // здания под туманом ждут без картинки (см. renderTerrain); как только земля рядом открыта — картинка подключается
     for (const g of el['l-village'].querySelectorAll('g.bldg[data-wait]')) {
@@ -369,7 +370,7 @@ const MapView = (() => {
       const p = px(c.idx);
       // 1.3.0: маленький город — земля деревни, а главная улица и площадь вокруг Ратуши вымощены
       const paved = (c.terrain === 'village' || c.terrain === 'castle') && (c.street || c.d <= 2);
-      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${caves ? (c.terrain === 'mountain' ? 'cave-wall' : 'cave-floor') : c.terrain === 'castle' && hasArt('map/tex-castle') ? (paved || !hasArt('map/tex-castle-grass') ? 'castle' : 'castle-grass') : paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
+      bucketPush(terr, p, `<polygon class="hx${c.terrain === 'village' || c.terrain === 'castle' ? ' hx-town' : ''}${caves && c.terrain === 'mountain' ? ' hx-wall' : ''}" points="${hexPts(p.x, p.y)}" fill="url(#t-${caves ? (c.terrain === 'mountain' ? 'cave-wall' : 'cave-floor') : c.terrain === 'castle' && hasArt('map/tex-castle') ? (paved || !hasArt('map/tex-castle-grass') ? 'castle' : 'castle-grass') : paved ? 'cobble' : c.terrain === 'castle' ? 'village' : c.terrain === 'river' ? (c.base === 'mountain' ? 'hills' : c.base || 'meadow') : c.terrain})"/>`);
       bucketPush(deco, p, '');                             // 2.3.9: лоскуты украшений создаются все и в прежнем порядке, а наполняются по мере открытия земель (syncDeco)
     }
     decoCaves = caves; decoSeen.clear(); decoDone.clear();
@@ -555,7 +556,7 @@ const MapView = (() => {
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
           ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>${castleArmour(sp)}
           <circle r="21" fill="none" stroke="${col}" stroke-width="3"/>`}${!fig && (sp.boss || sp.zone) ? ((cr) => `<circle r="25" fill="none" stroke="${cr}" stroke-width="2.5" stroke-dasharray="5 3"/><path class="boss-crown" d="M-11 -22 L-7 -31 L-2 -24 L0 -33 L2 -24 L7 -31 L11 -22Z" fill="${cr}" stroke="#3a2a08" stroke-width="1.2"/>`)(sp.zone ? '#c9d3e6' : '#f2c94c') : ''}${elite ? '<circle r="24.5" fill="none" stroke="#f2c94c" stroke-width="2"/><g class="elite-star" transform="translate(-15 -15)"><circle r="7.5" fill="#2a1f05" stroke="#f2c94c" stroke-width="1.3"/><path d="M0 -4.6 L1.3 -1.4 L4.6 -1.4 L2 0.7 L2.9 4 L0 2.1 L-2.9 4 L-2 0.7 L-4.6 -1.4 L-1.3 -1.4Z" fill="#f2c94c"/></g>' : ''}
-          <g class="tier-badge" transform="translate(15 14)"><circle r="7.5" fill="${T.color}" stroke="${col}" stroke-width="1.3"/><text y="3.4" fill="${T.ink}">${sp.tier}</text></g>${sp.leader ? '<g class="leader-mark" transform="translate(-15 -16)"><circle r="7" fill="#c9a24a" stroke="#fff3c4" stroke-width="1.2"/><path d="M-4 2 L-4 -2 L-2 0 L0 -3 L2 0 L4 -2 L4 2 Z" fill="#3a2a08"/></g>' : ''}
+          ${lvlBadge(T, col, HexMap.lvlOf(sp))}${sp.leader ? '<g class="leader-mark" transform="translate(-15 -16)"><circle r="7" fill="#c9a24a" stroke="#fff3c4" stroke-width="1.2"/><path d="M-4 2 L-4 -2 L-2 0 L0 -3 L2 0 L4 -2 L4 2 Z" fill="#3a2a08"/></g>' : ''}
         </g></g>`);
     }
     renderSiegeTokens(out);
@@ -661,7 +662,7 @@ const MapView = (() => {
       petFound = true;
       const chance = Math.min(0.9, 0.3 + tr / 400 + (Pets.talentRank(pet, 'nose') ? 0.2 : 0));
       if (Math.random() < chance) {
-        const n = Math.max(1, Math.round((3 + Math.random() * 6) * (1 + Hero.levelOf(Profile.data ? Profile.data.xp : 0) / 20)));
+        const n = Math.max(1, Math.round((3 + Math.random() * 6) * (1 + Hero.levelOf(Profile.data ? Profile.data.xp : 0).level / 20)));
         Profile.addCoins(n); msg += ' ' + _t("И находит монеты: {0}.", [n]);
       }
     }
@@ -1257,7 +1258,7 @@ const MapView = (() => {
     const drops = weakRes ? `<span class="hint">${_t("ресурсов нет: существо слабее на 2 цвета и больше")}</span>` : m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
     const near = HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1;
     const art = sp.species === 'dragon' ? `<div class="dragon-art sm" style="--t:${col}">${Figures.avatar('dragon', null)}</div>` : MonsterArt.bust(sp.species, sp.tier);
-    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : ZB ? ZB.title : m.name, tierChip(sp.tier, Growth.steps(st, sp), HexMap.lvlOf(sp)), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss || ZB ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + zoneNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
+    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : ZB ? ZB.title : m.name, tierChip(sp.tier, Growth.steps(st, sp), HexMap.lvlOf(sp)), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss || ZB ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + zoneNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(Bestiary.coinsAt(sp.species, sp.tier, HexMap.lvlOf(sp)) * (elite ? World.ELITE.coins : 1))), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
     const lootN = st.loot && st.loot[sp.id] && Trophy.eligible(sp) ? Trophy.total(st.loot[sp.id]) : 0;
     const grN = Growth.steps(st, sp);
     if (lootN > 0) {                                                  // 2.0.4: видно, что существо несёт трофеи героя
@@ -1893,7 +1894,7 @@ const MapView = (() => {
     if (sel.lord) {
       if (result === 'win' && sel.lordId != null) { Profile.chron('lord', 1); st.defeated[sel.lordId] = Date.now() + 20 * 3600000; toast(_t("Хозяин замка повержен!"), 4500); }
       else if (result === 'loss' && fromLoc) { /* герой уже у ворот замка (gateReturn) */ }
-      else if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait(); }
+      else if (result === 'loss') { const lastPos = st.pos; st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait(lastPos); }
       refreshPlayerArt(); renderMonsters(); renderHud(); save();
       requestAnimationFrame(() => centerOn(st.pos, false));
       return;
@@ -1913,7 +1914,7 @@ const MapView = (() => {
           else { save(); showLair(l); }
         } else {
           endLair(l);
-          if (result === 'loss') { st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait(); }
+          if (result === 'loss') { const lastPos = st.pos; st.pos = respawnPos(); revealAround(st.pos); toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait(lastPos); }
           else toast(_t("Вы покинули логово с добычей"));
         }
       }
@@ -1941,9 +1942,9 @@ const MapView = (() => {
     } else if (result === 'revive') {
       toast(_t("Вы воскресли на месте гибели"));       // оплаченное воскрешение: герой остаётся на соте, существо ждёт
     } else if (result === 'loss') {
-      st.pos = respawnPos();
+      const lastPos = st.pos; st.pos = respawnPos();
       revealAround(st.pos);
-      toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait();
+      toast(_t("Вы проиграли и очнулись у Алтаря воскрешения")); altarWait(lastPos);
     } else {
       toast(_t("Вы отступили"));
     }
@@ -2084,11 +2085,14 @@ const MapView = (() => {
     }
   }
 
+  // 2.4.2: значок на фишке существа показывает уровень (1–100), а не номер цвета; кружок и шрифт растут для двух и трёх цифр
+  const lvlBadge = (T, stroke, n) => { const t = String(n), r = t.length > 2 ? 10 : t.length > 1 ? 9 : 7.5, fs = t.length > 2 ? 8 : t.length > 1 ? 9.5 : 10.5; return `<g class="tier-badge" transform="translate(${r > 8 ? 13 : 15} ${r > 8 ? 13 : 14})"><circle r="${r}" fill="${T.color}" stroke="${stroke}" stroke-width="1.3"/><text y="${(fs * .34).toFixed(1)}" fill="${T.ink}" style="font-size:${fs}px">${t}</text></g>`; };
   function renderHud() {
     if (!map || !el['map-me']) return;
     refreshLocks();
     const me = myView(), F = fac(), lv = Profile.levelInfo();
     const pct = lv.need === Infinity ? 100 : Math.round(lv.into / lv.need * 100);
+    el['map-me'].style.setProperty('--lc', Tiers.get(Hero.tierFor(Profile.level())).color); el['map-me'].style.setProperty('--li', Tiers.get(Hero.tierFor(Profile.level())).ink);
     el['map-me'].innerHTML = _t("<span class=\"me-av\" style=\"border-color:{0}\">{1}<i class=\"me-lvl\">{2}</i></span>\n      <span class=\"me-txt\"><b>{3}</b><small class=\"me-fac\">{4}{5} · ур. {6}</small>\n        <span class=\"xpbar\" title=\"Опыт: {7} / {8}\"><i style=\"width:{9}%\"></i></span>\n        <small>ХП {10} · побед {11}</small>{12}</span>", [F.color, Figures.avatar(myKind(), Profile.gear()), lv.level, (escText(Profile.data.name && Profile.heroName()) || Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)) + Profile.favBadges(), factionIcon(Profile.data.faction || 'dwarf', 'mini-emblem'), F.name, lv.level, lv.into, lv.need === Infinity ? _t("максимум") : lv.need, pct, me.max, Profile.data.wins, MonsterArt.moneyHtml(Profile.data.coins)]);
     applyFrame(el['map-me'].querySelector('.me-av'));            // 1.5.1: рамка портрета из гардероба
   }
@@ -2314,7 +2318,7 @@ const MapView = (() => {
         <circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(r)}</g>
         <circle r="21" fill="none" stroke="${col}" stroke-width="3"/>
         <circle class="siege-ring" r="26" fill="none" stroke="${looter ? '#5fd0ff' : '#ffd23a'}" stroke-width="3" stroke-dasharray="6 3"/>
-        <g class="tier-badge" transform="translate(15 14)"><circle r="7.5" fill="${T.color}" stroke="${col}" stroke-width="1.3"/><text y="3.4" fill="${T.ink}">${r.tier}</text></g>
+        ${lvlBadge(T, col, HexMap.lvlOf(r))}
         ${mark}
       </g></g>`;
   }
@@ -2754,9 +2758,9 @@ const MapView = (() => {
   function skyTick(force) {
     if (!map || !el['sky-tint']) return;
     const t = Sky.now(), night = Sky.isNight(t), loc = skyHere(), w = Sky.warning(t), mv = el['map-view'];
-    el['sky-tint'].setAttribute('fill', Sky.lightCss(t));
+    el['sky-tint'].setAttribute('fill', map && map.kind === 'tower' ? 'rgba(0,0,0,0)' : Sky.lightCss(t));   // 2.4.2: под землёй ночь не темнит карту — иначе пол и стены сливаются
     if (mv.dataset.wx !== loc.vis) mv.dataset.wx = loc.vis;
-    mv.classList.toggle('is-night', night);
+    mv.classList.toggle('is-night', night && !(map && map.kind === 'tower'));
     if (el['l-amb']) el['l-amb'].classList.toggle('warn', !!w);
     const chip = el['sky-chip'];
     if (chip) {

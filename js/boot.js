@@ -347,3 +347,22 @@ document.addEventListener('pointerdown', (e) => {
   document.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel(); }, { passive: true });
   for (const ev of ['pointerup', 'pointercancel', 'scroll']) document.addEventListener(ev, () => { cancel(); if (tip) setTimeout(hide, Math.max(0, 1800 - (Date.now() - shownAt))); }, { passive: true, capture: true });
 })();
+
+/* 2.4.2: имя в панели бойца не переносится на вторую строку — шрифт уменьшается, пока имя не поместится (не меньше 8 px) */
+(() => {
+  let busy = false, queued = false;
+  const fit = () => {
+    if (busy) return; busy = true;
+    try {
+      for (const n of document.querySelectorAll('.fighter .fname')) {
+        n.style.fontSize = '';
+        if (!n.clientWidth) continue;
+        let fs = parseFloat(getComputedStyle(n).fontSize) || 13;
+        while (n.scrollWidth > n.clientWidth + 1 && fs > 8) { fs -= 0.5; n.style.fontSize = fs + 'px'; }
+      }
+    } finally { busy = false; }
+  };
+  const later = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
+  const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true, characterData: true }); window.addEventListener('resize', later); later(); };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
