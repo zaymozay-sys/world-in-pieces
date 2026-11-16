@@ -3442,6 +3442,8 @@
  "Сильнее надетого: +{0} Силы": "Stronger than equipped: +{0} Power",
  "Слабее надетого: {0} Силы": "Weaker than equipped: {0} Power",
  "Как надетое по Силе": "Same Power as equipped",
+ "Бой на горизонтальном телефоне: новая раскладка — герой и расходники слева, противник и магии справа, поле с камнями на всю высоту экрана; «Ваш ход» и таймер на своём месте, расходники прокручиваются.": "Battle on a landscape phone: new layout — hero and consumables on the left, enemy and spells on the right, the board fills the screen height; the turn line and timer have their own place, consumables scroll.",
+ "Новые картинки: эликсир яда, свитки регенерации и яда, медаль «Убийца скорпионов».": "New pictures: venom elixir, regeneration and venom scrolls, the Scorpion Slayer medal.",
  "Грани: единый показатель силы игрока для арены, подбор равных соперников по Граням.": "Grani: a single player strength rating for the arena, matching equal opponents.",
  "Бой: один предмет, эликсир или свиток каждого вида за ход; использованный предмет подсвечивается. После поражения — строка с причиной и советом.": "Battle: one item, elixir or scroll of each kind per turn; a used item is highlighted. After a defeat — a line with the cause and advice.",
  "Карта: кнопка «По силам», знак вожака, закрытые здания скрыты до открытия. При возвращении после перерыва — подсказка с лёгкой целью.": "Map: a “Fair fights” button, a leader mark, locked buildings hidden until open. After a long break — a hint with an easy goal.",

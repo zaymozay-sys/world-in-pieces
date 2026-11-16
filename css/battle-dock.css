@@ -586,3 +586,84 @@ body.phone.mode-battle .pq-row .pq-take { display: none; }
   body.bt-gold.ui-columns:not(.phone).duo-battle:not(.solo-battle) .pq-helpmenu button { min-width: 190px; padding: 6px 10px; font-size: 12px; text-align: left; white-space: nowrap; }
 }
 
+
+/* 2.4.2: золото, горизонтальный телефон — раскладка «под два больших пальца».
+   Слева герой, под ним приём врага/напарники, расходники и ряд кнопок; справа противник и магии, прижатые к нижнему углу.
+   Рамка поля по-прежнему от верхнего до нижнего края экрана (F). Магии и расходники больше не делят одну колонку,
+   поэтому ячейки крупнее: 4 столбца на широких экранах, 3 — на коротких (ширина меньше 1,9 высоты). */
+@media (orientation: landscape) {
+  body.bt-gold.ui-columns.phone.mode-battle {
+    --cols: 4; --srows: 4; --brows: 3; --cardh: calc(var(--av) + calc(90px * var(--u, 1)));   /* карточка: портрет + полоса здоровья 18u + счётчики 18u + 2 зазора по 7u + поля 12u + рамка 26u */
+    --cw4: calc((var(--C) - calc(16px * var(--u, 1)) - (var(--cols) - 1) * calc(3px * var(--u, 1)) - 7px) / var(--cols));
+    --cell: min(var(--cw4), calc((100dvh - var(--cardh) - 4 * var(--g) - calc(18px * var(--u, 1)) - (var(--srows) - 1) * calc(3px * var(--u, 1))) / var(--srows)));
+    --bcell: min(var(--cw4), calc((100dvh - var(--cardh) - calc(78px * var(--u, 1)) - 7 * var(--g) - calc(18px * var(--u, 1)) - (var(--brows) - 1) * calc(3px * var(--u, 1))) / var(--brows)));
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .arena {
+    grid-template-rows: auto auto minmax(0, 1fr) calc(40px * var(--u, 1));
+    grid-template-areas: "l b r" "mm b sk" "bag b sk" "act b sk";
+    padding: var(--g) 0; box-sizing: border-box;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet):not(.duo-hidden) .arena { grid-template-rows: auto auto minmax(0, 1fr) calc(40px * var(--u, 1)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#board, #pet-board) { grid-row: 1 / -1; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter,
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter.left,
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter.right { align-self: start; margin: 0; max-height: none; align-content: start; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#fighter-left, #pet-fighter-left) { grid-area: l; grid-row: l; grid-column: l; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#fighter-right, #pet-fighter-right) { grid-area: r; }
+  /* кнопка «i» — на нижнем правом углу портрета, а не поверх имени */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter .fi-btn { top: calc(var(--av) - calc(12px * var(--u, 1))); left: calc(var(--av) - calc(10px * var(--u, 1))); right: auto; }
+  /* панель инструментов распадается на два блока: магии — правый нижний угол, расходники — левый столбец над кнопками */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools { display: contents; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools > .tool-col:has(> :is(#spellbar, #pet-spellbar)) { grid-area: sk; align-self: end; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools > .tool-col:has(> :is(#bagbar, #pet-bagbar)) { grid-area: bag; align-self: end; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools > .tool-col:has(> :is(#bagbar, #pet-bagbar)) { max-height: 100%; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools .bagbar button.bagitem { width: var(--cw4); height: var(--cw4); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools .bagbar button.bagitem > b { font-size: calc(10px * var(--u, 1)); min-width: calc(14px * var(--u, 1)); height: calc(14px * var(--u, 1)); line-height: calc(14px * var(--u, 1)); padding: 0 2px; top: -3px; right: -3px; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .pq-row,
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-hidden) .pq-row:has(.mob-magic) { grid-area: mm; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .bar { grid-area: act; grid-row: act; grid-column: act; }
+}
+@media (orientation: landscape) {
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools > .tool-col:has(> :is(#bagbar, #pet-bagbar):empty) { display: none; }
+}
+/* бой без питомца: приём противника — под его карточкой справа */
+@media (orientation: landscape) {
+  body.bt-gold.ui-columns.phone.mode-battle.solo-battle .game:not(.duo-hidden) .arena { grid-template-areas: "l b r" "bag b mm" "bag b sk" "act b sk"; }
+}
+@media (orientation: landscape) and (max-aspect-ratio: 19/10) {
+  body.bt-gold.ui-columns.phone.mode-battle { --cols: 3; --srows: 5; --brows: 4; }
+}
+
+/* 2.4.2: строка хода («Ваш ход») и таймер — в левой колонке под карточкой героя; место под них заложено в расчёт.
+   Высоты: карточка H = 122u, плашки напарников/приёма 38u, строка хода 20u, таймер 16u, ряд кнопок 40u, зазор g.
+   Магии справа: ячейка = min(по ширине, (100dvh − H − [приём 28u + g в бою без питомца] − 4g − 18u − зазоры) / рядов).
+   Расходники слева занимают остаток высоты; если не помещаются — прокручиваются по вертикали. */
+@media (orientation: landscape) {
+  body.bt-gold.ui-columns.phone.mode-battle { --rx: 0px; --sth: calc(20px * var(--u, 1)); --tmh: calc(16px * var(--u, 1));
+    --cell: min(var(--cw4), calc((100dvh - var(--cardh) - var(--rx) - 4 * var(--g) - calc(18px * var(--u, 1)) - (var(--srows) - 1) * calc(3px * var(--u, 1))) / var(--srows))); }
+  body.bt-gold.ui-columns.phone.mode-battle.solo-battle { --rx: calc(28px * var(--u, 1) + var(--g)); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .arena,
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet):not(.duo-hidden) .arena {
+    grid-template-rows: auto auto var(--sth) auto minmax(0, 1fr) calc(40px * var(--u, 1));
+    grid-template-areas: "l b r" "mm b sk" "st b sk" "tm b sk" "bag b sk" "act b sk";
+  }
+  body.bt-gold.ui-columns.phone.mode-battle.duo-battle.solo-battle .game:not(.duo-pet):not(.duo-hidden) .arena {
+    grid-template-rows: auto calc(28px * var(--u, 1)) auto minmax(0, 1fr) calc(40px * var(--u, 1));
+    grid-template-areas: "l b r" "st b mm" "tm b sk" "bag b sk" "act b sk";
+  }
+  body.bt-gold.ui-columns.phone.mode-battle.solo-battle .game:not(.duo-hidden) :is(#status, #pet-status) { align-self: center; }
+  body.bt-gold.ui-columns.phone.mode-battle.solo-battle .game:not(.duo-hidden) .pq-row { align-self: start; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#status, #pet-status) {
+    display: block !important; grid-area: st; height: var(--sth) !important; min-height: 0 !important; max-height: var(--sth); line-height: var(--sth) !important; margin: 0 !important; padding: 0 calc(6px * var(--u, 1)); min-width: 0; box-sizing: border-box;
+    font-size: calc(11px * var(--u, 1)); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border: 0; border-radius: calc(8px * var(--u, 1)); background: rgba(24, 16, 8, .72); box-shadow: inset 0 0 0 1px rgba(168, 130, 63, .55);
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#status, #pet-status)::before { display: none !important; }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#status, #pet-status) { border-image: none !important; padding: 0 calc(6px * var(--u, 1)) !important; grid-column: st; grid-row: st; width: auto; overflow: hidden; --st-h: var(--sth); }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#turn-timer, #pet-turn-timer) {
+    display: block; grid-area: tm; height: var(--tmh); line-height: var(--tmh); margin: 0; padding: 0; font-size: calc(11px * var(--u, 1)); text-align: center; white-space: nowrap; overflow: hidden;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) :is(#turn-timer, #pet-turn-timer)[hidden] { display: none; }
+  /* расходники: прокрутка, если не помещаются; тень снизу подсказывает, что список длиннее */
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools > .tool-col:has(> :is(#bagbar, #pet-bagbar)) { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+}
