@@ -137,7 +137,7 @@ const Profile = (() => {
     }
   }
 
-  let data = fresh(), raw = null;
+  let data = fresh(), raw = null, gearUndo = null;
   try {
     raw = localStorage.getItem(KEY);
     let saved = JSON.parse(raw || 'null');
@@ -397,6 +397,14 @@ const Profile = (() => {
     stones() { return (data.stones = Stones.clean(data.stones)); },
     // 2.0.7: гнездо самоцвета — сверление (пробойник + смола), вставка и извлечение самоцвета, покупка пробойника
     gemStack(tier) { const dc = Stones.fixCost(tier); return Profile.resList().filter((r) => r.kind === 'resin' && r.tier >= dc.resinTier && r.n >= dc.resin).sort((a, b) => a.tier - b.tier)[0] || null; },
+    // 2.4.1: бесплатная отмена ошибочной вставки/сверления/руны в течение минуты (снимок вещи, камней, рун и ресурсов; не хранится в сохранении)
+    snapGear(uid) { gearUndo = { uid, at: Date.now(), items: JSON.stringify(data.items), stones: JSON.stringify(data.stones), runeBag: JSON.stringify(data.runeBag || {}), res: JSON.stringify(data.resources || {}) }; },
+    canUndoGear(uid) { return !!(gearUndo && gearUndo.uid === uid && Date.now() - gearUndo.at < 60000); },
+    undoGear(uid) {
+      if (!api.canUndoGear(uid)) return false;
+      data.items = JSON.parse(gearUndo.items); data.stones = JSON.parse(gearUndo.stones); data.runeBag = JSON.parse(gearUndo.runeBag); data.resources = JSON.parse(gearUndo.res);
+      gearUndo = null; save(); return true;
+    },
     buyPunch(heroTier) { const S = Profile.stones(), price = Stones.punchPrice(heroTier); if (!Profile.spend(price)) return false; S.punch += 1; save(); return true; },
     drillItem(uid) {
       const e = data.items.find((i) => i.uid === uid), S = Profile.stones();
@@ -768,7 +776,13 @@ const fmtBonus = (b) => Object.entries(b).map(([k, v]) => fmtStat(k, v)).join(',
 const statChips = (stats) => Object.entries(stats).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
 // Цвет 1–10 показывается как уровень на единой шкале с героем: цвет N — уровни N·10−9…N·10; существо начинает с низа диапазона и растёт внутри цвета.
 const lvl2 = (n) => (n < 10 ? '0' + n : String(n));   // «Ур.01»…«Ур.99»; сотый уровень — единственный трёхзначный (исключение)
-const tierChip = (t, grow = 0) => _t("<span class=\"tier-chip\" data-tier=\"{0}\" style=\"--t:{1};--ti:{2}\" title=\"{5}\">Ур.{3} {4}</span>", [t, Tiers.get(t).color, Tiers.get(t).ink, lvl2(t * 10 - 9 + grow), `<span class="tc-name">${Tiers.get(t).name}</span>`, grow > 0 ? _t("Базовый уровень {0}, окреп на {1}", [t * 10 - 9, grow]) : _t("Цвет {0}: силой как герои {1}–{2} уровня", [t, t * 10 - 9, t * 10])]);
+const tierChip = (t, grow = 0, lvl = 0) => {   // 2.4.0: разметка в коде, в переводе только текст
+  const T = Tiers.get(t), n = lvl > 0 ? lvl : lvl2(t * 10 - 9 + grow);
+  let cmp = '';
+  if (lvl > 0) { const D = Balance.mobLevels.dot, d = lvl - (typeof Profile !== 'undefined' && Profile.level ? Profile.level() : lvl); cmp = d <= D.weak ? 'weak' : d >= D.deadly ? 'deadly' : d >= D.hard ? 'hard' : 'even'; }
+  const title = grow > 0 ? _t("Базовый уровень {0}, окреп на {1}", [t * 10 - 9, grow]) : _t("Цвет {0}: силой как герои {1}–{2} уровня", [t, t * 10 - 9, t * 10]);
+  return `<span class="tier-chip" data-tier="${t}" data-cmp="${cmp}" style="--t:${T.color};--ti:${T.ink}" title="${title}">${_t("Ур.{0}", [n])} <span class="tc-name">${T.name}</span></span>`;
+};
 // Вещь: «Ур.31 Зелёный» — с какого уровня героя её можно надеть (Hero.itemLevel).
 const itemChip = (t) => { const L = Hero.itemLevel(t); return _t("<span class=\"tier-chip\" data-tier=\"{0}\" style=\"--t:{1};--ti:{2}\" title=\"{5}\">Ур.{3} {4}</span>", [t, Tiers.get(t).color, Tiers.get(t).ink, lvl2(L), `<span class="tc-name">${Tiers.get(t).name}</span>`, _t("Надеть можно с {0}-го уровня героя", [L])]); };
 // Питомцы и места — просто номер цвета 1–10.
@@ -970,6 +984,11 @@ const ItemInfo = (() => {
     const status = (worn ? `<span class="ic-worn">${owner === 'right' ? _t("На противнике") : _t("Надето")}: ${Gear.SLOT_NAMES[worn]}</span>`
       : cur ? _t("<span class=\"ic-cmp\">Сравнение с надетым: <b>{0}</b></span>", [cur.name]) : '') + durNote;
 
+    if (mine && !worn && it.stats ) {       // 2.4.1: главное одной строкой — лучше или хуже надетого по Силе
+      try { const sl = it.type === 'weapon2' || it.type === 'weapon1' ? 'main' : it.type === 'shield' ? 'off' : it.type, cur = Profile.data.loadout[sl] && Profile.item(Profile.data.loadout[sl]), d = Math.round(it.stats.power || 0) - (cur ? Math.round((Gear.item(cur).stats || {}).power || 0) : 0);
+        runeBlock = `<div class="ic-verdict ${d > 0 ? 'up' : d < 0 ? 'down' : 'same'}">${d > 0 ? '▲ ' + _t("Сильнее надетого: +{0} Силы", [d]) : d < 0 ? '▼ ' + _t("Слабее надетого: {0} Силы", [d]) : '＝ ' + _t("Как надетое по Силе")}</div>` + runeBlock; } catch (e) { /* подсказка необязательна */ }
+    }
+    if (mine && Profile.canUndoGear(uid)) runeBlock += `<div class="ic-undo"><button type="button" data-gem="undo">${_t("Отменить последнее изменение (1 мин)")}</button></div>`;
     pop.innerHTML = _t("<div class=\"modal icard-modal\" role=\"dialog\" aria-label=\"Карточка предмета: {0}\">\n      <div class=\"scroll\"{1}><i class=\"roll\" aria-hidden=\"true\"></i>\n      <article class=\"icard r-{2}\" data-tier=\"{3}\" style=\"--t:{4};--tc:{5};--s:{6}\">\n        <button type=\"button\" class=\"ic-close\" data-act=\"close\" aria-label=\"Закрыть\">✕</button>\n        <div class=\"ic-head\">\n          <div class=\"ic-art\"><span class=\"ic-rar\">{7}</span>{8}\n            <div class=\"ic-pic\">{9}</div>\n            {10}</div>\n          <div class=\"ic-title\"><h2>{11}</h2>\n            <p class=\"ic-type\">{12}{13}</p>\n            {14}\n            <ul class=\"ic-req\">{15}</ul>\n            <div class=\"ic-nums\"><span><small>Очки снаряжения</small><b>{16}</b></span><span><small>Цена в Лавке</small><b>{17}</b></span><span><small>Продать</small><b>{18}</b></span></div>\n          </div>\n        </div>\n        <div class=\"ic-body\">\n          <section class=\"ic-stats\"><h3>Характеристики</h3><ul>{19}</ul></section>\n          {20}{21}\n        </div>\n        {22}\n      </article><i class=\"roll\" aria-hidden=\"true\"></i></div></div>", [it.name, typeof Art !== 'undefined' && Art.has('ui/parchment') ? ` style="--paper:url('${new URL(Art.url('ui/parchment'), location.href).href}');${cardArtVars()}"` : '', it.rarity, it.tier, tierColor(it.tier), T.color, setInfo ? setInfo.color : Gear.NEUTRAL_COLOR, Gear.RARITY_NAMES[it.rarity], itemChip(it.tier), itemIcon(it.type, '', it.id), it.perk ? _t("<span class=\"ic-perk\">Особый приём</span>") : '', it.name, Gear.TYPE_NAMES[it.type], setInfo ? ` · <b style="color:${setInfo.color}">«${setInfo.name}»</b>` : _t(" · без набора"), status, reqs, it.cost, MonsterArt.moneyHtml(it.price), MonsterArt.moneyHtml(Gear.sellValue(it.price)), stats, setBlock, runeBlock, act ? `<footer class="ic-act">${act}</footer>` : '']);
     // Сравнение с надетой вещью — сразу под названием: что изменится, если надеть
     if (cur) {
@@ -1010,6 +1029,8 @@ const ItemInfo = (() => {
     if (b.dataset.act === 'close') return close();
     if (b.dataset.ic === 'equip') { const err = Inventory.equipUid(uid); if (err) { b.textContent = err; b.disabled = true; return; } return render(); }
     if (b.dataset.ic === 'unequip') { Inventory.unequipSlot(b.dataset.slotName); return render(); }
+    if (b.dataset.gem === 'undo') { if (Profile.undoGear(uid) && typeof onGearChanged === 'function') onGearChanged(); return render(); }
+    if (b.dataset.gem === 'drill' || b.dataset.gem === 'remove' || b.dataset.gemInsert || b.dataset.runeInsert) Profile.snapGear(uid);
     if (b.dataset.gem === 'drill') { const r = Profile.drillItem(uid); if (r.ok && typeof onGearChanged === 'function') onGearChanged(); return render(); }
     if (b.dataset.gem === 'remove') { if (Profile.removeGem(uid, Number(b.dataset.gemSlot) || 0) && typeof onGearChanged === 'function') onGearChanged(); return render(); }
     if (b.dataset.gemInsert) { if (Profile.insertGem(uid, Number(b.dataset.gemInsert), Number(b.dataset.gemSlot)) && typeof onGearChanged === 'function') onGearChanged(); return render(); }
@@ -1384,6 +1405,29 @@ const Inventory = (() => {
               : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это сумка: эликсиры, расходники, боеприпасы и ресурсы. Вещи и руны хранятся в оружейной вашего дома — там же меняется снаряжение.</p>"), bagTab, bagTabsHtml, paneElix, paneRes, MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
     const fc = Village.frameColor(Profile.data.cosmetics), dfr = root.querySelector('.doll-frame');   // 1.5.1: рамка из гардероба
     if (fc && dfr) dfr.style.boxShadow = `0 0 0 3px ${fc}, 0 0 14px 4px ${fc}`;
+    stashSearch(); bestBtn();
+  }
+  function bestBtn() {
+    if (!armory || !canEditGear()) return;
+    const grid = root.querySelector('.stash-grid'); if (!grid) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'equip-best'; b.textContent = _t("Надеть лучшее");
+    b.addEventListener('click', () => { equipBest(); });
+    grid.insertAdjacentElement('beforebegin', b);
+  }
+  // 2.4.1: поиск вещей в ранце по названию и характеристике («Отрава»): прячет ячейки, чьё описание не содержит запроса
+  let stashQ = '';
+  function stashSearch() {
+    const cells = [...root.querySelectorAll('.stash-cell[data-stash]')];
+    if (cells.length < 6 && !stashQ) return;
+    const grid = cells[0] && cells[0].closest('.stash-grid');
+    if (!grid) return;
+    const apply = () => { const q = stashQ.trim().toLowerCase(); for (const c of cells) c.hidden = !!q && !((c.title || '') + ' ' + c.textContent).toLowerCase().includes(q); };
+    const inp = document.createElement('input');
+    inp.type = 'search'; inp.className = 'stash-search'; inp.value = stashQ; inp.placeholder = _t("Поиск вещей");
+    inp.setAttribute('aria-label', _t("Поиск вещей"));
+    inp.addEventListener('input', () => { stashQ = inp.value; apply(); });
+    grid.insertAdjacentElement('beforebegin', inp);
+    apply();
   }
 
   // Особые предметы квестов: ключи к сундукам побережья, «Морской дневник», зелье подводного дыхания
@@ -1510,6 +1554,28 @@ const Inventory = (() => {
     const err = fromStash(k);
     if (!err) { onGearChanged(); render(); }
     return err;
+  }
+  // 2.4.1: «Надеть лучшее» — жадно по Силе: надевает вещь из ячеек, если она сильнее надетой в том же месте и проходит все проверки
+  function equipBest() {
+    if (!armory || !canEditGear()) return 0;
+    let n = 0;
+    for (let pass = 0; pass < 14; pass++) {
+      const st = stashLayout(), gear = Profile.gear();
+      let best = null;
+      st.forEach((uid, k) => {
+        const e = uid && Profile.item(uid); if (!e) return;
+        const it = Gear.item(e), slot = targetSlot(gear, it, true), cur = Profile.data.loadout[slot] && Profile.item(Profile.data.loadout[slot]);
+        const gain = ((it.stats && it.stats.power) || 0) - (cur ? ((Gear.item(cur).stats || {}).power || 0) : 0);
+        if (gain <= 0 || (best && gain <= best.gain)) return;
+        if (!Gear.canEquip(gear, e, slot, Profile.data.faction, Profile.level()).ok) return;
+        if (Gear.totalCost(Gear.equip(gear, e, slot)) > Profile.budget()) return;
+        best = { k, gain };
+      });
+      if (!best || fromStash(best.k)) break;
+      n++;
+    }
+    if (n) { onGearChanged(); render(); }
+    return n;
   }
   function unequipSlot(slot) {
     if (!armory || !canEditGear()) return;

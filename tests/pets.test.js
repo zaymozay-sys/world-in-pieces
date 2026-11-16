@@ -270,7 +270,10 @@ console.log('pets 1.5.1 ok');
   }
   assert.ok(/%/.test(Elixirs.describe('power', 7)) && /Сил/.test(Elixirs.describe('power', 7)));
   assert.ok(Elixirs.effect('defense', 10).v <= 90, 'первый удар не обнуляется');
-  assert.ok(Elixirs.effect('health', 5) === null && Elixirs.effect('initiative', 9) === null, 'Жизнь и Инициатива без побочного эффекта');
+  assert.ok(Elixirs.effect('initiative', 9) === null, 'Инициатива без побочного эффекта');
+  // 2.4.0: Жизнь — Регенерация, Хитрость — Отрава (с 5-го цвета, растут с цветом); ниже 5-го цвета эффекта нет
+  assert.ok(Elixirs.effect('health', 4) === null && Elixirs.effect('health', 5).leech > 0 && Elixirs.effect('health', 10).leech > Elixirs.effect('health', 5).leech, 'Жизнь: Регенерация');
+  assert.ok(Elixirs.effect('cunning', 5).venom > 0 && Elixirs.effect('cunning', 10).venom > Elixirs.effect('cunning', 5).venom, 'Хитрость: Отрава');
   assert.ok(/ХП/.test(Elixirs.describe('health', 10)) && /%/.test(Elixirs.describe('fury', 7)));
   // крит с добавкой от эликсира ярости
   const Combat = require('../js/combat.js');

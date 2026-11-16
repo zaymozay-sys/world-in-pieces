@@ -217,6 +217,34 @@ const HexMap = (() => {
     return Math.max(1, Math.min(10, 1 + Math.floor(Math.pow(x, 1.3) * 10)));
   }
 
+  /* ---------- 2.4.0: уровни существ 1–100 ----------
+     Уровень существа — (цвет − 1) × 10 + 1…10: прежние числа цвета — его 1-й уровень (Bestiary.scaledAt).
+     Обычное существо получает уровень по удалению от деревни (плавно внутри пояса цвета) ± 1; если цвет существа
+     не совпал с поясом (слабее/сильнее на цвет) — по зерну. Стражи, хозяева зон, боссы — 1-й уровень цвета; замки, острова, Башня — середина цвета.
+     «Вожак» (≈6% обычных): на 3 уровня выше, с лучшей добычей. Всё считается от номера соты (не от rand()), поэтому карта не сдвигается.
+     У сохранений без lvl уровень выводится из цвета (lvlOf). */
+  const hsh = (a, b) => { let h = (Math.imul(a + 1, 0x9E3779B1) ^ Math.imul(b + 7, 0x85EBCA6B)) >>> 0; h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D) >>> 0; h ^= h >>> 12; return h >>> 0; };
+  const firstLvl = (tier) => (Math.max(1, Math.min(10, tier)) - 1) * 10 + 1;
+  const lvlOf = (sp) => (sp.lvl > 0 ? sp.lvl : firstLvl(sp.tier));
+  const ML = (typeof Balance !== 'undefined' && Balance.mobLevels) || { leaderPct: 6, leaderUp: 3, scorpLevel: 88 };
+  function assignLevels(map) {
+    for (const sp of map.spawns) {
+      if (sp.lvl > 0) continue;
+      if (sp.scorp) { sp.lvl = ML.scorpLevel; continue; }   // 2.4.0: скорпионы — 88-й уровень: с 80-го героем в полной подготовке побеждают в ~1/3 боёв
+      const first = firstLvl(sp.tier), h1 = hsh(sp.idx, 1), h2 = hsh(sp.idx, 2);
+      let sub = 0;
+      if (sp.boss || sp.guard || sp.zone || sp.captain) sub = 0;
+      else if (sp.castle || sp.island || sp.tower) sub = 3 + h1 % 5;
+      else {
+        const c = map.cells[sp.idx], x = Math.max(0, (c.d - VILLAGE_R - 1) / (RADIUS - VILLAGE_R - 1)), tf = Math.pow(x, 1.3) * 10;
+        sub = Math.min(9, Math.floor(tf)) + 1 === sp.tier ? Math.min(9, Math.floor((tf - Math.floor(tf)) * 10)) : h1 % 10;
+        sub = Math.max(0, Math.min(9, sub + (h2 % 3) - 1));
+        if (!sp.oak && hsh(sp.idx, 3) % 100 < ML.leaderPct) { sp.leader = true; sub = Math.min(9, sub + ML.leaderUp); }
+      }
+      sp.lvl = first + sub;
+    }
+  }
+
   /* ---------- случайность из зерна ---------- */
   function rng(seed) {
     let a = seed >>> 0;
@@ -282,6 +310,7 @@ const HexMap = (() => {
       taken.add(c.idx);
     }
     if (boss) { map.spawns = map.spawns.filter((s) => s.idx !== boss.idx && !neighbors(map, boss.idx).includes(s.idx)); map.spawns.forEach((s, i) => { s.id = i; }); map.spawns.push({ id: map.spawns.length, idx: boss.idx, species: 'wraith', tier: 10, castle: true, boss: 'castleLord' }); }
+    assignLevels(map);
     return map;
   }
 
@@ -315,6 +344,7 @@ const HexMap = (() => {
       taken.add(c.idx);
     }
     if (guard !== undefined) map.spawns.push({ id: map.spawns.length, idx: guard, species: 'troll', tier: 10, island: true, guard: true });
+    assignLevels(map);
     return map;
   }
 
@@ -398,7 +428,7 @@ const HexMap = (() => {
       if (sr() < TOWER_SCORP_SPAWN) {
         const c = 1 + Math.floor(sr() * 10), doorC = cells[index.get(key(TOWER_DOOR[0], TOWER_DOOR[1]))];
         const cand = cells.filter((x) => reach.has(x.idx) && !taken.has(x.idx) && x.idx !== guard && dist(x, doorC) >= 6 && !neighbors(map, x.idx).some((n) => taken.has(n) || n === guard));
-        if (cand.length) { const x = cand[Math.floor(sr() * cand.length)]; map.spawns.push({ id: map.spawns.length, idx: x.idx, species: 'scorp' + c, tier, tower: true, depth: towerDepth(f), scorp: c }); taken.add(x.idx); }
+        if (cand.length) { const x = cand[Math.floor(sr() * cand.length)]; map.spawns.push({ id: map.spawns.length, idx: x.idx, species: 'scorp' + c, tier: 9, tower: true, depth: towerDepth(f), scorp: c }); taken.add(x.idx); }
       }
     }
     if (guard !== undefined) {
@@ -407,6 +437,7 @@ const HexMap = (() => {
       if (f % 10 === 0) { const n = f / 10 - 1; sp.species = TOWER_GUARDS[n % TOWER_GUARDS.length]; sp.trait = ['ward', 'toxin', 'stun'][n % 3]; sp.deep = true; }
       map.spawns.push(sp);
     }
+    assignLevels(map);
     return map;
   }
 
@@ -582,6 +613,7 @@ const HexMap = (() => {
       spot.building = id;
       map.buildings.push({ id, idx: spot.idx, cells: [spot.idx] });
     }
+    assignLevels(map);
     return map;
   }
 
@@ -838,7 +870,7 @@ const HexMap = (() => {
 
   return {
     TOWER_POOL, towerPool, towerDepth, TOWER_SCORP_SPAWN, RADIUS, VILLAGE_R, CASTLE_R, ISLAND_R, TOWER_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
-    key, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
+    key, lvlOf, assignLevels, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
   };
 })();
 

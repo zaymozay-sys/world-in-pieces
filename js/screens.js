@@ -104,7 +104,7 @@ const Screens = (() => {
     if ((k = Medals.styleKey(id))) return part(k);
     if ((k = Medals.worldKey(id)) === 'altars') return part('altars');
     if ((k = Medals.secretKey(id)) && got) return part(k);
-    if (id.startsWith('m:')) { const mm = Medals.masterOf(id); return mm && ['cut', 'craft', 'depth', 'elite', 'hatch', 'arena', 'pvp'].includes(mm.s) ? part(mm.s, mm.n) : ''; }
+    if (id.startsWith('m:')) { const mm = Medals.masterOf(id); return mm && ['cut', 'craft', 'depth', 'elite', 'hatch', 'arena', 'pvp', 'scorp'].includes(mm.s) ? part(mm.s, mm.n) : ''; }
     return '';
   };
   function medalTile(id, earned, level, progress, need) {
@@ -443,7 +443,8 @@ const Screens = (() => {
     if (s.set !== 'all' && s.set !== 'none') {
       const S = Gear.SETS[s.set], total = all.filter((i) => i.set === s.set).length, n = worn[s.set] || 0;
       const rows = Object.entries(S.bonuses).map(([need, b]) => `<span class="${n >= Number(need) ? 'on' : ''}">${_t("{0} шт.: {1}", [need, fmtBonus(b)])}</span>`).join('');
-      const win = Gear.SET_WINDOWS && Gear.SET_WINDOWS[s.set], winTxt = win ? `<div class="set-window">${_t("Сильнее всего на цветах {0}–{1}", [win[0], win[1]])}</div>` : '';
+      const styleKeys = [...new Set(Object.values(S.bonuses).flatMap((b) => Object.keys(b)))].filter((k) => Gear.STAT_NAMES[k] && k !== 'power' && k !== 'health'), styleTxt = styleKeys.length ? `<div class="set-style">${_t("Стиль")}: ${styleKeys.slice(0, 4).map((k) => Gear.STAT_NAMES[k]).join(', ')}</div>` : '';   // 2.4.1: фишка комплекта одной строкой
+      const win = Gear.SET_WINDOWS && Gear.SET_WINDOWS[s.set], winTxt = styleTxt + (win ? `<div class="set-window">${_t("Сильнее всего на цветах {0}–{1}", [win[0], win[1]])}</div>` : '');
       info = `<div class="set-info" style="--c:${S.color}"><b>${S.name}</b> · ${_t("надето {0} из {1}", [n, total])}${winTxt}<details class="set-more"${(typeof matchMedia === 'function' && matchMedia('(max-width: 700px)').matches) ? '' : ' open'}><summary>${_t("Бонусы комплекта")}</summary><div class="set-bonuses">${rows}</div></details></div>`;
     }
     const kindFn = CAT_KINDS.find((k) => k[0] === s.kind)[2];
@@ -702,7 +703,7 @@ const Screens = (() => {
     const miss = [];
     const coinsLack = Math.max(0, (c.coins || 0) - Profile.data.coins);
     if (coinsLack > 0) miss.push(_t("монет: {0}", [money(coinsLack)]));
-    for (const r of (c.res || [])) { const lack = r.n - Profile.res(r.kind, r.tier); if (lack > 0) miss.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${lack}`); }
+    for (const r of (c.res || [])) { const lack = r.n - Profile.res(r.kind, r.tier); if (lack > 0) { const kn = Profile.species(), src = Bestiary.sourcesOf(r.kind).filter((id) => kn.includes(id)).slice(0, 3).map((id) => Bestiary.MONSTERS[id].name).join(', '); miss.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${lack}` + (src ? ` — ${_t("падает с")}: ${src}` : '')); } }
     return miss.length ? `<div class="lack">${_t("Не хватает")}: ${miss.join(', ')}</div>` : '';
   };
   const costHtml = (c, key) => costBase(c, key) + lackHtml(c);
@@ -1766,7 +1767,8 @@ const Screens = (() => {
       const scene = (typeof Art !== 'undefined' && Art.hasScene('wreck'))
         ? ` style="background-image:linear-gradient(180deg, rgba(14,14,20,.5), rgba(14,14,20,.85)), url('${Art.sceneUrl('wreck')}');background-size:cover;background-position:center"` : '';
       const base = _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кораблекрушение\">{0}\n        <div class=\"screen-body tavern-body\"{1}>\n          <p class=\"hint\">Бригантина лежит на боку, мачта сломана, рваный парус бьётся на ветру. Рядом на песке стоит запертый сундук, а берег охраняет Капитан — бывший командир этого корабля. Победите его, и он оставит части морского набора.</p>\n        </div></div>", [head(_t("Бригантина")), scene]);
-      return base.replace(/<\/div><\/div>\s*$/, shipBlock() + '</div></div>');
+      const tp = `<h3>Тест</h3><div class="mc-act"><button type="button" class="primary" data-tp="1">⚓ Телепорт на остров (временно)</button></div>`;   // ВРЕМЕННО: убрать после тестов
+      return base.replace(/<\/div><\/div>\s*$/, shipBlock() + tp + '</div></div>');
     },
     click(b) {
       const d = Profile.data;
@@ -1781,6 +1783,7 @@ const Screens = (() => {
         if (!d.ship || !d.ship.paid || d.ship.fixed || (d.ship.pulls || 0) < 5) return;
         d.ship = { fixed: true }; Profile.chron('ship', 1); Profile.save(); return changed();
       }
+      if (b.dataset.tp) { close(); MapView.enterIsland(true); return; }   // ВРЕМЕННО
       if (b.dataset.sail && d.ship && d.ship.fixed) { close(); MapView.enterIsland(); }
     },
   };
@@ -3074,7 +3077,7 @@ const credits = {
         else if (s.pzSel === i) s.pzSel = null;
         else {
           const r = Puzzle.move(pz, pz.day, s.pzSel, i);
-          if (r.ok) { s.pzSel = null; if (r.coins) { r.coins = Math.round(scaled(r.coins) * Events.mul(evNow().id, 'puzzle')); Profile.addCoins(r.coins); s.msg = _t("Звезда! Монеты: {0}", [money(r.coins)]); } else s.msg = ''; Profile.save(); }
+          if (r.ok) { s.pzSel = null; if (r.coins) { r.coins = Math.round(scaled(r.coins) * Events.mul(evNow().id, 'puzzle')); Profile.addCoins(r.coins); Profile.addConsumable('dust', 1); s.msg = _t("Звезда! Монеты: {0}", [money(r.coins)]) + ' ' + _t("И щепотка каменной пыли для боя."); } else s.msg = ''; Profile.save(); }
           else s.pzSel = i;
         }
         return render();

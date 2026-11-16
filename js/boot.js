@@ -322,3 +322,28 @@ document.addEventListener('pointerdown', (e) => {
   const start = () => mo.observe(document.body, { childList: true, subtree: true, characterData: true });
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
+
+/* 2.4.1: длинное нажатие на телефоне показывает подсказку (title) — наведения на сенсорном экране нет */
+(() => {
+  let timer = null, tip = null, sx = 0, sy = 0, shownAt = 0;
+  const hide = () => { if (tip) { tip.remove(); tip = null; } };
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  document.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    hide(); cancel();
+    const t = e.target.closest && e.target.closest('[title]');
+    if (!t || !t.getAttribute('title')) return;
+    sx = e.clientX; sy = e.clientY;
+    timer = setTimeout(() => {
+      const txt = t.getAttribute('title'); if (!txt) return;
+      tip = document.createElement('div'); tip.className = 'longpress-tip'; tip.textContent = txt;
+      document.body.appendChild(tip);
+      const w = tip.offsetWidth, h = tip.offsetHeight;
+      tip.style.left = Math.max(6, Math.min(innerWidth - w - 6, sx - w / 2)) + 'px';
+      tip.style.top = Math.max(6, sy - h - 18) + 'px';
+      shownAt = Date.now();
+    }, 500);
+  }, { passive: true });
+  document.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel(); }, { passive: true });
+  for (const ev of ['pointerup', 'pointercancel', 'scroll']) document.addEventListener(ev, () => { cancel(); if (tip) setTimeout(hide, Math.max(0, 1800 - (Date.now() - shownAt))); }, { passive: true, capture: true });
+})();

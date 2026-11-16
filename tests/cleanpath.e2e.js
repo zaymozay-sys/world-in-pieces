@@ -44,7 +44,7 @@ const ok = (n, c, x) => { if (c) console.log('  ok   ' + n); else { fails++; con
     await p.waitForSelector('#overlay .to-map, .overlay .to-map', { timeout: 240000 });
     const res = await p.evaluate(() => document.querySelector('.overlay').innerText.slice(0, 200));
     ok('окно итога боя показано (' + res.split('\n')[0] + ')', res.length > 0);
-    await p.click('.overlay .to-map'); await p.waitForTimeout(1500);
+    await p.waitForTimeout(1200); await p.evaluate(() => document.querySelector('.overlay .to-map').click()); await p.waitForTimeout(1500);   // 2.4.0: окно итога доигрывает анимацию — нажимаем после неё, как в world160
     ok('возврат на карту', await p.evaluate(() => document.body.classList.contains('mode-map')));
     const w1 = await p.evaluate(() => ({ wins: Profile.data.wins || 0, coins: Profile.data.coins || 0, xp: Profile.data.xp || 0 }));
     ok(`прогресс начислен (победы ${w0.wins}→${w1.wins}, монеты ${w0.coins}→${w1.coins})`, w1.wins > w0.wins || w1.coins >= w0.coins);

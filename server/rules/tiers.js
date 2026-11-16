@@ -51,6 +51,17 @@ const Tiers = (() => {
   const HP_MULT = GROWTH;                                                        // старое имя
 
   const clamp = (t) => Math.max(1, Math.min(MAX, Math.round(t) || 1));
+  // 2.4.0: уровни существ 1–100. Уровень L лежит в цвете ceil(L/10); прежние числа цвета — его 1-й уровень (L = (цвет − 1) × 10 + 1),
+  // дальше сила плавно идёт к числам следующего цвета; в 10-м цвете — по тому же отношению, что между 9-м и 10-м.
+  const MAX_LEVEL = MAX * 10;
+  const levelClamp = (L) => Math.max(1, Math.min(MAX_LEVEL, Math.round(L) || 1));
+  const tierOfLevel = (L) => Math.ceil(levelClamp(L) / 10);
+  const firstLevel = (tier) => (clamp(tier) - 1) * 10 + 1;
+  // Доля пути от числа цвета к числу следующего: 0 на 1-м уровне цвета, 0,9 на 10-м.
+  const levelFrac = (L) => (levelClamp(L) - 1) % 10 / 10;
+  // Линейная доля между значением цвета a (его 1-й уровень) и следующего b; для 10-го цвета b = a · (a / значение 9-го цвета).
+  const lerpLevel = (a, b, L) => a + (b - a) * levelFrac(L);
+  const nextTier = (t) => Math.min(MAX, t + 1);
   const get = (t) => LIST[clamp(t) - 1];
 
   // Значение таблицы для дробного уровня (например, 2.4 — между Оранжевым и Жёлтым): рост геометрический;
@@ -65,7 +76,7 @@ const Tiers = (() => {
     return table[i] * Math.pow(table[i + 1] / table[i], f);
   }
   // Множитель характеристики stat на уровне-цвете tier.
-  const STAT_TABLE = { health: GROWTH, power: POWER_ABS, defense: ARMOR_ABS, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT, leech: PCT_MULT, leechPower: PCT_MULT };
+  const STAT_TABLE = { health: GROWTH, power: POWER_ABS, defense: ARMOR_ABS, block: PCT_MULT, ricochet: PCT_MULT, initiative: PCT_MULT, fury: PCT_MULT, cunning: PCT_MULT, venom: PCT_MULT, leech: PCT_MULT, leechPower: PCT_MULT };
   const statMult = (stat, tier) => (STAT_TABLE[stat] || POWER_MULT)[clamp(tier) - 1];
 
   /* ---------- деньги ---------- */
@@ -84,7 +95,7 @@ const Tiers = (() => {
     return parts.join(' ');
   }
 
-  return { LIST, MAX, GROWTH, POWER_MULT, POWER_ABS, HERO_DMG, PCT_MULT, ARMOR_ABS, ARMOR_UNIT, POINT_MULT, PRICE_MULT, HP_MULT, SILVER, GOLD, clamp, get, at, statMult, splitMoney, moneyText };
+  return { LIST, MAX, MAX_LEVEL, levelClamp, tierOfLevel, firstLevel, levelFrac, lerpLevel, nextTier, GROWTH, POWER_MULT, POWER_ABS, HERO_DMG, PCT_MULT, ARMOR_ABS, ARMOR_UNIT, POINT_MULT, PRICE_MULT, HP_MULT, SILVER, GOLD, clamp, get, at, statMult, splitMoney, moneyText };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

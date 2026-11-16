@@ -167,7 +167,7 @@ const Duo = (() => {
     const gr = (Profile.data.monster && Profile.data.monster.grow) || 0, key = f.name + '|' + f.tier + '|' + label + '|' + gr;
     if (nm.dataset.key !== key) {
       nm.dataset.key = key; nm.textContent = f.name + (label ? ' · ' + label + ' ' : ' ');
-      nm.insertAdjacentHTML('beforeend', tierChip(f.tier, gr));
+      nm.insertAdjacentHTML('beforeend', tierChip(f.tier, gr, f.lvl));
     }
     const hpW = Math.max(0, b.foeHp / b.foeMax * 100) + '%', hpI = bar.querySelector('.dt-hp i');
     if (hpI.style.width !== hpW) hpI.style.width = hpW;       // 2.3.9: страницу трогаем, только когда значение изменилось (функция идёт каждые 400 мс)
@@ -405,7 +405,7 @@ const Duo = (() => {
     const m = M();
     if (result === 'loss' && st.result.pet && st.petOutcomes.some((o) => !o.won)) Profile.petLoseDurability();
     // 2.0.8: поражение героя не даёт ничего, как в обычном бою (раньше за убитого питомцем врага платили и при поражении)
-    let txt = result === 'win' ? m.grantDuoRewards(st.kills, true) : '';
+    let txt = result === 'win' ? m.grantDuoRewards(st.kills, true) : (m.defeatAdvice ? m.defeatAdvice() : '');
     txt += petGrowth();
     setTab('hero');
     m.showOverlay(result === 'win' ? _t("Победа!") : _t("Поражение"), txt);

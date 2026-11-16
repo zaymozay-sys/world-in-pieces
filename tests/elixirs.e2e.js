@@ -80,7 +80,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
     ok(r.keptOnExtra && r.goneAfterTurn, 'Сила живёт до конца хода (в т. ч. бонусного) и снимается при передаче хода');
     ok(r.drankDef && r.defLeft === 10 && r.defLeft3 === 7, 'Броня держится 10 своих ходов: ' + r.defLeft3);
     ok(r.drankHealth && r.healed === r.healExpected && r.healed > 0, `Жизнь лечит цифрой ${r.healed} из ${r.healExpected}`);
-    ok(r.stonesBlocked === false && r.cd === 1 && /раз в/.test(r.why), 'Жизнь не пьётся дважды за ход: ' + r.why);
+    ok(r.stonesBlocked === false && r.cd === 1 && /раз в|уже выпит/.test(r.why), 'Жизнь не пьётся дважды за ход: ' + r.why);
     ok(r.cdLater === 0, 'со следующего хода запас восстановился: ' + r.cdLater);
     ok(r.drankStones && r.stones.every((n) => n === r.stonesExpected && n === 4), 'Камни: по 4 каждого вида на 1-м цвете: ' + r.stones);
     ok(r.drankSwap && JSON.stringify(r.swapped) === '[6,5,5]', 'Превращение: не больше половины разницы (9 и 2 → переносим 3, а не 5): ' + r.swapped);

@@ -314,6 +314,18 @@ const Combat = (() => {
       f.magic = true; f.magicFree = true;
       return { kind };
     }
+    // 2.4.0: Свитки отравы и регенерации — прибавка к характеристике до конца боя (пересчёт не стирает: tempVenom/tempLeech в game.js)
+    if (kind === 'scrollvenom') {
+      if (f.scrollVenom) return null;
+      f.stats.venom = (f.stats.venom || 0) + K.scrollvenom.venom; f.tempVenom = (f.tempVenom || 0) + K.scrollvenom.venom; f.scrollVenom = true;
+      return { kind, venom: K.scrollvenom.venom };
+    }
+    if (kind === 'scrollregen') {
+      if (f.scrollRegen) return null;
+      f.stats.leech = (f.stats.leech || 0) + K.scrollregen.leech; f.stats.leechPower = (f.stats.leechPower || 0) + K.scrollregen.leechPower;
+      f.tempLeech = (f.tempLeech || 0) + K.scrollregen.leech; f.tempLeechP = (f.tempLeechP || 0) + K.scrollregen.leechPower; f.scrollRegen = true;
+      return { kind, leech: K.scrollregen.leech, leechPower: K.scrollregen.leechPower };
+    }
     if (kind === 'stoneskin') {
       const sk = Math.max(1, Math.round(K.stoneskin.armor * armorUnit(f.dmg)));
       f.stats.defense = (f.stats.defense || 0) + sk; f.tempDef = (f.tempDef || 0) + sk;

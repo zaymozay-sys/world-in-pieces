@@ -52,7 +52,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const bf = JSON.parse(b.res), af = JSON.parse(a.res), key = {}; for (const r of bf) key[r.kind + ':' + r.tier] = r.n; for (const r of af) key[r.kind + ':' + r.tier] = (key[r.kind + ':' + r.tier] || 0) - r.n;
         return { diff: Object.entries(key).filter(([, v]) => v !== 0 && v === v), coins: b.coins - a.coins };
       }, [before, after, info.id, ct]);
-      const planned = await p.evaluate(([id, t]) => { const ps = []; for (const o of [0, 1]) for (const q of [0, 1]) { const pl = Forge.plan({ mode: 'craft', itemId: id, tier: t }, [o, q, 0, 0].slice(0, (D => D.craft[id][t].slots.length)(ForgeData))); if (pl.ok) ps.push(pl); } return ps.map((x) => ({ coins: Math.round(x.coins * Factions.perk(Profile.data.faction, 'forge')), res: x.res.map((r) => r.kind + ':' + r.tier + ':' + r.n).sort().join(',') })); }, [info.id, ct]);
+      const planned = await p.evaluate(([id, t]) => { const ps = []; const nS = ForgeData.craft[id][t].slots.length; for (let m = 0; m < (1 << nS); m++) { const pl = Forge.plan({ mode: 'craft', itemId: id, tier: t }, Array.from({ length: nS }, (_, i) => (m >> i) & 1)); if (pl.ok) ps.push(pl); }   /* 2.4.0: запасной вид может стоять в любой позиции рецепта */ return ps.map((x) => ({ coins: Math.round(x.coins * Factions.perk(Profile.data.faction, 'forge')), res: x.res.map((r) => r.kind + ':' + r.tier + ':' + r.n).sort().join(',') })); }, [info.id, ct]);
       const got = spent.diff.map(([k, v]) => k + ':' + v).sort().join(',');
       ok(planned.some((x) => x.res === got && x.coins === spent.coins), tag + ': списание совпадает с планом (' + got + ' / ' + spent.coins + ' м)');
     }

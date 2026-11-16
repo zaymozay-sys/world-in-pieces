@@ -1,9 +1,9 @@
 // Тесты эликсиров (js/elixirs.js). Запуск: node tests/elixirs.test.js
 const assert = require('assert');
 const E = require('../js/elixirs.js');
-assert.strictEqual(E.ORDER.length, 15);   // 2.3.8: + эликсир регенерации; 2.0.7: + тоники дороги, скорости, хитрости, корм и «Стойкость»
+assert.strictEqual(E.ORDER.length, 16);   // 2.3.8: + эликсир регенерации; 2.0.7: + тоники дороги, скорости, хитрости, корм и «Стойкость»
 assert.strictEqual(E.bonus(1, 'fury'), 19);   // 3,6 + добавка низких цветов 15 assert.strictEqual(E.bonus(10, 'health'), 0, 'Жизнь и Камни — мгновенные, без прибавки к характеристике');
-assert.strictEqual(E.bonus(10, 'power'), 100); assert.strictEqual(E.bonus(10, 'block'), 16); assert.strictEqual(E.bonus(3, 'ricochet'), 5); assert.strictEqual(E.bonus(10, 'ricochet'), 9); assert.strictEqual(E.bonus(10, 'defense'), 23); assert.strictEqual(E.bonus(10, 'cunning'), 30);
+assert.strictEqual(E.bonus(10, 'power'), 100); assert.strictEqual(E.bonus(10, 'block'), 19); assert.ok(E.bonus(2, 'block') > E.bonus(1, 'block') && E.bonus(4, 'block') > E.bonus(3, 'block'), 'Блок растёт на низких цветах'); assert.strictEqual(E.bonus(3, 'ricochet'), 5); assert.strictEqual(E.bonus(10, 'ricochet'), 9); assert.strictEqual(E.bonus(10, 'defense'), 23); assert.strictEqual(E.bonus(10, 'cunning'), 30);
 // Лечение — цифрой ХП, кратной 10: 1-й цвет 30, 10-й 350, растёт с цветом
 const H = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(E.heal);
 assert.strictEqual(H[0], 30); assert.strictEqual(H[9], 350);

@@ -12,6 +12,7 @@ const Elixirs = (() => {
     block:      { name: _t("Эликсир блока"),       stat: 'block',      second: 'defense', mode: 'long' },
     ricochet:   { name: _t("Эликсир рикошета"),    stat: 'ricochet',   second: 'power',   mode: 'long' },
     leech:      { name: _t("Эликсир регенерации"), stat: 'leech', second: null, mode: 'turn' },   // 2.3.8: шанс; сила регенерации — половина шанса (см. LEECH_POWER). Иконка пока от рикошета
+    venom:      { name: _t("Эликсир отравы"),     stat: 'venom',      second: null,      mode: 'turn' },   // 2.4.0: шанс отравить цель ударом до конца хода
     fury:       { name: _t("Эликсир ярости"),      stat: 'fury',       second: 'power',   mode: 'long' },
     cunning:    { name: _t("Эликсир хитрости"),    stat: 'cunning',    second: 'block',    mode: 'long' },   // 1.6.0: вместо Проворства (оно решает лишь первый ход, а эликсиры пьются уже в бою)
     health:     { name: _t("Эликсир жизни"),       stat: null,         second: null,      mode: 'instant' },
@@ -41,9 +42,9 @@ const Elixirs = (() => {
   // 1.5.1: защитные виды +2 за цвет (по симулятору +3 давало около +30 пунктов шанса победы на 10-м цвете), остальные +3
   // 1.6.0: эликсир действует ОДИН бой; прибавка подобрана симулятором так, чтобы один эликсир на любом цвете давал сопоставимый
   // прирост шанса победы: боевые виды +5 за цвет, защитные +2 (отдача +1,5), остальные +4.
-  const PER_TIER = { power: 12.5, fury: 3.6, cunning: 3, defense: 3.4, block: 1.6, ricochet: 0.9, leech: 7.5, wit: 3, speed: 3.2, road: 1.7 };   // 1.8.0: подобрано симулятором (tools/elixir-tune.js): один эликсир на 3-м…10-м цвете даёт +2…+11 п.п.
+  const PER_TIER = { power: 12.5, fury: 3.6, cunning: 3, defense: 3.4, block: 1.9, ricochet: 0.9, leech: 7.5, venom: 2.8, wit: 3, speed: 3.2, road: 1.7 };   // 1.8.0: подобрано симулятором (tools/elixir-tune.js): один эликсир на 3-м…10-м цвете даёт +2…+11 п.п.
   // 1.8.0: низкие цвета получают добавку, сходящую на нет к 6-му цвету (на 1-м прибавка в единицы процентов героя не двигала)
-  const LOW = { power: 60, fury: 15, cunning: 13, defense: 15, block: 7, ricochet: 3, leech: 25, wit: 13, speed: 12, road: 7 };   // не больше 5 × PER_TIER, иначе эликсир 2-го цвета слабее 1-го
+  const LOW = { power: 60, fury: 15, cunning: 13, defense: 15, block: 5.5, ricochet: 3, leech: 25, venom: 10, wit: 13, speed: 12, road: 7 };   // не больше 5 × PER_TIER, иначе эликсир 2-го цвета слабее 1-го
   const rawBonus = (tier, kind) => (KINDS[kind] && KINDS[kind].stat === null) ? 0 : Math.round((PER_TIER[kind] || 4) * tier + (LOW[kind] || 0) * Math.max(0, 6 - tier) / 5);
   // Сила — число, прибавляемое к удару: очки таблицы выше переводятся в число так же, как очки Силы вещей (0,045 × рост урона героя цвета).
   const HERO_DMG = [1.67, 2.17, 2.83, 3.63, 4.59, 5.75, 7.22, 9.09, 11.61, 14.93];   // = Tiers.HERO_DMG
@@ -78,6 +79,9 @@ const Elixirs = (() => {
       case 'defense': return { v: Math.min(90, 40 + 10 * s) };            // первый полученный удар слабее на %
       case 'block': return { v: 30 + 10 * s };                            // первый блок бьёт в ответ на % удара
       case 'ricochet': return { v: 2 + s };                               // первый рикошет лечит на урон стольких камней (3…8)
+      // 2.4.0: Хитрость — Отрава, Жизнь — Регенерация до конца боя (применяется при глотке: game.js, elxSideApply)
+      case 'cunning': return { venom: 2 + 2 * s };                        // +4…14% к шансу отравить
+      case 'health': return { leech: 3 * s, leechPower: 2 * s };          // +3…18% к шансу регенерации, +2…12% к силе
     }
     return null;
   }
@@ -87,6 +91,8 @@ const Elixirs = (() => {
       case 'defense': return _t("первый удар по вам слабее на {0}%", [fx.v]);
       case 'block': return _t("первый ваш блок бьёт в ответ на {0}% удара", [fx.v]);
       case 'ricochet': return _t("первый ваш рикошет лечит как удар по {0} камням", [fx.v]);
+      case 'cunning': return _t("Отрава +{0}% до конца боя", [fx.venom]);
+      case 'health': return _t("Регенерация: шанс +{0}%, сила +{1}% до конца боя", [fx.leech, fx.leechPower]);
     }
     return '';
   }
@@ -96,7 +102,8 @@ const Elixirs = (() => {
     if (kind === 'speed') return _t("Дополнительный ход сразу и Проворство +{0} на {1 ход|хода|ходов}.", [bonus(tier, 'speed'), LONG_TURNS]);
     if (kind === 'road') return _t("Броня +{0} и максимум ХП +{1}% на этот бой и ещё {2}.", [Math.round(bonus(tier, 'road')), Math.round(ROAD_HP * 100), ROAD_FIGHTS - 1]);
     const K = KINDS[kind], st = (typeof Gear !== 'undefined' && Gear.STAT_NAMES) ? Gear.STAT_NAMES : {};
-    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно каждый ход, но один раз за ход; ход не тратится.", [heal(tier)]);
+    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно каждый ход, но один раз за ход; ход не тратится.", [heal(tier)]) + (tier >= FX_MIN ? ' ' + _t("Первый глоток за бой: {0}.", [sideText(kind, tier)]) : '');
+    if (kind === 'venom') return _t("Шанс отравить +{0}% до конца хода. Пить перед ударом.", [bonus(tier, kind)]);
     if (kind === 'swap') return _t("Превращает до {0 камень|камня|камней} того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [swapAmount(tier), cdOf(kind)]);
     if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), cdOf(kind)]);
     if (kind === 'leech') return _t("Шанс регенерации +{0}%, сила регенерации +{1}% до конца хода. Пить перед ударом.", [bonus(tier, kind), Math.round(bonus(tier, kind) * LEECH_POWER)]);

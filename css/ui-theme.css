@@ -427,8 +427,8 @@ body.mode-map .map-card .mc-act button.primary {
 
 /* подсказка свёрнута: печать «?» справа, нажатие возвращает текст */
 .modal .tip-q {
-  display: block; width: 30px; height: 30px; min-height: 0 !important; min-width: 0 !important; margin: -4px 0 6px auto; padding: 0;
-  font-family: var(--ui-display); font-weight: 700; font-size: 17px; line-height: 30px; color: #ffd9c2 !important; text-shadow: 0 1px 1px #3a0505;
+  display: block; width: 36px; height: 36px; min-height: 0 !important; min-width: 0 !important; margin: -6px 0 4px auto; padding: 0;   /* 2.4.0: 36 px — удобно пальцу */
+  font-family: var(--ui-display); font-weight: 700; font-size: 19px; line-height: 36px; color: #ffd9c2 !important; text-shadow: 0 1px 1px #3a0505;
   background: url("../art/ui/note-seal.webp") center / contain no-repeat !important; border: 0 !important; border-radius: 50% !important; box-shadow: none !important;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)); opacity: .9;
 }
@@ -660,6 +660,51 @@ body.bt-gold .log { scrollbar-width: thin; scrollbar-color: var(--ui-gold-lo) tr
 
 /* Маяк: карточки мини-игр */
 .modal .lh-game, .modal .mini-card { border-left: 3px solid var(--ui-gold-mid); }
+
+/* 2.3.6: иконки награды задания — маленький ряд значков перед текстом «Награда: …» */
+.quest-reward-icons { display: inline-flex; gap: 3px; vertical-align: middle; margin-right: 4px; }
+.quest-reward-icons .qr-ico { display: inline-flex; width: 18px; height: 18px; }
+.quest-reward-icons .qr-ico .item-icon, .quest-reward-icons .qr-ico svg, .quest-reward-icons .qr-ico img { width: 100%; height: 100%; }
+
+/* 2.3.6: на телефоне карточка задания — кнопка («Взять задание» и т.п.) не сжимается в узкую колонку
+   рядом с длинным текстом (из-за чего слова переносились по одному), а переходит на свою строку во всю ширину. */
+body.ui-columns.phone .modal .quest-card { flex-wrap: wrap; }
+body.ui-columns.phone .modal .quest-card > .card-body { flex-basis: 100%; }
+body.ui-columns.phone .modal .quest-card > .card-act { flex: 1 1 auto; width: 100%; flex-direction: row; margin-top: 2px; }
+body.ui-columns.phone .modal .quest-card > .card-act button { width: 100%; }
+
+/* 2.3.6: та же беда — на телефоне карточка Лавки с выбором количества (ресурсы, расходники, эликсиры, боеприпасы):
+   кнопки ×1/×5/×10/×25 плюс «Купить» не помещаются рядом с текстом и сминали его в колонку по одной букве.
+   Переносим низ карточки (выбор количества + кнопка) на свою строку во всю ширину. */
+body.ui-columns.phone .modal .card:has(.qty-picker) { flex-wrap: wrap; }
+body.ui-columns.phone .modal .card:has(.qty-picker) > .card-body { flex-basis: 100%; }
+body.ui-columns.phone .modal .card:has(.qty-picker) > .card-act { flex: 1 1 auto; width: 100%; margin-top: 4px; }
+body.ui-columns.phone .modal .card:has(.qty-picker) > .card-act .qty-picker { flex: 1 1 100%; justify-content: space-between; }
+body.ui-columns.phone .modal .card:has(.qty-picker) > .card-act button:not(.qs) { width: 100%; }
+
+/* 2.3.6: название цвета («Красный», «Жёлтый» …) рядом с «Ур.N» или с названием ресурса — убрано на телефоне в Лавке
+   и в карточках продажи: цвет и так виден по обводке карточки/значка, а место в узкой колонке на счету. */
+body.ui-columns.phone .modal .tier-chip .tc-name { display: none; }
+body.ui-columns.phone .modal .item-title .tc-name { display: none; }
+body.ui-columns.phone .modal .item-title .tc-name + * { margin-left: 0; }
+
+/* 2.3.6: иконка вещи/ресурса в карточках Лавки — крупнее на телефоне (было мелко и терялось рядом с текстом) */
+body.ui-columns.phone .modal .card .icon-wrap .item-icon,
+body.ui-columns.phone .modal .card > .res-icon,
+body.ui-columns.phone .modal .card > svg.coin-icon { width: 56px; height: 56px; }
+
+/* 2.3.6: карточки рецептов у Алхимика (эликсиры, настои, «Живой ключ» и т.п.) — на телефоне узкий экран даёт всего
+   одну широкую «плитку» на ряд, и вертикальная центрированная раскладка (значок сверху, длинный текст, серая кнопка
+   по центру снизу) смотрится рыхло. На телефоне возвращаем обычную горизонтальную карточку: значок слева покрупнее,
+   текст и кнопка — как в остальных списках Лавки. */
+body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-brew-breath]) { grid-template-columns: 1fr; }
+body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-brew-breath]) > .card {
+  flex-direction: row; flex-wrap: wrap; text-align: left; align-items: flex-start; padding: 10px 12px; border-left: 4px solid var(--t, #4a4d55); border-top: 0;
+}
+body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-brew-breath]) > .card .item-icon { width: 56px; height: 56px; }
+body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-brew-breath]) > .card > .card-body { width: auto; flex: 1 1 0; min-width: 0; }
+body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-brew-breath]) > .card > .card-act { flex: 1 1 100%; width: 100%; justify-content: flex-start; margin: 8px 0 0; }
+body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-brew-breath]) > .card > .card-act button { width: 100%; }
 
 /* шахматы в Библиотеке: доска в тёмной золотой раме */
 .modal .chess-wrap, .modal #chessboard, .modal .chess-board {

@@ -280,10 +280,14 @@ const Medals = (() => {
   const dailyMedalId = (n) => 'daily:' + n;
   const prevDay = (day) => { const [y, m, d] = day.split('-').map(Number), t = new Date(y, m - 1, d - 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
   // Учитывает победу в испытании в день day: возвращает новое состояние { last, n }.
+  const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
   function dailyStep(state, day) {
     const s = state || { last: '', n: 0 };
     if (s.last === day) return s;
-    return { last: day, n: s.last && prevDay(day) === s.last ? s.n + 1 : 1 };
+    if (s.last && prevDay(day) === s.last) return { last: day, n: s.n + 1, frz: s.frz };
+    // 2.4.1: «день заморозки» — один пропущенный день серию не обнуляет (не чаще раза в 7 дней); серия не растёт за пропущенный день
+    if (s.last && s.n > 0 && prevDay(prevDay(day)) === s.last && !(s.frz && daysBetween(s.frz, day) < 7)) return { last: day, n: s.n + 1, frz: day, froze: true };
+    return { last: day, n: 1 };
   }
   function checkDailyMedal(n, earned = []) {
     for (const m of DAILY_MILESTONES) { const id = dailyMedalId(m); if (n >= m && !earned.some((e) => e.id === id)) return id; }
@@ -302,10 +306,12 @@ const Medals = (() => {
     elite: { name: _t("Охотник на элиту"), ms: [3, 10, 25, 50, 90, 150, 250, 400, 650, 1000], bonus: (i) => (i === 9 ? { health: 40, defense: 3, power: 1 } : { health: 4 * (1 + i), ...(i >= 3 ? { defense: Math.floor(i / 3) } : {}) }), group: { health: 30, defense: 3 } },
     hatch: { name: _t("Зверовод"),         ms: [1, 2, 4, 7, 11, 16, 23, 32, 45, 60],     bonus: (i) => ({ health: 3 * (1 + i), ...(i >= 4 ? { defense: Math.floor(i / 4) } : {}) }),                                group: { health: 25, defense: 4 } },
     arena: { name: _t("Гладиатор"),        ms: [3, 8, 15, 30, 50, 80, 120, 180, 260, 400], bonus: (i) => (i === 9 ? { health: 40, defense: 3, power: 1 } : { health: 4 * (1 + i), ...(i >= 3 ? { defense: Math.floor(i / 3) } : {}) }), group: { health: 30, defense: 3 } },
+    // 2.4.0: скорпионы подземелья (80+ уровень): 1, 3, 5, 10 побед — Сила и боевые умения
+    scorp: { name: _t("Убийца скорпионов"), ms: [1, 3, 5, 10, 15, 22, 30, 40, 55, 75], bonus: (i) => [{ health: 6 }, { defense: 1, health: 6 }, { fury: 1 }, { power: 1 }, { fury: 1, health: 10 }, { power: 1, defense: 1 }, { ricochet: 1 }, { power: 2 }, { fury: 2, cunning: 1 }, { power: 3, fury: 2 }][i], group: { power: 3, fury: 3, health: 20 } },
     // 2.3.8: победы над живыми игроками (счёт ведёт сервер через выдачу наград) — шаг крупнее, награды боевые, без здоровья и брони
     pvp:   { name: _t("Победитель живых"),  ms: [3, 10, 25, 50, 100, 175, 275, 400, 600, 900], bonus: (i) => [{ initiative: 1 }, { cunning: 1 }, { fury: 1 }, { ricochet: 1 }, { power: 1 }, { fury: 2 }, { ricochet: 2 }, { power: 2 }, { fury: 3, cunning: 1 }, { power: 3, fury: 2 }][i], group: { power: 4, fury: 3, ricochet: 2 } },
   };
-  const MASTER_ORDER = ['craft', 'depth', 'cut', 'rune', 'elite', 'hatch', 'arena', 'pvp'];
+  const MASTER_ORDER = ['craft', 'depth', 'cut', 'rune', 'elite', 'hatch', 'arena', 'pvp', 'scorp'];
   const masterMedalId = (s, n) => 'm:' + s + ':' + n;
   function masterOf(id) {
     const m = /^m:(\w+):(\d+)$/.exec(id || ''), d = m && MASTER[m[1]];
@@ -321,6 +327,7 @@ const Medals = (() => {
       : s === 'cut' ? _t("{0 огранка|огранки|огранок} и вставленных самоцветов", [n]) : s === 'elite' ? _t("{0 победа|победы|побед} над элитными существами", [n])
       : s === 'pvp' ? _t("{0 победа|победы|побед} над живыми игроками", [n])
       : s === 'arena' ? _t("{0 победа|победы|побед} на арене", [n])
+      : s === 'scorp' ? _t("{0 победа|победы|побед} над скорпионами подземелья", [n])
       : s === 'hatch' ? _t("{0 питомец|питомца|питомцев} выведено из яиц", [n]) : _t("{0 руна|руны|рун} нанесено и обновлено", [n]);
   }
 

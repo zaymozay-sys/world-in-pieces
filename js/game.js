@@ -143,13 +143,13 @@ function buildFighter(side) {
   // многоточием, если не помещается), чтобы строка с именем никогда не переносилась на вторую
   // строку — иначе карточки игрока и противника оказались бы разной высоты (см. .fighter .name).
   const nameRow = side === 'right'
-    ? _t("<div class=\"name\"><span class=\"fname\" style=\"color:{0}\" title=\"{1}\">{2}</span> {3}</div>", [tierColor(f.tier), f.name, f.name, tierChip(f.tier)])
+    ? _t("<div class=\"name\"><span class=\"fname\" style=\"color:{0}\" title=\"{1}\">{2}</span> {3}</div>", [tierColor(f.tier), f.name, f.name, tierChip(f.tier, 0, f.lvl)])
     : _t("<div class=\"name\"><span class=\"fname\" title=\"{0}\">{1}</span> <span class=\"hero-lvl\" title=\"Уровень героя\">ур. {2}</span></div>", [f.name, f.name, f.level || 1]);
   el.innerHTML = _t("\n    <div class=\"avatar\" title=\"Открыть ранец и экипировку\"></div>\n    {0}\n    <div class=\"hpbar\"><i></i><span class=\"hptext\"></span></div>\n    <div class=\"counters\">{1}</div>\n    <div class=\"gearrow\" title=\"Открыть ранец и экипировку\"></div>\n    <div class=\"statline\"></div>\n    {2}\n    <div class=\"badge\"></div>\n    {3}\n    {4}", [nameRow, counters, side === 'right' ? _t("<div class=\"ability-line\" title=\"{0}\">Приём: <b>{1}</b></div>", [(Bestiary.ability(f.monsterId) || {}).desc || '', (Bestiary.ability(f.monsterId) || {}).name || '—']) : '', side === 'left' ? '<div class="pet-panel" id="pet-panel" hidden><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div>' : '', side === 'right' ? '<div class="pet-panel clone-panel" id="clone-panel" hidden><div class="clone-av"></div><div class="clone-body"><div class="name"><span class="fname"></span></div><div class="hpbar"><i></i><span class="hptext"></span></div></div></div>' : '']);
 
   { // 1.8.1: на телефоне вместо «ур. N» / «Ур.N Цвет» — цифра в кружке цвета уровня (CSS .lv-dot)
     const dotTier = side === 'right' ? f.tier : Hero.tierFor(f.level || 1), tc = Tiers.get(dotTier), nm = el.querySelector('.name');
-    if (nm && tc) nm.insertAdjacentHTML('afterbegin', `<span class="lv-dot" style="--t:${tc.color};--ti:${tc.ink}" aria-hidden="true">${side === 'right' ? f.tier : (f.level || 1)}</span>`);
+    if (nm && tc) nm.insertAdjacentHTML('afterbegin', `<span class="lv-dot" style="--t:${tc.color};--ti:${tc.ink}" aria-hidden="true">${side === 'right' ? (f.lvl || f.tier) : (f.level || 1)}</span>`);
   }
   { // кнопка «i»: подробности бойца всплывающим окошком
     const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'fi-btn'; ib.textContent = 'i'; ib.title = _t("Подробности");
@@ -209,12 +209,19 @@ const canEditGear = () => !inBattle || (moves === 0 && !busy) || over;
 // Нужен только для проверки сильных персонажей; проценты (Броня, Блок, Рикошет…) упираются в обычные потолки Gear.CAPS.
 const testMult = () => (typeof Profile !== 'undefined' && Profile.data && Profile.data.testX10 ? 10 : 1);
 
+// 2.4.0: Отрава и Регенерация до конца боя (свитки, побочные эффекты эликсиров) переживают пересчёт характеристик
+function tempBonus(f) {
+  if (f.tempVenom) f.stats.venom = (f.stats.venom || 0) + f.tempVenom;
+  if (f.tempLeech) f.stats.leech = (f.stats.leech || 0) + f.tempLeech;
+  if (f.tempLeechP) f.stats.leechPower = (f.stats.leechPower || 0) + f.tempLeechP;
+}
 function recalcStats(side) {
   const f = fighters[side];
   if (PET && side === 'left') return;               // боец питомца уже посчитан (Pets.petFighter)
   if (side === 'left' && cardFight()) {             // равные условия: как у тени по карточке
     f.stats = Gear.combine(Gear.combine(Gear.stats(f.gear), f.innate || {}), Runes.bonusForGear(f.gear));   // руны и огранка — как у тени
     if (f.tempDef) f.stats.defense = (f.stats.defense || 0) + f.tempDef;
+    tempBonus(f);
     f.max = f.base + f.stats.health + (f.tempMax || 0); f.hp = Math.min(f.hp, f.max); f.weaponPerk = Gear.weaponPerk(f.gear);
     return;
   }
@@ -238,6 +245,7 @@ function recalcStats(side) {
   }
   if (side === 'right') { f.stats = Gear.combine(f.stats, Elixirs.bonusStats(f.elx || {})); f.elxPct = Elixirs.activePct(f.elx || {}); }   // 2.0.4: трофейные эликсиры существа
   if (f.tempDef) f.stats.defense = (f.stats.defense || 0) + f.tempDef;   // Каменная кожа держится весь бой
+  tempBonus(f);
   f.max = (side === 'left' ? f.base * testMult() : f.base) + f.stats.health;
   if (side === 'left' && f.bless === 'stone') f.max = Math.round(f.max * (1 + World.BLESSINGS.stone.amount / 100));   // 1.5.4: алтарь
   if (f.elx && f.elx.road && f.elx.road.left > 0) f.max = Math.round(f.max * (1 + Elixirs.ROAD_HP));   // 2.0.7: «Тоник дороги»
@@ -403,12 +411,13 @@ function setupEnemy() {
   if (sel.run) return setupShadow(sel.run);             // 1.8.8: «Забег» — тень текущей волны
   const id = Bestiary.MONSTERS[sel.id] ? sel.id : 'rat';
   const tier = Tiers.clamp(sel.tier);
+  const lvl = sel.lvl > 0 && Tiers.tierOfLevel(sel.lvl) === tier ? Tiers.levelClamp(sel.lvl) : Tiers.firstLevel(tier);   // 2.4.0: уровень существа 1–100 (без lvl — 1-й уровень цвета, как раньше)
   const m = Bestiary.MONSTERS[id], f = fighters.right;
   f.elx = {}; f.elxPct = 0; f.elxTurn = 0; f.elxDrunk = 0;     // 2.0.4: трофейные эликсиры существа
   // Рой (Дикие пчёлы): размер выпадает заново при каждой встрече — 1, 3 или 5 «на деле» в одном бою
   // (см. Bestiary.rollSwarmSize/scaled). У видов без поля swarm всегда 1 и ни на что не влияет.
   const swarmSize = sel.swarm || Bestiary.rollSwarmSize(id, Math.random);
-  let sc = Bestiary.scaled(id, tier, swarmSize, Profile.level());
+  let sc = Bestiary.scaledAt(id, lvl, swarmSize, Profile.level());
   if (sel.grow > 0) sc = { ...sc, hp: Math.round(sc.hp * Growth.mul(sel.grow)), dmg: sc.dmg * Growth.mul(sel.grow) };   // 2.0.0: существо, набравшее шаги, крепче
   if (sel.depth > 1) sc = { ...sc, hp: Math.round(sc.hp * sel.depth), dmg: sc.dmg * sel.depth };   // 2.0.7: подземелье глубже 8-го этажа — существа крепче
   if (sel.boss) sc = Story.scaleBoss(sc, sel.boss, Story.cycle(Profile.data.story));          // 1.3.0: страж осколка — вдвое крепче
@@ -429,8 +438,8 @@ function setupEnemy() {
     if (sel.wx) logEvent('right', Sky.effectLines(sel.wx, false).slice(-1)[0]);
   }, 360);   // 1.5.1: страж говорит перед боем
   Object.assign(f, {
-    monsterId: id, tier, swarmSize,
-    name: (sel.boss ? Story.bossName(sel.boss, m.name) : ZB ? ZB.title : m.swarm ? `${m.name} ×${swarmSize}` : m.name) + (sel.elite ? ' ★' : '') + (sel.trait && Bestiary.ABILITIES[sel.trait] ? ' · ' + Bestiary.ABILITIES[sel.trait].name : ''),
+    monsterId: id, tier, lvl, leader: !!sel.leader, scorp: sel.scorp || 0, swarmSize,
+    name: (sel.boss ? Story.bossName(sel.boss, m.name) : ZB ? ZB.title : m.swarm ? `${m.name} ×${swarmSize}` : m.name) + (sel.elite ? ' ★' : '') + (sel.leader ? ' ' + _t("· Вожак") : '') + (sel.trait && Bestiary.ABILITIES[sel.trait] ? ' · ' + Bestiary.ABILITIES[sel.trait].name : ''),
     affixes, elite: !!sel.elite, guardian: sel.boss || null, enraged: false, shadowHero: null,
     base: f.hpEdited ? f.base : sc.hp, innate: sc.stats, gearBudget: sc.gearBudget,
     dmg: sc.dmg, ability: sel.trait && Bestiary.ABILITIES[sel.trait] ? sel.trait : m.ability, trait: sel.trait || null,   // 1.9.3: дух замка со своим приёмом
@@ -640,6 +649,7 @@ const bagEl = $('bagbar');
 function bagDisabled(kind) {
   const f = fighters.left, bag = Profile.data.backpack;
   if (busy || over || aiming || !(bag[kind] > 0) || isChallenge() || LIVE) return true;
+  if (f.itemsUsed && f.itemsUsed[kind]) return true;      // 2.4.0: уже использован в этот ход
   if (kind === 'potion') return f.hp >= f.max;
   if (kind === 'elixir') return f.buffs.some((b) => b.kind === 'power');
   if (kind === 'scroll') return f.haste;
@@ -657,8 +667,8 @@ function renderBag() {
   const cycBtn = Profile.shotStocks().length > 1 ? `<button type="button" class="bagitem ammocycle" data-ammocycle title="${_t("Сменить заряд")}" aria-label="${_t("Сменить заряд")}" ${busy || over || aiming || turnSide !== 'left' ? 'disabled' : ''}><b>⇄</b></button>` : '';
   const nElx = Profile.elixirBag().reduce((a, e) => a + e.n, 0);
   const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || cardFight() || !!LIVE || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
-  const bagHtml = ammoBtn + cycBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).map(([k, c]) =>
-    `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? (bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
+  const bagHtml = ammoBtn + cycBtn + elxBtn + Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).filter(([k]) => (bag[k] || 0) > 0).map(([k, c]) =>   /* 2.4.0: пустые предметы не показываем */
+    `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? ((fighters.left.itemsUsed || {})[k] ? 'used' : bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
        ${itemIcon(k)}<b>${bag[k] || 0}</b></button>`).join('');
   if (bagEl._html === bagHtml) return;            // ничего не изменилось — кнопки не пересоздаём (иначе значки мигают)
   bagEl._html = bagHtml; bagEl.innerHTML = bagHtml;
@@ -767,8 +777,11 @@ function useConsumable(side, kind) {
   const f = fighters[side];
   const bag = side === 'left' ? Profile.data.backpack : f.bag;
   if (!(bag[kind] > 0)) return false;
+  const usedNow = f.itemsUsed || (f.itemsUsed = {});
+  if (usedNow[kind]) { if (side === 'left') note(_t("Этот предмет уже использован в этот ход")); return false; }   // 2.4.0: один предмет каждого вида за ход
   const ef = Combat.useConsumable(f, kind, MAGIC_TYPES);
   if (!ef) return false;
+  usedNow[kind] = true;
   if (kind === 'potion') {
     SND.heal();
     showCenterPop('+' + ef.heal, 'heal', _t("Зелье здоровья"));
@@ -790,6 +803,14 @@ function useConsumable(side, kind) {
     renderMagic();
     logEvent(side, _t("{0}: Зелье грозы — Шаровая молния на этот ход", [f.name]));
     note(_t("Зелье грозы: Шаровая молния включена!"));
+  } else if (kind === 'scrollvenom') {
+    SND.heal();
+    showFloat(side, _t("Свиток отравы"), 'buff');
+    logEvent(side, _t("{0}: Свиток отравы — шанс отравить +{1}% до конца боя", [f.name, ef.venom]));
+  } else if (kind === 'scrollregen') {
+    SND.heal();
+    showFloat(side, _t("Свиток регенерации"), 'buff');
+    logEvent(side, _t("{0}: Свиток регенерации — шанс +{1}%, сила +{2}% до конца боя", [f.name, ef.leech, ef.leechPower]));
   } else if (kind === 'stoneskin') {
     SND.heal();
     showFloat(side, _t("Каменная кожа"), 'buff');
@@ -1043,7 +1064,7 @@ function toggleFighterInfo(side) {
   if (st.fury) row(_t("Ярость"), st.fury + '%');
   if (side === 'right') {
     const mon = Bestiary.MONSTERS[f.monsterId], ea = enemyAbility(f);
-    if (mon) { row(_t("Уровень существа"), mobLevelHtml(f.tier).replace(/<[^>]+>/g, '').trim()); row(_t("Семейство"), mon.family); }
+    if (mon) { row(_t("Уровень существа"), String(f.lvl || Tiers.firstLevel(f.tier))); row(_t("Семейство"), mon.family); }
     if (ea && ea.name) row(_t("Приём"), `${ea.name}`), rows.push(`<p>${ea.desc || ''}</p>`);
     if (mon && typeof Ammo !== 'undefined' && Profile.shotKind) { const h = Ammo.hint(Profile.shotKind(), mon.family); if (h) rows.push(`<p>${h}</p>`); }
   } else {
@@ -1479,9 +1500,20 @@ function elxFire(kind) {                                   // один раз с
   elxMark(kind);
   return Elixirs.effect(kind, t);
 }
+// 2.4.0: побочный эффект «Хитрости» (Отрава) и «Жизни» (Регенерация) с 5-го цвета: при первом глотке за бой, до конца боя
+function elxSideApply(kind, tier) {
+  const f = fighters.left, fx = tier >= Elixirs.FX_MIN && Elixirs.effect(kind, tier);
+  if (!fx || !(fx.venom || fx.leech)) return;
+  f.elxSide = f.elxSide || {}; if (f.elxSide[kind]) return;
+  f.elxSide[kind] = true;
+  if (fx.venom) f.tempVenom = (f.tempVenom || 0) + fx.venom;
+  if (fx.leech) { f.tempLeech = (f.tempLeech || 0) + fx.leech; f.tempLeechP = (f.tempLeechP || 0) + (fx.leechPower || 0); }
+  elxRecalc();
+  logEvent('left', _t("Эликсир сработал: {0} — {1}", [Elixirs.KINDS[kind].name, Elixirs.sideText(kind, tier)]));
+}
 function elxArm() {                                        // начало боя: эликсиры не действуют, пока их не выпьют
   const f = fighters.left;
-  f.elx = {}; f.elxUsed = {}; f.elxCds = {}; f.critExtra = 0;
+  f.elx = {}; f.elxUsed = {}; f.elxSide = {}; f.elxCds = {}; f.critExtra = 0;
   { const rd = Profile.takeRoad && Profile.takeRoad(); if (rd) f.elx.road = { tier: rd.tier, left: 999, pct: 0 }; f.endure = false; }   // 2.0.7
   renderElxBadges();
 }
@@ -1497,6 +1529,7 @@ function elxWhy(kind, tier) {                              // причина, п
   const f = fighters.left, K = Elixirs.KINDS[kind];
   if (!host.main || PET || isChallenge()) return _t("Здесь эликсиры не пьют");
   if (over || busy || aiming || turnSide !== 'left') return _t("Эликсир пьётся в свой ход");
+  if (f.itemsUsed && f.itemsUsed['elx:' + kind]) return _t("Этот вид эликсира уже выпит в этот ход");   // 2.4.0: один эликсир каждого вида за ход
   if (K.mode === 'instant') {
     if (kind === 'health' && (f.elxCds[kind] || 0) > 0) return _t("Эликсир жизни уже выпит в этот ход");
     if ((f.elxCds[kind] || 0) > 0) return _t("Этот эликсир — раз в {0}: ещё {1}", [_nn(Elixirs.cdOf(kind), 'ход', 'хода', 'ходов'), _nn(f.elxCds[kind], 'ход', 'хода', 'ходов')]);
@@ -1516,6 +1549,7 @@ function useElixir(kind, tier) {
   const f = fighters.left, K = Elixirs.KINDS[kind], mult = 1 + 0.05 * elxExtra();
   if (!Profile.takeElixir(kind, tier)) return false;
   battleStyle.elixirs++;
+  (f.itemsUsed || (f.itemsUsed = {}))['elx:' + kind] = true;
   const elxMedals = Profile.noteElixir(kind, tier);                      // 1.7.5: медали: за каждый вид эликсира и за число выпитых
   elxMedals.forEach((m, i) => {
     const rl = m.relic ? _t(" Комплект собран: умение «{0}», реликвия «{1}»!", [Medals.PERKS.elixir.name, Gear.item({ id: m.relic, tier: 1 }).name]) : '';
@@ -1526,6 +1560,7 @@ function useElixir(kind, tier) {
     if (kind === 'health') {
       const h = Math.min(f.max - f.hp, Math.round(Elixirs.heal(tier) * mult));
       f.hp += h; SND.heal();
+      elxSideApply('health', tier);
       showCenterPop('+' + h, 'heal', K.name);
       logEvent('left', _t("{0}: {1}, +{2} ХП", [f.name, K.name, h]));
     } else if (kind === 'swap') {
@@ -1552,6 +1587,7 @@ function useElixir(kind, tier) {
     if (K.road) Profile.setRoad(tier, Elixirs.ROAD_FIGHTS - 1);   // и ещё два боя
     f.elxUsed[kind] = false;
     elxRecalc();
+    elxSideApply(kind, tier);
     SND.lightning();
     showFloat('left', K.name, 'buff');
     logEvent('left', _t("{0}: {1} — {2}", [f.name, K.name, Elixirs.describe(kind, tier)]));
@@ -1688,10 +1724,14 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.pierce) showFloat(attackerSide, _t("Бронебойный удар!"), 'buff');
   if (r.shred > 0) showFloat(target, _t("Броня трещит!"), 'debuff');
   if (r.critExtra) elxMark('fury');                        // эликсир ярости: первый крит бил сильнее
+  if (r.venom && attackerSide === 'left') tipOnce('venom');
   if (r.venom) { showFloat(target, _t("Яд!"), 'venom'); logEvent(attackerSide, _t("{0}: Отрава — {1} урона в начале каждого из {2 хода|ходов|ходов} противника", [attacker.name, r.venom.dmg, r.venom.turns])); }
+  if (r.leech > 0 && attackerSide === 'left') tipOnce('leech');
   if (r.leech > 0) { SND.heal(); showFloat(attackerSide, '+' + r.leech, 'heal'); logEvent(attackerSide, _t("{0}: Регенерация — восстанавливает {1} здоровья", [attacker.name, r.leech])); }
+  if (r.crit && attackerSide === 'left') tipOnce('fury');
   if (r.crit) { showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
   if (r.kind === 'reflect') {
+    tipOnce('ricochet');
     showFloat(target, _t("Рикошет!"), 'ricochet');
     showDamage(attackerSide, r.amount);
     if (r.attackerRevived) onRevived(attackerSide);
@@ -1794,6 +1834,7 @@ function setTurn(side) {
     fighters[turnSide].magicFree = false;
   }
   turnSide = side;
+  if (side !== prevTurn) { fighters.left.itemsUsed = {}; fighters.right.itemsUsed = {}; renderBag(); }   // 2.4.0: новый ход — предметы снова доступны
   if (side === 'left' && side !== prevTurn) rec.turns++;
   if (side === 'left' && fighters.left.skillCd > 0 && side !== prevTurn) fighters.left.skillCd--;
   if (side === 'left' && side !== prevTurn) for (const k of Object.keys(fighters.left.elxCds || {})) if (fighters.left.elxCds[k] > 0) fighters.left.elxCds[k]--;
@@ -2064,7 +2105,7 @@ function showOverlay(text, sub = '') {
   o.innerHTML = _t("<div>{0}{1}<button type=\"button\" class=\"primary to-map\">На карту</button></div>", [text, sub ? `<small>${sub}</small><div class="loot-cap"></div>` : '']);
   const result = text === _t("Победа!") ? 'win' : 'loss';
   if (host.main && battleNo) {                                   // 2.0.7: номер боя на экране итога + сохранение журнала
-    BattleLog.save({ n: battleNo, foe: fighters.right.name, tier: fighters.right.tier, result, hero: fighters.left.name, lines: battleLog });
+    BattleLog.save({ n: battleNo, foe: fighters.right.name, tier: fighters.right.tier, result, hero: fighters.left.name, lines: battleLog, loot: result === 'win' ? String(sub || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '' });
     try {                                                         // 2.0.9: отчёт тестировщиков (js/telemetry.js)
       const H = fighters.left, E = fighters.right;
       Telemetry.battle({ n: battleNo, result, mode: LIVE ? (tourneyFight() ? 'tournament' : 'live') : 'pve', hero: { name: H.name, hp: H.hp, max: H.max }, foe: { name: E.name, tier: E.tier, hp: E.hp, max: E.max },
@@ -2395,8 +2436,8 @@ function startGame() {
   veiled.clear();
   fighters.left.charge = 0; fighters.right.charge = 0;
   rec = newRec();
-  Object.assign(fighters.right, { stoneMode: true, mobTypes: MAGIC_TYPES, tempMax: 0, tempDef: 0, turnNo: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
-  Object.assign(fighters.left, { revived2: false, secondWind: false, elx: {}, elxCds: {}, elxUsed: {}, tempMax: 0, tempDef: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
+  Object.assign(fighters.right, { stoneMode: true, mobTypes: MAGIC_TYPES, tempMax: 0, tempDef: 0, tempVenom: 0, tempLeech: 0, tempLeechP: 0, scrollVenom: false, scrollRegen: false, turnNo: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
+  Object.assign(fighters.left, { revived2: false, secondWind: false, elx: {}, elxCds: {}, elxUsed: {}, tempMax: 0, tempDef: 0, tempVenom: 0, tempLeech: 0, tempLeechP: 0, scrollVenom: false, scrollRegen: false, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
   elxArm();                                          // 1.5.1: эффекты эликсиров на новый бой
   for (const s of ['left', 'right']) {
     fighters[s].buffs = [];
@@ -2536,10 +2577,10 @@ function rewardFor(f, first = true, opts = {}) {
   const R = Balance.rewards;
   // 1.5.4: элитное — опыт и монеты больше; быстрый бой — половина, без вещей и находок
   const k = (opts.quick ? World.QUICK.share : 1), ke = f.elite ? World.ELITE : null;
-  const xp = Math.round(Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level()) * k * Growth.xpMul(selNow().grow) * (ke ? ke.xp : 1) * (!isChallenge() && Profile.perk('world') ? 1.15 : 1));
+  const xp = Math.round(Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level(), f.lvl) * k * (f.scorp ? Balance.mobLevels.scorpReward : 1) * Growth.xpMul(selNow().grow) * (ke ? ke.xp : 1) * (!isChallenge() && Profile.perk('world') ? 1.15 : 1));
   const skyFx = selNow();                                                    // 1.7.1: ночью добыча богаче на 15%
   const lm = Sky.lootMul(skyFx);
-  const drops = Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), lm);
+  const drops = Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), lm * (f.leader ? Balance.mobLevels.leaderLoot : 1) * (f.scorp ? Balance.mobLevels.scorpReward : 1), f.lvl);   // 2.4.0: вожак — богаче добыча
   if (selNow().castle && !drops.item && !opts.quick && Math.random() < (selNow().trait ? 0.12 : 0.06)) {   // 1.9.3: духи со своим приёмом роняют одежду вдвое чаще
     const pieces = selNow().castleSet ? Gear.ITEMS.filter((i) => i.set === selNow().castleSet) : [];
     drops.item = pieces.length ? Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, f.tier) : Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), 1e6).item;
@@ -2565,6 +2606,9 @@ function rewardFor(f, first = true, opts = {}) {
   // Пояс охотника заряжается только настоящим боем (не быстрым) с существом не слабее цвета героя минус один
   if (!opts.quick && f.tier >= Hero.tierFor(Profile.level()) - 1 && Profile.huntWin()) MapView.toast(_t("Пояс охотника заряжен: в следующем бою урон и добыча +25%"), 3500);
   Profile.recordWin(f.monsterId, f.tier);
+  { // 2.4.1: награда за 10-ю, 50-ю и 100-ю победу над видом — только монеты (Силу «просто так» не даём)
+    const w = (Profile.data.bestiary[f.monsterId] || {}).wins || 0, mult = { 10: 10, 50: 30, 100: 80 }[w];
+    if (mult && !opts.quick && f.monsterId) { const bonus = Math.max(20, Math.round(drops.coins * mult)); Profile.addCoins(bonus); MapView.toast(_t("{0}: {1} побед над видом! Награда: {2}.", [f.name, w, _nn(bonus, 'монета', 'монеты', 'монет')]), 4200); } }
   { const sh = Profile.data.ship;       // 1.8.7: сильные звери помогают вытащить бригантину в море
     if (sh && sh.paid && !sh.fixed && ['boar', 'elk', 'rhino', 'leopard', 'lynx'].includes(f.monsterId) && (sh.pulls || 0) < 5) {
       sh.pulls = (sh.pulls || 0) + 1; MapView.toast(_t("Зверь потянул бригантину: {0} / 5", [sh.pulls]), 3000); } }
@@ -2572,6 +2616,7 @@ function rewardFor(f, first = true, opts = {}) {
   Profile.addCoins(drops.coins);
   if (drops.fortune) MapView.toast(_t("Амулет удачи: монет вдвое больше!"), 2500);
   const up = Profile.addXp(xp);
+  if (first && f.scorp && !opts.quick) Profile.noteMaster('scorp', 1);   // 2.4.0
   if (first && f.elite && !opts.quick) Profile.noteMaster('elite', 1);   // 2.3.8: лесенка «Охотник на элиту»
   const killMedal = Profile.checkKillMedal(f.monsterId, Hero.tierFor(Profile.level()));   // первая победа над видом
   const shotMedal = first && shotKilledMonster ? Profile.registerShotKill(Hero.tierFor(Profile.level())) : null;
@@ -2624,6 +2669,12 @@ function rewardFor(f, first = true, opts = {}) {
       (Hero.itemLevel(t) === L ? _t(". Теперь можно надевать вещи цвета «{0}»", [Tiers.get(t).name]) : ''));
     const opened = Object.entries(Balance.spellUnlock).filter(([k, lv]) => lv > up.from && lv <= up.to && MAGICS[k]).map(([k]) => MAGICS[k].name);
     if (opened.length) lines.splice(1, 0, _t("<b class=\"lvlup\">Новое заклинание:</b> {0}", [opened.join(', ')]));   // 1.4.3: не пропустить открытие магии
+    if (L >= 3 && L <= 5 && !Profile.data.firstStrongGift) {      // 2.4.1: первая победа над сильным — эликсир силы и подсказка про жёлтую точку
+      Profile.data.firstStrongGift = true; Profile.addElixir('power', 1, 1);
+      lines.push(_t("Подарок: Эликсир силы. Выпейте его в бою и одолейте существо с жёлтой точкой — оно сильнее вас, но с эликсиром вам по плечу."));
+    }
+    lines.splice(1, 0, _t("По силам теперь существа {0}–{1} уровня.", [Math.max(1, L - 3), L + 3]));   // 2.4.1: кто теперь по силам
+    if (L >= 60 && L < Balance.mobLevels.scorpLevel && !Profile.species().some((id) => /^scorp/.test(id))) lines.push(_t("Слух: в 9-м цвете живут скорпионы — вернитесь на 80-м уровне."));   // 2.4.1: видимая далёкая цель
     SND.win();
   }
   // 1.3.0: страж осколка — двойные монеты; первая победа — осколок Великого Сердца и награда сюжета.
@@ -2681,12 +2732,22 @@ function rewardFor(f, first = true, opts = {}) {
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
 let huntBonus = false;
+// 2.4.0: после поражения — одна строка с причиной и советом (по существу на карте)
+function defeatAdvice() {
+  if (!host.main || PET || isArena() || isChallenge() || isTraining() || LIVE) return '';
+  const f = fighters.right, me = fighters.left, dl = (f.lvl || 0) - Profile.level();
+  if (dl >= Balance.mobLevels.dot.hard) return _t("Существо на {0} выше вас. Найдите противника по силам — кнопка «По силам» на карте.", [_nn(dl, 'уровень', 'уровня', 'уровней')]);
+  const bag = Profile.data.backpack || {};
+  if (!battleStyle.elixirs && Profile.elixirBag().length) return _t("В сумке остались эликсиры — выпейте их в бою: они не тратят ход.");
+  if ((bag.potion || 0) > 0 && !(me.itemsUsed && me.itemsUsed.potion)) return _t("Зелье здоровья осталось в сумке — используйте его, когда ХП на исходе.");
+  return _t("Победа была близко. Проверьте вещи в сумке: Сила и Броня решают исход, а слабое существо рядом даст опыт.");
+}
 function defeat() {
   earlyLossHelp();
   if (!tourneyFight()) Profile.huntLoss();
   if (!isTraining()) { Profile.noteBattle(); Profile.save(); }   // считается любой бой, исход не важен
   if (typeof Profile !== 'undefined' && !isTraining() && heroActed()) Profile.noteSecret({ win: false });   // 1.6.2: серия поражений
-  if (host.coord) finishBoard('loss'); else showOverlay(_t("Поражение"), host.main && (isArena() || isChallenge()) ? specialResult(false) : '');
+  if (host.coord) finishBoard('loss'); else showOverlay(_t("Поражение"), host.main && (isArena() || isChallenge()) ? specialResult(false) : defeatAdvice());
 }
 
 // 1.5.4: быстрый бой с картой (MapView.quickFight) — награда за слабое, уже побеждённое существо без боя.
@@ -4256,14 +4317,10 @@ function renderUiSkin() {
 // Оформление боя «золото» (2.2.9): рамки из art/ui/battle3-*. Выбор хранится в браузере, на сохранение игры не влияет.
 const BT3_ART = { 'bt3-board': 'ui/battle3-board-full', 'bt3-card': 'ui/battle3-card-frame', 'bt3-panel': 'ui/battle3-panel',
   'bt3-slot-magic': 'ui/battle3-slot-magic', 'bt3-slot-item': 'ui/battle3-slot-item', 'bt3-turn': 'ui/battle3-turn-plate', 'bt3-crest': 'ui/battle3-turn-crest' };
-// Золотое оформление боя — основное; прежнее («классика») включается кнопкой оформления и запоминается
-function battleSkinOn() {
-  let v = null; try { v = localStorage.getItem('gm-battle-skin'); } catch (e) { /* без хранилища — по умолчанию */ }
-  if (v === 'gold' || v === 'classic') return v === 'gold';
-  return true;   // 2.3.5: выбор не сделан — золото на любом устройстве; «классика» остаётся в меню как запасной вид
-}
+// Золотое оформление боя — единственное (2.4.0): выбора нет; без картинок рамок остаётся простой вид
+function battleSkinOn() { return true; }
 function renderBattleSkin() {
-  const b = document.body, skinBtn = $('skin-btn');
+  const b = document.body;
   let on = battleSkinOn();
   try {
     if (on && typeof Art !== 'undefined' && Object.values(BT3_ART).every((k) => Art.has(k))) {
@@ -4271,9 +4328,6 @@ function renderBattleSkin() {
     } else on = false;
   } catch (e) { on = false; }
   b.classList.toggle('bt-gold', on);
-  const label = on ? _t("Оформление: золото") : _t("Оформление: классика");
-  if (skinBtn) { skinBtn.textContent = label; skinBtn.setAttribute('aria-pressed', String(on)); }
-  const skinMenu = document.querySelector('#more-menu [data-do=skin]'); if (skinMenu) skinMenu.textContent = label;
   if (host.main) setTimeout(fitBattleHeight, 0);
 }
 // Горизонтальная раскладка боя на компьютере (в ландшафте, только с оформлением «золото»): та же, что на горизонтальном телефоне. Хранится в браузере.
@@ -4296,17 +4350,11 @@ function openLogOnDesk() {
     if (d && battleSkinOn() && window.matchMedia('(min-aspect-ratio: 63/50) and (min-width: 700px)').matches && !document.body.classList.contains('phone')) d.open = true;
   } catch (e) { /* без окна */ }
 }
-function toggleBattleSkin() {
-  try { localStorage.setItem('gm-battle-skin', battleSkinOn() ? 'classic' : 'gold'); } catch (e) { /* без хранилища выбор не запомнится */ }
-  renderBattleSkin(); openLogOnDesk();
-  try { window.dispatchEvent(new Event('resize')); } catch (e) { /* без окна */ }
-}
 renderUiSkin();
 renderBattleSkin();
 openLogOnDesk();
 renderDeskLand();
 document.body.classList.toggle('no-gear-points', !Hero.pointsOn());
-if ($('skin-btn')) $('skin-btn').addEventListener('click', toggleBattleSkin);
 if ($('land-btn')) $('land-btn').addEventListener('click', toggleDeskLand);
 
 // Настройки для проверки баланса. ХП теперь задают уровень героя и цвет существа; ручная правка ХП
@@ -4479,7 +4527,6 @@ if (host.main) {
     if (b.dataset.do === 'log') { const d = $('log-wrap'); d.open = !d.open; d.scrollIntoView({ block: 'nearest' }); }
     else if (b.dataset.do === 'anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); note(AnimSpeed.label()); }     // 1.6.4
     else if (b.dataset.do === 'layout') { try { localStorage.setItem('wip-battle-dock', dockOld() ? 'new' : 'old'); } catch (e) { /* без хранилища выбор не запомнится */ } applyDock(); }
-    else if (b.dataset.do === 'skin') { toggleBattleSkin(); }
     else if (b.dataset.do === 'deskland') { toggleDeskLand(); }
     else if (b.dataset.do === 'timer') { TurnTimerSetting.toggle(); note(TurnTimerSetting.label()); }     // 1.6.5
     else $(b.dataset.do).click();
@@ -4593,6 +4640,7 @@ if (host.main) {
   fighters: { get: () => fighters, enumerable: true, configurable: true },
   fillEmpty: { get: () => fillEmpty, enumerable: true, configurable: true },
   finishAction: { get: () => finishAction, enumerable: true, configurable: true },
+  defeatAdvice: { get: () => defeatAdvice, enumerable: true, configurable: true },
   finishBoard: { get: () => finishBoard, enumerable: true, configurable: true },
   fitBattleHeight: { get: () => fitBattleHeight, enumerable: true, configurable: true },
   fitBusy: { get: () => fitBusy, set: (v) => { fitBusy = v; }, enumerable: true, configurable: true },

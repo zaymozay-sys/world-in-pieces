@@ -135,14 +135,17 @@ const Forge = (() => {
 
   /* ---------- Алхимик и Библиотекарь: «свой» ресурс эликсира/расходника ---------- */
   // Порядок: первый, у которого на цвете есть источник
-  const OWN = {
-    power: ['fang'], fury: ['ore', 'scrap', 'fang'], defense: ['scale', 'ore', 'scrap', 'hide'], block: ['splinter', 'bone', 'hide'],
-    ricochet: ['feather'], cunning: ['silk', 'feather'], health: ['honey', 'shell', 'hide'], stones: ['crystal', 'ore', 'scrap'], swap: ['essence', 'shell'],
+  const OWN = {   // 2.4.0: на цветах 8–10 первым стоит «свой» глубинный ресурс (ownList берёт только те, у кого на цвете есть источник)
+    power: ['nugget', 'fang'], fury: ['graphite', 'ore', 'scrap', 'fang'], defense: ['granite', 'scale', 'ore', 'scrap', 'hide'], block: ['mica', 'splinter', 'bone', 'hide'],
+    ricochet: ['feather'], cunning: ['quartz', 'silk', 'feather'], venom: ['malachite', 'chitin', 'resin'], leech: ['selenite', 'honey', 'shell'],
+    health: ['honey', 'shell', 'hide'], stones: ['fluorite', 'crystal', 'ore', 'scrap'], swap: ['essence', 'shell'],
     road: ['hide', 'shell', 'honey'], speed: ['feather', 'silk'], wit: ['silk', 'feather'], food: ['honey', 'fang'],
     potion: ['honey', 'shell', 'hide'], elixir: ['fang'], dust: ['crystal', 'ore', 'scrap'], scroll: ['feather'], luck: ['shell', 'honey', 'feather'],
+    scrollvenom: ['malachite', 'chitin', 'resin'], scrollregen: ['selenite', 'honey', 'shell'],
     storm: ['essence', 'shell'], stoneskin: ['scale', 'ore', 'scrap', 'hide'], honeyjar: ['honey', 'shell'],
   };
-  const SCROLLS = ['scroll', 'luck'];        // свитки делает Библиотекарь (бобёр), остальное — Алхимик
+
+  const SCROLLS = ['scroll', 'luck', 'scrollvenom', 'scrollregen'];        // свитки делает Библиотекарь (бобёр), остальное — Алхимик
   const ownList = (key, tier) => { const l = OWN[key] || []; const f = l.find((k) => yieldOf(k, tier) >= MINYIELD); return f ? [f, ...l.filter((k) => k !== f)] : l; };   // «свой» ресурс первым; остальные — запасные
   function ownRes(key, tier) {
     const list = OWN[key]; if (!list) return null;

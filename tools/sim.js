@@ -74,7 +74,7 @@ function makeHero(o) {
 }
 function makeMonster(id, tier, o = {}) {
   const m = Bestiary.MONSTERS[id];
-  let sc = Bestiary.scaled(id, tier, o.swarm || 1, o.level);
+  let sc = o.mlvl > 0 ? Bestiary.scaledAt(id, o.mlvl, o.swarm || 1, o.level) : Bestiary.scaled(id, tier, o.swarm || 1, o.level);   // 2.4.0: mlvl — уровень существа 1–100
   // 1.7.3: хозяин зоны — крупнее и злее (World.scaleZone) и с добавочными приёмами; o.affixes — любые свойства для опытов
   let affixes = o.affixes || [];
   if (o.zone) {
@@ -638,7 +638,7 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
+function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
   let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
@@ -653,7 +653,7 @@ function simulate({ faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n
     const hero = makeHero({ faction, level, gear: g, baseHp, extra, bag, elixirs, elxFx });
     if (pet) { hero.petF = Pets.petFighter(Pets.makePet(pet.species, pet.tier)); hero.petF.fedBonus = (pet.fed ? (Pets.FEED_BONUS || 1.25) : 1) * (pet.scale || 1); }
     if (BOOST) { if (BOOST.style) hero.shield = 1; if (BOOST.daily) hero.secondWind = true; if (BOOST.streak) hero.charge = Math.floor(B.faction.charge / 2); }
-    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes, level });
+    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes, level, mlvl });
     const pl = typeof player === 'string' ? PLAYERS[player]() : typeof player === 'function' ? player() : player;
     let S;
     if (duo) {

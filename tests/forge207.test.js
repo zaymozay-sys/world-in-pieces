@@ -57,10 +57,13 @@ assert.deepStrictEqual(Forge.plan(ref, undefined).choice, Forge.plan(ref, Forge.
 // --- роли и материалы (ТЗ §2.1) ---
 for (const [id, byTier] of Object.entries(D.craft)) for (let t = 1; t <= 10; t++) for (const s of byTier[t].slots) for (const o of s[2]) {
   const roles = s[0].split('+');
-  if (o[0] === 'horn') { assert.ok(t <= 7, `рог на цвете ${t}`); if (roles.includes('wood')) assert.strictEqual(id, 'grove-bow', 'рог в wood — только составной лук'); }
-  if (o[0] === 'feather' && roles.includes('bind')) assert.ok(/grove-bow|crossbow-hunt|crossbow-repeater|crown-head|grove-head|mage-head|wand-head|crown-amulet|mage-amulet/.test(id), `перо в bind у ${id}`);
+  // 2.4.0: ресурс подходит позиции по смыслу (tools/forge-regen.js: BASE и DEEP)
+  const WHERE = { horn: ['wood'], feather: ['leather'], resin: ['wood', 'bind'], honey: ['bind'], chitin: ['plate'], scale: ['plate', 'trophy'], essence: ['arcane', 'trophy'], crystal: ['arcane', 'trophy'],
+    graphite: ['metal', 'trophy'], nugget: ['metal', 'trophy'], granite: ['plate', 'trophy'], mica: ['plate', 'bind', 'trophy'], quartz: ['arcane', 'trophy'], fluorite: ['arcane', 'trophy'], selenite: ['arcane', 'trophy'], malachite: ['arcane', 'trophy'] };
+  if (WHERE[o[0]]) assert.ok(roles.some((r) => WHERE[o[0]].includes(r)), `${o[0]} в позиции ${s[0]} (${id} ц${t})`);
+  if (o[0] === 'horn') assert.ok(t <= 7, `рог на цвете ${t}`);
   if (o[0] === 'resin') assert.ok(t <= 6, 'смола на ц' + t);
-  if (['scale', 'essence'].includes(o[0])) assert.ok(roles.includes('trophy') || roles.includes('arcane') || roles.includes('plate'), `${o[0]} в ${s[0]}`);
+  if (Bestiary.DEEP_RESOURCES.includes(o[0])) assert.ok(t >= 8, `глубинный ${o[0]} на цвете ${t}`);
 }
 // --- новые ресурсы и существа ---
 for (const [k, base] of [['resin', 14], ['horn', 18], ['chitin', 16]]) assert.strictEqual(Bestiary.RESOURCES[k].base, base);

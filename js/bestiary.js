@@ -778,18 +778,34 @@ const Bestiary = (() => {
     };
   }
 
+  // 2.4.0: сила существа по УРОВНЮ 1–100. Числа цвета (scaled) — его 1-й уровень; уровни цвета идут к числам следующего.
+  // В 10-м цвете следующего нет: берётся то же отношение, что между 9-м и 10-м (геометрически).
+  function scaledAt(id, level, swarmSize = 1, heroLevel = 0) {
+    const L = B_T.levelClamp(level), t = B_T.tierOfLevel(L), f = B_T.levelFrac(L);
+    const a = scaled(id, t, swarmSize, heroLevel);
+    if (f === 0) return a;
+    const nx = t < B_T.MAX ? scaled(id, t + 1, swarmSize, heroLevel) : null, pv = nx ? null : scaled(id, t - 1, swarmSize, heroLevel);
+    const mix = (x, y, z) => { const b = nx ? y : (z > 0 ? x * (x / z) : x); return x + (b - x) * f; };
+    const stats = {}; for (const k in a.stats) stats[k] = Math.round(mix(a.stats[k], nx ? nx.stats[k] : 0, pv ? pv.stats[k] : 0));
+    return { ...a, hp: Math.round(mix(a.hp, nx && nx.hp, pv && pv.hp)), dmg: mix(a.dmg, nx && nx.dmg, pv && pv.dmg), stats,
+      ai: Math.round(mix(a.ai, nx && nx.ai, pv && pv.ai)), gearBudget: Math.round(mix(a.gearBudget, nx && nx.gearBudget, pv && pv.gearBudget)) };
+  }
+
   // Что упадёт после победы. rand — генератор случайных чисел (для тестов).
   // faction — фракция игрока: вещи чужих фракций не выпадают.
   // 1.6.6: heroTier — цвет героя. Существо слабее цветом ничего из ресурсов не даёт (монеты и опыт остаются): слабых мобов бить невыгодно,
   // ресурсы для малых уровней остаются на рынке. weak = true сообщает экрану награды, почему ресурсов нет.
   const resourcesWeak = (tier, heroTier) => heroTier > 0 && B_T.clamp(tier) <= heroTier - 2;   // 2.0.8: ресурсов нет, если существо слабее на 2 цвета и больше
-  function rollDrops(id, tier, rand = Math.random, faction, heroTier, boost = 1) {
+  function rollDrops(id, tier, rand = Math.random, faction, heroTier, boost = 1, lvl = 0) {
     const m = MONSTERS[id], t = B_T.clamp(tier);
     const resources = [], weak = resourcesWeak(t, heroTier);
     for (const [kind, chance, min, max] of weak ? [] : m.drops) {
       if (rand() < chance / (B_B.gameLength || 1)) resources.push({ kind, tier: t, n: min + Math.floor(rand() * (max - min + 1)) });
     }
-    const coins = Math.round(m.coins * B_B.rewards.coinK * B_T.PRICE_MULT[t - 1] * B_B.economy.coinTier[t - 1] * (0.8 + rand() * 0.4));
+    // 2.4.0: монеты растут плавно внутри цвета (как сила): от значения цвета к значению следующего (в 10-м — тем же отношением)
+    const cm = (i) => B_T.PRICE_MULT[i - 1] * B_B.economy.coinTier[i - 1], c0 = cm(t), c1 = t < B_T.MAX ? cm(t + 1) : c0 * (c0 / cm(t - 1));
+    const coinMul = lvl > 0 && B_T.tierOfLevel(lvl) === t ? B_T.lerpLevel(c0, c1, lvl) : c0;
+    const coins = Math.round(m.coins * B_B.rewards.coinK * coinMul * (0.8 + rand() * 0.4));
     // Предмет: шанс Balance.rewards.itemChance; чаще выпадают обычные вещи, реже редкие и эпические.
     let entry = null;
     if (m.setDrop && rand() < 0.5) {                                   // босс: часть редкого набора (Gear.SETS[setDrop])
@@ -830,7 +846,7 @@ const Bestiary = (() => {
   }
   // 1.7.5: «где добыть» — виды существ, у которых выпадает ресурс (по порядку бестиария).
   const sourcesOf = (kind) => ORDER.filter((id) => MONSTERS[id].drops.some((d) => d[0] === kind));
-  return { EXCHANGE, resSellPrice, exchangeQuote, sourcesOf, RESOURCES, DEEP_RESOURCES, PRIZE_RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, rollDrops, resourcesWeak, unlockedSpecies, rollSwarmSize, swarmMult };
+  return { EXCHANGE, resSellPrice, exchangeQuote, sourcesOf, RESOURCES, DEEP_RESOURCES, PRIZE_RESOURCES, MONSTERS, ORDER, ABILITIES, ability, resPrice, scaled, scaledAt, rollDrops, resourcesWeak, unlockedSpecies, rollSwarmSize, swarmMult };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

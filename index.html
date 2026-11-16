@@ -87,7 +87,7 @@
         </div>
       </div>
     </div>
-    <div class="map-tools closed" id="map-tools"><button id="m-tools" type="button" class="mt-head" aria-expanded="false" title="Метка, журнал, мини-карта">Инструменты ▾</button><button id="m-pin" type="button" title="Поставить метку: нажмите, затем на соту (правая кнопка мыши тоже ставит метку)">Метка</button><button id="m-log" type="button" title="Журнал исследователя (J)">Журнал</button><button id="m-mini" type="button" title="Мини-карта (M)">Мини-карта</button></div>
+    <div class="map-tools closed" id="map-tools"><button id="m-tools" type="button" class="mt-head" aria-expanded="false" title="Метка, журнал, мини-карта">Инструменты ▾</button><button id="m-pin" type="button" title="Поставить метку: нажмите, затем на соту (правая кнопка мыши тоже ставит метку)">Метка</button><button id="m-log" type="button" title="Журнал исследователя (J)">Журнал</button><button id="m-mini" type="button" title="Мини-карта (M)">Мини-карта</button><button id="m-fit" type="button" aria-pressed="false" title="Подсветить существ, которые вам по силам (±3 уровня); остальные станут тусклыми">По силам</button></div>
     <div class="map-toast" id="map-toast" role="status"></div>
     <div class="map-card-wrap" id="map-card"></div>
     <div class="map-bottom">
@@ -134,7 +134,6 @@
           <span class="btns">
             <button id="hint" type="button" title="Показать лучший обмен (H)">Подсказка</button>
             <button id="mute" type="button" title="Звук">Звук: вкл</button>
-            <button id="skin-btn" type="button" title="Оформление боя" class="desk-only" aria-pressed="false">Оформление: классика</button>
             <button id="land-btn" type="button" title="Раскладка боя" class="desk-only" aria-pressed="false">Раскладка: классика</button>
             <button id="timer-btn" type="button" title="Таймер хода" class="desk-only" aria-pressed="false">Таймер: выкл</button>
             <button id="fullscreen" type="button" title="Полный экран (клавиша F)">Полный экран</button>
@@ -149,7 +148,6 @@
           <button type="button" data-do="log">Журнал боя</button>
           <button type="button" data-do="anim">Анимации: обычные</button>
           <button type="button" data-do="layout">Раскладка боя: новая</button>
-          <button type="button" data-do="skin">Оформление: классика</button>
           <button type="button" data-do="deskland">Раскладка: классика</button>
           <button type="button" data-do="timer">Таймер хода: выкл</button>
         </div>
@@ -242,6 +240,7 @@
   <script src="js/events.js"></script>
   <script src="js/compass.js"></script>
   <script src="js/stones.js"></script>
+  <script src="js/grani.js"></script>
   <script src="js/net.js"></script>
   <script src="js/duel.js"></script>
   <script src="js/sky.js"></script>

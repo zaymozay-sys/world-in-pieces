@@ -66,10 +66,14 @@ const Hero = (() => {
 
   /* Опыт за победу над существом species (объект из бестиария) цвета tier героем уровня L.
      Существо сильнее вашего цвета даёт больше опыта, слабее — меньше. */
-  function xpReward(species, tier, L) {
-    const d = H_T.clamp(tier) - tierFloat(L), D = C.diff;
+  // 2.4.0: lvl — уровень существа 1–100 (по умолчанию 1-й уровень его цвета, тогда всё как раньше). Разница считается по уровням:
+  // (уровень существа − уровень героя) / 10 — то же, что «цвет существа − дробный цвет героя»; рост опыта плавный внутри цвета.
+  function xpReward(species, tier, L, lvl) {
+    const t = H_T.clamp(tier), ml = lvl > 0 ? H_T.levelClamp(lvl) : H_T.firstLevel(t), mt = H_T.tierOfLevel(ml);
+    const d = (ml - L) / 10, D = C.diff;
     const k = d >= 0 ? Math.min(D.max, 1 + D.up * d) : Math.max(D.min, 1 + D.down * d);
-    return Math.max(1, Math.round(C.xp.perWin * H_T.GROWTH[H_T.clamp(tier) - 1] * (species.xp || 1) * k));
+    const g0 = H_T.GROWTH[mt - 1], g1 = mt < H_T.MAX ? H_T.GROWTH[mt] : g0 * (g0 / H_T.GROWTH[mt - 2]);
+    return Math.max(1, Math.round(C.xp.perWin * H_T.lerpLevel(g0, g1, ml) * (species.xp || 1) * k));
   }
 
   // Во сколько раз цены расходников выше, чем на 1-м уровне (растут вместе с монетами за победы).

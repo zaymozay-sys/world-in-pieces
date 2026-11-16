@@ -254,6 +254,15 @@ const MapView = (() => {
     refreshPlayerArt();
     renderHud();
     toast(_t("Вы — {0}: {1}", [fac().name, Factions.heroTitle(Profile.data.faction || 'dwarf', Profile.data.gender)]));
+    // 2.4.1: возвращение после перерыва — одна лёгкая цель вместо списка накопившегося
+    { const now = Date.now(), gap = Profile.data.lastSeen ? Math.floor((now - Profile.data.lastSeen) / 86400000) : 0;
+      Profile.data.lastSeen = now; Profile.save();
+      // 2.4.1: событие недели — предупреждение за день до смены и короткая сводка после смены
+      try { const tz = new Date().getTimezoneOffset(), wk = Events.weekNo(now, tz), cur = Events.current(now, tz), nxt = Events.LIST[(wk + 1) % Events.LIST.length], left = Events.endsAt(now, tz) - now, d = Profile.data;
+        if (d.evSeen != null && d.evSeen !== wk) setTimeout(() => toast(_t("Неделя событий сменилась. Теперь: «{0}» — {1}.", [cur.name(), cur.desc()]), 5000), 5200);
+        else if (left < 86400000 && d.evWarn !== wk) { d.evWarn = wk; setTimeout(() => toast(_t("Завтра сменится событие недели. Следующее: «{0}».", [nxt.name()]), 5000), 5200); }
+        d.evSeen = wk; Profile.save(); } catch (e) { /* события — необязательная часть */ }
+      if (gap >= 5 && Profile.level() > 1) setTimeout(() => toast(_t("С возвращением! Вас не было {0}. Начните с лёгкого: кнопка «По силам» покажет существ вам под стать.", [_nn(gap, 'день', 'дня', 'дней')]), 6000), 3700); }
     if (!Profile.storageOk) setTimeout(() => { saveWarned = false; warnNoSave(); }, 3400);   // 1.8.3: «Вы — …» затирало предупреждение о том, что игра не сохраняется
   }
 
@@ -261,6 +270,7 @@ const MapView = (() => {
     viewDirty();
     document.body.classList.toggle('mode-map', mode === 'map');
     document.body.classList.toggle('mode-battle', mode === 'battle');
+    if (mode === 'battle' && typeof Screens !== 'undefined' && Screens.isOpen) { try { if (Screens.screen !== 'faction') Screens.close(); } catch (e) {} }   // 2.4.0: окно, оставшееся открытым (награда за заход), не должно перекрывать «Отступить»
   }
 
   /* ---------- отрисовка ---------- */
@@ -486,7 +496,7 @@ const MapView = (() => {
     setTimeout(() => { f.style.display = 'none'; }, 1000 + d * 110);   // 2.2.10: не remove() — удаление узла из карты пересчитывало весь SVG (~150 мс), и экран дёргался
   }
 
-  function syncToolsHead() { const h = document.getElementById('m-tools'); if (h) h.classList.toggle('on', !!document.querySelector('#m-pin.on, #m-mini.on')); }
+  function syncToolsHead() { const h = document.getElementById('m-tools'); if (h) h.classList.toggle('on', !!document.querySelector('#m-pin.on, #m-mini.on, #m-fit.on')); }
 
   // Фигурки боссов (1.7.7): art/map/boss-<b1..b5|z1..z9>. Нет картинки — старый круглый жетон с бюстом.
   const hasArt = (k) => typeof Art !== 'undefined' && Art.has(k);
@@ -524,6 +534,8 @@ const MapView = (() => {
       <path d="M-10 16 H10 V19 H-10Z" fill="${c}" stroke="#27303c" stroke-width="1"/><rect x="-2.2" y="15.6" width="4.4" height="4" fill="#e8d28a" stroke="#27303c" stroke-width=".7"/></g>`;
   }
 
+  let fitOn = false; try { fitOn = localStorage.getItem('wip-map-fit') === '1'; } catch (e) {}   // 2.4.0: фильтр «по силам» (±3 уровня), запоминается
+  const FIT_BAND = 3;
   function renderMonsters() {
     syncDeco();
     const out = [], mb = new Map();
@@ -538,12 +550,12 @@ const MapView = (() => {
         continue;
       }
       const elite = eliteOf(sp), fig = bossFigure(sp);
-      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
+      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}${fitOn && Math.abs(HexMap.lvlOf(sp) - Profile.level()) > FIT_BAND ? ' far' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
           ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>${castleArmour(sp)}
           <circle r="21" fill="none" stroke="${col}" stroke-width="3"/>`}${!fig && (sp.boss || sp.zone) ? ((cr) => `<circle r="25" fill="none" stroke="${cr}" stroke-width="2.5" stroke-dasharray="5 3"/><path class="boss-crown" d="M-11 -22 L-7 -31 L-2 -24 L0 -33 L2 -24 L7 -31 L11 -22Z" fill="${cr}" stroke="#3a2a08" stroke-width="1.2"/>`)(sp.zone ? '#c9d3e6' : '#f2c94c') : ''}${elite ? '<circle r="24.5" fill="none" stroke="#f2c94c" stroke-width="2"/><g class="elite-star" transform="translate(-15 -15)"><circle r="7.5" fill="#2a1f05" stroke="#f2c94c" stroke-width="1.3"/><path d="M0 -4.6 L1.3 -1.4 L4.6 -1.4 L2 0.7 L2.9 4 L0 2.1 L-2.9 4 L-2 0.7 L-4.6 -1.4 L-1.3 -1.4Z" fill="#f2c94c"/></g>' : ''}
-          <g class="tier-badge" transform="translate(15 14)"><circle r="7.5" fill="${T.color}" stroke="${col}" stroke-width="1.3"/><text y="3.4" fill="${T.ink}">${sp.tier}</text></g>
+          <g class="tier-badge" transform="translate(15 14)"><circle r="7.5" fill="${T.color}" stroke="${col}" stroke-width="1.3"/><text y="3.4" fill="${T.ink}">${sp.tier}</text></g>${sp.leader ? '<g class="leader-mark" transform="translate(-15 -16)"><circle r="7" fill="#c9a24a" stroke="#fff3c4" stroke-width="1.2"/><path d="M-4 2 L-4 -2 L-2 0 L0 -3 L2 0 L4 -2 L4 2 Z" fill="#3a2a08"/></g>' : ''}
         </g></g>`);
     }
     renderSiegeTokens(out);
@@ -965,7 +977,7 @@ const MapView = (() => {
     if (!known(i)) return _t("Неизведанная земля");
     const t = tierOfCell(i), sp = monsterAt(i);
     const zone = t ? _t(" · зона <b style=\"color:{0}\">{1}</b>", [Tiers.get(t).edge, Tiers.get(t).name]) : '';
-    if (sp) return `<b>${Bestiary.MONSTERS[sp.species].name}</b> ${tierChip(sp.tier, Growth.steps(st, sp))}${zone}`;
+    if (sp) return `<b>${Bestiary.MONSTERS[sp.species].name}</b> ${tierChip(sp.tier, Growth.steps(st, sp), HexMap.lvlOf(sp))}${sp.leader ? _t(" · Вожак") : ''}${zone}`;
     { const o = oakSpot(); if (o && o.idx === i && Art.has('map/oak-ancient')) return _t("<b>Вековой дуб</b> · рядом живёт жук-точильщик") + zone; }
     const sg = siegeAt(i);
     if (sg) return `<b>${Bestiary.MONSTERS[sg.r.species].name}</b> ${tierChip(sg.r.tier)}${sg.looter ? _t(" · похититель") : _t(" · осада")}${zone}`;
@@ -1210,7 +1222,7 @@ const MapView = (() => {
     return out;
   };
   const spawnScaled = (sp) => {
-    let sc = Bestiary.scaled(sp.species, sp.tier, 1, Profile.level());
+    let sc = Bestiary.scaledAt(sp.species, HexMap.lvlOf(sp), 1, Profile.level());   // 2.4.0: по уровню существа
     if (sp.boss) sc = Story.scaleBoss(sc, sp.boss, Story.cycle(Profile.data.story));
     if (sp.zone) sc = World.scaleZone(sc, sp.zone);                                                              // 1.7.3: хозяин зоны
     if (eliteOf(sp)) sc = { ...sc, hp: Math.round(sc.hp * World.ELITE.hp), dmg: sc.dmg * World.ELITE.dmg };   // 1.5.4
@@ -1239,13 +1251,13 @@ const MapView = (() => {
       zoneWon ? _t("Трофей уже взят — монеты за победу всё равно ×2.") : _t("За первую победу — трофей: монеты, опыт и редкая вещь вашего цвета.")]) + `<p class="hint boss-taunt"><i>${ZB.taunt}</i></p>` : '';
     const eliteNote = (elite ? _t("<p class=\"hint elite-note\">★ <b>Элитное существо</b>: свойство «{0}» — {1}. Крепче и злее, зато опыта ×{2} и монет ×{3}.</p>", [World.AFFIXES[World.affixFor(elite, m.ability)].name, World.AFFIXES[World.affixFor(elite, m.ability)].desc, World.ELITE.xp, World.ELITE.coins]) : '')
       + (G ? _t("<p class=\"hint elite-note\">👑 Особый приём стража — «{0}»: {1}.</p>", [G.name, G.desc]) : '');
-    const xp = Math.round(Hero.xpReward(m, sp.tier, Profile.level()) * (elite ? World.ELITE.xp : 1));
+    const xp = Math.round(Hero.xpReward(m, sp.tier, Profile.level(), HexMap.lvlOf(sp)) * (elite ? World.ELITE.xp : 1));
     const abil = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
     const weakRes = Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level()));   // 1.6.6: слабее вашего цвета — ресурсов нет
     const drops = weakRes ? `<span class="hint">${_t("ресурсов нет: существо слабее на 2 цвета и больше")}</span>` : m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
     const near = HexMap.dist(map.cells[st.pos], map.cells[sp.idx]) <= 1;
     const art = sp.species === 'dragon' ? `<div class="dragon-art sm" style="--t:${col}">${Figures.avatar('dragon', null)}</div>` : MonsterArt.bust(sp.species, sp.tier);
-    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : ZB ? ZB.title : m.name, tierChip(sp.tier, Growth.steps(st, sp)), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss || ZB ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + zoneNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
+    el['map-card'].innerHTML = _t("<div class=\"map-card\" style=\"--t:{0}\">\n      <div class=\"mc-art\">{1}</div>\n      <div class=\"mc-body\">\n        <b class=\"mc-title\">{2}</b> {3} <span class=\"danger\" style=\"--d:{4}\" title=\"Примерный шанс победы: {5}%\">{6} · ~{7}%</span>\n        <div class=\"mc-ability\">{8}{9} · приём <b>{10}</b>: {11}</div>\n        <p class=\"hint\">{12}</p>{13}\n        <div class=\"chips\"><span class=\"chip\">ХП {14}</span><span class=\"chip\">ИИ {15}</span>{16}</div>\n        <div class=\"mc-drops\"><span class=\"hint\">Добыча:</span>{17}<span class=\"hint\">монеты ~{18} · опыт +{19}</span></div>\n        <div class=\"mc-act\"><button type=\"button\" class=\"primary\" data-act=\"attack\" data-sp=\"{20}\" {21}>{22}</button><button type=\"button\" data-act=\"close\">Закрыть</button></div>\n      </div></div>", [col, art, sp.boss ? Story.bossName(sp.boss, m.name) : ZB ? ZB.title : m.name, tierChip(sp.tier, Growth.steps(st, sp), HexMap.lvlOf(sp)), dcol, Math.round(p * 100), dz, Math.round(p * 10) * 10, m.family, m.boss || ZB ? _t(" · босс") : '', Bestiary.ability(sp.species).name, Bestiary.ability(sp.species).desc, m.desc, bossNote + zoneNote + eliteNote + (ch ? `<p class="hint boss-taunt"><i>${ch.taunt}</i></p>` : '') + ((h) => (h ? `<p class="hint ammo-weak">🎯 ${h}</p>` : ''))(Ammo.hint(Profile.shotKind(), m.family)), sc.hp, sc.ai, abil, drops, MonsterArt.moneyHtml(Math.round(m.coins * Balance.rewards.coinK * Tiers.PRICE_MULT[sp.tier - 1])), xp, sp.id, locked ? 'disabled' : '', near ? _t("В бой!") : _t("Подойти и напасть")]);
     const lootN = st.loot && st.loot[sp.id] && Trophy.eligible(sp) ? Trophy.total(st.loot[sp.id]) : 0;
     const grN = Growth.steps(st, sp);
     if (lootN > 0) {                                                  // 2.0.4: видно, что существо несёт трофеи героя
@@ -1257,6 +1269,14 @@ const MapView = (() => {
       const note = document.createElement('p'); note.className = 'hint grow-note';
       note.textContent = _t("Окрепло после побед над героем (+{0}): здоровье и сила удара +{1}%, за победу больше опыта и монет.", [grN, Math.round(Growth.STEP * grN * 100 * 10) / 10]);
       const hb = el['map-card'].querySelector('.mc-body'); if (hb) hb.insertBefore(note, el['map-card'].querySelector('.mc-act'));
+    }
+    {                                                                // 2.4.0: словами — по силам ли существо; при первом показе объяснение точки
+      const D = Balance.mobLevels.dot, dl = HexMap.lvlOf(sp) - Profile.level();
+      const word = dl <= D.weak ? _t("Слабее вас") : dl >= D.deadly ? _t("Смертельно опасно") : dl >= D.hard ? _t("Опасный противник") : _t("Ровня вам");
+      const lp = document.createElement('p'); lp.className = 'hint level-note'; lp.dataset.cmp = dl <= D.weak ? 'weak' : dl >= D.deadly ? 'deadly' : dl >= D.hard ? 'hard' : 'even';
+      lp.textContent = _t("{0} (уровень существа {1}, ваш {2}).", [word, HexMap.lvlOf(sp), Profile.level()]);
+      if (!Profile.data.dotHintSeen) { lp.textContent += ' ' + _t("Точка у значка уровня: серая — слабее вас, зелёная — ровня, жёлтая — сильнее, красная — смертельно опасно."); Profile.data.dotHintSeen = 1; Profile.save(); }
+      const nb = el['map-card'].querySelector('.mc-body'); if (nb) nb.insertBefore(lp, el['map-card'].querySelector('.mc-act'));
     }
     // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
     // 1.5.4: быстрый бой — слабое (на 2+ цвета ниже) и уже побеждённое существо
@@ -1348,7 +1368,7 @@ const MapView = (() => {
     battleSpawn = sp;
     st.swarm = st.swarm || {};
     if (Bestiary.MONSTERS[sp.species].swarm && !st.swarm[sp.id]) st.swarm[sp.id] = Bestiary.rollSwarmSize(sp.species, Math.random);
-    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: sp.tier, swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), depth: sp.depth > 1 ? sp.depth : 0, loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp), stale: Profile.data.loc === 'tower' && !!(st.won && st.won[(st.floor || 1) + ':' + sp.id]) }, Sky.battleFx());   // 2.0.9: в подземелье вещи падают только в комнатах, где вы ещё не побеждали   // рой не перебрасывается отступлением
+    Profile.data.monster = Object.assign({ id: sp.species, castle: !!sp.castle, castleSet: sp.castle && !sp.boss ? spiritSet(sp) : null, trait: sp.trait || null, tier: sp.tier, lvl: HexMap.lvlOf(sp), leader: !!sp.leader, scorp: sp.scorp || 0, swarm: st.swarm[sp.id] || 1, grow: Growth.steps(st, sp), depth: sp.depth > 1 ? sp.depth : 0, loot: Trophy.eligible(sp) && st.loot && st.loot[sp.id] ? { ...st.loot[sp.id] } : null, boss: sp.boss || null, zone: sp.zone || null, elite: eliteOf(sp), stale: Profile.data.loc === 'tower' && !!(st.won && st.won[(st.floor || 1) + ':' + sp.id]) }, Sky.battleFx());   // 2.0.9: в подземелье вещи падают только в комнатах, где вы ещё не побеждали   // рой не перебрасывается отступлением
     save();
     setMode('battle');
     enterBattle();
@@ -1863,6 +1883,11 @@ const MapView = (() => {
     if (fightFx.scale) { cam.s = fightFx.scale; fightFx.scale = 0; clampCam(); applyCam(); }
     const fromLoc = map.kind;
     if (result === 'win' && typeof Chron !== 'undefined' && Chron.levelMarks(Profile.data, Profile.level())) Profile.save();
+    if (result === 'loss' && map.kind === 'tower') {      // 2.4.1: «идти глубже с риском» — поражение после контрольного этажа (5, 10, …) отнимает монеты, найденные ниже него
+      const tw = Profile.data.tower;
+      if (tw && typeof tw.cp === 'number' && Profile.data.coins > tw.cp) { const lost = Profile.data.coins - tw.cp; Profile.data.coins = tw.cp; setTimeout(() => toast(_t("Поражение в глубине: потеряны монеты, найденные ниже контрольного этажа: {0}", [lost]), 4500), 700); }
+      if (tw) tw.cp = null;
+    }
     if (result === 'loss' && (map.kind === 'castle' || map.kind === 'tower')) { gateReturn(map.kind === 'castle' ? 'castle' : 'dungeon'); }
     else if (result === 'loss' && map.kind) { st.pos = map.start; load(); toast(_t("Вы очнулись у начала локации"), 3000); }       // 1.8.6: проигрыш в замке — герой очнётся в деревне, у Алтаря воскрешения
     if (sel.lord) {
@@ -1902,6 +1927,7 @@ const MapView = (() => {
       if (st.swarm) delete st.swarm[sp.id];
       if (Profile.data.loc === 'tower') { st.won = st.won || {}; st.won[(st.floor || 1) + ':' + sp.id] = 1; }   // 2.0.9: комната больше не «новая»
       if (sp.guard && sp.gc) guardDrop(sp.gc);
+      if (sp.scorp) { Profile.addConsumable('scrollvenom', 1); setTimeout(() => toast(_t("Жало скорпиона: свиток отравы!"), 3600), 400); }   // 2.4.0: жало — всегда
       if (sp.scorp && Math.random() < Stones.scorpChance(st.floor || 1)) scorpDrop(sp.scorp);   // 2.0.7: скорпион подземелья
       if (sp.deep) deepWon(st.floor || 1);
       if (sp.rare) rareWon(sp); else toast(sp.guest ? _t("{0} повержен. Ночной гость больше не вернётся этой ночью.", [Bestiary.MONSTERS[sp.species].name]) : _t("{0} повержен. Существо вернётся через {1} мин.", [Bestiary.MONSTERS[sp.species].name, RESPAWN_MS / 60000]));
@@ -2202,6 +2228,8 @@ const MapView = (() => {
     on('m-me', () => centerOn(st.pos));
     on('m-tools', () => { const box = document.getElementById('map-tools'), closed = box.classList.toggle('closed'); document.getElementById('m-tools').setAttribute('aria-expanded', String(!closed)); });
     on('m-pin', () => setPinMode(!pinMode));
+    { const fb = document.getElementById('m-fit'); const sync = () => { if (fb) { fb.classList.toggle('on', fitOn); fb.setAttribute('aria-pressed', String(fitOn)); } };
+      sync(); on('m-fit', () => { fitOn = !fitOn; try { localStorage.setItem('wip-map-fit', fitOn ? '1' : '0'); } catch (e) {} sync(); renderMonsters(); }); }
     on('m-log', () => { closeCard(); showJournal(); });
     on('m-mini', () => { const on2 = mini.canvas.hidden; st.mini = on2; applyMiniVisible(); save(); });
     on('m-home', goHome);
@@ -2459,17 +2487,19 @@ const MapView = (() => {
     el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${HexMap.BUILDINGS.hunter.name}</b><p class="hint">${q.title}: ${q.desc}</p><p>${act}</p><div class="mc-act"><button type="button" data-act="hq-open">${_t("Бестиарий")}</button><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
   }
   // 1.8.6: Замок — отдельная карта. Вход на северной границе деревни (для героев от 8 уровня), выход — в конце главной улицы.
-  const CASTLE_LEVEL = 8;
-  const LOCS = { castle: { level: CASTLE_LEVEL, reveal: 4 }, island: { level: 1, reveal: 6 }, tower: { level: 10, reveal: 3 } };      // реестр локаций: остров и Башня добавляются сюда
+  const CASTLE_LEVEL = 1;      // ВРЕМЕННО на время тестов (было 8): вернуть 8 после тестов
+  const TOWER_LEVEL = 1;      // ВРЕМЕННО на время тестов (было 10): вернуть 10 после тестов
+  const LOCS = { castle: { level: CASTLE_LEVEL, reveal: 4 }, island: { level: 1, reveal: 6 }, tower: { level: TOWER_LEVEL, reveal: 3 } };      // реестр локаций: остров и Башня добавляются сюда
   function swapMap(onCastle, to) {
     const loc = onCastle ? (to || 'castle') : null;
     Profile.data.loc = loc; Profile.data.castleOn = loc === 'castle';
+    if (loc !== 'tower' && Profile.data.tower) Profile.data.tower.cp = null;   // 2.4.1: выход из подземелья «закрепляет» найденное
     if (loc) Profile.chron('place', loc);
     map = null; world = null; spawnAt = evAt = lairAt = lmAt = null;   // старая карта освобождается до построения новой
     save();
     closeCard();
     load();
-    toast(loc === 'tower' ? _t("Вы вошли в подземелье. Уровень {0}: ищите лестницу вниз на востоке.", [st.floor || 1]) : loc === 'island' ? _t("Вы высадились на Затерянном острове. Бригантина ждёт у западного берега.") : loc ? _t("Вы вошли в Замок: здесь бродят духи воинов. Выход — на западе, в конце главной улицы.") : _t("Вы вернулись на материк"), 4200);
+    toast(loc === 'tower' ? _t("Вы вошли в подземелье. Уровень {0}: ищите лестницу вниз на востоке.", [st.floor || 1]) + ((st.best || 1) > 1 ? ' ' + _t("Лучший уровень подземелья: {0}", [st.best]) : '') + (Stones.guardColor(st.floor || 1) ? ' ' + _t("Здесь ждёт страж: камень «{0}».", [Stones.name(Stones.guardColor(st.floor || 1))]) : '') : loc === 'island' ? _t("Вы высадились на Затерянном острове. Бригантина ждёт у западного берега.") : loc ? _t("Вы вошли в Замок: здесь бродят духи воинов. Выход — на западе, в конце главной улицы.") : _t("Вы вернулись на материк"), 4200);
   }
   function enterCastle() {
     if (map.kind === 'castle') return;
@@ -2478,7 +2508,7 @@ const MapView = (() => {
   }
   function leaveCastle() { if (map.kind === 'castle') swapMap(false); }
   // 1.8.7: Затерянный остров — плывёт починенная бригантина (экран «Кораблекрушение»), причал на острове возвращает на материк
-  function enterIsland() { if (!map.kind && Profile.data.ship && Profile.data.ship.fixed) swapMap(true, 'island'); }
+  function enterIsland(force) { if (!map.kind && (force || (Profile.data.ship && Profile.data.ship.fixed))) swapMap(true, 'island'); }      // force — ВРЕМЕННЫЙ тестовый телепорт
   function leaveIsland() { if (map.kind === 'island') swapMap(false); }
   // 1.8.7: Башня — бесконечные этажи; лестница вверх на востоке, дверь на западе (на 1-м этаже — выход)
   // поражение в замке или Башне: герой очнётся на материке у ворот этой локации (замок — «Ворота замка», Башня — «Врата подземелья»)
@@ -2522,7 +2552,7 @@ const MapView = (() => {
     for (let c = 1; c <= Stones.COLORS; c++) if (Stones.canSeal(S, c, best)) seals.push(c);
     if (!seals.length) return swapMap(true, 'tower');
     // 1.8.9: есть печати — выбор: с 1-го этажа или сразу на этаж стража
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Дверь подземелья")}</b><p class="hint">${_t("Печать стража сразу переносит на его этаж. Печать сгорает.")}</p>
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${_t("Дверь подземелья")}</b><p class="hint">${_t("Печать стража сразу переносит на его этаж. Печать сгорает.")} ${_t("Лучший уровень подземелья: {0}", [best])}</p>
       <button type="button" class="primary" data-act="tower-start">${_t("С первого этажа")}</button>
       ${seals.map((c) => `<button type="button" class="primary" data-act="tower-seal" data-c="${c}">${_t("Печать «{0}»: этаж {1} (осталось {2})", [Stones.name(c), Stones.sealFloor(c), S.seals[c]])}</button>`).join('')}
       <button type="button" data-act="close">${_t("Закрыть")}</button></div></div>`;
@@ -2537,6 +2567,7 @@ const MapView = (() => {
     const t = Profile.data.tower; if (!t) return;
     t.floor = Math.max(1, to); t.best = Math.max(t.best || 1, t.floor);
     t.pos = null; t.revealed = []; t.defeated = {}; t.found = {}; t.pins = [];
+    if (t.floor > 5 && (t.floor - 1) % 5 === 0) { t.cp = Profile.data.coins; setTimeout(() => toast(_t("Контрольный этаж пройден. Дальше — с риском: при поражении потеряете найденные ниже монеты. Выход из подземелья сохраняет всё."), 4200), 1800); }   // 2.4.1
     if (t.floor >= 5 && t.floor % 5 === 0) Profile.chron('floor', t.floor);
     save(); closeCard(); load();
     Profile.noteMaster('depth', t.best, false);
