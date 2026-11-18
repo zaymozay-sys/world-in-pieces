@@ -22,7 +22,7 @@ let autoPending = false;
 // 1.6.5 (A2-21): сколько пауз (sleep) этого поля сейчас в полёте. Пока хоть одна есть, ход (каскад, заклинание) ещё не доигран и держит старые
 // координаты камней. Свой sleep внутри поля (тень общего) считает паузы; whenIdle() ждёт, когда их не останется.
 let sleepsPending = 0;
-const sleep = (ms) => { sleepsPending++; return new Promise((r) => setTimeout(() => { sleepsPending--; r(); }, ms)); };
+const sleep = (ms) => { sleepsPending++; if (window.GEM_FAST) ms = Math.round(ms * 0.45); return new Promise((r) => setTimeout(() => { sleepsPending--; r(); }, ms)); };
 // Бой вдвоём: выживший добивает чужого противника. finishBoard вызывается прямо из dealDamage посреди каскада, и принять нового противника сразу нельзя —
 // каскад ещё ждёт на sleep, потом проверит sideDown (по новому, живому противнику это уже ложь) и пойдёт дальше по устаревшим координатам.
 // Поэтому передачу откладываем, пока поле само не дойдёт до выхода по sideDown и не уберёт за собой. Предохранитель: не ждать дольше ~10 с.
@@ -426,6 +426,7 @@ function setupEnemy() {
   const ZB = sel.zone && World.ZONE_BOSSES[sel.zone];                      // 1.7.3: хозяин зоны — крупнее и злее, с добавочным приёмом
   if (ZB) sc = World.scaleZone(sc, sel.zone);
   const affixes = sel.elite ? [World.affixFor(sel.elite, m.ability)] : G ? G.affixes.filter((a) => a !== m.ability) : ZB ? ZB.affixes.filter((a) => a !== m.ability) : [];
+  if (sel.leader && !sel.elite && !G && !ZB && m.ability !== 'ward') affixes.push('ward');   // 2.4.4: вожак — со своим приёмом «Щит»
   if (sel.elite) sc = { ...sc, hp: Math.round(sc.hp * World.ELITE.hp), dmg: sc.dmg * World.ELITE.dmg };
   if (sel.volley > 0) sc = { ...sc, hp: Math.max(1, Math.round(sc.hp * (1 - sel.volley))) };   // 1.7.0: осада — башни у ворот уже обстреляли врага
   if (Sky.hpMul(sel) !== 1) sc = { ...sc, hp: Math.round(sc.hp * Sky.hpMul(sel)) };            // 1.7.1: ночью существа крепче (+10% ХП)
@@ -1730,7 +1731,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.leech > 0 && attackerSide === 'left') tipOnce('leech');
   if (r.leech > 0) { SND.heal(); showFloat(attackerSide, '+' + r.leech, 'heal'); logEvent(attackerSide, _t("{0}: Регенерация — восстанавливает {1} здоровья", [attacker.name, r.leech])); }
   if (r.crit && attackerSide === 'left') tipOnce('fury');
-  if (r.crit) { showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
+  if (r.crit) { SND.crit(); showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
   if (r.kind === 'reflect') {
     tipOnce('ricochet');
     showFloat(target, _t("Рикошет!"), 'ricochet');
@@ -1761,6 +1762,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
 
 // Большая цифра по центру поля: сколько урона нанесено за ход.
 function showCenterPop(text, kind, caption) {
+  if (kind === 'dmg') boardEl.querySelectorAll('.center-pop.dmg').forEach((e) => e.remove());   // шаги каскада: новая цифра заменяет прежнюю
   const pop = document.createElement('div');
   pop.className = 'center-pop ' + kind;
   pop.innerHTML = `${text}<small>${caption}</small>`;
@@ -2169,8 +2171,12 @@ function showOverlay(text, sub = '') {
   // Поражение с питомцем в бою (взят в бой, хоть бы уже и павшим по ходу схватки) — питомец теряет
   // 1 прочность (см. Pets.loseDurability); победа и отступление прочность не трогают.
   if (text === _t("Поражение") && pet) { Profile.petLoseDurability(); logEvent('left', Story.PET_LINES.hurt); }
+  if (pet && Profile.petMood) {   // 2.4.4: характер питомца — настроение меняется по итогам боя
+    if (text === _t("Победа!")) { const m = Profile.petMood(1); logEvent('left', Story.PET_LINES.mood[m]); }
+    else if (text === _t("Поражение")) Profile.petMood(-1);
+  }
   logEvent(text === _t("Победа!") ? 'left' : 'right', text);
-  if (text === _t("Победа!")) SND.win(); else SND.lose();
+  if (text === _t("Победа!")) { if (fighters.right && fighters.right.guardian) SND.boss(); else SND.win(); } else SND.lose();
   statusEl.textContent = text;
   statusEl.dataset.next = '';
   renderMagic();
@@ -2664,9 +2670,16 @@ function rewardFor(f, first = true, opts = {}) {
     lines.push(`+1 ${Gear.CONSUMABLES[k].name}`);
     chips.push(`<button type="button" class="loot-chip" data-cap="${Gear.CONSUMABLES[k].name}: ${Gear.CONSUMABLES[k].desc}" title="${Gear.CONSUMABLES[k].name}">${itemIcon(k)}<b>+1</b></button>`);
   }
+  if (!opts.quick && Math.random() < 0.03) {   // 2.4.4: редкая щедрая находка — кошель монет (Силу не даёт)
+    const bonus = Math.max(30, drops.coins * 5);
+    Profile.addCoins(bonus);
+    lines.push(`<b class="lvlup">${_t("Щедрая находка!")}</b> ${_t("Под ногами лежал кошель: {0}", [MonsterArt.moneyHtml(bonus)])}`);
+    setTimeout(() => SND.rare(), 1100);
+  }
   if (up.to > up.from) {
     const L = up.to, t = Hero.tierFor(L);
-    lines.unshift(_t("<b class=\"lvlup\">Новый уровень {0}!</b> ХП {1}, Сила уровня {2}", [L, Hero.baseHp(L), Math.round(Hero.levelPower(L) * 10) / 10, Hero.budget(L)]) +
+    const dHp = Hero.baseHp(L) - Hero.baseHp(up.from), dPw = Math.round((Hero.levelPower(L) - Hero.levelPower(up.from)) * 10) / 10;   // 2.4.5: на сколько выросли ХП и Сила
+    lines.unshift(_t("<b class=\"lvlup\">Новый уровень {0}!</b> ХП {1} (+{3}), Сила уровня {2} (+{4})", [L, Hero.baseHp(L), Math.round(Hero.levelPower(L) * 10) / 10, dHp, dPw]) +
       (Hero.itemLevel(t) === L ? _t(". Теперь можно надевать вещи цвета «{0}»", [Tiers.get(t).name]) : ''));
     const opened = Object.entries(Balance.spellUnlock).filter(([k, lv]) => lv > up.from && lv <= up.to && MAGICS[k]).map(([k]) => MAGICS[k].name);
     if (opened.length) lines.splice(1, 0, _t("<b class=\"lvlup\">Новое заклинание:</b> {0}", [opened.join(', ')]));   // 1.4.3: не пропустить открытие магии
@@ -2675,6 +2688,8 @@ function rewardFor(f, first = true, opts = {}) {
       lines.push(_t("Подарок: Эликсир силы. Выпейте его в бою и одолейте существо с жёлтой точкой — оно сильнее вас, но с эликсиром вам по плечу."));
     }
     lines.splice(1, 0, _t("По силам теперь существа {0}–{1} уровня.", [Math.max(1, L - 3), L + 3]));   // 2.4.1: кто теперь по силам
+    const bld = typeof Unlocks === 'undefined' ? [] : Object.entries(Unlocks.NEED).filter(([, lv]) => lv > up.from && lv <= up.to).map(([id]) => Unlocks.NAMES[id] || id);
+    if (bld.length) lines.splice(1, 0, _t("<b class=\"lvlup\">Открылось:</b> {0}", [bld.join(', ')]));   // 2.4.5: что открылось на карте
     if (L >= 60 && L < Balance.mobLevels.scorpLevel && !Profile.species().some((id) => /^scorp/.test(id))) lines.push(_t("Слух: в 9-м цвете живут скорпионы — вернитесь на 80-м уровне."));   // 2.4.1: видимая далёкая цель
     SND.win();
   }
@@ -3876,8 +3891,14 @@ async function enemyTurnStart() {
 
   const A = Balance.abilities;
   // Показ приёма существа (и свойства элитного/стража — тот же набор приёмов).
+  const TELEGRAPH = { regen: "Регенерация", steal: "Воровство", prank: "Пакость", howl: "Вой", petrify: "Окаменение", veil: "Туман", drum: "Шаманский бубен", weaken: "Морок", pinch: "Панцирь", mire: "Трясина", sap: "Липкость", clone: "Двойник", stun: "Оглушение", toxin: "Отрава", ward: "Щит", evasion: "Изворотливость", retribution: "Возмездие", breath: "Огненное дыхание" };
   const showAct = async (act) => {
   let acted = !!act;
+  if (act && TELEGRAPH[act.kind]) {   // 2.4.4: предупреждение перед приёмом — игрок видит, что готовится
+    note(_t("{0} готовит: {1}", [f.name, _t(TELEGRAPH[act.kind])]));
+    SND.growl && SND.growl();
+    await sleep(450);
+  }
   if (act) switch (act.kind) {
     case 'regen':
       showFloat('right', '+' + act.heal, 'heal'); renderFighters(); say(_t("Регенерация, +{0} ХП", [act.heal]));
@@ -4068,8 +4089,13 @@ async function resolveBoard(side) {
       Combat.addSpores(f, got);
       renderBadge('right');
     }
+    // 2.4.5: причина → следствие. Камни собраны (звук линии, счётчики) → через полпаузы удар достигает цели (звук удара, здоровье, цифра,
+    // реакция существа) → камни дочищаются. Раньше всё это совпадало в один кадр, и звуки линии и удара сливались.
+    const hitAt = dmg > 0 ? Math.round(RULES.timing.clear * 0.5) : 0;
+    if (hitAt) await sleep(hitAt);
     turnStats.dmg += dealDamage(target, dmg, false, true, f.magic ? Balance.magic.lightning.mult * Sky.spellMul(selNow(), 'lightning') : 1);   // (камни + Сила) × Молния
-    await sleep(RULES.timing.clear);
+    flushTurnDamage();                               // 2.4.5: крупная цифра — в момент удара, а не после всего хода
+    await sleep(RULES.timing.clear - hitAt);
 
     for (let i = 0; i < N * N; i++) {
       if (!bon[i]) continue;

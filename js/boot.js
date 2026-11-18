@@ -366,3 +366,45 @@ document.addEventListener('pointerdown', (e) => {
   const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true, characterData: true }); window.addEventListener('resize', later); later(); };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
+/* 2.4.4: журнал боя на компьютере не вылезает за нижний край окна — высота ограничена остатком экрана
+   (раньше при длинном журнале нижняя часть уходила за экран: её не было видно и нажать было нельзя). */
+(() => {
+  if (typeof document === 'undefined') return;
+  let queued = false;
+  const fit = () => {
+    for (const w of document.querySelectorAll('.log-wrap')) {
+      w.style.maxHeight = '';
+      const lg = w.querySelector('.log'); if (lg) lg.style.maxHeight = '';
+      const r = w.getBoundingClientRect();
+      if (!r.height || !document.body.classList.contains('mode-battle')) continue;
+      const room = Math.floor(window.innerHeight - r.top - 10);
+      if (room > 60 && r.height > room) {
+        w.style.maxHeight = room + 'px';
+        // 2.4.5: сама лента журнала тоже сжимается (иначе её нижние строки обрезались рамкой и не прокручивались)
+        const sm = w.querySelector('summary'), lg2 = w.querySelector('.log');
+        if (lg2) lg2.style.maxHeight = Math.max(40, room - (sm ? sm.offsetHeight : 0) - 4) + 'px';
+      }
+    }
+  };
+  const later = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
+  const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'class'] }); window.addEventListener('resize', later); };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+/* 2.4.4: окно, содержимое которого занимает меньше половины высоты, сжимается по содержимому (класс modal-fit),
+   чтобы внизу не оставалось пустого места. Окно с большим содержимым остаётся прежнего размера. */
+(() => {
+  if (typeof document === 'undefined') return;
+  let queued = false;
+  const fit = () => {
+    for (const m of document.querySelectorAll('.modal:not(.icard-modal):not(.modal-compact)')) {
+      m.classList.remove('modal-fit');
+      const full = m.offsetHeight;                           // размер по умолчанию
+      m.classList.add('modal-fit');
+      const natural = m.offsetHeight;                        // размер по содержимому
+      if (!(natural > 0 && full > 0 && natural < full * 0.72)) m.classList.remove('modal-fit');
+    }
+  };
+  const later = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
+  const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true }); window.addEventListener('resize', later); };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();

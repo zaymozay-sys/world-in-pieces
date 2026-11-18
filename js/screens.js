@@ -219,6 +219,7 @@ const Screens = (() => {
     if (root) { ModalFocus.close(root); root.remove(); root = null; }
     document.removeEventListener('keydown', onKey);
     cur = null;
+    try { if (typeof MapView !== 'undefined' && MapView.refreshMonsters) MapView.refreshMonsters(); } catch (e) { /* вне карты */ }   // 2.4.5: подсветка источников для закладок рецептов
   }
   const onKey = (e) => { if (e.key === 'Escape' && !mustChoose()) close(); };
   function open(id) { mount(); cur = id; render(); }
@@ -248,11 +249,36 @@ const Screens = (() => {
       nb.innerHTML = Spark.html(sp); nb.disabled = Spark.state.balance < sp; btn.after(nb);
     });
   }
+  // 2.4.3: «умная» перерисовка мини-игр: новое дерево собирается отдельно и накладывается на прежнее — неизменные клетки, картинки и фон остаются теми же узлами (не мигают).
+  // Узлы с анимацией (падение, обмен, всплеск) заменяются целиком, чтобы анимация проигрывалась заново.
+  const ANIM = /\b(swap|fall|pop|plus|flash|hit|boom)\b/;
+  function morph(a, b) {
+    const ac = [...a.childNodes], bc = [...b.childNodes];
+    for (let i = 0; i < bc.length; i++) {
+      const x = ac[i], y = bc[i];
+      if (!x) { a.appendChild(y); continue; }
+      if (x.nodeType !== y.nodeType || (x.nodeType === 1 && (x.tagName !== y.tagName || ANIM.test(y.getAttribute('class') || '') || y.hasAttribute('data-lhfresh')))) { a.replaceChild(y, x); continue; }
+      if (x.nodeType === 3 || x.nodeType === 8) { if (x.data !== y.data) x.data = y.data; continue; }
+      for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
+      for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+      if (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') continue;
+      morph(x, y);
+    }
+    for (let i = ac.length - 1; i >= bc.length; i--) a.removeChild(ac[i]);
+  }
+  function patchRender(html) {
+    const real = root, tmp = document.createElement('div'); tmp.innerHTML = html;
+    root = tmp;
+    try { addTip(); addScene(); markNeeds(); markToasts(); } finally { root = real; }
+    morph(real, tmp);
+  }
   function render() {
     if (root && cur) {
       const keepNow = keepScroll || !!root.querySelector('.ch-board');   // 2.0.9: шахматы — поле не прыгает после хода/нажатия
       const sb = keepNow && root.querySelector('.screen-body'), top = sb ? sb.scrollTop : 0;
-      root.innerHTML = SCREENS[cur].html(); addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab();
+      const html = SCREENS[cur].html();
+      if (html.includes('lh-board') && root.querySelector('.lh-board') && !root.querySelector('.ch-board')) patchRender(html);   // 2.4.3: мини-игры не пересоздаются целиком после каждого хода — иначе мигают
+      else { root.innerHTML = html; addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab(); }
       root.querySelectorAll('.tabs:not(.sub)').forEach((t) => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth + 2) t.scrollLeft = Math.max(0, on.offsetLeft - 24); });   // 2.0.9: активная вкладка видна
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
     }
@@ -707,6 +733,17 @@ const Screens = (() => {
     return miss.length ? `<div class="lack">${_t("Не хватает")}: ${miss.join(', ')}</div>` : '';
   };
   const costHtml = (c, key) => costBase(c, key) + lackHtml(c);
+  // 2.4.5: закладки рецептов («id:цвет»): звёздочка в Кузнице, существа-источники недостающих ресурсов подсвечиваются на карте
+  const marks = () => (Profile.data.marks = Array.isArray(Profile.data.marks) ? Profile.data.marks : []);
+  const markBtn = (id, tier) => { const k = id + ':' + tier, on = marks().includes(k); return `<button type="button" class="mark-btn${on ? ' on' : ''}" data-mark="${k}" aria-pressed="${on}" title="${_t("Следить за рецептом: существа с нужными ресурсами подсветятся на карте")}">${on ? '★' : '☆'}</button>`; };
+  function markedSpecies() {
+    const out = new Set();
+    for (const k of marks()) {
+      const [id, t] = k.split(':'); let cost; try { cost = craftPlan(id, +t); } catch (e) { continue; }
+      for (const r of ((cost && cost.res) || [])) if (r.n > Profile.res(r.kind, r.tier)) for (const sp of Bestiary.sourcesOf(r.kind)) out.add(sp);
+    }
+    return out;
+  }
   const canPay = (c) => c.ok !== false && Profile.data.coins >= c.coins && c.res.every((r) => Profile.res(r.kind, r.tier) >= r.n);
   const pay = (c) => { Profile.spend(c.coins); for (const r of c.res) Profile.takeRes(r.kind, r.tier, r.n); };
 
@@ -941,7 +978,7 @@ const Screens = (() => {
         const bases = early ? Gear.craftFor(Profile.data.faction, ct).sort((a, b) => a.cost - b.cost).slice(0, 1) : Gear.craftFor(Profile.data.faction, ct).filter((b) => f[2](b.type)).sort((a, b) => a.cost - b.cost);
         const list = bases.map((b) => {
           const it = Gear.item({ id: b.id, tier: ct }), cost = craftPlan(b.id, ct), ckey = planKey({ mode: 'craft', itemId: b.id, tier: ct });
-          return `<div class="craft-unit">${itemCard(it, _t("{0} · из ресурсов цвета «{1}»", [Gear.RARITY_NAMES[b.rarity], Tiers.get(ct).name]), _t("<button type=\"button\" data-craft=\"{0}\" {1}>Создать</button>", [b.id, canPay(cost) ? '' : 'disabled']) + tryBtn('craft', b.id))}${costHtml(cost, ckey)}</div>`;
+          return `<div class="craft-unit">${itemCard(it, _t("{0} · из ресурсов цвета «{1}»", [Gear.RARITY_NAMES[b.rarity], Tiers.get(ct).name]), _t("<button type=\"button\" data-craft=\"{0}\" {1}>Создать</button>", [b.id, canPay(cost) ? '' : 'disabled']) + tryBtn('craft', b.id) + markBtn(b.id, ct))}${costHtml(cost, ckey)}</div>`;
         }).join('');
         body = early ? `<p class="hint">${_t("Для начала — одна простая вещь. Остальные вещи и вкладки Кузницы откроются после первых боёв.")}</p><div class="card-list">${list}</div>` : _t("<div class=\"tabs sub\">{0}</div>\n          <p class=\"hint\">Цвет новой вещи (до цвета вашего уровня):</p>{1}<div class=\"card-list\">{2}</div>", [FILTERS.map(([k, label]) => `<button type="button" class="${k === s.filter ? 'on' : ''}" data-filter="${k}">${label}</button>`).join(''), tierPicker(top, ct, 'crafttier'), list]);
       }
@@ -1054,6 +1091,11 @@ const Screens = (() => {
         Profile.addAmmo(key, out); Profile.noteBrew(out);
         s.msg = _t("Изготовлено: {0} × {1}", [Ammo.stockName(key), out]);
         return changed();
+      }
+      if (d.mark) {
+        const m = marks(), i = m.indexOf(d.mark);
+        if (i >= 0) m.splice(i, 1); else { m.push(d.mark); if (m.length > 5) m.shift(); }
+        Profile.save(); return changed();
       }
       if (d.craft) {
         const cost = craftPlan(d.craft, s.craftTier || 1);
@@ -3010,8 +3052,9 @@ const credits = {
         const g = Puzzle.game(pz, pz.day), cells = [];
         for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${s.pzSel === i ? ' sel' : ''}" data-pzcell="${i}" ${pz.done ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(g.typ[i], g.sp[i])}</button>`);
         const star = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
-        body = `${evBanner()}<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0 ход|хода|ходов}. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3 очко|очка|очков}; за каждую новую звезду — монеты (раз в день).", [Puzzle.MOVES, Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
+        body = `${evBanner()}<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0 ход|хода|ходов}. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3 очко|очка|очков}; за каждую новую звезду — монеты (раз в день).", [Puzzle.movesOf(pz), Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
           <div class="arena-rank"><b>${star(pz.stars)}</b> <small>${_t("Очки: {0} · ходов осталось: {1} · рекорд: {2} · решено дней: {3}", [g.score, Puzzle.movesLeft(pz), pz.best || '—', pz.total])}</small></div>
+          ${pz.moves.length || pz.done ? '' : `<div class="arena-rank">${[1, 2, 3].map((n) => `<button type="button" class="${pz.lvl === n ? 'primary' : ''}" data-pzlvl="${n}">${[_t("Лёгкая: 10 ходов"), _t("Обычная: 8 ходов"), _t("Трудная: 6 ходов, награда ×1,6")][n - 1]}</button>`).join(' ')}</div>`}
           <div class="lh-board">${cells.join('')}</div>
           ${pz.done ? `<p class="hint">${_t("На сегодня всё. Новая головоломка — завтра.")}</p>` : ''}`;
       } else if (s.tab === 'results') {
@@ -3070,6 +3113,11 @@ const credits = {
         return;
       }
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.pzlvl !== undefined) {
+        const pz = Profile.data.puzzle = Puzzle.clean(Profile.data.puzzle);
+        if (Puzzle.setLevel(pz, Daily.today(), +d.pzlvl)) { Profile.save(); render(); }
+        return;
+      }
       if (d.pzcell !== undefined) {
         const pz = Profile.data.puzzle = Puzzle.clean(Profile.data.puzzle), i = +d.pzcell; Puzzle.sync(pz, Daily.today());
         if (pz.done) return;
@@ -3246,7 +3294,7 @@ const credits = {
         return `<div class="login-cell${done ? ' done' : ''}${cur ? ' cur' : ''}"><b>${_t("День {0}", [i + 1])}</b><span>${loginReward(r)}</span>${done ? '<i>✓</i>' : ''}</div>`;
       }).join('');
       const nx = Streak.next(sk);
-      return `<div class="modal" role="dialog" aria-label="${_t("Награда за заход")}">${head(_t("Награда за заход"))}
+      return `<div class="modal modal-compact" role="dialog" aria-label="${_t("Награда за заход")}">${head(_t("Награда за заход"))}
         <div class="screen-body">
           <p class="hint">${_t("Заходите в игру — за каждый день полагается подарок. Пропуск ничего не сбрасывает: лента просто продолжится с того же места.")}</p>
           <div class="login-ribbon">${cells}</div>
@@ -3336,7 +3384,38 @@ const credits = {
     },
   };
 
-  const SCREENS = { sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
+  /* 2.4.5: «Сегодня» — всё ежедневное на одном экране: головоломка, Испытание дня, поручение библиотеки. */
+  const today = {
+    html() {
+      const d = Profile.data, day = Daily.today(), arenaOpen = Unlocks.isOpen(d, 'arena'), rows = [];
+      const row = (title, state, act, done) => `<div class="card${done ? ' is-done' : ''}"><div class="item-title">${title}</div><p class="hint">${state}</p>${act}</div>`;
+      if (arenaOpen) {
+        const pz = d.puzzle = Puzzle.clean(d.puzzle); Puzzle.sync(pz, day);
+        const star = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
+        rows.push(row(_t("Головоломка дня"), pz.done ? `${star(pz.stars)} · ${_t("решена")}` : _t("Ходов осталось: {0}", [Puzzle.movesLeft(pz)]),
+          pz.done ? '' : `<button type="button" class="primary" data-today="puzzle">${pz.moves.length ? _t("Продолжить") : _t("Играть")}</button>`, pz.done));
+        const c = challengeState(), left = World.CH_TRIES - c.tries, won = !!(d.medals && d.medals.daily && d.medals.daily.last === day);
+        rows.push(row(_t("Испытание дня"), won ? _t("Победа есть. Серия дней: {0}", [Profile.dailyStreak()]) : _t("Попыток: {0} из {1} · серия дней: {2}", [left, World.CH_TRIES, Profile.dailyStreak()]),
+          won || left <= 0 ? '' : `<button type="button" class="primary" data-today="daily">${_t("К испытанию")}</button>`, won));
+      }
+      if (!earlyGame()) {
+        const q = Daily.libraryQuest(d);
+        rows.push(row(_t("Поручение библиотеки"), q.claimed ? _t("Награда получена") : _t("Побед сегодня: {0} из {1}", [q.value, q.goal]),
+          q.claimed ? '' : q.done ? `<button type="button" class="primary" data-today="claim">${_t("Забрать награду")}</button>` : `<button type="button" data-today="map">${_t("На карту")}</button>`, q.claimed));
+      }
+      if (!rows.length) rows.push(`<p class="hint">${_t("Ежедневные задания откроются позже: победите первых существ.")}</p>`);
+      return `<div class="modal" role="dialog" aria-label="${_t("Сегодня")}">${head(_t("Сегодня"))}<div class="screen-body"><p class="hint">${_t("Всё на сегодня в одном месте: десять минут, и день засчитан.")}</p><div class="card-list">${rows.join('')}</div></div></div>`;
+    },
+    click(b) {
+      const k = b.dataset.today;
+      if (k === 'puzzle') { st.arena.tab = 'puzzle'; return open('arena'); }
+      if (k === 'daily') { st.arena.tab = 'daily'; return open('arena'); }
+      if (k === 'claim') { const r = Daily.claimLibrary(); if (r) changed(); return render(); }
+      if (k === 'map') return close();
+    },
+  };
+
+  const SCREENS = { today, sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
   return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, get screen() { return cur; }, arenaTab: () => (st.arena && st.arena.tab), openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: (id, tier) => { if (id && Bestiary.MONSTERS[id]) { st.best.sel = id; st.best.tier = Math.max(1, tier || 1); st.best.view = 'detail'; } return open('best'); },
     openTavern: () => { st.tavern.msg = ''; open('tavern'); },
     openJunker: () => { st.junker.msg = ''; open('junker'); },
@@ -3353,6 +3432,8 @@ const credits = {
     openJeweler: () => { st.jeweler.msg = ''; open('jeweler'); },
     openArtistWorkshop: () => { st.artistWorkshop.msg = ''; open('artistWorkshop'); },
     openValor: () => open('valor'),
+    openToday: () => open('today'),
+    markedSpecies,
     openCredits: () => open('credits'),
     openFactions: (first = false) => {
       st.fac.first = first; st.fac.msg = '';

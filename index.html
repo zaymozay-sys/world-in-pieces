@@ -36,9 +36,11 @@
     <div class="map-top">
       <div class="map-me" id="map-me"></div>
       <div class="map-btns">
+        <button id="m-today" type="button" title="Задания дня">Сегодня</button>
         <button id="m-gear" type="button" title="Сумка (I)">Сумка</button>
         <button id="m-best" type="button" title="Бестиарий (B)">Бестиарий</button>
         <button id="m-mute" type="button">Звук</button>
+        <button id="m-fast" type="button" hidden>Скорость боя</button>
         <button id="m-fs" type="button" title="Полный экран (клавиша F)"><span class="lg">Полный экран</span><span class="sm">Экран</span></button>
         <button id="m-lang" type="button" class="icon-btn" title="Language / Язык">EN</button>
         <button id="m-help" type="button" class="icon-btn" title="Как играть">?</button>
@@ -50,7 +52,9 @@
         <button id="m-whatsnew" type="button" hidden>Что нового</button>
         <button id="m-more" type="button" title="Меню" aria-haspopup="true">☰</button>
         <div class="map-menu" id="map-menu" hidden>
+          <button type="button" data-mdo="m-today">Сегодня</button>
           <button type="button" id="mm-mute" data-mdo="m-mute">Звук</button>
+          <button type="button" id="mm-fast" data-mdo="m-fast">Скорость боя</button>
           <button type="button" data-mdo="m-fs">Полный экран</button>
           <button type="button" id="mm-lang" data-mdo="m-lang">English</button>
           <button type="button" class="mm-head" aria-expanded="false">Графика и эффекты</button>

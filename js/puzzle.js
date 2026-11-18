@@ -5,15 +5,16 @@ if (typeof LHGames === 'undefined' && typeof require === 'function') globalThis.
    (LHGames.av*). Состояние — Profile.data.puzzle = { day, moves:[[a,b],…], done, stars, paid, total, best }: партия восстанавливается
    повторным проигрыванием ходов, поэтому вкладку можно закрыть посреди решения. Чистый модуль без DOM. */
 const Puzzle = (() => {
-  const MOVES = 8, STARS = [100, 140, 185], COINS = [40, 90, 160];
+  const MOVES = 8, LEVELS = [{ moves: 10, mul: 0.6 }, { moves: 8, mul: 1 }, { moves: 6, mul: 1.6 }], STARS = [100, 140, 185], COINS = [40, 90, 160];
   const num = (x) => (Number.isFinite(x) && x > 0 ? Math.floor(x) : 0);
   function clean(p) {
     p = p && typeof p === 'object' ? p : {};
     const moves = Array.isArray(p.moves) ? p.moves.filter((m) => Array.isArray(m) && m.length === 2 && m.every((v) => Number.isInteger(v) && v >= 0 && v < 36)).slice(0, MOVES) : [];
-    return { day: typeof p.day === 'string' ? p.day : '', moves, done: !!p.done, stars: Math.min(3, num(p.stars)), paid: Math.min(3, num(p.paid)), total: num(p.total), best: num(p.best) };
+    return { day: typeof p.day === 'string' ? p.day : '', moves, done: !!p.done, stars: Math.min(3, num(p.stars)), paid: Math.min(3, num(p.paid)), total: num(p.total), best: num(p.best), lvl: [1, 2, 3].includes(p.lvl) ? p.lvl : 2 };
   }
   const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return (h >>> 0) || 1; };
   const stars = (score) => STARS.filter((t) => score >= t).length;
+  const movesOf = (p) => LEVELS[((p && p.lvl) || 2) - 1].moves;   // 2.4.4: сложность — число ходов и награда
   function greedy(seed) {
     const s = LHGames.avNew(seed); let n = 0;
     while (n < MOVES && !s.done) {
@@ -35,7 +36,7 @@ const Puzzle = (() => {
   function game(p, day) {
     const s = LHGames.avNew(seedFor(day));
     for (const [a, b] of p.moves) LHGames.avMove(s, a, b);
-    if (p.moves.length >= MOVES) s.done = true;
+    if (p.moves.length >= movesOf(p)) s.done = true;
     return s;
   }
   // новый день — новая головоломка (звёзды и рекорд сохраняются, ходы и оплата сбрасываются)
@@ -47,15 +48,17 @@ const Puzzle = (() => {
     const s = game(p, day), r = LHGames.avMove(s, a, b);
     if (!r.ok) return { ok: false };
     p.moves.push([a, b]);
-    const left = MOVES - p.moves.length;
+    const left = movesOf(p) - p.moves.length;
     if (left <= 0 || s.done || !LHGames.avMoves(s).length) { s.done = true; p.done = true; }
     p.stars = Math.max(p.stars, stars(s.score)); p.best = Math.max(p.best, s.score);
     let coins = 0;
-    while (p.paid < p.stars) { coins += COINS[p.paid]; p.paid++; }
+    while (p.paid < p.stars) { coins += Math.round(COINS[p.paid] * LEVELS[(p.lvl || 2) - 1].mul); p.paid++; }
     if (p.done) p.total++;
     return { ok: true, s, done: p.done, stars: p.stars, coins, left };
   }
-  const movesLeft = (p) => Math.max(0, MOVES - p.moves.length);
-  return { MOVES, STARS, COINS, clean, sync, game, move, stars, seedFor, movesLeft, greedy };
+  const movesLeft = (p) => Math.max(0, movesOf(p) - p.moves.length);
+  // сложность можно менять, пока не сделан первый ход
+  function setLevel(p, day, lvl) { sync(p, day); if (p.moves.length || ![1, 2, 3].includes(lvl)) return false; p.lvl = lvl; return true; }
+  return { MOVES, LEVELS, movesOf, setLevel, STARS, COINS, clean, sync, game, move, stars, seedFor, movesLeft, greedy };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Puzzle;

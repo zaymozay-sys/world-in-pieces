@@ -4157,7 +4157,7 @@ body.phone.mode-battle .bagbar button.bagitem::after { content: ''; position: ab
 .lh-bar { height: 6px; border-radius: 3px; background: #1a150d; max-width: 420px; margin: 0 auto 4px; overflow: hidden; border: 1px solid #4a3d24; }
 .lh-bar i { display: block; height: 100%; background: linear-gradient(90deg, #d98a2b, #ffd66b); transition: width .4s; }
 .lh-note { text-align: center; margin: 2px 0; }
-.lh-stage { position: relative; max-width: 420px; margin: 8px auto; padding: 10px; border-radius: 16px; border: 3px solid #7a5f33; box-shadow: 0 0 0 2px #2a1d0b, 0 10px 24px rgba(0, 0, 0, .55), inset 0 0 30px rgba(0, 0, 0, .6); }
+.lh-stage { position: relative; max-width: min(420px, max(250px, calc(100dvh - 420px))); margin: 8px auto; padding: 10px; border-radius: 16px; border: 3px solid #7a5f33; box-shadow: 0 0 0 2px #2a1d0b, 0 10px 24px rgba(0, 0, 0, .55), inset 0 0 30px rgba(0, 0, 0, .6); }
 .lh-stage.av { background: radial-gradient(ellipse at 50% 0, #3b3326, #15110b 75%); }
 .lh-stage.mr { background: radial-gradient(ellipse at 0 50%, #3d3a2a, #121217 70%); padding-left: 36px; }
 .lh-stage.td { background: linear-gradient(#1d2d3f, #0e1925); overflow: hidden; }
@@ -4933,3 +4933,8 @@ body .fi-pop span { color: #b9ab8a; } body .fi-pop p { margin: 4px 0 0; color: #
 
 /* 2.4.2: стены подземелья темнее пола, чтобы проходы были видны */
 #map-svg polygon.hx-wall { fill-opacity: .5; }
+
+/* 2.4.5: существо, с которого падают ресурсы для отмеченного рецепта */
+.mon.want .bob { filter: drop-shadow(0 0 5px #ffd86b) drop-shadow(0 0 2px #fff3c4); }
+.mark-btn { min-width: 36px; padding: 6px 8px; font-size: 16px; line-height: 1; background: transparent; color: #c9b48a; }
+.mark-btn.on { color: #ffd86b; border-color: #ffd86b; }

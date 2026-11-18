@@ -710,3 +710,10 @@ body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-
 .modal .chess-wrap, .modal #chessboard, .modal .chess-board {
   border: 2px solid var(--ui-gold-lo); border-radius: 8px; box-shadow: 0 0 0 1px #140c05, 0 6px 16px rgba(0, 0, 0, .5);
 }
+/* 2.4.4: небольшие окна (награда за заход) не растягиваются на всю высоту */
+@media (min-width: 900px) and (min-height: 560px) {
+  .modal.modal-compact:not(.icard-modal) { width: min(700px, 100%); height: auto; }
+}
+@media (min-width: 900px) and (min-height: 560px) {
+  .modal.modal-fit:not(.icard-modal) { width: min(760px, 100%); height: auto; min-height: 340px; }
+}

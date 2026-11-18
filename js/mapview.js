@@ -541,6 +541,7 @@ const MapView = (() => {
     syncDeco();
     const out = [], mb = new Map();
     const now = Date.now();
+    let want = null; try { want = Screens.markedSpecies(); } catch (e) { want = null; }   // 2.4.5: источники ресурсов для отмеченных рецептов
     for (const sp of [...map.spawns, ...guestList, ...(rareSp ? [rareSp] : [])]) {
       if (!known(sp.idx)) continue;
       const p = px(sp.idx), T = Tiers.get(sp.tier), col = T.edge;
@@ -551,7 +552,7 @@ const MapView = (() => {
         continue;
       }
       const elite = eliteOf(sp), fig = bossFigure(sp);
-      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}${fitOn && Math.abs(HexMap.lvlOf(sp) - Profile.level()) > FIT_BAND ? ' far' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
+      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}${want && want.has(sp.species) ? ' want' : ''}${fitOn && Math.abs(HexMap.lvlOf(sp) - Profile.level()) > FIT_BAND ? ' far' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
           ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>${castleArmour(sp)}
@@ -2138,8 +2139,13 @@ const MapView = (() => {
     });
     document.addEventListener('click', (e) => { if (el['map-me'].classList.contains('me-open') && !el['map-me'].contains(e.target)) el['map-me'].classList.remove('me-open'); });
     on('m-best', () => Screens.openBestiary());
+    { try { window.GEM_FAST = localStorage.getItem('gem-fast') === '1'; } catch (e) { /* без хранилища */ } }
+    const fastLabel = () => { const t = window.GEM_FAST ? _t("Бой: быстрый") : _t("Бой: обычный"); for (const id of ['m-fast', 'mm-fast']) { const b = document.getElementById(id); if (b) b.textContent = t; } };
+    fastLabel();
+    on('m-fast', () => { window.GEM_FAST = !window.GEM_FAST; try { localStorage.setItem('gem-fast', window.GEM_FAST ? '1' : '0'); } catch (e) { /* без хранилища */ } fastLabel(); });
     on('m-mute', () => { Sound.setMuted(!Sound.muted); renderMute(); muteLabel(); });
     on('m-fs', () => toggleFullscreen());
+    on('m-today', () => Screens.openToday());
     on('m-help', () => Screens.open('help'));
     on('m-wiki', () => Screens.open('wiki'));
     on('m-whatsnew', () => Screens.open('whatsnew'));
@@ -2826,6 +2832,7 @@ const MapView = (() => {
   }
 
   return {
+    refreshMonsters() { if (map) renderMonsters(); },
     init, reset, returnFromBattle, focusSpecies, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
     devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = (Math.random() * 2147483646 + 1) | 0; t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },

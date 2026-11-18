@@ -694,6 +694,8 @@ const Profile = (() => {
     },
     // Питомец проиграл бой вместе с героем — теряет 1 прочность (см. pets.js: loseDurability).
     petLoseDurability() { const p = api.pet(); if (p) { I_PT.loseDurability(p); save(); } },
+    // 2.4.4: настроение питомца 0..4 — растёт от побед рядом с героем, падает от поражений
+    petMood(delta) { const p = api.pet(); if (!p) return null; p.mood = Math.max(0, Math.min(4, (p.mood == null ? 2 : p.mood) + (delta || 0))); if (delta) save(); return p.mood; },
     repairPet() { const p = api.pet(); if (p) { I_PT.repair(p); save(); } },
 
     /* ---------- 1.6.6: прочность вещей и «бой идёт» ---------- */
