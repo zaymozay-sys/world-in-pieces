@@ -670,3 +670,12 @@ body.phone.mode-battle .pq-row .pq-take { display: none; }
 
 /* 2.4.2: имя бойца — в одну строку (шрифт подгоняет js/boot.js); справа место под кнопку «i» */
 body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter .name .fname { display: block !important; -webkit-line-clamp: none; white-space: nowrap !important; overflow-wrap: normal !important; overflow: hidden; text-overflow: clip; box-sizing: border-box; padding-right: calc(14px * var(--u, 1)); }
+
+/* 2.4.6: окна 5:4–16:10 шириной до 1500 px (1024×768 и т. п.): боковая панель бойца уже, рамка поля заходит на её край —
+   портрет делаем меньше, чтобы три счётчика камней помещались целиком и не уходили под рамку */
+@media (min-aspect-ratio: 63/50) and (max-aspect-ratio: 16/10) and (min-width: 700px) and (max-width: 1500px) {
+  body.bt-gold.ui-columns:not(.phone) { --av: clamp(48px, calc(var(--cw) * 0.34), 100px); }
+}
+
+/* 2.4.6: у левой панели значок «i» — в левом верхнем углу (справа от портрета там счётчики камней, значок налезал на первый из них) */
+body.bt-gold.ui-columns:not(.phone) .fighter.left .fi-btn { right: auto; left: 12px; }

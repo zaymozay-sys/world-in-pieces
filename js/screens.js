@@ -31,6 +31,7 @@ const Screens = (() => {
     market: { tab: 'lots', kind: 'item', sel: null, mult: 1, qty: 1, msg: '' },
     village: { tab: 'build', msg: '' },
     arena: { tab: 'shadows', msg: '' },
+    valor: { filter: 'all', q: '', open: {}, size: (() => { try { return localStorage.getItem('wip-valor-size') || ''; } catch (e) { return ''; } })() || 'm', info: false },
     duel: { list: null, busy: false, msg: '' },
     bank: { msg: '' },
     herocard: { msg: '' },
@@ -278,7 +279,7 @@ const Screens = (() => {
       const sb = keepNow && root.querySelector('.screen-body'), top = sb ? sb.scrollTop : 0;
       const html = SCREENS[cur].html();
       if (html.includes('lh-board') && root.querySelector('.lh-board') && !root.querySelector('.ch-board')) patchRender(html);   // 2.4.3: мини-игры не пересоздаются целиком после каждого хода — иначе мигают
-      else { root.innerHTML = html; addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab(); }
+      else { root.innerHTML = html; addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab(); if (cur === 'valor') valorDecorate(); }
       root.querySelectorAll('.tabs:not(.sub)').forEach((t) => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth + 2) t.scrollLeft = Math.max(0, on.offsetLeft - 24); });   // 2.0.9: активная вкладка видна
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
     }
@@ -385,6 +386,7 @@ const Screens = (() => {
     root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; c.hidden = !!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q)); });
   }
   function onInput(e) {
+    if (cur === 'valor' && e.target.dataset.vq !== undefined) { st.valor.q = e.target.value; valorFilter(); return; }
     if (cur === 'shop' && e.target.dataset.shq !== undefined) {
       st.shop.q = e.target.value;
       if (st.shop.q.trim() && st.shop.set !== 'all') {   // 2.2.7: поиск ищет по всем комплектам, а не только по выбранному
@@ -2213,6 +2215,14 @@ const Screens = (() => {
         const rec = Profile.data.bestiary[id];
         return medalTile(mid, earnedFor(mid), level, Math.min(1, (rec && rec.wins) || 0), 1);
       });
+      // 2.4.5: медали за виды разложены по полкам семейств: свой заголовок-полка и счётчик «получено / всего»
+      const famGroups = [];
+      Bestiary.ORDER.forEach((id, i) => {
+        const f = (Bestiary.MONSTERS[id] && Bestiary.MONSTERS[id].family) || _t("Прочие");
+        let g = famGroups.find((x) => x.f === f); if (!g) famGroups.push(g = { f, tiles: [], got: 0 });
+        g.tiles.push(killTiles[i]); if (earnedFor(Medals.killMedalId(id))) g.got++;
+      });
+      const killByFamily = famGroups.map((g) => `</div><h3 class="fam">${g.f} (${g.got} / ${g.tiles.length})</h3><div class="medal-grid">${g.tiles.join('')}`).join('');
       const streakTiles = Medals.STREAK_MILESTONES.map((n) => {
         const mid = Medals.streakMedalId(n);
         return medalTile(mid, earnedFor(mid), level, Math.min(n, Profile.data.medals.fiveStreaks), n);
@@ -2255,7 +2265,7 @@ const Screens = (() => {
         const mid = Medals.worldMedalId(k), w = Profile.worldStats();
         return medalTile(mid, earnedFor(mid), level, k === 'visit' ? Object.keys(w.visited).length : k === 'caches' ? w.caches : k === 'altars' ? w.altars : 0, k === 'visit' ? 12 : k === 'caches' ? 10 : k === 'altars' ? 5 : 4);
       });
-      const body = _t("<p class=\"hint\">Все ваши медали — постоянные бонусы характеристик за первую победу над видом,\n          за вехи линий из 5 камней и за добивания заклинанием Удар. Нажмите на значок — увидите, за что дают медаль, и прогресс;\n          цветной тир-бейдж открывается, когда герой достигает нужного уровня.</p>\n        <h3>За первую победу ({0} / {1})</h3>{15}\n        <div class=\"medal-grid\">{2}</div>\n        <h3>За линии из 5 камней ({3} / {4})</h3>{16}\n        <p class=\"hint\">Собрано всего: {5}</p>\n        <div class=\"medal-grid\">{6}</div>\n        <h3>За добивания Ударом ({7} / {8})</h3>{17}\n        <p class=\"hint\">Добито Ударом всего: {9}</p>\n        <div class=\"medal-grid\">{10}</div>\n        <h3>Меткий стрелок ({11} / {12})</h3>{18}\n        <p class=\"hint\">Добито болтом или стрелой всего: {13}</p>\n        <div class=\"medal-grid\">{14}</div>\n        <h3>Стиль боя ({19} / {20})</h3>{21}\n        <p class=\"hint\">Выдаются один раз, за победу над обычным существом.</p>\n        <div class=\"medal-grid\">{22}</div>\n        <h3>Мир ({23} / {24})</h3>{25}\n        <div class=\"medal-grid\">{26}</div>\n        <h3>Испытание дня ({32} / {33})</h3>{34}\n        <p class=\"hint\">Победа в «Испытании дня» каждый день подряд. Серия сейчас: {35}</p>\n        <div class=\"medal-grid\">{36}</div>\n        <h3>Тайны ({28} / {29})</h3>{30}\n        <p class=\"hint\">Скрытые медали: условия не показываются.</p>\n        <div class=\"medal-grid\">{31}</div>\n        <h3>Коллекции семейств</h3>\n        <p class=\"hint\">Победите всех существ семейства — получите бонус к урону по нему.</p>\n        <div class=\"coll-list\">{27}</div>", [killTiles.filter((_, i) => earnedFor(Medals.killMedalId(Bestiary.ORDER[i]))).length, Bestiary.ORDER.length, killTiles.join(''), earned.filter((m) => m.id.startsWith('streak:')).length, Medals.STREAK_MILESTONES.length, Profile.data.medals.fiveStreaks, streakTiles.join(''), earned.filter((m) => m.id.startsWith('strike:')).length, Medals.STRIKE_MILESTONES.length, Profile.strikeKills(), strikeTiles.join(''), earned.filter((m) => m.id.startsWith('shot:')).length, Medals.SHOT_MILESTONES.length, Profile.shotKills(), shotTiles.join(''), groupLine('kill'), groupLine('streak'), groupLine('strike'), groupLine('shot'), earned.filter((m) => m.id.startsWith('style:')).length, Medals.STYLE_ORDER.length, groupLine('style'), styleTiles.join(''), earned.filter((m) => m.id.startsWith('world:')).length, Medals.WORLD_ORDER.length, groupLine('world'), worldTiles.join(''), collRows, earned.filter((m) => m.id.startsWith('secret:')).length, Medals.SECRET_ORDER.length, groupLine('secret'), secretTiles.join(''), earned.filter((m) => m.id.startsWith('daily:')).length, Medals.DAILY_MILESTONES.length, groupLine('daily'), Profile.dailyStreak(), dailyTiles.join('')])
+      const body = _t("<p class=\"hint\">Все ваши медали — постоянные бонусы характеристик за первую победу над видом,\n          за вехи линий из 5 камней и за добивания заклинанием Удар. Нажмите на значок — увидите, за что дают медаль, и прогресс;\n          цветной тир-бейдж открывается, когда герой достигает нужного уровня.</p>\n        <h3>За первую победу ({0} / {1})</h3>{15}\n        <div class=\"medal-grid\">{2}</div>\n        <h3>За линии из 5 камней ({3} / {4})</h3>{16}\n        <p class=\"hint\">Собрано всего: {5}</p>\n        <div class=\"medal-grid\">{6}</div>\n        <h3>За добивания Ударом ({7} / {8})</h3>{17}\n        <p class=\"hint\">Добито Ударом всего: {9}</p>\n        <div class=\"medal-grid\">{10}</div>\n        <h3>Меткий стрелок ({11} / {12})</h3>{18}\n        <p class=\"hint\">Добито болтом или стрелой всего: {13}</p>\n        <div class=\"medal-grid\">{14}</div>\n        <h3>Стиль боя ({19} / {20})</h3>{21}\n        <p class=\"hint\">Выдаются один раз, за победу над обычным существом.</p>\n        <div class=\"medal-grid\">{22}</div>\n        <h3>Мир ({23} / {24})</h3>{25}\n        <div class=\"medal-grid\">{26}</div>\n        <h3>Испытание дня ({32} / {33})</h3>{34}\n        <p class=\"hint\">Победа в «Испытании дня» каждый день подряд. Серия сейчас: {35}</p>\n        <div class=\"medal-grid\">{36}</div>\n        <h3>Тайны ({28} / {29})</h3>{30}\n        <p class=\"hint\">Скрытые медали: условия не показываются.</p>\n        <div class=\"medal-grid\">{31}</div>\n        <h3>Коллекции семейств</h3>\n        <p class=\"hint\">Победите всех существ семейства — получите бонус к урону по нему.</p>\n        <div class=\"coll-list\">{27}</div>", [killTiles.filter((_, i) => earnedFor(Medals.killMedalId(Bestiary.ORDER[i]))).length, Bestiary.ORDER.length, killByFamily, earned.filter((m) => m.id.startsWith('streak:')).length, Medals.STREAK_MILESTONES.length, Profile.data.medals.fiveStreaks, streakTiles.join(''), earned.filter((m) => m.id.startsWith('strike:')).length, Medals.STRIKE_MILESTONES.length, Profile.strikeKills(), strikeTiles.join(''), earned.filter((m) => m.id.startsWith('shot:')).length, Medals.SHOT_MILESTONES.length, Profile.shotKills(), shotTiles.join(''), groupLine('kill'), groupLine('streak'), groupLine('strike'), groupLine('shot'), earned.filter((m) => m.id.startsWith('style:')).length, Medals.STYLE_ORDER.length, groupLine('style'), styleTiles.join(''), earned.filter((m) => m.id.startsWith('world:')).length, Medals.WORLD_ORDER.length, groupLine('world'), worldTiles.join(''), collRows, earned.filter((m) => m.id.startsWith('secret:')).length, Medals.SECRET_ORDER.length, groupLine('secret'), secretTiles.join(''), earned.filter((m) => m.id.startsWith('daily:')).length, Medals.DAILY_MILESTONES.length, groupLine('daily'), Profile.dailyStreak(), dailyTiles.join('')])
         + `<h3>${_t("Чародей: заклинания в победных боях ({0} / {1})", [earned.filter((m) => m.id.startsWith('spell:')).length, Medals.SPELL_MILESTONES.length])}</h3><p class="hint">${_t("Считаются все заклинания, применённые в боях, которые вы выиграли.")}</p><div class="medal-grid">${spellTiles.join('')}</div><h3>${_t("Выпито эликсиров ({0} / {1})", [earned.filter((m) => m.id.startsWith('drunk:')).length, Medals.DRUNK_MILESTONES.length])}</h3>${groupLine('elixir')}<p class="hint">${_t("Выпито в боях всего: {0}", [Profile.elixirsDrunk()])}</p><div class="medal-grid">${drunkTiles.join('')}</div>${masterBlock}`;
       const gd = giftsState(), giftTiles = Gifts.ITEMS.filter((it) => Gifts.owns(gd, it.id)).map((it) => {
         const note = gd.note[it.id] ? Gifts.BY_NOTE[gd.note[it.id]].text() : '';
@@ -2264,8 +2274,107 @@ const Screens = (() => {
       const giftsSection = `<h3>${_t("Подарки ({0} / {1})", [giftTiles ? Object.keys(gd.own).length : 0, Gifts.ITEMS.length])}</h3><p class="hint">${_t("Коллекционные — силу не дают. Покупаются в Почте, во вкладке «Подарки».")}</p><div class="gift-row">${giftTiles || `<p class="hint">${_t("Пока ни одного.")}</p>`}</div>`;
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Стена доблести\">{0}\n        <div class=\"screen-body tavern-body\">{1}</div></div>", [head(_t("Стена доблести")), nearBlock + favLine + body + giftsSection]);
     },
-    click() {},
+    click(b) {
+      const d = b.dataset, v = st.valor;
+      if (d.vs) { v.size = d.vs; try { localStorage.setItem('wip-valor-size', d.vs); } catch (e) { /* без хранилища */ } return valorView(); }
+      if (d.vi !== undefined) { v.info = !v.info; return valorView(); }
+      if (d.vf) { v.filter = d.vf; return render(); }
+      if (d.vsh !== undefined) { v.open[d.vsh] = !(d.vsh in v.open ? v.open[d.vsh] : d.vopen === '1'); return render(); }
+    },
   };
+
+  /* 2.4.5: Стена доблести — «витрина»: каменная стена, медали в нишах, полки с табличками семейств и разделов.
+     Верх: «Избранные» (до трёх крупных ниш) и «Ближайшие» с кольцами прогресса; фильтр «Все / Получено / Почти / Закрыто» и поиск.
+     Разметку собирает valorDecorate из того, что уже нарисовал valor.html (плитки, заголовки разделов). */
+  function valorDecorate() {
+    const body = root.querySelector('.screen-body');
+    if (!body || body.dataset.dec) return;
+    body.dataset.dec = '1'; body.classList.add('valor-wall');
+    const v = st.valor, plain = (h) => h.textContent.replace(/\s*\(\d+\s*\/\s*\d+\)\s*$/, '').trim();
+    body.querySelectorAll('.medal-round').forEach((el) => {
+      const n = document.createElement('span'); n.className = 'niche' + (el.classList.contains('got') ? ' on' : '');
+      // медали за виды: вместо круглого значка — сам зверь (рисунок с карты) стоит в нише; цвет ступени — тонкой чертой снизу
+      const sp = Medals.killSpecies(el.dataset.medal);
+      const bk = typeof Art !== 'undefined' && sp ? ['map/mob-' + sp, 'monsters/' + sp].find((k) => Art.has(k)) : null;
+      if (bk) { el.classList.add('beast'); el.innerHTML = `<img src="${Art.url(bk)}" alt="" draggable="false">`; }
+      el.replaceWith(n); n.appendChild(el);
+    });
+    body.querySelectorAll(':scope > p.hint').forEach((e) => { if (/^(Избранные медали|Favou?rite medals)/.test(e.textContent.trim())) e.remove(); });   // заменено блоком «Избранные»
+    const kids = [...body.children], nearTitle = _t("Ближайшие медали");
+    let cur2 = null; const keep = [];
+    for (const k of kids) {
+      if (k.tagName === 'H3') {
+        if (k.textContent.trim() === nearTitle) { cur2 = { drop: true }; k.remove(); continue; }
+        cur2 = { title: plain(k), fam: k.classList.contains('fam'), items: [] }; keep.push(cur2); k.remove();
+      } else if (cur2) { if (!cur2.drop) cur2.items.push(k); else if (/medal-near/.test(k.className)) k.remove(); }
+    }
+    for (const sh of keep) {
+      if (!sh.title) continue;
+      const sec = document.createElement('section'); sec.className = 'shelf' + (sh.fam ? ' fam' : '');
+      const tiles = sh.items.flatMap((it) => [...it.querySelectorAll('.niche')]), total = tiles.length, got = tiles.filter((t) => t.classList.contains('on')).length;
+      const open = sh.title in v.open ? v.open[sh.title] : (total === 0 || got > 0 || !sh.fam);
+      sec.dataset.title = sh.title;
+      const bodyEl = document.createElement('div'); bodyEl.className = 'shelf-body'; bodyEl.hidden = !open;
+      sh.items.forEach((it) => bodyEl.appendChild(it));
+      const plank = document.createElement('button'); plank.type = 'button'; plank.className = 'plank'; plank.dataset.vsh = sh.title; plank.dataset.vopen = open ? '1' : '0';
+      plank.setAttribute('aria-expanded', String(open));
+      plank.title = sh.title; plank.innerHTML = `<span class="pl-t">${sh.title}</span>${total ? `<span class="pl-n">${got} / ${total}</span>` : ''}<span class="pl-c">${open ? '▾' : '▸'}</span>`;
+      sec.append(bodyEl, plank); body.appendChild(sec);
+    }
+    const favs = Profile.favMedals(), slots = [];
+    for (let i = 0; i < 3; i++) {
+      const src = favs[i] && body.querySelector('.medal-round[data-medal="' + favs[i] + '"]');
+      slots.push(`<span class="niche big${src ? ' on' : ''}">${src ? src.outerHTML : ''}</span>`);
+    }
+    const near = Medals.nearest(Profile.data, 3).map((e) => `<li><span class="ring" style="--p:${Math.min(100, Math.round(e.cur / e.need * 100))}"><b>${e.cur}/${e.need}</b></span><span class="nt">${e.text}</span></li>`).join('');
+    const top = document.createElement('section'); top.className = 'vtop';
+    top.innerHTML = `<div class="vfav"><h4>${_t("Избранные")}</h4><div class="vfav-row">${slots.join('')}</div></div>${near ? `<div class="vnear"><h4>${_t("Ближайшие")}</h4><ul>${near}</ul></div>` : ''}`;
+    const bar = document.createElement('div'); bar.className = 'vbar';
+    bar.innerHTML = [['all', _t("Все")], ['got', _t("Получено")], ['near', _t("Почти")], ['closed', _t("Закрыто")]].map(([k, n]) => `<button type="button" class="${v.filter === k ? 'on' : ''}" data-vf="${k}">${n}</button>`).join('') + `<span class="vsz" role="group" aria-label="${_t("Размер")}">${[['s', 'S'], ['m', 'M'], ['l', 'L']].map(([k, n]) => `<button type="button" data-vs="${k}" aria-label="${_t("Размер")} ${n}">${n}</button>`).join('')}<button type="button" data-vi title="${_t("Справка")}" aria-label="${_t("Справка")}">ⓘ</button></span><input type="search" data-vq value="${v.q.replace(/"/g, '&quot;')}" placeholder="${_t("Поиск медали")}" aria-label="${_t("Поиск медали")}">`;
+    const tip = body.querySelector('.tipbox');
+    body.insertBefore(bar, body.firstChild); body.insertBefore(top, bar);
+    if (tip) body.insertBefore(tip, body.firstChild);
+    valorView();
+    valorFilter();
+    valorFitPlanks();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(valorFitPlanks);
+  }
+  // подпись на плите вписывается в табличку: шрифт уменьшается, пока текст не перестанет обрезаться
+  function valorFitPlanks() {
+    const body = root && root.querySelector('.screen-body.valor-wall'); if (!body) return;
+    body.querySelectorAll('.plank .pl-t').forEach((t) => {
+      t.style.fontSize = '';
+      let px = parseFloat(getComputedStyle(t).fontSize) || 12;
+      t.style.overflowWrap = 'anywhere';
+      for (let i = 0; i < 40 && px > 5 && (t.scrollWidth > t.clientWidth + 1 || t.scrollHeight > t.clientHeight + 1); i++) { px -= 0.5; t.style.fontSize = px + 'px'; }
+    });
+  }
+  window.addEventListener('resize', () => { if (cur === 'valor') valorFitPlanks(); });
+  // размер ниш и справка: переключаются на месте, без перерисовки экрана (прокрутка не сбивается)
+  function valorView() {
+    const body = root && root.querySelector('.screen-body.valor-wall'); if (!body) return;
+    const v = st.valor;
+    body.classList.remove('sz-s', 'sz-m', 'sz-l'); body.classList.add('sz-' + v.size); body.classList.toggle('no-info', !v.info);
+    body.querySelectorAll('[data-vs]').forEach((x) => x.classList.toggle('on', x.dataset.vs === v.size));
+    const i = body.querySelector('[data-vi]'); if (i) i.classList.toggle('on', v.info);
+  }
+  // фильтр и поиск: прячут ниши и пустые полки (при активном фильтре полки раскрываются)
+  function valorFilter() {
+    const body = root && root.querySelector('.screen-body.valor-wall'); if (!body) return;
+    const v = st.valor, q = v.q.trim().toLowerCase(), active = v.filter !== 'all' || !!q;
+    body.querySelectorAll('.shelf').forEach((sec) => {
+      let vis = 0;
+      sec.querySelectorAll('.niche').forEach((n) => {
+        const r = n.querySelector('.medal-round'); if (!r) return;
+        const got = r.classList.contains('got'), pr = Number(r.dataset.prog) || 0, need = Number(r.dataset.need) || 1, near = !got && pr / need >= 0.5;
+        const kind = got ? 'got' : near ? 'near' : 'closed';
+        const ok = (v.filter === 'all' || v.filter === kind) && (!q || (r.dataset.tip || '').toLowerCase().includes(q));
+        n.hidden = !ok; if (ok) vis++;
+      });
+      sec.hidden = active && !vis;
+      if (active && vis) sec.querySelector('.shelf-body').hidden = false;
+    });
+  }
 
   const CHECKLIST_URL = 'https://claude.ai/artifact/QhG7ptvQJyXqygJj1Jh1RP';
     const withChecklist = (h) => h.replace('</ul>', () => '</ul>' + thanksHtml()).replace('<div class="test-x10">', '<div class="test-x10"><p class="hint"><a href="' + CHECKLIST_URL + '" target="_blank" rel="noopener">' + _t("Чек-лист проверки графики на телефоне и компьютере ↗") + '</a></p>');

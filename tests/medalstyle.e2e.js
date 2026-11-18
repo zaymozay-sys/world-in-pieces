@@ -53,7 +53,7 @@ const ok = (c, m) => { if (!c) { bad++; console.log('FAIL:', m); } };
     Profile.registerChallengeWin('2026-10-01'); Profile.registerChallengeWin('2026-10-02');
     o.daily2 = Profile.dailyStreak(); o.daily3none = !Profile.hasMedal('daily:3');
     Profile.registerChallengeWin('2026-10-03'); o.daily3 = Profile.hasMedal('daily:3');
-    Profile.registerChallengeWin('2026-10-05'); o.dailyReset = Profile.dailyStreak();
+    Profile.registerChallengeWin('2026-10-07'); o.dailyReset = Profile.dailyStreak();
     // Стена доблести
     Screens.openValor(); await w(300);
     o.hasStyle = [...document.querySelectorAll('.medal-round[data-medal^="style:"]')].length;

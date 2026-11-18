@@ -4938,3 +4938,72 @@ body .fi-pop span { color: #b9ab8a; } body .fi-pop p { margin: 4px 0 0; color: #
 .mon.want .bob { filter: drop-shadow(0 0 5px #ffd86b) drop-shadow(0 0 2px #fff3c4); }
 .mark-btn { min-width: 36px; padding: 6px 8px; font-size: 16px; line-height: 1; background: transparent; color: #c9b48a; }
 .mark-btn.on { color: #ffd86b; border-color: #ffd86b; }
+
+/* ---------- 2.4.5: Стена доблести — каменные ниши и полки ---------- */
+.screen-body.valor-wall { background: linear-gradient(rgba(14, 10, 6, .55), rgba(14, 10, 6, .72)), url("../art/ui/valor-wall.webp") center / 360px repeat !important; }
+.valor-wall .vtop { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; margin: 4px 0 10px; }
+@media (max-width: 700px) { .valor-wall .vtop { grid-template-columns: 1fr; } }
+.valor-wall .vtop h4 { margin: 0 0 6px; font: 700 13px/1 inherit; letter-spacing: .08em; text-transform: uppercase; color: #f1d98a; }
+.valor-wall .vfav-row { display: flex; gap: 8px; }
+.valor-wall .vnear ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.valor-wall .vnear li { display: flex; align-items: center; gap: 10px; background: rgba(20, 14, 8, .72); border: 1px solid #6a5630; border-radius: 10px; padding: 6px 10px; }
+.valor-wall .ring { flex: none; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#e8c26a calc(var(--p) * 1%), #3a2f1d 0); }
+.valor-wall .ring b { width: 44px; height: 44px; border-radius: 50%; background: #17110a; display: grid; place-items: center; font: 600 9px/1 inherit; letter-spacing: -.02em; color: #f1d98a; }
+.valor-wall .nt { font-size: 12.5px; color: #eadfc4; }
+.valor-wall .vbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 10px; }
+.valor-wall .vbar button { padding: 5px 12px; border-radius: 999px; background: rgba(20, 14, 8, .78); border: 1px solid #6a5630; color: #eadfc4; font-size: 12.5px; }
+.valor-wall .vbar button.on { background: #e8c26a; color: #1b1408; border-color: #e8c26a; font-weight: 700; }
+.valor-wall .vbar input { flex: 1 1 140px; min-width: 120px; padding: 6px 10px; border-radius: 999px; border: 1px solid #6a5630; background: rgba(20, 14, 8, .78); color: #eadfc4; }
+.valor-wall .shelf { margin: 0 0 4px; }
+.valor-wall .shelf-body { padding: 4px 4px 0; }
+.valor-wall .shelf-body .medal-grid { gap: 4px; padding: 2px 0 4px; }
+.valor-wall .shelf-body .medal-grid:empty { display: none; }
+body .screen-body.valor-wall .plank { position: relative; display: block; width: 100%; aspect-ratio: 1100 / 115; padding: 0; border: 0 !important; border-radius: 0 !important; background: url("../art/ui/valor-shelf.webp") center / 100% 100% no-repeat !important; box-shadow: none !important; min-height: 0 !important; text-shadow: none; color: #2a1a08; cursor: pointer; filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .55)); }
+.screen-body.valor-wall .plank .pl-t { position: absolute; left: 20.4%; width: 28.4%; top: 36%; height: 46%; display: grid; align-items: center; font: 700 clamp(9px, 1.6vw, 13px)/1.05 inherit; color: #2b1a08; text-shadow: 0 1px 0 #e9cf9a99; text-align: center; overflow: hidden; }
+.screen-body.valor-wall .plank .pl-n { position: absolute; left: 53%; top: 40%; font: 700 clamp(10px, 1.7vw, 13px)/1 inherit; color: #f6e7bd; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+.screen-body.valor-wall .plank .pl-c { position: absolute; right: 5%; top: 38%; font-size: clamp(11px, 1.8vw, 15px); color: #f1d98a; text-shadow: 0 1px 2px #000; }
+.screen-body.valor-wall .plank:hover { filter: drop-shadow(0 4px 4px rgba(0, 0, 0, .55)) brightness(1.12); }
+.screen-body.valor-wall .shelf.fam .plank { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .5)) saturate(.85); }
+.niche { display: inline-grid; place-items: center; width: 84px; height: 84px; flex: none; background: url("../art/ui/valor-niche.webp") center / contain no-repeat; }
+.niche.on { background-image: url("../art/ui/valor-niche-on.webp"); }
+.niche .medal-round { width: 40px; height: 40px; margin-top: 9px; border-width: 2px; cursor: pointer; }
+.niche .medal-round .mg-num { font-size: 13px; }
+.niche .medal-round .mg-num small { font-size: 6px; }
+.niche.big { width: 112px; height: 112px; }
+.niche.big .medal-round { width: 56px; height: 56px; margin-top: 12px; }
+.niche[hidden] { display: none; }
+
+.valor-wall .vtop > * { min-width: 0; }
+.valor-wall .vnear ul { width: 100%; }
+.valor-wall .ring b { font-size: 8.5px; }
+
+/* зверь в нише: рисунок стоит на каменном выступе, без круглой рамки */
+.niche { background-size: 100% 100%; }
+.niche .medal-round.beast { width: 66%; height: 66%; margin: 0; align-self: end; margin-bottom: 12%; border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.niche .medal-round.beast img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .6)); }
+.niche .medal-round.beast.todo { filter: brightness(.42) contrast(.95) saturate(0); opacity: .8; }
+.niche .medal-round.beast.got::after { content: ""; position: absolute; left: 24%; right: 24%; bottom: -4%; height: 2px; border-radius: 2px; background: var(--t, #c9a24b); box-shadow: 0 0 6px var(--t, #c9a24b); }
+.niche.big .medal-round.beast { width: 66%; height: 66%; margin-bottom: 12%; }
+.valor-wall .medal-grid { justify-content: center; }
+
+/* 2.4.5+: Стена доблести на разных экранах — размер ниш S/M/L, сворачиваемая справка, закреплённая панель */
+.valor-wall { --nw: 84px; }
+.valor-wall.sz-s { --nw: 64px; } .valor-wall.sz-l { --nw: 112px; }
+.valor-wall .shelf-body .niche { width: var(--nw); height: var(--nw); }
+.valor-wall .vfav-row .niche.big { width: calc(var(--nw) * 1.33); height: calc(var(--nw) * 1.33); }
+@media (max-width: 700px) {
+  /* телефон: S — 5 в ряд, M — 4, L — 3 */
+  .valor-wall .shelf-body .niche { width: calc((100% - 4px * (var(--per) - 1)) / var(--per)); height: auto; aspect-ratio: 1; }
+  .valor-wall { --per: 4; } .valor-wall.sz-s { --per: 5; } .valor-wall.sz-l { --per: 3; }
+  .valor-wall .vfav-row .niche.big { width: calc((100% - 16px) / 3); height: auto; aspect-ratio: 1; }
+  .valor-wall .vtop { gap: 8px; }
+}
+@media (min-width: 1500px) { .valor-wall:not(.sz-s):not(.sz-l) { --nw: 96px; } }
+.valor-wall.no-info > .tip-box, .valor-wall.no-info > p.hint { display: none !important; }
+.valor-wall .vbar { position: sticky; top: 0; z-index: 4; padding: 6px 0; margin: 0 0 8px; background: linear-gradient(rgba(14, 10, 6, .94) 80%, rgba(14, 10, 6, 0)); }
+.valor-wall .vsz { display: inline-flex; gap: 3px; margin-left: auto; }
+.valor-wall .vsz button { min-width: 30px; padding: 5px 8px; border-radius: 8px; }
+.valor-wall .vbar input { order: 5; }
+
+/* 2.4.6: «Сегодня» на телефоне — значок календаря (кнопка была пустым квадратом) */
+body.phone #m-today { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='4' y='5' width='16' height='15' rx='2'/><path d='M8 3v4M16 3v4M4 10h16M9 14l2 2 4-4'/></svg>"); }
