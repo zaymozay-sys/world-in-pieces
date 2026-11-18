@@ -5007,3 +5007,7 @@ body .screen-body.valor-wall .plank { position: relative; display: block; width:
 
 /* 2.4.6: «Сегодня» на телефоне — значок календаря (кнопка была пустым квадратом) */
 body.phone #m-today { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2d88f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='4' y='5' width='16' height='15' rx='2'/><path d='M8 3v4M16 3v4M4 10h16M9 14l2 2 4-4'/></svg>"); }
+
+/* 2.4.7: пока идёт заставка, всё под ней не рисуется (карта с облаками, погодой и качающимися существами перерисовывалась
+   каждый кадр под непрозрачной заставкой и отнимала время у анимации). Раскладка остаётся, поэтому измерения кода не страдают. */
+body:has(> #splash:not(.hide)) > :not(#splash):not(script) { visibility: hidden; }

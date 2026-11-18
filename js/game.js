@@ -690,6 +690,7 @@ function ammoDisabled() {
   const L = document.querySelector('.bag-arrow.l'), R = document.querySelector('.bag-arrow.r');
   if (!bagEl || !L || !R) return;
   const upd = () => {
+    if (document.querySelector('#splash:not(.hide)')) return;   // 2.4.7: на время заставки принудительную раскладку не запускаем
     const can = bagEl.scrollWidth > bagEl.clientWidth + 2;
     L.hidden = R.hidden = !can;
     if (can) { L.disabled = bagEl.scrollLeft <= 1; R.disabled = bagEl.scrollLeft + bagEl.clientWidth >= bagEl.scrollWidth - 1; }

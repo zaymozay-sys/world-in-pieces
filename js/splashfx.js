@@ -3,7 +3,7 @@
    Чистая визуальная часть — игровых данных не трогает. */
 const SplashFx = (() => {
   const PAL = [[60, 120, 230], [40, 180, 100], [150, 80, 210], [220, 50, 60], [235, 170, 40], [225, 235, 245]];
-  const FLOAT = 0.8, GATHER = 1.5, HOLD = 0.9, END = FLOAT + GATHER + HOLD;
+  const PIXELS = 2.5e6, MAXN = 520, FLOAT = 0.8, GATHER = 1.5, HOLD = 0.9, END = FLOAT + GATHER + HOLD;
   const rnd = (a, b) => a + Math.random() * (b - a);
   const ease = (t) => { t = Math.max(0, Math.min(1, t)); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -28,24 +28,52 @@ const SplashFx = (() => {
     const cv = document.createElement('canvas'); cv.className = 'splash-fx';
     host.appendChild(cv);
     const ctx = cv.getContext('2d');
-    let W, H, DPR, shards, title, T0, raf = 0, stopped = false;
+    let W, H, DPR, shards, title, T0, raf = 0, stopped = false, last = 0, ema = 0, nf = 0, thinned = false;
     const font = (fs) => `700 ${fs}px "Cormorant Garamond",Georgia,serif`;
 
     function layout() {
-      DPR = Math.min(2, window.devicePixelRatio || 1); W = host.clientWidth || innerWidth; H = host.clientHeight || innerHeight;
+      W = host.clientWidth || innerWidth; H = host.clientHeight || innerHeight;
+      DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(PIXELS / (W * H))));   // 2.4.7: бюджет пикселей холста — на больших экранах без лишней плотности
       cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      const off = document.createElement('canvas'); off.width = W; off.height = H; const o = off.getContext('2d');
       const fs = Math.min(W * (W < H ? 0.8 : 0.9) / (opt.title.length * 0.62), H / 3.4);   // 1.8.2: на телефоне стоя поля по краям
-      o.font = font(fs); o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff';
-      const y = H * 0.46; o.fillText(opt.title, W / 2, y);
-      const step = Math.max(6, Math.round(fs / 12)), d = o.getImageData(0, 0, W, H).data, pts = [];
-      for (let yy = 0; yy < H; yy += step) for (let xx = 0; xx < W; xx += step) if (d[(yy * W + xx) * 4 + 3] > 128) pts.push([xx + rnd(-1, 1), yy + rnd(-1, 1)]);
-      title = { pts, step, fs, y };
+      const step = Math.max(6, Math.round(fs / 12)), y = H * 0.46, sc = 1 / step;
+      // 2.4.7: надпись рисуется в холсте в 1/step размера — один пиксель на узел сетки; читать приходится в десятки раз меньше точек
+      const off = document.createElement('canvas'); off.width = Math.ceil(W * sc); off.height = Math.ceil(H * sc); const o = off.getContext('2d', { willReadFrequently: true });
+      o.setTransform(sc, 0, 0, sc, 0, 0); o.font = font(fs); o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff'; o.fillText(opt.title, W / 2, y);
+      const d = o.getImageData(0, 0, off.width, off.height).data, pts = [];
+      for (let gy = 0; gy < off.height; gy++) for (let gx = 0; gx < off.width; gx++) if (d[(gy * off.width + gx) * 4 + 3] > 128) pts.push([gx * step + rnd(-1, 1), gy * step + rnd(-1, 1)]);
+      let st = step;
+      if (pts.length > MAXN) { const f = pts.length / MAXN; for (let i = pts.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; const t = pts[i]; pts[i] = pts[j]; pts[j] = t; } pts.length = MAXN; st = step * Math.sqrt(f); }   // 2.4.7: не больше MAXN осколков — иначе кадр не успевает на слабых устройствах
+      title = { pts, step: st, fs, y };
+      // золотое название с отсветом рисуется один раз и дальше только накладывается (раньше — градиент и тень каждый кадр)
+      const tc = document.createElement('canvas'), pad = Math.ceil(fs * 0.35); tc.width = Math.ceil(W * DPR); tc.height = Math.ceil((fs + 2 * pad) * DPR);
+      const t2 = tc.getContext('2d'); t2.setTransform(DPR, 0, 0, DPR, 0, 0); t2.font = font(fs); t2.textAlign = 'center'; t2.textBaseline = 'middle';
+      const gg = t2.createLinearGradient(0, pad, 0, pad + fs); gg.addColorStop(0, '#fff1b0'); gg.addColorStop(0.5, '#e8c26a'); gg.addColorStop(1, '#a8782a');
+      t2.shadowColor = 'rgba(255,220,120,.8)'; t2.shadowBlur = 24; t2.fillStyle = gg; t2.fillText(opt.title, W / 2, pad + fs / 2);
+      title.cache = tc; title.pad = pad;
+    }
+    // 24 готовых осколка (6 цветов × 4 формы): граненый многоугольник рисуется один раз, в кадре — только drawImage с поворотом
+    const U = 48; let sprites = null;
+    function makeSprites() {
+      const side = Math.ceil(U * 2.6), out = [];
+      for (let k = 0; k < PAL.length; k++) for (let v = 0; v < 4; v++) {
+        const c = document.createElement('canvas'); c.width = c.height = side; const g = c.getContext('2d'), [r, gr, b] = PAL[k], pts = shape().map(([px, py]) => [side / 2 + px * U, side / 2 + py * U]);
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i], q = pts[(i + 1) % pts.length], l = Math.atan2((p[1] + q[1]) / 2 - side / 2, (p[0] + q[0]) / 2 - side / 2), lit = Math.cos(l + 2.3), kk = 0.45 + 0.55 * (lit * 0.5 + 0.5), add = 40 * Math.max(0, lit);
+          g.fillStyle = `rgb(${Math.min(255, r * kk + add) | 0},${Math.min(255, gr * kk + add) | 0},${Math.min(255, b * kk + add) | 0})`;
+          g.beginPath(); g.moveTo(side / 2, side / 2); g.lineTo(p[0], p[1]); g.lineTo(q[0], q[1]); g.closePath(); g.fill();
+        }
+        g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = Math.max(1, U * 0.05); g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke();
+        out.push({ c, k });
+      }
+      return out;
     }
     function build(imgs) {
+      sprites = makeSprites();
       shards = title.pts.map(([tx, ty]) => {
         const ang = Math.random() * 6.28, dist = rnd(0.35, 0.75) * Math.max(W, H), k = Math.random() * PAL.length | 0;
-        return { shape: shape(), col: PAL[k], img: imgs.length ? imgs[(imgs.length > k ? k : Math.random() * imgs.length | 0)] : null, tx, ty,
+        const sp = sprites[k * 4 + (Math.random() * 4 | 0)].c;
+        return { sp, col: PAL[k], img: imgs.length ? imgs[(imgs.length > k ? k : Math.random() * imgs.length | 0)] : null, tx, ty,
           sx: W / 2 + Math.cos(ang) * dist, sy: H / 2 + Math.sin(ang) * dist,
           orb: rnd(0.2, 0.5) * Math.min(W, H), oa: Math.random() * 6.28, os: rnd(0.5, 1.4) * (Math.random() < 0.5 ? -1 : 1),
           rot: Math.random() * 6.28, spin: rnd(-5, 5), size0: rnd(0.8, 1.7) * title.step * 1.5, delay: Math.random() * 0.5 };
@@ -54,19 +82,15 @@ const SplashFx = (() => {
     function drawShard(s, x, y, size, rot, a) {
       ctx.globalAlpha = a;
       if (s.img) { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); const w = size * 2; ctx.drawImage(s.img, -w / 2, -w / 2, w, w); ctx.restore(); ctx.globalAlpha = 1; return; }
-      const [r, g, b] = s.col, c = Math.cos(rot), n = Math.sin(rot);
-      const pts = s.shape.map(([px, py]) => [x + (px * c - py * n) * size, y + (px * n + py * c) * size]);
-      for (let i = 0; i < pts.length; i++) {
-        const p = pts[i], q = pts[(i + 1) % pts.length], l = Math.atan2((p[1] + q[1]) / 2 - y, (p[0] + q[0]) / 2 - x), lit = Math.cos(l + 2.3), k = 0.45 + 0.55 * (lit * 0.5 + 0.5), add = 40 * Math.max(0, lit);
-        ctx.fillStyle = `rgb(${Math.min(255, r * k + add) | 0},${Math.min(255, g * k + add) | 0},${Math.min(255, b * k + add) | 0})`;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.closePath(); ctx.fill();
-      }
-      ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(0.6, size * 0.05); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.stroke();
-      ctx.globalAlpha = 1;
+      const k = size / U * DPR, c = Math.cos(rot) * k, n = Math.sin(rot) * k;   // 2.4.7: готовый спрайт с поворотом вместо отрисовки граней в каждом кадре
+      ctx.setTransform(c, n, -n, c, x * DPR, y * DPR); ctx.drawImage(s.sp, -s.sp.width / 2, -s.sp.height / 2); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalAlpha = 1;
     }
     function frame(now) {
       if (stopped) return;
       const t = (now - T0) / 1000;
+      // слабое устройство: если кадры дольше ~28 мс, один раз вдвое меньше осколков (время анимации считается по часам — не растягивается)
+      if (last) { ema = ema ? ema * 0.85 + (now - last) * 0.15 : now - last; if (++nf === 14 && ema > 28 && !thinned) { thinned = true; shards = shards.filter((_, i) => i % 2 === 0); } }
+      last = now;
       ctx.clearRect(0, 0, W, H);
       const gp = (t - FLOAT) / GATHER, fade = clamp01((t - FLOAT - GATHER) / 0.7);
       for (const s of shards) {
@@ -78,10 +102,7 @@ const SplashFx = (() => {
         drawShard(s, x, y, size, (s.rot + s.spin * t) * (1 - e), 1 - 0.55 * fade);
       }
       if (fade > 0) {
-        ctx.save(); ctx.globalAlpha = fade; ctx.font = font(title.fs); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        const g = ctx.createLinearGradient(0, title.y - title.fs / 2, 0, title.y + title.fs / 2);
-        g.addColorStop(0, '#fff1b0'); g.addColorStop(0.5, '#e8c26a'); g.addColorStop(1, '#a8782a');
-        ctx.shadowColor = 'rgba(255,220,120,.8)'; ctx.shadowBlur = 30 * (1 - fade) + 10; ctx.fillStyle = g; ctx.fillText(opt.title, W / 2, title.y); ctx.restore();
+        ctx.globalAlpha = fade; ctx.drawImage(title.cache, 0, title.y - title.fs / 2 - title.pad, W, title.cache.height / DPR); ctx.globalAlpha = 1;
         if (opt.sub) {
           ctx.save(); ctx.globalAlpha = clamp01((t - FLOAT - GATHER - 0.4) / 0.6); ctx.font = `500 ${Math.max(12, title.fs / 6)}px system-ui,sans-serif`;
           ctx.textAlign = 'center'; ctx.fillStyle = '#b9b2c6'; ctx.fillText(opt.sub, W / 2, title.y + title.fs * 0.62); ctx.restore();

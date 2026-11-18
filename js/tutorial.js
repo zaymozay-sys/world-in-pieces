@@ -87,7 +87,7 @@ const Tutorial = (() => {
   }
 
   // ---------- новая раскладка боя на телефоне ----------
-  const dockMenuShown = () => { const m = document.getElementById('dock-menu'); return !!(m && m.getBoundingClientRect().height); };
+  const dockMenuShown = () => { if (document.querySelector('#splash:not(.hide)')) return false; const m = document.getElementById('dock-menu'); return !!(m && m.getBoundingClientRect().height); };
   const dockText = (t) => typeof t === 'string' && dockMenuShown() && !document.body.classList.contains('old-dock')
     ? t.replace('кнопка «Подсказка» внизу', 'кнопка «Подсказка» в меню ☰ слева вверху').replace('the Hint button below', 'the Hint button in the ☰ menu at the top left')
     : t;

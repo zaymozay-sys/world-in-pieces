@@ -112,24 +112,37 @@ MapView.marketNews();           // Торговые ряды: что купил�
     if (mq.removeEventListener) mq.removeEventListener('change', applyOrientation); else mq.removeListener(applyOrientation);
     el.classList.add('hide');
     setTimeout(() => el.remove(), 500);
+    window.dispatchEvent(new Event('resize'));   // 2.4.7: подгонка окон и журнала на время заставки отложена — выполняем её сейчас
   };
   // 1.7.5: сначала осколки собираются в название (SplashFx), потом — афиша; нажатие пропускает. Без canvas или при «меньше движения» — как раньше (2 с).
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (typeof SplashFx !== 'undefined' && !reduce && !!document.createElement('canvas').getContext) {
     const poster = el.classList.contains('has-poster'), wasStyle = el.style.backgroundImage;
     el.classList.remove('has-poster'); el.style.backgroundImage = '';
-    el.classList.add('fx');
-    let ended = false;
-    const fx = SplashFx.play(el, {
-      title: _t('Хрупкий мир'), sub: _t('Хрупкий мир') === 'Хрупкий мир' ? 'W O R L D   I N   P I E C E S' : '',
-      onEnd: () => {
-        if (ended) return; ended = true;
-        if (poster) el.classList.add('has-poster'); else el.style.backgroundImage = wasStyle;
-        fx.canvas.classList.add('gone');                         // золотое название растворяется, под ним — афиша
-        setTimeout(() => { fx.stop(); hideAll(); }, poster ? 1700 : 500);
-      },
-    });
-    el.addEventListener('click', () => { if (!ended) { ended = true; fx.stop(); hideAll(); } });
+    let ended = false, fx = null;
+    const startFx = () => {
+      if (ended || fx) return;
+      el.classList.add('fx');
+      fx = SplashFx.play(el, {
+        title: _t('Хрупкий мир'), sub: _t('Хрупкий мир') === 'Хрупкий мир' ? 'W O R L D   I N   P I E C E S' : '',
+        onEnd: () => {
+          if (ended) return; ended = true;
+          if (poster) el.classList.add('has-poster'); else el.style.backgroundImage = wasStyle;
+          fx.canvas.classList.add('gone');                         // золотое название растворяется, под ним — афиша
+          setTimeout(() => { fx.stop(); hideAll(); }, poster ? 1700 : 500);
+        },
+      });
+    };
+    // 2.4.7: осколки начинают лететь, когда главный поток успокоился (скрипты и карта собраны): раньше анимация шла
+    // поверх запуска игры и рывками. Пока ждём — спокойная заставка с названием; ждать не дольше 2,2 с.
+    const t0 = performance.now(); let last = t0, calm = 0;
+    const tick = (n) => {
+      if (ended) return;
+      calm = n - last < 34 ? calm + 1 : 0; last = n;
+      if (n - t0 > 2200 || (calm >= 8 && document.readyState === 'complete')) startFx(); else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    el.addEventListener('click', () => { if (!ended) { ended = true; if (fx) fx.stop(); hideAll(); } });
     return;
   }
   setTimeout(hideAll, 2000);
@@ -362,7 +375,7 @@ document.addEventListener('pointerdown', (e) => {
       }
     } finally { busy = false; }
   };
-  const later = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
+  const later = () => { if (queued || document.querySelector('#splash:not(.hide)')) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
   const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true, characterData: true }); window.addEventListener('resize', later); later(); };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
@@ -386,7 +399,7 @@ document.addEventListener('pointerdown', (e) => {
       }
     }
   };
-  const later = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
+  const later = () => { if (queued || document.querySelector('#splash:not(.hide)')) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
   const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'class'] }); window.addEventListener('resize', later); };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
@@ -404,7 +417,7 @@ document.addEventListener('pointerdown', (e) => {
       if (!(natural > 0 && full > 0 && natural < full * 0.72)) m.classList.remove('modal-fit');
     }
   };
-  const later = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
+  const later = () => { if (queued || document.querySelector('#splash:not(.hide)')) return; queued = true; requestAnimationFrame(() => { queued = false; fit(); }); };
   const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true }); window.addEventListener('resize', later); };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
