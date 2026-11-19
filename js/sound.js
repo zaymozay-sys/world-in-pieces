@@ -170,7 +170,7 @@ const Sound = (() => {
     const t = c.currentTime + delay + 0.003, out = c.destination, j = 0.92 + Math.random() * 0.16;
     burst(c, out, t, 0.014, 3200 * pitch * j, 1.6, vol * 1.3);
     burst(c, out, t + 0.011, 0.02, 1500 * pitch * j, 2.2, vol * 0.8);
-    additive(c, out, 640 * pitch * j, t, [[1, 1, 0.05], [2.3, 0.45, 0.025]], vol * 0.9, 0.12);
+    burst(c, out, t + 0.004, 0.03, 700 * pitch * j, 1.2, vol * 0.7);   // 2.4.9: вместо звенящего тона — глухой деревянный «тук» шумом, без высоты ноты
   }
   // Гонг: неклассический набор обертонов, медленное нарастание, долгое затухание.
   function gong(f, dur = 2, vol = 0.07, delay = 0) {
