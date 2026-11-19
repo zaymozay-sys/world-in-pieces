@@ -101,6 +101,9 @@ html.js .rv.in{opacity:1;transform:none}
 .lb.on{display:flex}
 .lb img{max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 10px 50px #000}
 .shot img,.bc img.bgi{cursor:zoom-in}
+.fieldwrap{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:20px;align-items:end}
+.fieldleft{display:flex;flex-direction:column;gap:32px;min-width:0}
+@media(max-width:900px){.fieldwrap{grid-template-columns:minmax(0,1fr)}.fieldwrap>.shot{max-width:390px;margin:0 auto}}
 img{display:block}
 </style>
 
@@ -136,8 +139,8 @@ img{display:block}
 <section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#3fbf7f">Игра изнутри</span>
-<h2 class="h">Карта, герой, подземелье и мини-игры</h2>
-<p class="lead">Живые кадры из игры: деревня на карте из шестиугольников, снаряжение героя, книга существ, стена доблести, визитка героя, подземелье и мини-игры у маяка.</p>
+<h2 class="h">Карта, герой и подземелье</h2>
+<p class="lead">Живые кадры из игры: деревня на карте из шестиугольников, снаряжение героя, книга существ, стена доблести, визитка героя и подземелье.</p>
 </div>
 <div class="grid g2">
 <figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-map.webp" alt="Карта: деревня и окрестности"><figcaption><b>Карта и деревня</b>Мощёная площадь, здания по кругу и частокол с воротами. За стенами — леса, горы и болота с существами.</figcaption></figure>
@@ -146,8 +149,6 @@ img{display:block}
 <figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-valor.webp" alt="Стена доблести"><figcaption><b>Стена доблести</b>Лесенки из десяти ступеней за победы над каждым видом, медали за линии из пяти камней и за добивание Ударом. Каждая даёт постоянный бонус.</figcaption></figure>
 <figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-herocard.webp" alt="Визитка героя"><figcaption><b>Визитка героя</b>Фигура героя в доспехах, заслуги, сетка медалей и коллекционные подарки с почты.</figcaption></figure>
 <figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-dungeon.webp" alt="Подземелье"><figcaption><b>Подземелье</b>Этажи без конца и рекорд глубины. На контрольных этажах (5, 10 и далее) поражение не отнимает то, что уже накоплено.</figcaption></figure>
-<figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-lh-avalanche.webp" alt="Мини-игра «Обвал»"><figcaption><b>Мини-игры у маяка</b>«Обвал», «Зеркала маяка», «Прилив», «Канаты» и «Кладоискатель»: за раунд — жетоны на билеты и украшения визитки. На силу в бою они не влияют.</figcaption></figure>
-<figure class="shot" style="margin:0"><img loading="lazy" src="promo/shot-lh-mirrors.webp" alt="Мини-игра «Зеркала маяка»"><figcaption><b>Зеркала маяка</b>Лампа пускает луч, зеркала переворачиваются нажатием. Проведи луч через все камни за минимум нажатий.</figcaption></figure>
 </div>
 </section>
 
@@ -185,14 +186,16 @@ img{display:block}
 </section>
 
 <!-- ПОЛЕ -->
-<section class="wrap sec rv">
+<section class="wrap rv">
+<div class="fieldwrap">
+<div class="fieldleft">
 <div class="head">
 <span class="eyebrow" style="color:#7fb0ff">Поле боя</span>
 <h2 class="h">Так выглядит бой</h2>
 <p class="lead">В центре поле шесть на шесть с гранёными камнями. Слева твой герой и его магия, справа — противник, его здоровье и приём. Камни с цифрами x3 и x5 бьют сильнее. У каждого участника боя — своя плашка со здоровьем и собранными камнями: у героя, питомца и обоих противников. Питомец дерётся на своём поле, и за него тоже можно сыграть. Перед приёмом существа появляется подпись «готовит…», так что есть время подумать. Бой можно ускорить в меню: режим «быстрый» вдвое сокращает паузы.</p>
 </div>
-<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start">
-<figure class="shot" style="margin:0;grid-column:span 2;min-width:0"><img loading="lazy" src="promo/shot-battle.webp" alt="Экран боя на компьютере"><figcaption><b>На компьютере</b>Магия слева, поле в центре, эликсиры и боеприпасы под ним. Плашка питомца — под героем, плашка его противника — под врагом.</figcaption></figure>
+<figure class="shot" style="margin:0;min-width:0"><img loading="lazy" src="promo/shot-battle.webp" alt="Экран боя на компьютере"><figcaption><b>На компьютере</b>Магия слева, поле в центре, эликсиры и боеприпасы под ним. Плашка питомца — под героем, плашка его противника — под врагом.</figcaption></figure>
+</div>
 <figure class="shot" style="margin:0;max-width:390px"><img loading="lazy" src="promo/shot-battle-phone.webp" alt="Экран боя на телефоне"><figcaption><b>На телефоне</b>Тот же бой для узкого экрана: герой и враг сверху, ниже строка с питомцем и его противником; камни видны у каждого.</figcaption></figure>
 </div>
 </section>
