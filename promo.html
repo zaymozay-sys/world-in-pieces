@@ -11,6 +11,10 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Golos+Text:wght@400;500;600&display=swap">
 <style>
 body{margin:0;background:#14101c}
+.play-btn{display:inline-block;box-sizing:border-box;min-width:min(280px,80vw);padding:14px 40px 16px;border:solid transparent;border-width:20px 48px;border-image:url("promo/btn-gold.webp") 30 72 fill/20px 48px stretch;font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;text-align:center;text-decoration:none;color:#3a2108;text-shadow:0 1px 0 rgba(255,236,170,.75),0 -1px 0 rgba(80,40,0,.25);filter:drop-shadow(0 10px 22px rgba(0,0,0,.6)) drop-shadow(0 0 28px rgba(232,194,106,.28));transition:transform .15s,filter .15s}
+.play-btn:hover{transform:translateY(-2px) scale(1.03);filter:drop-shadow(0 12px 26px rgba(0,0,0,.65)) drop-shadow(0 0 38px rgba(255,214,120,.5)) brightness(1.08)}
+.play-btn:active{transform:translateY(1px) scale(.99)}
+@media(max-width:520px){.play-btn{font-size:26px;border-width:16px 40px;border-image-width:16px 40px;padding:10px 12px}}
 .wrap{max-width:1180px;margin:0 auto;padding-left:20px;padding-right:20px;box-sizing:border-box}
 .sec{display:flex;flex-direction:column;gap:32px}
 .head{display:flex;flex-direction:column;gap:14px}
@@ -59,11 +63,52 @@ p.lead{font-family:'Golos Text',system-ui,sans-serif;font-size:18px;line-height:
 .sp2::before{animation-delay:.7s}.sp2::after{animation-delay:.5s}
 .sp3::before{animation-delay:1.3s;opacity:.55}.sp3::after{animation-delay:1s;box-shadow:0 0 8px 3px rgba(190,160,255,.95),-34px 16px 0 -1px #cdb8ff,-52px -4px 0 -2px #cdb8ff;background:#cdb8ff}
 @media (prefers-reduced-motion:reduce){.sp::before,.sp::after{animation:none}}
+
+html.js .rv{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+html.js .rv.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){html.js .rv{opacity:1;transform:none;transition:none}}
+.topbar{position:fixed;left:0;top:0;width:100%;z-index:50;transform:translateY(-110%);transition:transform .3s;background:rgba(20,16,28,.92);border-bottom:1px solid #3a3050;backdrop-filter:blur(8px)}
+.topbar.on{transform:none}
+.topbar .in{max-width:1180px;margin:0 auto;padding:8px 20px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.topbar b{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;color:#f4eee2;letter-spacing:.04em}
+.topbar .play-btn{min-width:0;font-size:18px;padding:4px 22px 6px;border-width:14px 34px;border-image-width:14px 34px;letter-spacing:.1em}
+.gemdiv{display:flex;align-items:center;justify-content:center;gap:16px;margin:-40px 0}
+.gemdiv::before,.gemdiv::after{content:"";height:1px;width:min(22vw,220px);background:linear-gradient(90deg,transparent,#6a5a8a)}
+.gemdiv::after{transform:scaleX(-1)}
+.gemdiv svg{width:22px;height:22px;filter:drop-shadow(0 0 6px currentColor)}
+.ntabs{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.ntab{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:700;color:#cfc6dc;background:#1d1729;border:1px solid #3a3050;border-radius:999px;padding:6px 22px 6px 10px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:border-color .2s,color .2s,background .2s}
+.ntab img{width:44px;height:44px}
+.ntab:hover{color:#f4eee2;border-color:#8a76b8}
+.ntab[aria-selected=true]{color:#fff;background:#2a2140;border-color:var(--c,#e8c26a);box-shadow:0 0 0 1px var(--c,#e8c26a),0 0 22px color-mix(in srgb,var(--c,#e8c26a) 45%,transparent)}
+.npanel{display:none;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;align-items:stretch}
+.npanel.on{display:grid;animation:fadein .4s}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.nhero{padding:0;display:flex;flex-direction:column;align-items:center;text-align:center;background:radial-gradient(ellipse at 50% 30%,color-mix(in srgb,var(--c) 28%,#1d1729),#1d1729 70%)}
+.nhero img{width:100%;max-width:300px;height:auto;aspect-ratio:3/4;object-fit:contain}
+.nhero div{padding:0 16px 18px}
+.nhero span{display:block;font-family:'Golos Text',system-ui,sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#cfc6dc}
+.ninfo{padding:26px;display:flex;flex-direction:column;gap:14px;justify-content:center}
+.ninfo .chips{display:flex;flex-wrap:wrap;gap:8px}
+.ability{border-left:3px solid var(--c);padding:6px 0 6px 14px}
+.ability b{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;color:#f4eee2;display:block}
+.elx{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:10px}
+@media(max-width:760px){.elx{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.elx figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:'Golos Text',system-ui,sans-serif;font-size:13px;color:#cfc6dc;text-align:center}
+.elx .fr{width:100%;max-width:68px;aspect-ratio:1/1;box-sizing:border-box;border:4px solid var(--c);border-radius:15px;background:color-mix(in srgb,var(--c) 16%,transparent);padding:6px}
+.elx .fr img{width:100%;height:100%;object-fit:contain}
+.lb{position:fixed;inset:0;z-index:100;background:rgba(10,8,16,.92);display:none;align-items:center;justify-content:center;padding:20px;cursor:zoom-out}
+.lb.on{display:flex}
+.lb img{max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 10px 50px #000}
+.shot img,.bc img.bgi{cursor:zoom-in}
 img{display:block}
 </style>
 
 </head>
 <body>
+<script>document.documentElement.className+=' js'</script>
+<div class="topbar" id="topbar"><div class="in"><b>Хрупкий мир</b><a class="play-btn" href="https://zaymozay-sys.github.io/world-in-pieces/">Играть</a></div></div>
+<div class="lb" id="lb"><img alt=""></div>
 
 
 <div style="background:#14101c;color:#f4eee2;font-family:'Golos Text',system-ui,sans-serif;display:flex;flex-direction:column;gap:96px;padding-bottom:72px">
@@ -82,13 +127,13 @@ img{display:block}
 <span class="chip">Играется в браузере</span>
 <span class="chip">Телефон и компьютер</span>
 <span class="chip">Русский и English</span>
-<a href="https://zaymozay-sys.github.io/world-in-pieces/" style="font-family:'Golos Text',system-ui,sans-serif;font-size:15px;font-weight:600;color:#14101c;background:#e8c26a;border-radius:999px;padding:9px 22px;text-decoration:none">Играть</a>
+<a class="play-btn" href="https://zaymozay-sys.github.io/world-in-pieces/" style="min-width:0;font-size:22px;padding:8px 26px 10px;border-width:16px 38px;border-image-width:16px 38px">Играть</a>
 </div>
 </div>
 </section>
 
 <!-- ЭКРАНЫ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#3fbf7f">Игра изнутри</span>
 <h2 class="h">Карта, герой, подземелье и мини-игры</h2>
@@ -114,7 +159,7 @@ img{display:block}
 </section>
 
 <!-- БОЙ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#7fb0ff">Бой</span>
 <h2 class="h">Камни вместо мечей</h2>
@@ -140,7 +185,7 @@ img{display:block}
 </section>
 
 <!-- ПОЛЕ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#7fb0ff">Поле боя</span>
 <h2 class="h">Так выглядит бой</h2>
@@ -153,7 +198,7 @@ img{display:block}
 </section>
 
 <!-- МАГИЯ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#b79cf0">Магия</span>
 <h2 class="h">Четырнадцать заклинаний</h2>
@@ -177,43 +222,21 @@ img{display:block}
 </div>
 </section>
 
+<div class="gemdiv" aria-hidden="true" style="color:#4a7fe0"><svg viewBox="0 0 24 24"><path d="M12 1l9 11-9 11L3 12z" fill="currentColor"/><path d="M12 1l3 11-3 11-3-11z" fill="#fff" fill-opacity=".28"/></svg></div>
 <!-- НАРОДЫ -->
-<section class="wrap sec">
-<div class="head">
+<section class="wrap sec rv" id="nations">
+<div class="head" style="align-items:center;text-align:center">
 <span class="eyebrow" style="color:#e0475b">Герой</span>
 <h2 class="h">Четыре народа — четыре манеры играть</h2>
 <p class="lead">У каждого народа своё умение, а у каждого народа — герой и героиня на выбор. Выбирай того, чья тактика тебе по руке.</p>
 </div>
-<div class="grid g4">
-<div class="card" style="padding:24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
-<img src="promo/emblem-human.webp" alt="Эмблема людей" style="width:132px;height:132px">
-<h3>Люди</h3>
-<span class="eyebrow" style="color:#e8c26a">Знамя</span>
-<p>На три хода урон героя растёт на 50%. Время ломать оборону.</p>
-</div>
-<div class="card" style="padding:24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
-<img src="promo/emblem-dwarf.webp" alt="Эмблема гномов" style="width:132px;height:132px">
-<h3>Гномы</h3>
-<span class="eyebrow" style="color:#e8c26a">Рунный молот</span>
-<p>Три случайных камня на поле становятся обсидианом x3.</p>
-</div>
-<div class="card" style="padding:24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
-<img src="promo/emblem-elf.webp" alt="Эмблема эльфов" style="width:132px;height:132px">
-<h3>Эльфы</h3>
-<span class="eyebrow" style="color:#e8c26a">Дикий рост</span>
-<p>Выбранный камень и два соседних прорастают изумрудами x3, готовые линии собираются сразу.</p>
-</div>
-<div class="card" style="padding:24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px">
-<img src="promo/emblem-lizard.webp" alt="Эмблема ящеров" style="width:132px;height:132px">
-<h3>Ящеры</h3>
-<span class="eyebrow" style="color:#e8c26a">Ядовитый укус</span>
-<p>Яд: противник теряет здоровье в начале каждого из трёх своих ходов.</p>
-</div>
-</div>
+<div class="ntabs" role="tablist"><button type="button" class="ntab" role="tab" aria-selected="true" data-n="human" style="--c:#4a7fe0"><img src="promo/emblem-human.webp" alt="">Люди</button><button type="button" class="ntab" role="tab" aria-selected="false" data-n="dwarf" style="--c:#d08a3a"><img src="promo/emblem-dwarf.webp" alt="">Гномы</button><button type="button" class="ntab" role="tab" aria-selected="false" data-n="elf" style="--c:#3fae63"><img src="promo/emblem-elf.webp" alt="">Эльфы</button><button type="button" class="ntab" role="tab" aria-selected="false" data-n="lizard" style="--c:#c9573c"><img src="promo/emblem-lizard.webp" alt="">Ящеры</button></div>
+<div class="npanel on" role="tabpanel" data-n="human" style="--c:#4a7fe0"><div class="card nhero"><img loading="lazy" src="promo/fig-hero-human-m.webp" alt="Странствующий рыцарь"><div><h3>Странствующий рыцарь</h3><span>Герой</span></div></div><div class="card nhero"><img loading="lazy" src="promo/fig-hero-human-f.webp" alt="Странствующая всадница"><div><h3>Странствующая всадница</h3><span>Героиня</span></div></div><div class="card ninfo"><span class="eyebrow" style="color:#4a7fe0">Вольные города</span><p>Торговцы и рыцари Вольных городов. Умеют договориться и повести за собой.</p><div class="ability"><b>Приём «Знамя»</b><p>На три хода урон героя растёт на 50%. Время ломать оборону.</p></div><p>Родной камень: <b style="color:#f4eee2">Сапфиры</b> — заряжает приём.</p><div class="chips"><span class="chip">+6 Инициатива</span><span class="chip">+5 Блок</span></div><p>Лавка дешевле на 10%, монет с добычи на 10% больше.</p></div></div><div class="npanel" role="tabpanel" data-n="dwarf" style="--c:#d08a3a"><div class="card nhero"><img loading="lazy" src="promo/fig-hero-dwarf-m.webp" alt="Дварф"><div><h3>Дварф</h3><span>Герой</span></div></div><div class="card nhero"><img loading="lazy" src="promo/fig-hero-dwarf-f.webp" alt="Боевая гномка"><div><h3>Боевая гномка</h3><span>Героиня</span></div></div><div class="card ninfo"><span class="eyebrow" style="color:#d08a3a">Подгорные кланы</span><p>Рунные кузнецы и воины гор. Крепкие, как камень, из которого вырублены их залы.</p><div class="ability"><b>Приём «Рунный молот»</b><p>Три случайных камня на поле становятся обсидианом x3.</p></div><p>Родной камень: <b style="color:#f4eee2">Обсидиан</b> — заряжает приём.</p><div class="chips"><span class="chip">+8 Броня</span><span class="chip">+8 Блок</span><span class="chip">+3 Сила</span></div><p>Работа кузницы дешевле на 15%.</p></div></div><div class="npanel" role="tabpanel" data-n="elf" style="--c:#3fae63"><div class="card nhero"><img loading="lazy" src="promo/fig-hero-elf-m.webp" alt="Лесной лучник"><div><h3>Лесной лучник</h3><span>Герой</span></div></div><div class="card nhero"><img loading="lazy" src="promo/fig-hero-elf-f.webp" alt="Лесная лучница"><div><h3>Лесная лучница</h3><span>Героиня</span></div></div><div class="card ninfo"><span class="eyebrow" style="color:#3fae63">Лесные дома</span><p>Лучники и друиды древних лесов. Быстры и неуловимы.</p><div class="ability"><b>Приём «Дикий рост»</b><p>Выбранный камень и два соседних прорастают изумрудами x3, готовые линии собираются сразу.</p></div><p>Родной камень: <b style="color:#f4eee2">Изумруды</b> — заряжает приём.</p><div class="chips"><span class="chip">+10 Инициатива</span><span class="chip">+4 Рикошет</span></div><p>Чаще ходят первыми, удары чаще отлетают обратно.</p></div></div><div class="npanel" role="tabpanel" data-n="lizard" style="--c:#c9573c"><div class="card nhero"><img loading="lazy" src="promo/fig-hero-lizard-m.webp" alt="Ящер-следопыт"><div><h3>Ящер-следопыт</h3><span>Герой</span></div></div><div class="card nhero"><img loading="lazy" src="promo/fig-hero-lizard-f.webp" alt="Ящерица-следопыт"><div><h3>Ящерица-следопыт</h3><span>Героиня</span></div></div><div class="card ninfo"><span class="eyebrow" style="color:#c9573c">Болотные племена</span><p>Охотники топей с толстой чешуёй и ядовитыми клинками.</p><div class="ability"><b>Приём «Ядовитый укус»</b><p>Яд: противник теряет здоровье в начале каждого из трёх своих ходов. Укусы складываются — до трёх слоёв сразу.</p></div><p>Родной камень: <b style="color:#f4eee2">Рубины</b> — заряжает приём.</p><div class="chips"><span class="chip">+5 Здоровье</span><span class="chip">+4 Сила</span></div><p>Толстая чешуя: больше здоровья и силы.</p></div></div>
 </section>
 
+<div class="gemdiv" aria-hidden="true" style="color:#d9443f"><svg viewBox="0 0 24 24"><path d="M12 1l9 11-9 11L3 12z" fill="currentColor"/><path d="M12 1l3 11-3 11-3-11z" fill="#fff" fill-opacity=".28"/></svg></div>
 <!-- КАРТА -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#3fbf7f">Карта</span>
 <h2 class="h">Выйди из деревни — вернись с добычей</h2>
@@ -227,7 +250,7 @@ img{display:block}
 </section>
 
 <!-- МЕСТА -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#3fbf7f">Места</span>
 <h2 class="h">За частоколом — целые миры</h2>
@@ -242,12 +265,13 @@ img{display:block}
 </div>
 </section>
 
+<div class="gemdiv" aria-hidden="true" style="color:#3fbf7f"><svg viewBox="0 0 24 24"><path d="M12 1l9 11-9 11L3 12z" fill="currentColor"/><path d="M12 1l3 11-3 11-3-11z" fill="#fff" fill-opacity=".28"/></svg></div>
 <!-- ЖИВОЙ МИР -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#7fb4ff">Живой мир</span>
 <h2 class="h">Мир живёт: день сменяет ночь, приходит непогода</h2>
-<p class="lead">Карта следит за вашими часами. Вечером в деревне загораются окна, а ночью на тропах появляются ночные гости. Небо меняется каждые несколько часов: дождь, туман, а изредка гроза, ливень или густой туман, и тогда бой идёт иначе. За северными снегами лежит тундра, за южными дюнами — каменистые пустоши, а реки можно перейти по мосту или вброд.</p>
+<p class="lead">Карта следит за вашими часами. Вечером в деревне загораются окна, а ночью на тропах появляются ночные гости. Небо меняется каждые несколько часов: дождь, снег, а изредка гроза, ливень или густой туман, и тогда бой идёт иначе. За северными снегами лежит тундра, за южными дюнами — каменистые пустоши, а реки можно перейти по мосту или вброд.</p>
 </div>
 <div class="grid g2">
 <figure class="shot" style="margin:0"><img loading="lazy" src="promo/live-night.webp" alt="Деревня ночью"><figcaption><b>Ночь на карте</b>Окна и факелы светятся. Ночью существа крепче на 10% здоровья, зато добыча и монеты богаче на 15%. По ночам выходят лунные мотыльки, огоньки и тени.</figcaption></figure>
@@ -262,16 +286,17 @@ img{display:block}
 <p style="font-family:'Golos Text',system-ui,sans-serif;font-size:15px;line-height:1.5;color:#cfc6dc;margin:0">По умолчанию время суток и погода выключены — включи их в настройках игры (меню ☰ на карте), и мир оживёт.</p>
 </section>
 
+<div class="gemdiv" aria-hidden="true" style="color:#b6a5de"><svg viewBox="0 0 24 24"><path d="M12 1l9 11-9 11L3 12z" fill="currentColor"/><path d="M12 1l3 11-3 11-3-11z" fill="#fff" fill-opacity=".28"/></svg></div>
 <!-- ДЕРЕВНЯ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#e8c26a">Деревня</span>
-<h2 class="h">Здесь находится Ваш дом</h2>
+<h2 class="h">Здесь твой дом</h2>
 <p class="lead">Здания открываются по мере роста героя. В каждом живёт свой житель и своё занятие. Золото можно вложить в улучшения деревни, и они остаются навсегда. Кроме мастерских и лавок здесь есть Банк, Почта с коллекционными подарками, Ювелир, Охотничий дом, Алтарь воскрешения и Маяк с мини-играми.</p>
 </div>
 <div class="grid gb">
 <div class="bc"><img class="bgi" loading="lazy" src="promo/b-home.webp" alt="Дом героя"><div class="shade"></div><div class="txt"><h3>Дом героя</h3><p>Здесь хранится снаряжение: менять вещи можно только дома.</p></div></div>
-<div class="bc"><img class="bgi" loading="lazy" src="promo/b-shop.webp" alt="Лавка"><div class="shade"></div><div class="txt"><h3>Лавка</h3><p>Покупка и продажа вещей, зелий, свитков и ресурсов. Вещи собраны по комплектам, есть примерка.</p></div></div>
+<div class="bc"><img class="bgi" loading="lazy" src="promo/b-shop.webp" alt="Лавка"><div class="shade"></div><div class="txt"><h3>Лавка</h3><p>Покупка и продажа вещей, эликсиров, свитков и ресурсов. Вещи собраны по комплектам, есть примерка.</p></div></div>
 <div class="bc"><img class="bgi" loading="lazy" src="promo/bg-forge.webp" alt="Кузница"><div class="shade"></div><div class="txt"><h3>Кузница</h3><p>Улучшает цвет вещей и создаёт новые из ресурсов, что выпадают из существ. Вещи изнашиваются — их можно чинить.</p></div></div>
 <div class="bc"><img class="bgi" loading="lazy" src="promo/bg-alchemist.webp" alt="Алхимик"><div class="shade"></div><div class="txt"><h3>Алхимик</h3><p>Эликсиры, которые варятся из добычи с твоих охот.</p></div></div>
 <div class="bc"><img class="bgi" loading="lazy" src="promo/bg-library.webp" alt="Библиотека"><div class="shade"></div><div class="txt"><h3>Библиотека</h3><p>Летопись осколков Великого Сердца, свитки и поручение дня.</p></div></div>
@@ -290,7 +315,7 @@ img{display:block}
 </section>
 
 <!-- ЖИТЕЛИ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#7fb0ff">Жители</span>
 <h2 class="h">Те, кто встретит тебя в деревне</h2>
@@ -310,7 +335,7 @@ img{display:block}
 </section>
 
 <!-- ПИТОМЦЫ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#e0475b">Питомцы</span>
 <h2 class="h">Верный спутник в каждом бою</h2>
@@ -347,8 +372,9 @@ img{display:block}
 </div>
 </section>
 
+<div class="gemdiv" aria-hidden="true" style="color:#d9443f"><svg viewBox="0 0 24 24"><path d="M12 1l9 11-9 11L3 12z" fill="currentColor"/><path d="M12 1l3 11-3 11-3-11z" fill="#fff" fill-opacity=".28"/></svg></div>
 <!-- БОССЫ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#e8c26a">Боссы</span>
 <h2 class="h">Семь хозяев мира</h2>
@@ -366,7 +392,7 @@ img{display:block}
 </section>
 
 <!-- ФИГУРКИ НА КАРТЕ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#e8c26a">На карте</span>
 <h2 class="h">Герои и хозяева зон — как настольные фигурки</h2>
@@ -399,7 +425,7 @@ img{display:block}
 </section>
 
 <!-- БЕСТИАРИЙ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#3fbf7f">Бестиарий</span>
 <h2 class="h">89 существ — и у каждого свой характер</h2>
@@ -513,8 +539,9 @@ img{display:block}
 </div>
 </section>
 
+<div class="gemdiv" aria-hidden="true" style="color:#4a7fe0"><svg viewBox="0 0 24 24"><path d="M12 1l9 11-9 11L3 12z" fill="currentColor"/><path d="M12 1l3 11-3 11-3-11z" fill="#fff" fill-opacity=".28"/></svg></div>
 <!-- ЦВЕТА -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#b79cf0">Рост</span>
 <h2 class="h">Десять цветов. Сто уровней.</h2>
@@ -540,8 +567,22 @@ img{display:block}
 </div>
 </section>
 
+<!-- ЦВЕТНЫЕ РАСХОДНИКИ -->
+<section class="wrap sec rv">
+<div class="head">
+<span class="eyebrow" style="color:#48b96c">Расходники</span>
+<h2 class="h">Эликсиры и свитки десяти цветов</h2>
+<p class="lead">Эликсир жизни и Эликсир силы, три свитка, Настой стойкости, Зелье грозы и Каменная кожа бывают всех десяти цветов, и чем выше цвет, тем сильнее эффект. Цвет виден по рамке значка. Предметы разных цветов лежат отдельными стопками, а в списках идут по цвету. Свиток спешки и Каменная пыль без цвета: их эффект не измерить числом.</p>
+</div>
+<div class="card" style="padding:22px"><div class="elx"><figure style="--c:#e5483f"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Красный»"></div>Красный<br><b style="color:#f4eee2">30 ХП</b></figure><figure style="--c:#f08a2c"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Оранжевый»"></div>Оранжевый<br><b style="color:#f4eee2">40 ХП</b></figure><figure style="--c:#f4dc3f"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Жёлтый»"></div>Жёлтый<br><b style="color:#f4eee2">50 ХП</b></figure><figure style="--c:#48b96c"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Зелёный»"></div>Зелёный<br><b style="color:#f4eee2">70 ХП</b></figure><figure style="--c:#4cc0ee"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Голубой»"></div>Голубой<br><b style="color:#f4eee2">90 ХП</b></figure><figure style="--c:#4270e6"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Синий»"></div>Синий<br><b style="color:#f4eee2">120 ХП</b></figure><figure style="--c:#a262ee"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Фиолетовый»"></div>Фиолетовый<br><b style="color:#f4eee2">160 ХП</b></figure><figure style="--c:#c9d0da"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Серебро»"></div>Серебро<br><b style="color:#f4eee2">210 ХП</b></figure><figure style="--c:#f0c23c"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Золото»"></div>Золото<br><b style="color:#f4eee2">270 ХП</b></figure><figure style="--c:#b6a5de"><div class="fr"><img loading="lazy" src="promo/it-elx-health.webp" alt="Эликсир жизни, цвет «Обсидиановый»"></div>Обсидиановый<br><b style="color:#f4eee2">350 ХП</b></figure></div><p style="margin-top:16px;text-align:center">Эликсир жизни лечит от 30 ХП на красном цвете до 350 на обсидиановом.</p></div>
+<div class="grid g2">
+<div class="npc"><img class="ic" loading="lazy" src="promo/it-elx-power.webp" alt="Эликсир силы"><div><b>Эликсир силы</b><span>От +10% до +100% к удару до конца хода: считается от всего удара, а не от одной Силы.</span></div></div><div class="npc"><img class="ic" loading="lazy" src="promo/it-scrollvenom.webp" alt="Свиток отравы"><div><b>Свиток отравы</b><span>До конца боя +8% … +30% к шансу отравить цель ударом.</span></div></div><div class="npc"><img class="ic" loading="lazy" src="promo/it-scrollregen.webp" alt="Свиток регенерации"><div><b>Свиток регенерации</b><span>До конца боя прибавка к шансу регенерации (8% … 30%) и к её силе (4% … 16%).</span></div></div><div class="npc"><img class="ic" loading="lazy" src="promo/it-luck.webp" alt="Свиток удачи"><div><b>Свиток удачи</b><span>Один раз за бой: от +10% до +100% к монетам и ресурсам с победы.</span></div></div><div class="npc"><img class="ic" loading="lazy" src="promo/it-honeyjar.webp" alt="Настой стойкости"><div><b>Настой стойкости</b><span>Наугад: от +10% до +50% к максимуму ХП до конца боя или блок следующего удара.</span></div></div><div class="npc"><img class="ic" loading="lazy" src="promo/it-storm.webp" alt="Зелье грозы"><div><b>Зелье грозы</b><span>Шаровая молния на один ход: каждый камень бьёт сильнее на 10% … 100%.</span></div></div>
+<div class="npc"><img class="ic" loading="lazy" src="promo/it-stoneskin.webp" alt="Каменная кожа"><div><b>Каменная кожа</b><span>Броня до конца боя: от +5 на красном цвете до +30 на обсидиановом.</span></div></div>
+</div>
+</section>
+
 <!-- РУНЫ И РЕСУРСЫ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#e0475b">Руны и добыча</span>
 <h2 class="h">Всё, что падает с существ, пригодится</h2>
@@ -588,13 +629,15 @@ img{display:block}
 </section>
 
 <!-- ЧТО НОВОГО -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#e8c26a">Что нового</span>
 <h2 class="h">Игра растёт с каждым обновлением</h2>
-<p class="lead">Версия 2.4 изменила бой, подземелье и медали, добавила звук, экран «Сегодня» и новых соперников.</p>
+<p class="lead">Версия 2.4 изменила бой, подземелье и медали, добавила звук, «Задания дня», цветные эликсиры и новых соперников.</p>
 </div>
 <div class="grid g3">
+<div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Цветные эликсиры и свитки</h3><p>Эликсир жизни и Эликсир силы заменили зелье и настой, а свитки и настои получили десять цветов с растущей силой и цветной рамкой.</p></div>
+<div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Яд Ящеров складывается</h3><p>Ядовитый укус даёт до трёх слоёв, и у каждого слоя свои три хода.</p></div>
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Уровни существ и вожаки</h3><p>У каждого существа уровень от 1 до 100, он виден на карте и в бою. Цветная точка подсказывает, по силам ли оно. Вожаки на три уровня сильнее обычных и дают лучшую добычу.</p></div>
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Подземелье</h3><p>Рекорд глубины, подсказка о страже этажа и контрольные этажи: поражение глубже отнимает только найденные ниже монеты. Скорпионы десяти цветов дают камни и медали.</p></div>
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Медали-лесенки и визитка</h3><p>У каждого вида десять ступеней медали, цвет кружка растёт с победами. Визитка героя показывает фигуру в доспехах и все медали, а коллекционные подарки приходят на почту.</p></div>
@@ -604,14 +647,14 @@ img{display:block}
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Новые ресурсы и рецепты</h3><p>Двадцать четыре ресурса, и каждый нужен кузнице. Рецепты пересчитаны, у каждого цвета свои враги и своя добыча.</p></div>
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Алтарь воскрешения</h3><p>После гибели герой минуту отдыхает у Алтаря или за символическую плату возвращается к месту боя.</p></div>
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Звук и скорость</h3><p>Звуки боя играют хэнг, челеста и гонг, а молния звучит гулом электричества: у каждого события свой инструмент. Карта и бой стали заметно быстрее и экономнее для телефона.</p></div>
-<div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Экран «Сегодня»</h3><p>Головоломка дня, Испытание дня и поручение библиотеки в одном окне: кнопка на карте и в меню.</p></div>
+<div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Задания дня</h3><p>Головоломка дня, Испытание дня и поручение библиотеки в одном окне. Кнопка на карте и в меню светится зелёной точкой, пока есть незакрытые задания.</p></div>
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Закладки рецептов</h3><p>Отметьте рецепт звёздочкой в Кузнице: существа с нужными ресурсами засветятся на карте.</p></div>
 <div class="card" style="padding:22px;display:flex;flex-direction:column;gap:12px"><h3>Бой по порядку</h3><p>Сначала камни, затем удар, затем реакция существа: звук линии, удар и цифра урона больше не сливаются. При повышении уровня видно, на сколько выросли ХП и Сила и что открылось.</p></div>
 </div>
 </section>
 
 <!-- КАК НАЧАТЬ -->
-<section class="wrap sec">
+<section class="wrap sec rv">
 <div class="head">
 <span class="eyebrow" style="color:#7fb0ff">Как начать</span>
 <h2 class="h">Три шага до первого боя</h2>
@@ -623,19 +666,20 @@ img{display:block}
 </div>
 </section>
 
+<div class="gemdiv" aria-hidden="true" style="color:#e8c26a"><svg viewBox="0 0 24 24"><path d="M12 1l9 11-9 11L3 12z" fill="currentColor"/><path d="M12 1l3 11-3 11-3-11z" fill="#fff" fill-opacity=".28"/></svg></div>
 <!-- ФИНАЛ -->
 <section class="wrap sec" style="gap:28px;align-items:flex-start">
-<h2 class="h">Мир хрупок. Тебе его собирать.</h2>
-<div style="display:flex;flex-wrap:wrap;gap:14px;font-family:'Golos Text',system-ui,sans-serif">
-<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">4</div><div class="swl" style="text-align:left">народа</div></div>
-<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">100</div><div class="swl" style="text-align:left">уровней</div></div>
-<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">89</div><div class="swl" style="text-align:left">существ</div></div>
-<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">10</div><div class="swl" style="text-align:left">боссов</div></div>
-<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">24</div><div class="swl" style="text-align:left">ресурса</div></div>
-<div class="card" style="padding:16px 22px"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1">20</div><div class="swl" style="text-align:left">зданий</div></div>
+<h2 class="h" style="align-self:center;text-align:center">Мир хрупок. Тебе его собирать.</h2>
+<div style="display:flex;flex-wrap:wrap;justify-content:center;align-self:center;gap:14px;font-family:'Golos Text',system-ui,sans-serif">
+<div class="card" style="padding:16px 22px;text-align:center"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1" data-count="4">4</div><div class="swl" style="text-align:center">народа</div></div>
+<div class="card" style="padding:16px 22px;text-align:center"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1" data-count="100">100</div><div class="swl" style="text-align:center">уровней</div></div>
+<div class="card" style="padding:16px 22px;text-align:center"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1" data-count="89">89</div><div class="swl" style="text-align:center">существ</div></div>
+<div class="card" style="padding:16px 22px;text-align:center"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1" data-count="10">10</div><div class="swl" style="text-align:center">боссов</div></div>
+<div class="card" style="padding:16px 22px;text-align:center"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1" data-count="24">24</div><div class="swl" style="text-align:center">ресурса</div></div>
+<div class="card" style="padding:16px 22px;text-align:center"><div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:42px;font-weight:700;color:#e8c26a;line-height:1" data-count="20">20</div><div class="swl" style="text-align:center">зданий</div></div>
 </div>
-<a href="https://zaymozay-sys.github.io/world-in-pieces/" style="display:inline-block;font-family:'Golos Text',system-ui,sans-serif;font-size:18px;font-weight:600;color:#14101c;background:#e8c26a;border-radius:999px;padding:14px 32px;text-decoration:none">Играть</a>
-<p style="margin:18px 0 0;font-family:'Golos Text',system-ui,sans-serif;font-size:14px;color:#b9b2c6"><a href="https://github.com/zaymozay-sys/world-in-pieces" style="color:#e8c26a">Исходный код и новости — на GitHub</a></p>
+<div style="align-self:center;width:100%;display:flex;justify-content:center;padding:18px 0 6px"><a class="play-btn" href="https://zaymozay-sys.github.io/world-in-pieces/">Играть</a></div>
+<p style="margin:18px 0 0;align-self:center;text-align:center;font-family:'Golos Text',system-ui,sans-serif;font-size:14px;color:#b9b2c6"><a href="https://github.com/zaymozay-sys/world-in-pieces" style="color:#e8c26a">Исходный код и новости — на GitHub</a></p>
 </section>
 
 </div>
@@ -666,6 +710,40 @@ img{display:block}
   window.addEventListener('resize', later); window.addEventListener('load', balance);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(balance);
   balance();
+})();
+
+(function () {
+  /* липкая полоска с кнопкой «Играть» */
+  var tb = document.getElementById('topbar');
+  function onScroll() { if (tb) tb.classList.toggle('on', window.scrollY > 640); }
+  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  /* вкладки народов */
+  var tabs = [].slice.call(document.querySelectorAll('.ntab')), panels = [].slice.call(document.querySelectorAll('.npanel'));
+  tabs.forEach(function (t) { t.addEventListener('click', function () {
+    tabs.forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+    panels.forEach(function (p) { p.classList.toggle('on', p.getAttribute('data-n') === t.getAttribute('data-n')); });
+  }); });
+  /* появление блоков при прокрутке */
+  var rv = [].slice.call(document.querySelectorAll('.rv'));
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }); }, { threshold: 0.08 });
+    rv.forEach(function (n) { io.observe(n); });
+  } else rv.forEach(function (n) { n.classList.add('in'); });
+  /* счётчики */
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  [].slice.call(document.querySelectorAll('[data-count]')).forEach(function (el) {
+    var to = Number(el.getAttribute('data-count')), done = false;
+    function run() { if (done) return; done = true; if (reduce) { el.textContent = to; return; } var t0 = performance.now(); (function step(t) { var k = Math.min(1, (t - t0) / 1100); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); })(t0); }
+    if ('IntersectionObserver' in window) { var o = new IntersectionObserver(function (es) { if (es[0].isIntersecting) { run(); o.disconnect(); } }); o.observe(el); } else run();
+  });
+  /* увеличение скриншотов */
+  var lb = document.getElementById('lb'), li = lb && lb.querySelector('img');
+  document.addEventListener('click', function (e) {
+    var im = e.target.closest && e.target.closest('.shot img, .bc img.bgi');
+    if (im && lb) { li.src = im.currentSrc || im.src; li.alt = im.alt; lb.classList.add('on'); }
+    else if (lb && lb.classList.contains('on')) lb.classList.remove('on');
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && lb) lb.classList.remove('on'); });
 })();
 </script>
 </body>
