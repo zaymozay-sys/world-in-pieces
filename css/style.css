@@ -5011,3 +5011,34 @@ body.phone #m-today { background-image: url("data:image/svg+xml;utf8,<svg xmlns=
 /* 2.4.7: пока идёт заставка, всё под ней не рисуется (карта с облаками, погодой и качающимися существами перерисовывалась
    каждый кадр под непрозрачной заставкой и отнимала время у анимации). Раскладка остаётся, поэтому измерения кода не страдают. */
 body:has(> #splash:not(.hide)) > :not(#splash):not(script) { visibility: hidden; }
+
+/* 2.4.7: Кузница — «Ваши ресурсы» свёрнуты в одну строку */
+.stock-line .res-fold { flex: 1 1 auto; min-width: 0; }
+.stock-line .res-fold > summary { cursor: pointer; list-style: none; display: inline-block; padding: 0 6px; font-weight: 700; }
+.stock-line .res-fold > summary::-webkit-details-marker { display: none; }
+.stock-line .res-fold .res-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+/* 2.4.7: узкие экраны (≈360 px и меньше, крупный шрифт системы): название не сжимается в столбик букв, кнопка не уходит за край.
+   Карточка переносит действие на следующую строку, только если рядом с кнопкой не остаётся хотя бы 140 px под текст. */
+@media (max-width: 520px) {
+  .modal .card:not(:has(> .icon-wrap)) { flex-wrap: wrap; }
+  .modal .card:not(:has(> .icon-wrap)) > .card-body { flex: 1 1 140px; min-width: min(140px, 100%); }
+  .modal .card:not(:has(> .icon-wrap)) > .card-act { flex: 1 1 auto; max-width: 100%; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; }
+  .modal .card-act button { max-width: 100%; }
+  /* Кузница, «Создать вещь»: виды вещей — одной прокручиваемой строкой, а не сеткой на пол-экрана (предметы сразу видны) */
+  .tavern-body .tabs.sub { display: flex; flex-wrap: nowrap; overflow-x: auto; min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; gap: 6px; padding-bottom: 4px; scrollbar-width: none; }
+  .tavern-body .tabs.sub > button { flex: none; width: auto; }
+  .tavern-body .costs { overflow-wrap: anywhere; }
+  /* карточка предмета в Кузнице: кнопки уходят под описание, а не за край экрана */
+  .tavern-body .craft-unit .card, .tavern-body .card-list > .card:has(> .card-act) { flex-wrap: wrap; }
+  .tavern-body .craft-unit .card > .card-body { flex: 1 1 130px; min-width: 0; }
+  .tavern-body .craft-unit .card > .card-act { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; justify-content: center; margin-right: 0; }
+  .tavern-body .craft-unit .card > .card-act > * { flex: 1 1 auto; }
+  .tavern-body { min-width: 0; overflow-x: hidden; }
+  .tavern-body .costs { display: flex; flex-wrap: wrap; }
+}
+
+/* 2.4.7: сведения о бойце — на месте карточки (по нажатию на аватар), а не по центру экрана */
+body .fi-pop.at-card { position: fixed; transform: none; right: auto; box-shadow: 0 8px 24px #000c; font-size: 13px; padding: 8px 10px; }
+body .fi-pop.at-card > div { padding: 2px 0; }
+body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height: 34px; }

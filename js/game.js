@@ -151,11 +151,6 @@ function buildFighter(side) {
     const dotTier = side === 'right' ? f.tier : Hero.tierFor(f.level || 1), tc = Tiers.get(dotTier), nm = el.querySelector('.name');
     if (nm && tc) nm.insertAdjacentHTML('afterbegin', `<span class="lv-dot" style="--t:${tc.color};--ti:${tc.ink}" aria-hidden="true">${side === 'right' ? (f.lvl || f.tier) : (f.level || 1)}</span>`);
   }
-  { // кнопка «i»: подробности бойца всплывающим окошком
-    const ib = document.createElement('button'); ib.type = 'button'; ib.className = 'fi-btn'; ib.textContent = 'i'; ib.title = _t("Подробности");
-    ib.addEventListener('click', (e) => { e.stopPropagation(); toggleFighterInfo(side); });
-    el.appendChild(ib);
-  }
   miniCounters(side);
   setTimeout(fitFighterNames, 60);   // имя в карточке: уменьшить шрифт, если не входит
   if (!host.main) for (const e of el.querySelectorAll('[id]')) { e.setAttribute('data-bid', e.id); e.id = 'pet-' + e.id; }   // 1.6.4 (WIP-07): id во втором поле уникальны
@@ -178,12 +173,12 @@ function buildFighter(side) {
       if (f.monsterId && Bestiary.MONSTERS[f.monsterId]) { Profile.data.seen = Profile.data.seen || {}; Profile.data.seen[f.monsterId] = 1; Screens.openBestiary(f.monsterId, f.tier); }
       else Inventory.open(side);
     };
-    const av = el.querySelector('.avatar'); av.title = _t("Изучить противника");
-    av.addEventListener('click', study);
+    const av = el.querySelector('.avatar'); av.title = _t("Сведения о противнике");
+    av.addEventListener('click', () => toggleFighterInfo(side));   // 2.4.7: нажатие на аватар — сведения о бойце на месте его карточки (вместо значка «i»)
     el.querySelector('.gearrow').title = _t("Снаряжение противника");
     el.querySelector('.gearrow').addEventListener('click', () => Inventory.open(side));
   } else {
-    el.querySelector('.avatar').addEventListener('click', () => Inventory.open(side));
+    el.querySelector('.avatar').addEventListener('click', () => toggleFighterInfo(side));
     el.querySelector('.gearrow').addEventListener('click', () => Inventory.open(side));
   }
   renderAvatar(side);
@@ -988,7 +983,7 @@ async function cloneTurn() {
 // Открыто ли заклинание: по уровню героя; в обучении все нужные заклинания доступны.
 const spellOpen = (kind) => (typeof TUT === 'function' && TUT()) || (Hero.isSpellUnlocked(kind, liveLevel()) && spellChosen(kind));
 // 2.0.9: в бой берутся только выбранные магии (слоты растут с цветом); Удар и турнир — без выбора.
-const spellChosen = (kind) => kind === 'strike' || (LIVE && LIVE.fixed) || !Balance.spellUnlock[kind] && kind !== 'lightning' || Profile.spellLoadout().includes(kind);
+const spellChosen = (kind) => kind === 'strike' || Balance.unlockAll || (LIVE && LIVE.fixed) || !Balance.spellUnlock[kind] && kind !== 'lightning' || Profile.spellLoadout().includes(kind);
 
 function spellDisabled(kind, on, ready) {
   const f = fighters.left;
@@ -1075,9 +1070,24 @@ function toggleFighterInfo(side) {
   }
   const ef = [...el.querySelectorAll('.badge .st-chip')].map((n) => n.textContent);
   if (ef.length) rows.push(`<p>${_t("Сейчас действует")}: ${ef.join(', ')}</p>`);
-  pop = document.createElement('div'); pop.className = 'fi-pop'; pop.innerHTML = rows.join('');
-  pop.addEventListener('click', (e) => { e.stopPropagation(); pop.remove(); });
-  (onPhone ? document.body : el).appendChild(pop);   // 2.4.2: везде — карточкой по центру экрана (в панели бойца не помещается)
+  rows.push(`<button type="button" class="fi-more">${side === 'right' ? _t("Карточка существа") : _t("Ранец и экипировка")}</button>`);
+  pop = document.createElement('div'); pop.className = 'fi-pop at-card'; pop.innerHTML = rows.join('');
+  pop.addEventListener('click', (e) => {
+    e.stopPropagation(); pop.remove();
+    if (e.target.closest && e.target.closest('.fi-more')) {
+      if (side === 'right' && f.monsterId && Bestiary.MONSTERS[f.monsterId]) { Profile.data.seen = Profile.data.seen || {}; Profile.data.seen[f.monsterId] = 1; Screens.openBestiary(f.monsterId, f.tier); }
+      else Inventory.open(side);
+    }
+  });
+  document.body.appendChild(pop);
+  { // 2.4.7: сведения раскрываются на месте карточки бойца (под ней, а если снизу тесно — над ней)
+    const r = el.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    const w = Math.min(Math.max(r.width, 230), vw - 8);
+    pop.style.width = w + 'px'; pop.style.left = Math.max(4, Math.min(r.left, vw - w - 4)) + 'px';
+    const h = pop.offsetHeight, below = r.bottom + 4;
+    pop.style.top = (below + h <= vh - 4 ? below : Math.max(4, r.top - h - 4)) + 'px';
+    pop.style.maxHeight = Math.max(120, vh - 16) + 'px';
+  }
   setTimeout(() => document.addEventListener('click', () => pop.remove(), { once: true }), 0);
 }
 
@@ -2536,7 +2546,7 @@ function startGame() {
 
 // Меняет два камня. Если ничего не собралось — возвращает обратно и отвечает false.
 async function attemptSwap(a, b) {
-  SND.swap();
+  // 2.4.7: звук обмена камней убран (мешал); SND.swap остаётся для блока и щита
   swapCells(a, b);
   placeTile(a);
   placeTile(b);
@@ -2616,7 +2626,7 @@ function rewardFor(f, first = true, opts = {}) {
   Profile.recordWin(f.monsterId, f.tier);
   { // 2.4.1: награда за 10-ю, 50-ю и 100-ю победу над видом — только монеты (Силу «просто так» не даём)
     const w = (Profile.data.bestiary[f.monsterId] || {}).wins || 0, mult = { 10: 10, 50: 30, 100: 80 }[w];
-    if (mult && !opts.quick && f.monsterId) { const bonus = Math.max(20, Math.round(drops.coins * mult)); Profile.addCoins(bonus); MapView.toast(_t("{0}: {1} побед над видом! Награда: {2}.", [f.name, w, _nn(bonus, 'монета', 'монеты', 'монет')]), 4200); } }
+    if (mult && !opts.quick && f.monsterId) { const bonus = Math.max(20, Math.round(drops.coins * mult)); Profile.addCoins(bonus); MapView.toast(_t("{0}: {1} побед над видом! Награда: {2}.", [f.name, w, Tiers.moneyText(bonus)]), 4200); } }
   { const sh = Profile.data.ship;       // 1.8.7: сильные звери помогают вытащить бригантину в море
     if (sh && sh.paid && !sh.fixed && ['boar', 'elk', 'rhino', 'leopard', 'lynx'].includes(f.monsterId) && (sh.pulls || 0) < 5) {
       sh.pulls = (sh.pulls || 0) + 1; MapView.toast(_t("Зверь потянул бригантину: {0} / 5", [sh.pulls]), 3000); } }

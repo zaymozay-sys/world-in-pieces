@@ -203,7 +203,7 @@ const Screens = (() => {
     root.addEventListener('click', (e) => { const bb = e.target.closest && e.target.closest('button'); keepScroll = !!(bb && Object.keys(bb.dataset).some((k) => /^(buy|vgCos|k?Treat|tryon|vchoice|sh$)/.test(k))); }, true);   // 1.8.4: после покупки список остаётся на месте
     root.addEventListener('click', onClick);
     root.addEventListener('click', markBought);
-    root.addEventListener('toggle', (e) => { const d = e.target; if (d.classList && d.classList.contains('tgroup')) titleOpen[d.dataset.g] = d.open; }, true);
+    root.addEventListener('toggle', (e) => { const d = e.target; if (d.classList && d.classList.contains('tgroup')) titleOpen[d.dataset.g] = d.open; if (d.classList && d.classList.contains('res-fold')) st.forgeResOpen = d.open; }, true);
     root.addEventListener('input', onInput);
     root.addEventListener('change', (e) => { if (cur === 'best' && e.target.dataset && e.target.dataset.bsort !== undefined) { st.best.sort = e.target.value; const lst = root.querySelector('.beast-list'); if (lst) lst.innerHTML = bestTiles(st.best, Profile.species()); } });
     // 2.0.9: свайп вниз по шапке окна закрывает его (телефон); кнопка «Закрыть» и Esc остаются
@@ -848,12 +848,20 @@ const Screens = (() => {
   const EARLY_WINS = 10;
   const earlyGame = () => (Profile.data.wins || 0) < EARLY_WINS;
   const earlyLeft = () => Math.max(0, EARLY_WINS - (Profile.data.wins || 0));
+  // 2.4.7: вкладки Кузницы открываются по ступеням (число побед); в тестовом режиме unlockAll открыто всё
+  const FORGE_TABS = [['upgrade', 0], ['craft', 0], ['repair', 10], ['ammo', 10], ['temper', 15], ['compass', 15], ['refit', 20], ['swap', 20]];
+  const forgeOpen = (id) => { const t = FORGE_TABS.find((x) => x[0] === id); return !t || (typeof Balance !== 'undefined' && Balance.unlockAll) || (Profile.data.wins || 0) >= t[1]; };
   const lockedModal = (title, text) => `<div class="modal" role="dialog" aria-label="${title}">${head(title)}<div class="screen-body"><p class="hint">${text}</p></div></div>`;
   const forge = {
     html() {
       const s = st.forge;
       const early = earlyGame();                                  // первые бои: только «Улучшить цвет» и «Создать вещь» (одна простая вещь)
-      if (early && s.tab !== 'upgrade' && s.tab !== 'craft') s.tab = 'upgrade';
+      if (!forgeOpen(s.tab)) s.tab = 'upgrade';
+      // «В кузнице научились…»: один раз сообщаем о новых вкладках (у старых сохранений — молча)
+      const openNow = FORGE_TABS.filter((x) => forgeOpen(x[0])).map((x) => x[0]), seen = Profile.data.forgeSeen;
+      let learned = '';
+      if (!Array.isArray(seen)) { Profile.data.forgeSeen = early ? openNow : openNow.filter(() => true); }
+      else { const nw = openNow.filter((x) => !seen.includes(x)); if (nw.length) { const NM = { repair: _t("Починка"), ammo: _t("Варка"), temper: _t("Закалка"), compass: _t("Стрелки"), refit: _t("Перековка"), swap: _t("Обмен") }; learned = nw.map((x) => NM[x]).filter(Boolean).join(', '); Profile.data.forgeSeen = openNow; Profile.save(); } }
       let body = '';
       if (s.tab === 'upgrade') {
         const items = Profile.data.items.map((e) => Gear.item(e)).sort((a, b) => b.tier - a.tier || a.name.localeCompare(b.name));
@@ -984,8 +992,10 @@ const Screens = (() => {
         }).join('');
         body = early ? `<p class="hint">${_t("Для начала — одна простая вещь. Остальные вещи и вкладки Кузницы откроются после первых боёв.")}</p><div class="card-list">${list}</div>` : _t("<div class=\"tabs sub\">{0}</div>\n          <p class=\"hint\">Цвет новой вещи (до цвета вашего уровня):</p>{1}<div class=\"card-list\">{2}</div>", [FILTERS.map(([k, label]) => `<button type="button" class="${k === s.filter ? 'on' : ''}" data-filter="${k}">${label}</button>`).join(''), tierPicker(top, ct, 'crafttier'), list]);
       }
-      const res = Profile.resList().map((r) => `<span class="need ok">${MonsterArt.resIcon(r.kind, r.tier)}${resLabel(r.kind, r.tier)} × ${r.n}</span>`).join('') || _t("<span class=\"hint\">Ресурсов нет</span>");
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs((early ? [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")]] : [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], null, ['ammo', _t("Варка")], ['compass', _t("Стрелки")], ['swap', _t("Обмен")], null, ['repair', _t("Починка")]]), s.tab), sceneStyle('forge'), s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', res, forgeTip(s.tab) + body]);
+      // 2.4.7: список ресурсов свёрнут (одна строка «N ▾»), чтобы сразу были видны предметы, а не длинный перечень ресурсов
+      const resList = Profile.resList(), resChips = resList.map((r) => `<span class="need ok">${MonsterArt.resIcon(r.kind, r.tier)}${resLabel(r.kind, r.tier)} × ${r.n}</span>`).join('');
+      const res = resChips ? `<details class="res-fold"${st.forgeResOpen ? ' open' : ''}><summary>${resList.length} ▾</summary><div class="res-chips">${resChips}</div></details>` : _t("<span class=\"hint\">Ресурсов нет</span>");
+      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs((early ? [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")]] : [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], null, ['ammo', _t("Варка")], ['compass', _t("Стрелки")], ['swap', _t("Обмен")], null, ['repair', _t("Починка")]].filter((x) => !x || forgeOpen(x[0]))), s.tab), sceneStyle('forge'), (s.msg ? `<div class="gear-toast">${s.msg}</div>` : '') + (learned ? `<div class="gear-toast">${_t("В кузнице научились: {0}", [learned])}</div>` : ''), res, forgeTip(s.tab) + body]);
     },
     click(b) {
       const s = st.forge, d = b.dataset;
@@ -1598,7 +1608,7 @@ const Screens = (() => {
         <p class="hint">${_t("Жетоны: от 1 до 5 за раунд — от {0 очка|очков|очков} и выше.", [LHGames.TIERS[k][0]])}</p>
         <div class="mc-act"><button type="button" class="primary" data-lhplay="${k}" ${can ? '' : 'disabled'}>${left > 0 ? _t("Играть") : d.tickets ? _t("Играть за билет") : _t("На сегодня всё")}</button></div></div></div>`;
     };
-    return `${evBanner()}<p class="hint">${_t("Жетонов маяка: {0}. Игры дают только жетоны — на силу в бою они не влияют.", [d.tokens])}</p><div class="cards">
+    return `<p class="hint">${_t("Жетонов маяка: {0}. Игры дают только жетоны — на силу в бою они не влияют.", [d.tokens])}</p><div class="cards">
       ${row('av', _t("В шахте над полем 60 камней и больше нет. Меняйте соседние камни местами и собирайте линии: четыре в ряд дают взрывной камень ✸ (убирает соседей), пять — линейный ✦ (убирает строку или столбец). Запас кончится — раунд окончен."))}
       ${row('mr', _t("Лампа слева пускает луч вправо. Нажатие на зеркало переворачивает его: «/» на «\\» и обратно. Направьте луч так, чтобы он прошёл через все камни. Три поля подряд, чем меньше лишних нажатий, тем больше очков."))}
       ${row('td', _t("Меняйте соседние камни и собирайте линии, пока не затопило. Каждые три хода вода поднимается на ряд: камни под водой не двигаются. Линия из четырёх отгоняет воду на ряд, из пяти — на два. Вода дошла до четвёртого ряда — раунд окончен."))}
@@ -2111,7 +2121,7 @@ const Screens = (() => {
       if (d.claimDaily) {
         const r = Daily.claimLibrary();
         if (!r) return;
-        s.msg = _t("Держи — {0} и порция каменной пыли. {1}", [_nn(r.coins, 'монета', 'монеты', 'монет'), BEAVER_LINES[1]]);
+        s.msg = _t("Держи — {0} и порция каменной пыли. {1}", [Tiers.moneyText(r.coins), BEAVER_LINES[1]]);
         return changed();
       }
       if (d.tutorial) { close(); Tutorial.start(true); return; }
@@ -3161,7 +3171,7 @@ const credits = {
         const g = Puzzle.game(pz, pz.day), cells = [];
         for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${s.pzSel === i ? ' sel' : ''}" data-pzcell="${i}" ${pz.done ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(g.typ[i], g.sp[i])}</button>`);
         const star = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
-        body = `${evBanner()}<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0 ход|хода|ходов}. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3 очко|очка|очков}; за каждую новую звезду — монеты (раз в день).", [Puzzle.movesOf(pz), Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
+        body = `<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0 ход|хода|ходов}. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3 очко|очка|очков}; за каждую новую звезду — монеты (раз в день).", [Puzzle.movesOf(pz), Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
           <div class="arena-rank"><b>${star(pz.stars)}</b> <small>${_t("Очки: {0} · ходов осталось: {1} · рекорд: {2} · решено дней: {3}", [g.score, Puzzle.movesLeft(pz), pz.best || '—', pz.total])}</small></div>
           ${pz.moves.length || pz.done ? '' : `<div class="arena-rank">${[1, 2, 3].map((n) => `<button type="button" class="${pz.lvl === n ? 'primary' : ''}" data-pzlvl="${n}">${[_t("Лёгкая: 10 ходов"), _t("Обычная: 8 ходов"), _t("Трудная: 6 ходов, награда ×1,6")][n - 1]}</button>`).join(' ')}</div>`}
           <div class="lh-board">${cells.join('')}</div>

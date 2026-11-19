@@ -1388,7 +1388,7 @@ const Inventory = (() => {
       let h = '';
       for (let i = 0; i < total; i++) {
         const c = cells[i];
-        h += c ? `<button type="button" class="stash-cell btile bag-cell${c.key.startsWith('r:') ? '' : ' drag-cell'}" data-bcell="${c.key}" style="--c:${c.color}" title="${c.title}">${c.icon}<b class="bc-n">${c.n}</b></button>` : '<div class="stash-cell empty" aria-hidden="true"></div>';
+        h += c ? `<button type="button" class="stash-cell btile bag-cell${c.key.startsWith('r:') ? '' : ' drag-cell'}" data-bcell="${c.key}" style="--c:${c.color}" title="${String(c.title).replace(/<[^>]*>/g, '').replace(/"/g, '&quot;')}">${c.icon}<b class="bc-n">${c.n}</b></button>` : '<div class="stash-cell empty" aria-hidden="true"></div>';
       }
       return `<div class="stash-grid bag-grid">${h}</div>`;
     };
@@ -1499,7 +1499,7 @@ const Inventory = (() => {
       if (!armory) return;
       if ((Profile.data.stashRows || 0) >= STASH_MAX_ROWS) return say(_t("Куплены все ряды ячеек"));
       const price = rowPrice();
-      if (!Profile.spend(price)) return say(_t("Не хватает монет: нужно {0}", [price]));
+      if (!Profile.spend(price)) return say(_t("Не хватает монет: нужно {0}", [Tiers.moneyText(price)]));
       Profile.data.stashRows = (Profile.data.stashRows || 0) + 1;
       Profile.save();
       if (typeof onEconomyChanged === 'function') onEconomyChanged();

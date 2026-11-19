@@ -102,7 +102,7 @@ const Daily = (() => {
     } else if (row.kind === 'coins') {
       const n = Math.round(price * row.mult);
       Profile.addCoins(n); prize.coins = n;
-      text = `${_nn(n, 'монета', 'монеты', 'монет')}`;
+      text = (typeof Tiers !== 'undefined' ? Tiers.moneyText(n) : _nn(n, 'монета', 'монеты', 'монет'));
     } else if (row.kind === 'cons') {
       const kinds = Object.keys(D_G.CONSUMABLES), kind = kinds[Math.floor(rand() * kinds.length)];
       Profile.addConsumable(kind, 1); prize.cons = kind;
@@ -120,7 +120,7 @@ const Daily = (() => {
       Profile.addItem(e); prize.item = e.uid;
       const bonus = Math.round(price * 2);
       Profile.addCoins(bonus); prize.coins = bonus;
-      text = _t("Джекпот! {0} и ещё {1}", [D_G.item(e).name, _nn(bonus, 'монета', 'монеты', 'монет')]);
+      text = _t("Джекпот! {0} и ещё {1}", [D_G.item(e).name, (typeof Tiers !== 'undefined' ? Tiers.moneyText(bonus) : _nn(bonus, 'монета', 'монеты', 'монет'))]);
     }
     Profile.save();
     return { ok: true, kind: row.kind, price, text, prize };

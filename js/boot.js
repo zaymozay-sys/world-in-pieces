@@ -114,6 +114,8 @@ MapView.marketNews();           // Торговые ряды: что купил�
     setTimeout(() => el.remove(), 500);
     window.dispatchEvent(new Event('resize'));   // 2.4.7: подгонка окон и журнала на время заставки отложена — выполняем её сейчас
   };
+  // 2.4.7: автотесты (Playwright выставляет navigator.webdriver) не ждут заставку: пока она видна, остальной экран скрыт
+  if (navigator.webdriver && !/[#&]splash\b/.test(location.hash)) { hideAll(); return; }
   // 1.7.5: сначала осколки собираются в название (SplashFx), потом — афиша; нажатие пропускает. Без canvas или при «меньше движения» — как раньше (2 с).
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (typeof SplashFx !== 'undefined' && !reduce && !!document.createElement('canvas').getContext) {
@@ -246,7 +248,7 @@ MapView.marketNews();           // Торговые ряды: что купил�
               }
               Profile.save();
               if (pvpUp) { try { MapView.toast(_t("Новый ранг живых боёв: {0}! Титул — в Гардеробе Ратуши", [_t(pvpUp.name)]), 6000); } catch (e) { /* карта закрыта */ } }
-              try { MapView.toast(v.win ? (coins ? _t("Живой бой: победа! Монеты: {0}", [coins]) : _t("Живой бой: победа засчитана (монеты за сегодня выданы)")) : _t("Живой бой: поражение засчитано"), 4500); } catch (e) { /* карта закрыта */ }
+              try { MapView.toast(v.win ? (coins ? _t("Живой бой: победа! Монеты: {0}", [Tiers.moneyText(coins)]) : _t("Живой бой: победа засчитана (монеты за сегодня выданы)")) : _t("Живой бой: поражение засчитано"), 4500); } catch (e) { /* карта закрыта */ }
             }
           } catch (e) { /* нет связи — заберём позже */ } finally { w.__voucherBusy = false; }
         };
