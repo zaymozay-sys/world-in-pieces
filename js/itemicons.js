@@ -70,6 +70,19 @@ const ItemIcons = (() => {
 function itemIcon(type, color, id) {
   const it = id ? Gear.item(id) : null;
   if (it) return (typeof Art !== 'undefined' && Art.has('items/' + it.id)) ? Art.icon('items/' + it.id) : ItemIcons.icon(it);
+  // 2.4.8: Зелье здоровья / Боевой настой — теперь Эликсир жизни / силы (их картинки и цветная рамка); цветные расходники — в рамке своего цвета
+  const pc = Gear.parseCons(type);
+  if ((pc.base === 'potion' || pc.base === 'elixir') && typeof Elixirs !== 'undefined') {
+    const tt = pc.tier || ((typeof Profile !== 'undefined' && Profile.data) ? Hero.tierFor(Hero.levelOf(Profile.data.xp).level) : 1);
+    return Elixirs.icon(pc.base === 'potion' ? 'health' : 'power', tt);
+  }
+  if (pc.tier && Gear.CONSUMABLES[pc.base]) {
+    const col = Tiers.get(pc.tier).edge;
+    const pic = (typeof Art !== 'undefined' && Art.has('items/' + pc.base))
+      ? `<image href="${Art.url('items/' + pc.base)}" x="12" y="12" width="76" height="76" preserveAspectRatio="xMidYMid meet"/>`
+      : ItemIcons.consumable(pc.base).replace('<svg class="item-icon" viewBox="0 0 64 64" aria-hidden="true">', '<svg x="12" y="12" width="76" height="76" viewBox="0 0 64 64">');
+    return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><rect x="3" y="3" width="94" height="94" rx="15" fill="${col}" fill-opacity=".16" stroke="${col}" stroke-width="5"/>${pic}</svg>`;
+  }
   if (Gear.CONSUMABLES[type]) return (typeof Art !== 'undefined' && Art.has('items/' + type)) ? Art.icon('items/' + type) : ItemIcons.consumable(type);
   return '';
 }

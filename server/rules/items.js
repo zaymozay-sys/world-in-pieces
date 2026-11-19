@@ -552,17 +552,49 @@ const Gear = (() => {
 
   // Расходуемые вещи ранца. price — цена для героя 1-го уровня; дальше растёт вместе с доходом (Hero.priceScale).
   const CONSUMABLES = {
-    potion: { name: _t("Зелье здоровья"), price: 50, desc: _t("Мгновенно лечит на столько ХП, сколько наносят 8 камней вашего урона (≈ 18% ХП). Ход не тратится.") },
-    elixir: { name: _t("Боевой настой"), price: 150, desc: _t("+35 к Силе до конца хода. Ход не тратится.") },
-    dust:   { name: _t("Каменная пыль"), price: 80, desc: _t("Даёт по 3 сапфира, рубина и изумруда. Ход не тратится.") },
-    scroll: { name: _t("Свиток спешки"), price: 120, desc: _t("Ваш следующий ход даст дополнительный ход. Ход не тратится.") },
-    scrollvenom: { name: _t("Свиток отравы"), price: 260, desc: _t("До конца боя: +20% к шансу отравить цель ударом. Ход не тратится.") },
-    scrollregen: { name: _t("Свиток регенерации"), price: 260, desc: _t("До конца боя: +20% к шансу регенерации и +10% к её силе. Ход не тратится.") },
-    luck:   { name: _t("Свиток удачи"), price: 220, desc: _t("Используйте один раз за бой: +50% к монетам и ресурсам с этой победы. Ход не тратится.") },
-    honeyjar: { name: _t("Настой стойкости"), price: 180, desc: _t("Наугад: либо мгновенно +25% к максимуму ХП до конца боя, либо гарантированно блокирует следующий удар по вам. Ход не тратится.") },
+    potion: { name: _t("Эликсир жизни"), price: 50, desc: _t("Мгновенно лечит: 30 ХП на 1-м цвете, до 350 на 10-м.") },
+    elixir: { name: _t("Эликсир силы"), price: 150, desc: _t("+10% к урону удара до конца хода на 1-м цвете, до +100% на 10-м.") },
+    dust:   { name: _t("Каменная пыль"), price: 80, desc: _t("Даёт по 3 сапфира, рубина и изумруда.") },
+    scroll: { name: _t("Свиток спешки"), price: 120, desc: _t("Ваш следующий ход даст дополнительный ход.") },
+    scrollvenom: { name: _t("Свиток отравы"), price: 260, desc: _t("До конца боя: от +8% до +30% к шансу отравить цель ударом (по цвету).") },
+    scrollregen: { name: _t("Свиток регенерации"), price: 260, desc: _t("До конца боя: прибавка к шансу регенерации и её силе (растёт с цветом).") },
+    luck:   { name: _t("Свиток удачи"), price: 220, desc: _t("Используйте один раз за бой: от +10% до +100% к монетам и ресурсам с этой победы (по цвету).") },
+    honeyjar: { name: _t("Настой стойкости"), price: 180, desc: _t("Наугад: либо мгновенно добавляет к максимуму ХП (от +10% до +50% по цвету) до конца боя, либо гарантированно блокирует следующий удар по вам.") },
     // 1.3.0: только у Алхимика (в Лавке не продаются)
-    storm: { name: _t("Зелье грозы"), price: 260, alchemy: true, desc: _t("Бесплатно включает Шаровую молнию на этот ход: каждый собранный камень бьёт ×1,5. Ход не тратится.") },
-    stoneskin: { name: _t("Каменная кожа"), price: 240, alchemy: true, desc: _t("Повышает вашу Броню на 25 до конца боя (общий потолок Брони сохраняется). Ход не тратится.") },
+    storm: { name: _t("Зелье грозы"), price: 260, alchemy: true, desc: _t("Шаровая молния на этот ход: каждый собранный камень бьёт сильнее (от +10% до +100% по цвету).") },
+    stoneskin: { name: _t("Каменная кожа"), price: 240, alchemy: true, desc: _t("Повышает вашу Броню до конца боя (от 5 на 1-м цвете до 30 на 10-м).") },
+  };
+
+  // 2.4.8: цветные расходники. В ранце они лежат под ключом «вид@цвет» (например scrollvenom@3): у каждого цвета своя стопка,
+  // сила берётся из лесенки Balance.consumables.ladders. Без цвета остаются Каменная пыль и Свиток спешки (эффект не измерить числом).
+  // Зелье здоровья и Боевой настой — псевдонимы Эликсира жизни и Эликсира силы (см. Profile.addConsumable): в ранце их нет.
+  const COLORED = ['scrollvenom', 'scrollregen', 'luck', 'honeyjar', 'storm', 'stoneskin'];
+  const consLadders = () => ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).consumables.ladders;
+  const tierKey = (base, t) => base + '@' + Math.max(1, Math.min(10, Math.round(t) || 1));
+  const parseCons = (key) => { const [base, t] = String(key).split('@'); return { base, tier: t === undefined ? 0 : Math.max(1, Math.min(10, Number(t) || 1)) }; };
+  const consDesc = (base, t) => {
+    const L = consLadders(), v = (k) => L[k][t - 1];
+    if (base === 'scrollvenom') return _t("До конца боя: +{0}% к шансу отравить цель ударом.", [v('scrollvenom')]);
+    if (base === 'scrollregen') return _t("До конца боя: +{0}% к шансу регенерации и +{1}% к её силе.", [v('scrollregen'), v('scrollregenPower')]);
+    if (base === 'luck') return _t("Используйте один раз за бой: +{0}% к монетам и ресурсам с этой победы.", [v('luck')]);
+    if (base === 'honeyjar') return _t("Наугад: либо мгновенно +{0}% к максимуму ХП до конца боя, либо гарантированно блокирует следующий удар по вам.", [Math.round(v('honeyjar') * 100)]);
+    if (base === 'storm') return _t("Шаровая молния на этот ход: каждый собранный камень бьёт на {0}% сильнее.", [Math.round((v('storm') - 1) * 100)]);
+    return _t("Повышает вашу Броню на {0} до конца боя.", [v('stoneskin')]);
+  };
+  // Запись расходника по ключу: «вид» (без цвета) или «вид@цвет»; null — такого нет.
+  const consOf = (key) => {
+    const { base, tier } = parseCons(key), c = CONSUMABLES[base];
+    if (!c) return null;
+    if (!tier) return c;
+    if (!COLORED.includes(base)) return null;
+    const T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
+    return { ...c, base, tier, name: _t("{0} · {1}", [c.name, T.get(tier).name]), desc: consDesc(base, tier) };
+  };
+  // Что лежит в ранце: [[ключ, запись]], сначала бесцветные, потом по цвету
+  const heldCons = (bag) => {
+    const order = Object.keys(CONSUMABLES);
+    return Object.keys(bag || {}).filter((k) => bag[k] > 0 && consOf(k)).map((k) => [k, consOf(k)])
+      .sort((a, b) => (parseCons(a[0]).tier - parseCons(b[0]).tier) || (order.indexOf(parseCons(a[0]).base) - order.indexOf(parseCons(b[0]).base)));
   };
 
   // Цена покупки n штук по единичной цене unitPrice (используется Лавкой для покупки расходников/ресурсов
@@ -570,7 +602,7 @@ const Gear = (() => {
   const bulkPrice = (unitPrice, n) => Math.round(unitPrice) * Math.max(1, Math.round(n));
 
   return {
-    itemsFor, craftFor, isForgeOnly, RELICS, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, LOCKED_SETS, LATE_MIN_TIER, SET_WINDOWS, petBonus, ITEMS, CONSUMABLES, FORGE_KINDS,
+    itemsFor, craftFor, isForgeOnly, RELICS, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, LOCKED_SETS, LATE_MIN_TIER, SET_WINDOWS, petBonus, ITEMS, CONSUMABLES, COLORED, tierKey, parseCons, consOf, heldCons, FORGE_KINDS,
     sellTierK, DUR_BASE, DUR_STEP, REPAIR_SHARE, WEAR_SLOTS_SKIP, durMax, durOf, repairCost, wearFactor, durAfterTier, setTier, TEMPER_MAX, FIT_K, fitCost, temperCost, temperStats, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
     equipped, totalCost, setProgress, stats, statsFor, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, upgradeCostLegacy, craftCost, bulkPrice,
   };

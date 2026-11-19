@@ -909,7 +909,7 @@ html.pseudo-fs .game { overflow-y: auto; }
 .figure-box { padding: 8px; background: linear-gradient(#3a3d44, #2a2c31); border-radius: 10px; }
 .figure { display: block; width: 100%; height: auto; max-height: 52vh; }
 .stat-list { display: grid; gap: 5px; margin-top: 10px; }
-.stat-list div { display: grid; grid-template-columns: 112px minmax(52px, auto) 1fr; column-gap: 10px; align-items: baseline; padding: 5px 8px; background: var(--field); border-radius: 6px; font-size: 13px; }
+.stat-list div { display: grid; grid-template-columns: 112px minmax(52px, auto) 1fr; column-gap: 10px; align-items: center; padding: 5px 8px; background: var(--field); border-radius: 6px; font-size: 13px; }
 .stat-list span { color: var(--muted); white-space: nowrap; }
 .stat-list small { color: var(--muted); font-size: 11px; }
 
@@ -2123,7 +2123,7 @@ body.ui-columns .fighter .name { flex-wrap: wrap; row-gap: 2px; }
 .icard h3 { margin: 10px 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #c9b48a; display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #3a3226; padding-bottom: 4px; }
 .icard h3 span { color: #9a8f78; letter-spacing: 0; text-transform: none; }
 .ic-stats ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; }
-.ic-stat { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 8px; }
+.ic-stat { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; }
 .ic-sv { font-weight: 600; font-size: 14px; }
 .ic-stat.zero .ic-sv { color: #8a8070; font-weight: 400; }
 .ic-d { font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -5042,3 +5042,30 @@ body:has(> #splash:not(.hide)) > :not(#splash):not(script) { visibility: hidden;
 body .fi-pop.at-card { position: fixed; transform: none; right: auto; box-shadow: 0 8px 24px #000c; font-size: 13px; padding: 8px 10px; }
 body .fi-pop.at-card > div { padding: 2px 0; }
 body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height: 34px; }
+
+/* 2.4.8: при выборе героя показаны оба пола, нажатием выбирается пол */
+.fac-card.pick-mode .fac-fig { display: flex; gap: 8px; max-width: none; background: none; }
+.fac-fig-pick { flex: 1; min-width: 0; padding: 6px 4px; background: linear-gradient(#3a3d44, #25272c); border: 2px solid #3a3d44; border-radius: 8px; color: var(--text); cursor: pointer; text-align: center; }
+.fac-fig-pick.on { border-color: var(--accent); }
+.fac-fig-pick .figure, .fac-fig-pick svg, .fac-fig-pick img { width: 100%; height: auto; max-height: 230px; display: block; }
+.fac-fig-pick small { display: block; margin-top: 4px; font-size: 13px; }
+
+.start-why.ok { color: #8fd18f; }
+.fac-fig-pick.on { border-color: #8fd18f; box-shadow: 0 0 0 2px #8fd18f66, 0 0 14px #8fd18f55; }
+.fac-fig-pick.on small { color: #8fd18f; font-weight: 700; }
+
+/* 2.4.8: цветной расходник — значок в рамке своего цвета (как у эликсиров) */
+.cons-frame { display: inline-flex; box-sizing: border-box; padding: 3px; border: 3px solid var(--tc, #888); border-radius: 12px; background: color-mix(in srgb, var(--tc, #888) 16%, transparent); }
+.cons-frame > * { width: 100%; height: 100%; }
+
+/* 2.4.8: меню карты на компьютере — в два столбца; раскрытая группа занимает обе колонки под своим заголовком */
+@media (min-width: 700px) {
+  body:not(.phone) .map-menu:not([hidden]) { grid-template-columns: repeat(2, minmax(200px, auto)); }
+  body:not(.phone) .map-menu .mm-sub, body:not(.phone) .map-menu .map-ver { grid-column: 1 / -1; }
+  body:not(.phone) .map-menu .mm-sub:not([hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body:not(.phone) .map-menu .mm-sub button { min-width: 0; white-space: normal; }
+}
+
+/* 2.4.8: точка-напоминание на кнопке «Задания дня» */
+#m-today.has-dot, .map-menu [data-mdo="m-today"].has-dot { position: relative; }
+#m-today.has-dot::after, .map-menu [data-mdo="m-today"].has-dot::after { content: ''; position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: #4fcf6a; box-shadow: 0 0 0 2px rgba(20, 16, 10, .85); }

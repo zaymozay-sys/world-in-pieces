@@ -1455,8 +1455,8 @@ const MapView = (() => {
       body = _t("Торговец с тележкой распродаёт остатки — дешевле Лавки.");
       act = offers.map((o, n) => o.sold ? '' : `<button type="button" class="primary" data-ev="buy" data-n="${n}" data-e="${e.id}" ${d.coins >= offerPrice(o) ? '' : 'disabled'}>${Gear.CONSUMABLES[o.k].name} ×${o.n} — ${MonsterArt.moneyHtml(offerPrice(o))}</button>`).join('');
     } else if (e.kind === 'beast') {
-      body = _t("В траве прячется раненый зверь. Если перевязать его, он может отблагодарить. Нужно 1 зелье здоровья.");
-      act = `<button type="button" class="primary" data-ev="heal" data-e="${e.id}" ${(d.backpack.potion || 0) > 0 ? '' : 'disabled'}>${_t("Перевязать (−1 зелье)")}</button>`;
+      body = _t("В траве прячется раненый зверь. Если перевязать его, он может отблагодарить. Нужен 1 эликсир жизни.");
+      act = `<button type="button" class="primary" data-ev="heal" data-e="${e.id}" ${Profile.elixirBag().some((x) => x.kind === 'health') ? '' : 'disabled'}>${_t("Перевязать (−1 эликсир жизни)")}</button>`;
     } else if (e.kind === 'ambush') {
       const id = speciesFor(T), affix = World.affixFor(randomAffix(), Bestiary.MONSTERS[id].ability);
       body = _t("Засада! Из кустов выскакивает {0} ★ — элитное существо со свойством «{1}»: {2}.", [Bestiary.MONSTERS[id].name, World.AFFIXES[affix].name, World.AFFIXES[affix].desc]);
@@ -1515,8 +1515,8 @@ const MapView = (() => {
       return;
     }
     if (k === 'heal') {
-      if (!((d.backpack.potion || 0) > 0)) return;
-      d.backpack.potion--;
+      const hx = Profile.elixirBag().find((x) => x.kind === 'health');   // берётся самый слабый цвет
+      if (!hx || !Profile.takeElixir('health', hx.tier)) return;
       const lines = [];
       const eggs = Object.keys(Pets.EGGS);
       if (Math.random() < 0.3) { const egg = eggs[Math.floor(Math.random() * eggs.length)]; Profile.addEgg(egg); lines.push(_t("<b class=\"lvlup\">Находка!</b> Зверь привёл вас к гнезду: {0} — высиживается в Питомнике", [Pets.EGGS[egg].name])); }
@@ -2088,9 +2088,16 @@ const MapView = (() => {
 
   // 2.4.2: значок на фишке существа показывает уровень (1–100), а не номер цвета; кружок и шрифт растут для двух и трёх цифр
   const lvlBadge = (T, stroke, n) => { const t = String(n), r = t.length > 2 ? 10 : t.length > 1 ? 9 : 7.5, fs = t.length > 2 ? 8 : t.length > 1 ? 9.5 : 10.5; return `<g class="tier-badge" transform="translate(${r > 8 ? 13 : 15} ${r > 8 ? 13 : 14})"><circle r="${r}" fill="${T.color}" stroke="${stroke}" stroke-width="1.3"/><text y="${(fs * .34).toFixed(1)}" fill="${T.ink}" style="font-size:${fs}px">${t}</text></g>`; };
+  // 2.4.8: точка на кнопке «Задания дня», пока есть незакрытые задания (обновляется с HUD и раз в несколько секунд)
+  function updateTodayDot() {
+    const pend = Screens.todayPending ? Screens.todayPending() : 0;
+    for (const b of [document.getElementById('m-today'), document.querySelector('[data-mdo="m-today"]')]) if (b) b.classList.toggle('has-dot', pend > 0);
+  }
+  { const tmr = setInterval(updateTodayDot, 4000); if (tmr && tmr.unref) tmr.unref(); }
   function renderHud() {
     if (!map || !el['map-me']) return;
     refreshLocks();
+    updateTodayDot();
     const me = myView(), F = fac(), lv = Profile.levelInfo();
     const pct = lv.need === Infinity ? 100 : Math.round(lv.into / lv.need * 100);
     el['map-me'].style.setProperty('--lc', Tiers.get(Hero.tierFor(Profile.level())).color); el['map-me'].style.setProperty('--li', Tiers.get(Hero.tierFor(Profile.level())).ink);

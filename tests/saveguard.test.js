@@ -21,7 +21,7 @@ const GOOD = () => ({
     { uid: 'u4', id: 'leather-chest', tier: 3, fit: true }, { uid: 'u5', id: 'leather-arms', tier: 1, runes: [] }, { uid: 'u6', id: 'leather-legs', tier: 1 }, { uid: 'u7', id: 'sword-novice', tier: 4 },
   ],
   loadout: Object.assign(Gear.emptyLoadout(), { main: 'u1', off: 'u2', head: 'u3', chest: 'u4', arms: 'u5', legs: 'u6' }),
-  resources: { 'ore:1': 5, 'hide:3': 2, 'crystal:10': 1 }, backpack: { potion: 3, elixir: 1 }, elixirs: { active: {}, bag: { 'cunning:5': 2 } },
+  resources: { 'ore:1': 5, 'hide:3': 2, 'crystal:10': 1 }, backpack: { dust: 2, 'luck@2': 1 }, elixirs: { active: {}, bag: { 'cunning:5': 2 } },
   ammo: { bolt: 12 }, runeBag: { [Object.keys(Runes.CATALOG)[0]]: 2 }, eggs: { dragon: 1 }, incubator: { egg: 'griffin', left: 3 },
   shop: { top: 2, stock: [{ uid: 's1', id: 'sword-novice', tier: 2 }, { uid: 's2', id: 'shield-wood', tier: 1 }] },
   market: { lots: [{ id: 'lotA', kind: 'res', key: 'ore:1', n: 3, price: 40, fair: 20, listedAt: 1, checkedAt: 1, entry: null }, { id: 'lotB', kind: 'item', key: null, n: 1, price: 90, fair: 50, listedAt: 1, checkedAt: 1, entry: { uid: 'm1', id: 'sword-novice', tier: 2 } }], log: [{ at: 1, name: 'x', n: 1, price: 5 }] },
@@ -58,7 +58,7 @@ function check(d, tag) {
   const cnts = { resources: d.resources, backpack: d.backpack, elixirs: d.elixirs.bag, ammo: d.ammo, runeBag: d.runeBag, eggs: d.eggs || {} };
   for (const [n, o] of Object.entries(cnts)) { assert(isObj(o), tag + ': ' + n + ' не объект'); for (const [k, v] of Object.entries(o)) if (!isInt(v) || v < 0) bad(n + '.' + k + '=' + v); }   // 1.6.5: нулевой остаток допустим (израсходованный расходник)
   for (const k of Object.keys(d.resources)) { const [kind, t] = k.split(':'); if (!Bestiary.RESOURCES[kind] || !(Number(t) >= 1 && Number(t) <= 10)) bad('ресурс ' + k); }
-  for (const k of Object.keys(d.backpack)) if (!Gear.CONSUMABLES[k]) bad('расходник ' + k);
+  for (const k of Object.keys(d.backpack)) if (!Gear.consOf(k)) bad('расходник ' + k);
   if (d.shop !== null && d.shop !== undefined) { assert(isObj(d.shop) && Array.isArray(d.shop.stock) && d.shop.stock.every((e) => Gear.item(e)), tag + ': лавка'); }
   assert(isObj(d.market) && Array.isArray(d.market.lots) && Array.isArray(d.market.log), tag + ': ряды');
   for (const l of d.market.lots) {
@@ -87,7 +87,7 @@ const CASES = {
   S05: (o) => o.items.push({ uid: 'u1', id: 'sword-novice', tier: 1 }), S06: (o) => o.items.push({ id: 'sword-novice', tier: 1 }),
   S07: (o) => { o.loadout.head = 'ghost'; }, S08: (o) => { o.loadout.main = 'u2'; }, S09: (o) => { o.loadout.head = 'u1'; }, S10: (o) => { o.loadout.zzz = 'u1'; o.loadout.legs = 5; },
   S11: (o) => { o.resources = { 'ore:1': 'abc', 'ore:2': -5, 'zzz:9': 3, 'hide:1': null, 'fang:1': 1e300, 'ore:11': 2, 'ore:1.5': 1 }; },
-  S12: (o) => { o.backpack = { potion: -3, bogus: 5, elixir: 1e300 }; },
+  S12: (o) => { o.backpack = { dust: -3, bogus: 5, 'luck@2': 1e300 }; },
   S13: (o) => { o.xp = -100; }, S15: (o) => { o.coins = -50.5; }, S15b: (o) => { o.coins = 12.7; },
   S18: (o) => { o.shop = { top: 1, stock: [null] }; }, S19: (o) => { o.shop = { top: 1, stock: [{ uid: 's1', id: 'nope', tier: 1 }] }; },
   S20: (o) => { o.market = { lots: [null], log: [] }; }, S21: (o) => { o.market = { lots: [{ kind: 'item', price: 5 }, { kind: 'res' }], log: [null] }; },
@@ -123,12 +123,12 @@ for (const [id, mut] of Object.entries(CASES)) {
 
 // 2б. Нулевые остатки — обычное состояние игры (расходник использован до конца): профиль не меняется и не считается «починенным»
 {
-  const g = GOOD(); g.backpack.scroll = 0; g.backpack.luck = 0; g.resources['ore:2'] = 0; g.ammo.bolt = 0; g.elixirs.bag['cunning:6'] = 0;
+  const g = GOOD(); g.backpack.scroll = 0; g.backpack['luck@2'] = 0; g.resources['ore:2'] = 0; g.ammo.bolt = 0; g.elixirs.bag['cunning:6'] = 0;
   const before = JSON.stringify(g), r = SaveGuard.normalize(g);
   assert.deepStrictEqual(r.notes, [], 'нулевые остатки не должны попадать в «починку»: ' + r.notes.join('; '));
   assert.strictEqual(JSON.stringify(g), before, 'нулевые остатки не должны меняться');
-  const z = GOOD(); z.backpack.scroll = -3; z.backpack.luck = 0.5; z.backpack.nope = 0; const r2 = SaveGuard.normalize(z);
-  assert(!('scroll' in z.backpack) && !('luck' in z.backpack) && !('nope' in z.backpack), 'отрицательное, дробное и неизвестное по-прежнему убираются');
+  const z = GOOD(); z.backpack.scroll = -3; z.backpack['luck@2'] = 0.5; z.backpack.nope = 0; const r2 = SaveGuard.normalize(z);
+  assert(!('scroll' in z.backpack) && !('luck@2' in z.backpack) && !('nope' in z.backpack), 'отрицательное, дробное и неизвестное по-прежнему убираются');
   assert.strictEqual(r2.notes.length, 3, 'три правки: ' + r2.notes.join('; '));
 }
 

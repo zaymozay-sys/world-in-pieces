@@ -64,6 +64,12 @@ const Screens = (() => {
   const runePrice = () => Math.round(buyPrice(RUNE_PRICE) * Tiers.PRICE_MULT[runeRank() - 1]);
   const buyPrice = (p) => Math.round(p * Factions.perk(Profile.data.faction, 'shop'));
   const consPrice = (k) => Profile.consumablePrice(k);       // растёт с уровнем героя
+  // 2.4.8: сколько таких расходников у героя на его цвете (зелье/настой — это эликсиры жизни/силы)
+  const consHave = (k) => {
+    const ht = Hero.tierFor(Hero.levelOf(Profile.data.xp).level), bag = Profile.data.backpack;
+    if (k === 'potion' || k === 'elixir') return Profile.data.elixirs.bag[Elixirs.key(k === 'potion' ? 'health' : 'power', ht)] || 0;
+    return bag[Gear.COLORED.includes(k) ? Gear.tierKey(k, ht) : k] || 0;
+  };
   // 2.2.9: расход ресурсов на боеприпасы растёт с ценой штуки, чтобы изготовление было дешевле покупки в Лавке на ~35%, а выручка в Рядах не превышала вход
   const ammoNeed = (kind, tier, k) => Ammo.brewNeed(null, ammoPrice(k), Bestiary.resPrice(kind, tier));
   const ammoPrice = (k) => Hero.consumablePrice(Ammo.CATALOG[k].price, Profile.level());   // 1.3.0: боеприпасы
@@ -589,7 +595,7 @@ const Screens = (() => {
         const qtyPicker = (kind, key, active) => `<div class="qty-picker">${QTY_STEPS.map((n) => `<button type="button" class="qs ${n === active ? 'on' : ''}" data-qty="${kind}" data-qty-key="${key}" data-qty-n="${n}">×${n}</button>`).join('')}</div>`;
         const cons = Object.entries(Gear.CONSUMABLES).filter(([, c]) => !c.alchemy).map(([k, c]) => {
           const qty = s.consQty[k] || 1, total = buyPrice(Gear.bulkPrice(consPrice(k), qty));
-          return _t("<div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2}</span><span class=\"item-foot\">Цена: {3} за шт. · в ранце: {4}</span></div>\n          <div class=\"card-act\">{5}<button type=\"button\" data-buy-cons=\"{6}\" data-n=\"{7}\" {8}>Купить ×{9} за {10}</button></div></div>", [itemIcon(k), c.name, c.desc, money(buyPrice(consPrice(k))), Profile.data.backpack[k] || 0, qtyPicker('cons', k, qty), k, qty, Profile.data.coins >= total ? '' : 'disabled', qty, money(total)]);
+          return _t("<div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2}</span><span class=\"item-foot\">Цена: {3} за шт. · в ранце: {4}</span></div>\n          <div class=\"card-act\">{5}<button type=\"button\" data-buy-cons=\"{6}\" data-n=\"{7}\" {8}>Купить ×{9} за {10}</button></div></div>", [itemIcon(k), c.name, c.desc, money(buyPrice(consPrice(k))), consHave(k), qtyPicker('cons', k, qty), k, qty, Profile.data.coins >= total ? '' : 'disabled', qty, money(total)]);
         }).join('');
         const ak = Profile.shotKind(), AM = Ammo.CATALOG[ak], aq = s.ammoQty || Ammo.PACK, atot = buyPrice(Gear.bulkPrice(ammoPrice(ak), aq));
         const ammoCard = _t("<div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2} Выстрел хода не тратит, один за ход.</span><span class=\"item-foot\">Цена: {3} за шт. · в сумке: {4}</span></div>\n          <div class=\"card-act\"><div class=\"qty-picker\">{5}</div><button type=\"button\" data-buy-ammo=\"{6}\" data-n=\"{7}\" {8}>Купить ×{9} за {10}</button></div></div>", [Ammo.icon(ak), AM.name, AM.desc, money(buyPrice(ammoPrice(ak))), Profile.ammo(ak), [5, 10, 25].map((n) => `<button type="button" class="qs ${n === aq ? 'on' : ''}" data-ammo-qty="${n}">×${n}</button>`).join(''), ak, aq, Profile.data.coins >= atot ? '' : 'disabled', aq, money(atot)]);
@@ -603,7 +609,7 @@ const Screens = (() => {
         const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e))
           .sort((a, b) => b.tier - a.tier).map((it) =>
             itemCard(it, _t("Продать за: {0}", [money(Gear.sellValue(Math.round(it.price * Gear.wearFactor(Profile.item(it.uid))), it.tier))]), _t("<button type=\"button\" data-sell-item=\"{0}\">Продать</button>", [it.uid]))).join('') || _t("<p class=\"hint\">Нет вещей на продажу (надетые не продаются).</p>");
-        const cons = Object.entries(Gear.CONSUMABLES).filter(([k]) => Profile.data.backpack[k] > 0).map(([k, c]) => _t("\n          <div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}</span><span class=\"item-foot\">За штуку: {3}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-sell-cons=\"{4}\">Продать 1</button></div></div>", [itemIcon(k), c.name, Profile.data.backpack[k], money(Gear.sellValue(consPrice(k))), k])).join('') || EmptyArt.html('flask', _t("Расходников нет"));
+        const cons = Gear.heldCons(Profile.data.backpack).map(([k, c]) => _t("\n          <div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}</span><span class=\"item-foot\">За штуку: {3}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-sell-cons=\"{4}\">Продать 1</button></div></div>", [itemIcon(k), c.name, Profile.data.backpack[k], money(Gear.sellValue(consPrice(Gear.parseCons(k).base))), k])).join('') || EmptyArt.html('flask', _t("Расходников нет"));
         const res = Profile.resList().map((r) => {
           const p = Bestiary.resSellPrice(r.kind, r.tier);
           return _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2} × {3}</span><span class=\"item-foot\">За штуку: {4}</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-sell-res=\"{5}:{6}\" data-n=\"1\">×1</button><button type=\"button\" data-sell-res=\"{7}:{8}\" data-n=\"all\">Все</button></div></div>", [tierColor(r.tier), MonsterArt.resIcon(r.kind, r.tier), resLabel(r.kind, r.tier), r.n, money(p), r.kind, r.tier, r.kind, r.tier]);
@@ -697,10 +703,10 @@ const Screens = (() => {
         return changed();
       }
       if (d.sellCons) {
-        const c = Gear.CONSUMABLES[d.sellCons];
-        if (!(Profile.data.backpack[d.sellCons] > 0)) return;
+        const c = Gear.consOf(d.sellCons);
+        if (!c || !(Profile.data.backpack[d.sellCons] > 0)) return;
         Profile.data.backpack[d.sellCons]--;
-        Profile.addCoins(Gear.sellValue(consPrice(d.sellCons)));
+        Profile.addCoins(Gear.sellValue(consPrice(Gear.parseCons(d.sellCons).base)));
         s.msg = _t("Продано: {0}", [c.name]);
         return changed();
       }
@@ -1251,7 +1257,9 @@ const Screens = (() => {
         const f = Factions.LIST[id];
         const stats = Object.entries(f.stats).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
         const chosen = s.first ? true : curF === id;
-        const fig = Figures.figure(Factions.heroKind(id, draftGender || 'm'), !s.first && chosen ? Profile.gear() : null);
+        const fig = s.first
+          ? ['m', 'f'].map((g) => `<button type="button" class="fac-fig-pick ${s.gender === g ? 'on' : ''}" data-gender="${g}" aria-label="${g === 'm' ? _t('Мужской') : _t('Женский')}">${Figures.figure(Factions.heroKind(id, g), null)}<small>${s.gender === g ? '✓ ' + _t('Выбран') : (g === 'm' ? _t('Мужской') : _t('Женский'))}</small></button>`).join('')
+          : Figures.figure(Factions.heroKind(id, draftGender || 'm'), chosen ? Profile.gear() : null);
         const genderBtns = _t("<button type=\"button\" class=\"primary {0}\" data-gender=\"m\">Мужской</button><button type=\"button\" class=\"primary {1}\" data-gender=\"f\">Женский</button>", [s.gender === 'm' ? 'on' : '', s.gender === 'f' ? 'on' : '']);
         const btn = s.first ? `<div class="gender-pick">${genderBtns}</div>`
           : `<button type="button" class="primary" data-faction="${id}" ${chosen ? 'disabled' : ''}>${chosen ? _t("Ваша фракция") : _t("Выбрать")}</button>`;
@@ -1263,7 +1271,7 @@ const Screens = (() => {
         : _t("Сменить фракцию можно в любой момент в Ратуше. Вещи чужой фракции при этом снимаются.");
       const backBtn = s.first ? _t("<button type=\"button\" class=\"close\" data-act=\"back\">← Назад к гербам</button>") : '';
       const reg = s.first ? _t("<div class=\"reg-row\">\n          <label class=\"reg-field\"><span>Ваш ник</span><input type=\"text\" maxlength=\"20\" placeholder=\"Как вас называть?\" value=\"{0}\" data-nick></label>\n          <button type=\"button\" class=\"link-btn\" data-random-name=\"1\">Не знаю, как назваться → случайное имя</button>\n        </div>", [escText(s.name)]) : '';
-      const startBtn = s.first ? _t("<div class=\"reset\">{1}<button type=\"button\" class=\"primary\" data-act=\"start\" {0}>Начать игру!</button></div>", [canStartGame() ? '' : 'disabled', canStartGame() ? '' : `<small class="start-why">${_t("Введите ник и выберите пол героя")}</small>`]) : '';
+      const startBtn = s.first ? _t("<div class=\"reset\">{1}<button type=\"button\" class=\"primary\" data-act=\"start\" {0}>Начать игру!</button></div>", [canStartGame() ? '' : 'disabled', canStartGame() ? `<small class="start-why ok">${_t("Всё готово — нажмите «Начать игру!»")}</small>` : `<small class="start-why">${_t("Введите ник и выберите пол героя")}</small>`]) : '';
       return `<div class="modal" role="dialog" aria-label="${title}"><header>${backBtn}<h2>${title}</h2>${s.first ? '' : _t("<button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button>")}</header>
         <div class="screen-body"><p class="hint">${lead}</p>${reg}${s.msg ? `<div class="gear-toast">${s.msg}</div>` : ''}<div class="fac-grid">${cards}</div>${startBtn}</div></div>`;
     },
@@ -2002,7 +2010,7 @@ const Screens = (() => {
         const cards = Forge.SCROLLS.map((k) => {
           const c = Gear.CONSUMABLES[k], stack = alchStack(2, k), fee = Math.round(consPrice(k) * 0.25);
           return shelfCard('library', { key: k, icon: itemIcon(k), title: c.name, sub: `${c.desc} ${_t("Нужно: 2 ресурса — {0} (цвет «{1}» или выше)", [ownNames(k, Hero.tierFor(Profile.level())), Tiers.get(Math.max(1, Hero.tierFor(Profile.level()) - 1)).name])}`,
-            price: money(fee), have: Profile.data.backpack[k] || 0, color: '#c9b48a' });
+            price: money(fee), have: consHave(k), color: '#c9b48a' });
         }).join('');
         const lines = Object.entries(bk).map(([k, q]) => ({ key: k, qty: q, label: Gear.CONSUMABLES[k].name, cost: money(Math.round(consPrice(k) * 0.25) * q) }));
         const plan = planOrder(scrollUnits(bk));
@@ -2714,7 +2722,7 @@ const credits = {
   function mkAssets(kind) {
     if (kind === 'item') return Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => ({ key: e.uid, have: 1, name: Gear.item(e).name, icon: itemIcon('', '', e.id), tier: e.tier, entry: e }));
     if (kind === 'res') return Profile.resList().map((r) => ({ key: r.kind + ':' + r.tier, have: r.n, name: resLabel(r.kind, r.tier), icon: MonsterArt.resIcon(r.kind, r.tier), tier: r.tier }));
-    if (kind === 'cons') return Object.entries(Gear.CONSUMABLES).filter(([k]) => Profile.data.backpack[k] > 0).map(([k, c]) => ({ key: k, have: Profile.data.backpack[k], name: c.name, icon: itemIcon(k), unit: consPrice(k) }));
+    if (kind === 'cons') return Gear.heldCons(Profile.data.backpack).map(([k, c]) => ({ key: k, have: Profile.data.backpack[k], name: c.name, icon: itemIcon(k), unit: consPrice(Gear.parseCons(k).base) }));
     return Ammo.stocks((k) => Profile.ammo(k)).map((k) => ({ key: k, have: Profile.ammo(k), name: Ammo.stockName(k), icon: Ammo.icon(k), unit: Hero.consumablePrice(Ammo.CATALOG[Ammo.parse(k).kind].price, Profile.level()) }));
   }
   const lotIcon = (lot) => lot.kind === 'item' ? itemIcon('', '', lot.entry.id) : lot.kind === 'res' ? MonsterArt.resIcon(lot.key.split(':')[0], Number(lot.key.split(':')[1])) : lot.kind === 'cons' ? itemIcon(lot.key) : Ammo.icon(lot.key);
@@ -3504,6 +3512,20 @@ const credits = {
   };
 
   /* 2.4.5: «Сегодня» — всё ежедневное на одном экране: головоломка, Испытание дня, поручение библиотеки. */
+  // 2.4.8: сколько заданий дня ещё не закрыто (для точки на кнопке «Задания дня»)
+  const todayPending = () => {
+    try {
+      const d = Profile.data, day = Daily.today(); let n = 0;
+      if (Unlocks.isOpen(d, 'arena')) {
+        const pz = d.puzzle = Puzzle.clean(d.puzzle); Puzzle.sync(pz, day);
+        if (!pz.done) n++;
+        const ch = challengeState();
+        if (!(d.medals && d.medals.daily && d.medals.daily.last === day) && World.CH_TRIES - ch.tries > 0) n++;
+      }
+      if (!earlyGame() && !Daily.libraryQuest(d).claimed) n++;
+      return n;
+    } catch (e) { return 0; }
+  };
   const today = {
     html() {
       const d = Profile.data, day = Daily.today(), arenaOpen = Unlocks.isOpen(d, 'arena'), rows = [];
@@ -3523,7 +3545,7 @@ const credits = {
           q.claimed ? '' : q.done ? `<button type="button" class="primary" data-today="claim">${_t("Забрать награду")}</button>` : `<button type="button" data-today="map">${_t("На карту")}</button>`, q.claimed));
       }
       if (!rows.length) rows.push(`<p class="hint">${_t("Ежедневные задания откроются позже: победите первых существ.")}</p>`);
-      return `<div class="modal" role="dialog" aria-label="${_t("Сегодня")}">${head(_t("Сегодня"))}<div class="screen-body"><p class="hint">${_t("Всё на сегодня в одном месте: десять минут, и день засчитан.")}</p><div class="card-list">${rows.join('')}</div></div></div>`;
+      return `<div class="modal" role="dialog" aria-label="${_t("Задания дня")}">${head(_t("Задания дня"))}<div class="screen-body"><p class="hint">${_t("Всё на сегодня в одном месте: десять минут, и день засчитан.")}</p><div class="card-list">${rows.join('')}</div></div></div>`;
     },
     click(b) {
       const k = b.dataset.today;
@@ -3552,6 +3574,7 @@ const credits = {
     openArtistWorkshop: () => { st.artistWorkshop.msg = ''; open('artistWorkshop'); },
     openValor: () => open('valor'),
     openToday: () => open('today'),
+    todayPending,
     markedSpecies,
     openCredits: () => open('credits'),
     openFactions: (first = false) => {

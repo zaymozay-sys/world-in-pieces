@@ -25,7 +25,7 @@ const Profile = (() => {
       items,                                       // все вещи игрока: { uid, id, tier }
       loadout,                                     // ячейка → uid надетой вещи
       resources: {},                               // 'вид:уровень' → количество
-      backpack: { potion: 2, elixir: 1, dust: 1, scroll: 1 },
+      backpack: { dust: 1, scroll: 1 },
       bestiary: {},                                // вид → { wins, tier } (tier — высший открытый уровень)
       quests: {},                                  // задания трактирщика: id → true (награда уже получена)
       accepted: {},                                // задания, которые игрок взял (см. js/quests.js): id → true
@@ -290,7 +290,7 @@ const Profile = (() => {
     // Лимит очков снаряжения растёт с уровнем.
     budget: () => (Hero.pointsOn() ? Hero.budget(Hero.levelOf(data.xp).level) : Infinity),
     // Цена расходника растёт с уровнем (вместе с доходом).
-    consumablePrice: (k) => Hero.consumablePrice(Gear.CONSUMABLES[k].price, Hero.levelOf(data.xp).level),
+    consumablePrice: (k) => Hero.consumablePrice(Gear.CONSUMABLES[Gear.parseCons(k).base].price, Hero.levelOf(data.xp).level),
 
     // Деньги
     addCoins(n) { if (!Number.isFinite(n) || n <= 0) return; data.coins += n; save(); },   // 1.6.4: NaN/отрицательное не портят кошелёк
@@ -334,7 +334,7 @@ const Profile = (() => {
     bagOrder() { return Array.isArray(data.elixirs.order) ? data.elixirs.order : []; },
     setBagOrder(keys) { data.elixirs.order = keys.filter((k) => typeof k === 'string').slice(0, 200); save(); },
     sortByBagOrder(list, keyOf) { const o = Array.isArray(data.elixirs.order) ? data.elixirs.order : [], pos = (x) => { const i = o.indexOf(keyOf(x)); return i < 0 ? 1e6 : i; }; return list.map((x, i) => [x, i]).sort((u, v) => pos(u[0]) - pos(v[0]) || u[1] - v[1]).map((u) => u[0]); },
-    elixirBag() { return Profile.sortByBagOrder(Object.entries(data.elixirs.bag).filter(([, n]) => n > 0).map(([k, n]) => ({ ...Elixirs.split(k), n })), (e) => `${e.kind}:${e.tier}`); },
+    elixirBag() { return Profile.sortByBagOrder(Object.entries(data.elixirs.bag).filter(([, n]) => n > 0).map(([k, n]) => ({ ...Elixirs.split(k), n })).sort((a, b) => a.tier - b.tier || Elixirs.ORDER.indexOf(a.kind) - Elixirs.ORDER.indexOf(b.kind)), (e) => `${e.kind}:${e.tier}`); },
     addElixir(kind, tier, n = 1) { if (!Number.isFinite(n) || n <= 0) return; const k = Elixirs.key(kind, tier); data.elixirs.bag[k] = (data.elixirs.bag[k] || 0) + n; save(); },
     // 1.6.0: эликсиры пьются только в бою (game.js: useElixir) и действуют до его конца — в профиле не хранятся
     takeElixir(kind, tier) {
@@ -343,7 +343,14 @@ const Profile = (() => {
       data.elixirs.bag[k]--; save(); return true;
     },
     // Расходники
-    addConsumable(kind, n = 1) { if (!Number.isFinite(n) || n <= 0) return; data.backpack[kind] = (data.backpack[kind] || 0) + n; save(); },
+    // 2.4.8: Зелье здоровья / Боевой настой = Эликсир жизни / силы (цвет героя); свитки и настои без цвета берут цвет героя
+    addConsumable(kind, n = 1) {
+      if (!Number.isFinite(n) || n <= 0) return;
+      const { base, tier } = Gear.parseCons(kind), ht = tier || Hero.tierFor(Hero.levelOf(data.xp).level);
+      if (base === 'potion' || base === 'elixir') return api.addElixir(base === 'potion' ? 'health' : 'power', ht, n);
+      const key = (Gear.COLORED.includes(base) && !tier) ? Gear.tierKey(base, ht) : kind;
+      data.backpack[key] = (data.backpack[key] || 0) + n; save();
+    },
 
     // Торговые ряды (см. market.js): проверка проданных лотов. Возвращает список проданных лотов.
     marketTick(now = Date.now()) {
@@ -856,11 +863,11 @@ const ItemInfo = (() => {
   // руны, цена и действия (в оружейной — надеть / снять). Открывается значком «i» на любой карточке вещи:
   // у вещей игрока и противника — по uid, у образцов Лавки, Кузницы и Библиотеки — по «id:цвет» (base).
   const STAT_HELP = {
-    power: _t("прибавляется к каждому удару"), health: _t("к максимуму здоровья"), defense: _t("вычитается из каждого удара (потолка нет)"),
- initiative: _t("шанс ходить первым (потолок 50%)"),
-    ricochet: _t("шанс отразить удар в нападающего (потолок 40%)"), block: _t("шанс полностью отбить удар (потолок 50%)"),
-    fury: _t("шанс нанести двойной урон (потолок 35%)"), cunning: _t("шанс забрать половину магических камней врага (потолок 30%)"), venom: _t("шанс, что удар отравит врага: он теряет ХП несколько ходов (потолок 30%)"),
-    leech: _t("шанс, что удар вернёт вам часть нанесённого урона здоровьем (потолок 50%)"), leechPower: _t("какая доля нанесённого урона возвращается здоровьем (потолок 30%)"),
+    power: _t("прибавляется к каждому удару"), health: _t("к максимуму здоровья"), defense: _t("вычитается из каждого удара"),
+ initiative: _t("шанс ходить первым"),
+    ricochet: _t("шанс отразить удар в нападающего"), block: _t("шанс полностью отбить удар"),
+    fury: _t("шанс нанести двойной урон"), cunning: _t("шанс забрать половину магических камней врага"), venom: _t("шанс, что удар отравит врага: он теряет ХП несколько ходов"),
+    leech: _t("шанс, что удар вернёт вам часть нанесённого урона здоровьем"), leechPower: _t("какая доля нанесённого урона возвращается здоровьем"),
   };
   const STAT_SCALE = { power: 30, health: 30, defense: 20, initiative: 15, ricochet: 12, block: 15, fury: 15, cunning: 12, venom: 12, leech: 12, leechPower: 12 };
   const STAT_ORDER = ['power', 'health', 'defense', 'block', 'initiative', 'ricochet', 'fury', 'cunning', 'venom', 'leech', 'leechPower'];
@@ -1146,18 +1153,18 @@ const Inventory = (() => {
     // 1.8.4: что изменилось с момента открытия карточки — плюс зелёным, минус красным (пока карточка не закрыта)
     if (!who && !statBase) statBase = { ...stats };
     const delta = (k) => (who || !statBase) ? 0 : (stats[k] || 0) - (statBase[k] || 0);
-    const row = (name, big, small, k) => { const d = k ? delta(k) : 0; const cls = d > 0 ? ' class="stat-up"' : d < 0 ? ' class="stat-down"' : ''; const sk = Object.keys(N).find((x) => N[x] === name), sic = sk && typeof Art !== 'undefined' && Art.has('ui/stat-' + sk) ? `<img class="stat-ic" src="${Art.url('ui/stat-' + sk)}" alt="" draggable="false">` : ''; return `<div><span>${sic}${name}</span><b${cls}>${big}${d ? ` <i>(${d > 0 ? '+' : '−'}${Math.abs(d)})</i>` : ''}</b><small>${small}</small></div>`; };
+    const row = (name, big, small, k) => { if (k && Gear.CAPS && Gear.CAPS[k] && (stats[k] || 0) >= Gear.CAPS[k]) small += ' · ' + _t("предел достигнут"); const d = k ? delta(k) : 0; const cls = d > 0 ? ' class="stat-up"' : d < 0 ? ' class="stat-down"' : ''; const sk = Object.keys(N).find((x) => N[x] === name), sic = sk && typeof Art !== 'undefined' && Art.has('ui/stat-' + sk) ? `<img class="stat-ic" src="${Art.url('ui/stat-' + sk)}" alt="" draggable="false">` : ''; return `<div><span>${sic}${name}</span><b${cls}>${big}${d ? ` <i>(${d > 0 ? '+' : '−'}${Math.abs(d)})</i>` : ''}</b><small>${small}</small></div>`; };
     const arm = Combat.armorAt(stats.defense), cap = '';
     return `<div class="stat-list">${[
-      row(N.power, `+${Math.round(stats.power)}`, _t("к каждому удару: +{0} (с Силой уровня +{1})", [fmt1(stats.power + Combat.levelPower(dmg)), fmt1(Combat.levelPower(dmg))]), 'power'),
-      row(N.health, `+${stats.health}`, _t("ХП всего: {0} (без вещей {1})", [base + stats.health, base]), 'health'),
+      row(N.power, `+${Math.round(stats.power)}`, (!who && stats.power > 0 ? _t("к каждому удару: +{0} (с Силой уровня +{1})", [fmt1(stats.power + Combat.levelPower(dmg)), fmt1(Combat.levelPower(dmg))]) : _t("к каждому удару: +{0}", [fmt1(stats.power + Combat.levelPower(dmg))])), 'power'),
+      row(N.health, `+${stats.health}`, (!who && stats.health > 0 ? _t("ХП всего: {0} (без вещей {1})", [base + stats.health, base]) : _t("ХП всего: {0}", [base + stats.health])), 'health'),
       row(N.defense, `−${arm}`, _t("вычитается из каждого удара; не меньше 20% удара"), 'defense'),
       row(N.initiative, `+${stats.initiative}%`, _t("шанс первого хода"), 'initiative'),
-      row(N.ricochet, `${stats.ricochet}%`, stats.ricochet > 0 ? _t("≈ каждый {0}-й удар по вам отлетает в нападающего", [nth(stats.ricochet)]) : _t("удар по вам отлетает в нападающего: пока нет"), 'ricochet'),
-      row(N.block, `${stats.block}%`, stats.block > 0 ? _t("≈ каждый {0}-й удар по вам блокируется полностью", [nth(stats.block)]) : _t("полный блок удара: пока нет"), 'block'),
-      row(N.fury, `${stats.fury}%`, stats.fury > 0 ? _t("≈ каждый {0}-й ваш удар двойной", [nth(stats.fury)]) : _t("двойной урон: пока нет"), 'fury'),
-      row(N.cunning, `${stats.cunning || 0}%`, stats.cunning > 0 ? _t("≈ раз в {0} отнимает половину магических камней противника", [_nn(nth(stats.cunning), 'ход', 'хода', 'ходов')]) : _t("кража магических камней противника: пока нет"), 'cunning'),
-    ].concat(stats.leech > 0 || stats.leechPower > 0 ? [row(N.leech, `${stats.leech || 0}%`, _t("≈ каждый {0}-й ваш удар лечит вас", [nth(stats.leech || 0)]), 'leech'), row(N.leechPower, `${stats.leechPower || 0}%`, _t("от нанесённого урона возвращается здоровьем"), 'leechPower')] : []).concat(stats.venom > 0 ? [row(N.venom, `${stats.venom}%`, _t("≈ каждый {0}-й ваш удар отравляет противника", [nth(stats.venom)]), 'venom')] : []).join('')}</div>`;
+      row(N.ricochet, `${stats.ricochet}%`, stats.ricochet > 0 ? _t("с вероятностью {0}% удар отлетает в нападающего", [stats.ricochet]) : _t("удар отлетает в нападающего: пока нет"), 'ricochet'),
+      row(N.block, `${stats.block}%`, stats.block > 0 ? _t("с вероятностью {0}% удар блокируется полностью", [stats.block]) : _t("полный блок удара: пока нет"), 'block'),
+      row(N.fury, `${stats.fury}%`, stats.fury > 0 ? _t("с вероятностью {0}% удар наносит двойной урон", [stats.fury]) : _t("двойной урон: пока нет"), 'fury'),
+      row(N.cunning, `${stats.cunning || 0}%`, stats.cunning > 0 ? _t("с вероятностью {0}% за ход отнимает половину магических камней противника", [stats.cunning]) : _t("кража магических камней противника: пока нет"), 'cunning'),
+    ].concat(stats.leech > 0 || stats.leechPower > 0 ? [row(N.leech, `${stats.leech || 0}%`, _t("с вероятностью {0}% удар лечит", [stats.leech || 0]), 'leech'), row(N.leechPower, `${stats.leechPower || 0}%`, _t("от нанесённого урона возвращается здоровьем"), 'leechPower')] : []).concat(stats.venom > 0 ? [row(N.venom, `${stats.venom}%`, _t("с вероятностью {0}% удар отравляет цель", [stats.venom]), 'venom')] : []).join('')}</div>`;
   }
 
   // Уровень, опыт, ХП и урон героя.
@@ -1229,8 +1236,8 @@ const Inventory = (() => {
     const sets = Gear.setProgress(gear).map((p) => _t("\n      <div class=\"set\" style=\"--c:{0}\"><b>Набор «{1}» {2}/{3}</b>\n        {4}\n        {5}\n      </div>", [p.color, p.name, p.count, p.total, p.active.map((a) => _t("<div class=\"on\">{0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join(''), p.next.slice(0, 1).map((a) => _t("<div class=\"off\">ещё до {0} шт.: {1}</div>", [a.need, fmtBonus(a.bonus)])).join('')])).join('') || _t("<p class=\"hint\">Наборов нет: собирайте предметы одного набора — они усиливают друг друга.</p>");
 
     const bag = mine ? Profile.data.backpack : fighters.right.bag;
-    const bagHtml = Object.entries(Gear.CONSUMABLES).map(([k, c]) => `
-      <div class="bag-row">${itemIcon(k)}<span><b>${c.name}</b> × ${bag[k] || 0}<br><small>${c.desc}</small></span></div>`).join('');
+    const bagHtml = Gear.heldCons(bag).map(([k, c]) => `
+      <div class="bag-row">${itemIcon(k)}<span><b>${c.name}</b> × ${bag[k]}<br><small>${c.desc}</small></span></div>`).join('') || _t("<p class=\"hint\">Расходников нет.</p>");   // 2.4.8: только то, что есть в наличии
     const resHtml = mine ? (Profile.resList().map((r) => `<div class="bag-row">${MonsterArt.resIcon(r.kind, r.tier)}<span><b>${resLabel(r.kind, r.tier)}</b> × ${r.n}</span></div>`).join('') || _t("<p class=\"hint\">Ресурсов пока нет: они выпадают из монстров.</p>")) : '';
 
     const pct = budget ? Math.min(100, Math.round(used / budget * 100)) : 0;
@@ -1365,7 +1372,7 @@ const Inventory = (() => {
 
     const bag = Profile.data.backpack || {};
     const ammoRow = Ammo.stocks((x) => Ammo.parse(x).kind === ak ? Profile.ammo(x) : 0).concat(Profile.ammo(ak) > 0 ? [] : [ak]).map((x) => { const V = Ammo.parse(x).variant; return _t("<div class=\"bag-row\">{0}<span><b>{1}</b> × {2}<br><small>{3} Выстрел хода не тратит, один за ход.</small></span></div>", [Ammo.icon(x), Ammo.stockName(x), Profile.ammo(x), AM.desc + (V ? ' ' + Ammo.VDESC[V] : '')]); }).join('');
-    const cons = Object.entries(Gear.CONSUMABLES).filter(([k]) => bag[k] > 0)
+    const cons = Gear.heldCons(bag)
       .map(([k, c]) => `<div class="bag-row">${itemIcon(k)}<span><b>${c.name}</b> × ${bag[k]}<br><small>${c.desc}</small></span></div>`).join('')
       || _t("<p class=\"hint\">Эликсиров и расходников нет.</p>");
     const exAct = (typeof inBattle !== 'undefined' && inBattle && fighters.left.elx) || {};
@@ -1394,7 +1401,7 @@ const Inventory = (() => {
     };
     const elixCells = Profile.sortByBagOrder([
       ...Profile.elixirBag().map((e) => ({ key: `${e.kind}:${e.tier}`, icon: Elixirs.icon(e.kind, e.tier), n: e.n, color: tierColor(e.tier), title: _t("{0} · цвет «{1}» × {2}", [Elixirs.KINDS[e.kind].name, Tiers.get(e.tier).name, e.n]) })),
-      ...Object.entries(Gear.CONSUMABLES).filter(([k]) => bag[k] > 0).map(([k, c]) => ({ key: 'c:' + k, icon: itemIcon(k), n: bag[k], color: '#c9b48a', title: `${c.name} × ${bag[k]}` })),
+      ...Gear.heldCons(bag).map(([k, c]) => ({ key: 'c:' + k, icon: itemIcon(k), n: bag[k], color: c.tier ? tierColor(c.tier) : '#c9b48a', title: `${c.name} × ${bag[k]}` })),
     ], (c) => c.key);
     const resCells = Profile.resList().map((r) => ({ key: `r:${r.kind}:${r.tier}`, icon: MonsterArt.resIcon(r.kind, r.tier), n: r.n, color: tierColor(r.tier), title: `${resLabel(r.kind, r.tier)} × ${r.n}` }));
     const bagTabsHtml = `<div class="tabs bag-tabs">${[['elix', _t("Эликсиры")], ['res', _t("Ресурсы")]].map(([k, l]) => `<button type="button" class="${bagTab === k ? 'on' : ''}" data-btab="${k}">${l}</button>`).join('')}</div>`;

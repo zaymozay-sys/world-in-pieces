@@ -101,7 +101,20 @@ const SaveGuard = (() => {
 
     // --- ресурсы, расходники, эликсиры, боеприпасы, руны, яйца ---
     d.resources = counters(d.resources, resKeyOk, 'ресурсы');
-    d.backpack = counters(d.backpack, (k) => !!SG_G.CONSUMABLES[k], 'расходники');
+    // 2.4.8: Зелье здоровья и Боевой настой стали Эликсиром жизни и силы, а свитки и настои — цветными (ключ «вид@цвет»): старые запасы переезжают на цвет героя
+    if (isObj(d.backpack)) {
+      const H = (typeof Hero !== 'undefined') ? Hero : require('./hero.js');
+      const ht = H.tierFor(H.levelOf(Number(d.xp) || 0).level);
+      if (!isObj(d.elixirs)) d.elixirs = { active: {}, bag: {} };
+      if (!isObj(d.elixirs.bag)) d.elixirs.bag = {};
+      for (const k of Object.keys(d.backpack)) {
+        const n = Number(d.backpack[k]) || 0;
+        const to = k === 'potion' ? 'health:' + ht : k === 'elixir' ? 'power:' + ht : null;
+        if (to) { if (n > 0) d.elixirs.bag[to] = (d.elixirs.bag[to] || 0) + n; delete d.backpack[k]; }
+        else if (SG_G.COLORED.includes(k)) { if (n > 0) d.backpack[SG_G.tierKey(k, ht)] = (d.backpack[SG_G.tierKey(k, ht)] || 0) + n; delete d.backpack[k]; }
+      }
+    }
+    d.backpack = counters(d.backpack, (k) => !!SG_G.consOf(k), 'расходники');
     if (!isObj(d.elixirs)) d.elixirs = { active: {}, bag: {} };
     d.elixirs.bag = counters(d.elixirs.bag, elixKeyOk, 'эликсиры');
     d.ammo = counters(d.ammo, (k) => SG_A.parse(k).ok, 'боеприпасы');
@@ -120,7 +133,7 @@ const SaveGuard = (() => {
       const lots = [], now = Date.now();
       for (const l of Array.isArray(d.market.lots) ? d.market.lots : []) {
         const base = isObj(l) && typeof l.id === 'string' && ['item', 'res', 'cons', 'ammo'].includes(l.kind) && Number.isFinite(l.price) && l.price > 0 && Number.isFinite(l.n) && l.n >= 1 && Number.isFinite(l.fair) && l.fair > 0;
-        const keyOk = base && (l.kind === 'item' ? validEntry(l.entry) : l.kind === 'res' ? resKeyOk(l.key) : l.kind === 'cons' ? !!SG_G.CONSUMABLES[l.key] : SG_A.parse(l.key).ok);
+        const keyOk = base && (l.kind === 'item' ? validEntry(l.entry) : l.kind === 'res' ? resKeyOk(l.key) : l.kind === 'cons' ? !!SG_G.CONSUMABLES[SG_G.parseCons(l.key).base] : SG_A.parse(l.key).ok);
         if (!keyOk) { fix('лот убран'); continue; }
         const c = { ...l };
         if (!Number.isFinite(c.listedAt)) { c.listedAt = now; fix('лот: время'); }

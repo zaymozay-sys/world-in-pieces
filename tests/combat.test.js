@@ -164,10 +164,11 @@ assert.strictEqual(Combat.buffStat(m, 'retribution'), B.abilities.retribution.ri
 
 // расходники и свиток спешки
 let f = fighter({ hp: 40 });
-assert.strictEqual(Combat.useConsumable(f, 'potion', []).heal, Math.round(B.damage.stone * B.consumables.potion.stones));
+assert.strictEqual(Combat.useConsumable(f, 'potion', []).heal, 30);              // 2.4.8: 1-й цвет — 30 ХП (лесенка эликсира «Жизнь»)
 assert.strictEqual(Combat.useConsumable(fighter(), 'potion', []), null);         // здоровье полное
 f = fighter(); Combat.useConsumable(f, 'elixir', []);
-assert.strictEqual(Combat.buffPower(f), B.consumables.elixir.power);
+assert.strictEqual(Combat.buffPower(f), 0);                                       // 2.4.8: настой — проценты, плоской прибавки нет
+assert.strictEqual(f.buffs[0].pct, 10);                                           // 1-й цвет — +10% к Силе
 assert.strictEqual(Combat.useConsumable(f, 'elixir', []), null);                  // второй эликсир не складывается
 for (let k = 0; k < 10; k++) Combat.finishAction(f, false);                       // "до конца хода" — действия его не снимают
 assert.strictEqual(f.buffs.length, 1);
@@ -394,4 +395,22 @@ console.log('combat: все тесты пройдены');
   assert.strictEqual(Combat.costSpec('steal', mk(3)).n, 4);
   assert.strictEqual(Combat.costSpec('steal', mk(4)).n, 5);
   assert.strictEqual(Combat.costSpec('steal').n, 5);
+}
+
+// 2.4.8: Ядовитый укус складывается: до 3 слоёв, у каждого свои 3 хода
+{
+  const foe = fighter();
+  Combat.addVenomLayer(foe, 10, 3);
+  assert.deepStrictEqual([foe.poison.dmg, foe.poison.turns], [10, 3]);
+  Combat.addVenomLayer(foe, 10, 3);
+  assert.strictEqual(foe.poison.dmg, 20);
+  assert.strictEqual(Combat.tickPoison(foe.poison), 20);          // оба слоя ещё живут, у каждого осталось 2 хода
+  Combat.addVenomLayer(foe, 6, 3);
+  assert.strictEqual(foe.poison.dmg, 26);
+  Combat.addVenomLayer(foe, 4, 3);                                   // четвёртый: уходит самый старый слой
+  assert.strictEqual(foe.poison.layers.length, 3);
+  assert.strictEqual(foe.poison.dmg, 20);
+  let n = 0; while (foe.poison.turns > 0 && n < 10) { Combat.tickPoison(foe.poison); n++; }
+  assert.strictEqual(n, 3);                                          // самый свежий слой живёт свои 3 хода
+  assert.strictEqual(foe.poison.dmg, 0);
 }

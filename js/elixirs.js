@@ -102,7 +102,7 @@ const Elixirs = (() => {
     if (kind === 'speed') return _t("Дополнительный ход сразу и Проворство +{0} на {1 ход|хода|ходов}.", [bonus(tier, 'speed'), LONG_TURNS]);
     if (kind === 'road') return _t("Броня +{0} и максимум ХП +{1}% на этот бой и ещё {2}.", [Math.round(bonus(tier, 'road')), Math.round(ROAD_HP * 100), ROAD_FIGHTS - 1]);
     const K = KINDS[kind], st = (typeof Gear !== 'undefined' && Gear.STAT_NAMES) ? Gear.STAT_NAMES : {};
-    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно каждый ход, но один раз за ход; ход не тратится.", [heal(tier)]) + (tier >= FX_MIN ? ' ' + _t("Первый глоток за бой: {0}.", [sideText(kind, tier)]) : '');
+    if (kind === 'health') return _t("Лечит на {0} ХП. Пить можно каждый ход, но один раз за ход.", [heal(tier)]) + (tier >= FX_MIN ? ' ' + _t("Первый глоток за бой: {0}.", [sideText(kind, tier)]) : '');
     if (kind === 'venom') return _t("Шанс отравить +{0}% до конца хода. Пить перед ударом.", [bonus(tier, kind)]);
     if (kind === 'swap') return _t("Превращает до {0 камень|камня|камней} того вида, которого у вас больше всего, в камни того, которого меньше всего (не больше половины разницы между ними). Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [swapAmount(tier), cdOf(kind)]);
     if (kind === 'stones') return _t("Даёт по {0} каждого вида. Пить можно раз в {1 ход|хода|ходов}, ход не тратится.", [_nn(stonesGain(tier), 'камень', 'камня', 'камней'), cdOf(kind)]);
@@ -147,13 +147,13 @@ const Elixirs = (() => {
   }
   // Значок: флакон цвета уровня
   const icon = (kind, tier) => {
-    // 1.7.5: картинка вида эликсира art/items/elx-<вид>.webp (если есть); цвет уровня — кольцо под флаконом и цифра
+    // 1.7.5: картинка вида эликсира art/items/elx-<вид>.webp (если есть); цвет уровня — цветная рамка (2.4.8: без цифры, чтобы не путать с количеством)
     if (typeof Art !== 'undefined' && Art.has('items/elx-' + kind)) {
       const c = (typeof Tiers !== 'undefined' && Tiers.get(tier)) ? Tiers.get(tier).color : '#c33';
-      return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="50" cy="88" rx="30" ry="6" fill="${c}" fill-opacity=".85"/><image href="${Art.url('items/elx-' + kind)}" x="8" y="4" width="84" height="84" preserveAspectRatio="xMidYMid meet"/><circle cx="80" cy="80" r="13" fill="${c}" stroke="#222" stroke-width="2.5"/><text x="80" y="86" text-anchor="middle" font-size="18" font-weight="700" fill="#fff" stroke="#000" stroke-width=".5">${tier}</text></svg>`;
+      return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><rect x="3" y="3" width="94" height="94" rx="15" fill="${c}" fill-opacity=".16" stroke="${c}" stroke-width="5"/><image href="${Art.url('items/elx-' + kind)}" x="10" y="10" width="80" height="80" preserveAspectRatio="xMidYMid meet"/></svg>`;
     }
     const col = (typeof Tiers !== 'undefined' && Tiers.get(tier)) ? Tiers.get(tier).color : '#c33';
-    return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M42 12h16v6l-2 2v12c14 7 24 22 24 38 0 12-8 18-30 18S20 82 20 70c0-16 10-31 24-38V20l-2-2z" fill="#e8f1f4" fill-opacity=".35" stroke="#222" stroke-width="3"/><path d="M24 62c0 14 8 20 26 20s26-6 26-20c-8 4-18-4-26 0s-18 4-26 0z" fill="${col}" stroke="#222" stroke-width="2"/><rect x="40" y="8" width="20" height="9" rx="2" fill="#8a5a2c" stroke="#222" stroke-width="2"/><text x="50" y="76" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" stroke="#000" stroke-width=".6">${tier}</text></svg>`;
+    return `<svg class="item-icon" viewBox="0 0 100 100" aria-hidden="true"><rect x="3" y="3" width="94" height="94" rx="15" fill="${col}" fill-opacity=".16" stroke="${col}" stroke-width="5"/><path d="M42 12h16v6l-2 2v12c14 7 24 22 24 38 0 12-8 18-30 18S20 82 20 70c0-16 10-31 24-38V20l-2-2z" fill="#e8f1f4" fill-opacity=".35" stroke="#222" stroke-width="3"/><path d="M24 62c0 14 8 20 26 20s26-6 26-20c-8 4-18-4-26 0s-18 4-26 0z" fill="${col}" stroke="#222" stroke-width="2"/><rect x="40" y="8" width="20" height="9" rx="2" fill="#8a5a2c" stroke="#222" stroke-width="2"/></svg>`;
   };
   return { ROAD_FIGHTS, ROAD_HP, FOOD_MULT, powerPct, activePct, LOW, GREAT, SWAP, STONES, HEAL, PER_TIER, FX_MIN, effect, sideText, icon, KINDS, ORDER, MAX_TIER, bonus, battles, key, split, price, need, describe, bonusStats, drink, tick, heal, stonesGain, swapAmount, swapMove, turns, LONG_TURNS, INSTANT_CDS, cdOf };
 })();

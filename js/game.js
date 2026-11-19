@@ -130,7 +130,7 @@ const anyMagicAffordable = (side) => Object.keys(MAGICS).some((k) => canAffordMa
 const affordability = (side) => Object.fromEntries(Object.keys(MAGICS).map((k) => [k, canAffordMagic(side, k)]));
 // Под активной Шаровой молнией Крест и Захват в том же ходу запрещены
 const aimOnly = () => ({});   // 2.0.5: под Молнией Крест и Захват в том же ходу запрещены
-const lightningMult = (f) => (f.magic ? Balance.magic.lightning.mult * Sky.spellMul(selNow(), 'lightning') : 0);
+const lightningMult = (f) => (f.magic ? (f.stormMult || Balance.magic.lightning.mult) * Sky.spellMul(selNow(), 'lightning') : 0);
 
 function buildFighter(side) {
   const f = fighters[side];
@@ -642,9 +642,9 @@ function buildSpellbar() {
 // Доступность заклинания для игрока.
 const bagEl = $('bagbar');
 
-function bagDisabled(kind) {
-  const f = fighters.left, bag = Profile.data.backpack;
-  if (busy || over || aiming || !(bag[kind] > 0) || isChallenge() || LIVE) return true;
+function bagDisabled(key) {
+  const f = fighters.left, bag = Profile.data.backpack, kind = Gear.parseCons(key).base;
+  if (busy || over || aiming || !(bag[key] > 0) || isChallenge() || LIVE) return true;
   if (f.itemsUsed && f.itemsUsed[kind]) return true;      // 2.4.0: уже использован в этот ход
   if (kind === 'potion') return f.hp >= f.max;
   if (kind === 'elixir') return f.buffs.some((b) => b.kind === 'power');
@@ -664,8 +664,8 @@ function renderBag() {
   const nElx = Profile.elixirBag().reduce((a, e) => a + e.n, 0);
   const elxBtn = `<button type="button" class="bagitem elxmenu" data-elxmenu title="${_t("Эликсиры: пьются бесплатно, в любой свой ход")}" ${busy || over || isChallenge() || cardFight() || !!LIVE || PET || !host.main ? 'disabled' : ''}>${Elixirs.icon('power', 5).replace(/<text[^>]*>.*?<\/text>/, '')}<b>${nElx}</b></button>`;
   const bagHtml = (an > 0 ? ammoBtn : '') + cycBtn + (nElx > 0 ? elxBtn : '') +   /* 2.4.2: пустые заряды и эликсиры тоже скрыты */
-     Profile.sortByBagOrder(Object.entries(Gear.CONSUMABLES), ([k]) => 'c:' + k).filter(([k]) => (bag[k] || 0) > 0).map(([k, c]) =>   /* 2.4.0: пустые предметы не показываем */
-    `<button type="button" class="bagitem ${k}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? ((fighters.left.itemsUsed || {})[k] ? 'used' : bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
+     Gear.heldCons(bag).map(([k, c]) =>   /* 2.4.0: пустые предметы не показываем; 2.4.8: цветные — каждый цвет отдельной кнопкой */
+    `<button type="button" class="bagitem ${Gear.parseCons(k).base}" data-item="${k}" data-state="${(bag[k] || 0) > 0 ? ((fighters.left.itemsUsed || {})[Gear.parseCons(k).base] ? 'used' : bagDisabled(k) ? 'wait' : 'ready') : 'empty'}" title="${c.name}: ${c.desc}" aria-label="${c.name}: ${bag[k] || 0}" ${bagDisabled(k) ? 'disabled' : ''}>
        ${itemIcon(k)}<b>${bag[k] || 0}</b></button>`).join('');
   if (bagEl._html === bagHtml) return;            // ничего не изменилось — кнопки не пересоздаём (иначе значки мигают)
   bagEl._html = bagHtml; bagEl.innerHTML = bagHtml;
@@ -771,13 +771,13 @@ function useAmmo(stockKey, cell = null) {
 }
 
 // Использует расходник (ход не тратится). Возвращает true, если использован.
-function useConsumable(side, kind) {
-  const f = fighters[side];
+function useConsumable(side, key) {
+  const f = fighters[side], kind = Gear.parseCons(key).base;   // 2.4.8: в ранце ключ «вид@цвет», вид — без цвета
   const bag = side === 'left' ? Profile.data.backpack : f.bag;
-  if (!(bag[kind] > 0)) return false;
+  if (!(bag[key] > 0)) return false;
   const usedNow = f.itemsUsed || (f.itemsUsed = {});
   if (usedNow[kind]) { if (side === 'left') note(_t("Этот предмет уже использован в этот ход")); return false; }   // 2.4.0: один предмет каждого вида за ход
-  const ef = Combat.useConsumable(f, kind, MAGIC_TYPES);
+  const ef = Combat.useConsumable(f, key, MAGIC_TYPES);
   if (!ef) return false;
   usedNow[kind] = true;
   if (kind === 'potion') {
@@ -786,7 +786,7 @@ function useConsumable(side, kind) {
     logEvent(side, _t("{0}: Зелье здоровья, +{1} ХП", [f.name, ef.heal]));
   } else if (kind === 'elixir') {
     SND.lightning();
-    logEvent(side, _t("{0}: Боевой настой, +{1} к Силе до конца хода", [f.name, ef.power]));
+    logEvent(side, _t("{0}: Боевой настой, +{1}% к урону до конца хода", [f.name, ef.pct]));
     note(_t("{0}: Боевой настой", [f.name]));
   } else if (kind === 'dust') {
     renderCounters(side);
@@ -827,7 +827,7 @@ function useConsumable(side, kind) {
       note(_t("{0}: Настой стойкости даёт заряд блока", [f.name]));
     }
   }
-  bag[kind]--;
+  bag[key]--;
   if (side === 'left') Profile.save();
   renderFighters();
   return true;
@@ -1098,7 +1098,7 @@ function renderBadge(side) {
   const parts = [];
   if (f.magic) parts.push(_t("Шаровая молния"));
   for (const b of f.buffs) parts.push(b.untilTurnEnd ? _t("{0} (до конца хода)", [BUFF_NAMES[b.kind] || _t("Усиление")]) : `${BUFF_NAMES[b.kind] || _t("Усиление")} (${b.turns})`);
-  if (f.poison && f.poison.turns > 0) parts.push(_t("Яд ({0})", [f.poison.turns]));
+  if (f.poison && f.poison.turns > 0) parts.push(f.poison.layers && f.poison.layers.length > 1 ? _t("Яд ×{0} ({1})", [f.poison.layers.length, f.poison.turns]) : _t("Яд ({0})", [f.poison.turns]));
   if (f.ward > 0) parts.push(_t("Щит {0}", [f.ward]));
   if (f.haste) parts.push(_t("Спешка"));
   // Спороносец: счётчик спор до следующего двойника (пока лимит двойников за бой не исчерпан).
@@ -1261,7 +1261,7 @@ function renderEnemyColumn() {
   const groups = new Map();
   for (const b of f.buffs) {
     const g = groups.get(b.kind) || { n: 0, amount: 0, turns: 0, untilTurnEnd: false };
-    g.n++; g.amount += b.amount || 0; g.turns = Math.max(g.turns, b.turns || 0); g.untilTurnEnd = g.untilTurnEnd || b.untilTurnEnd;
+    g.n++; g.amount += b.amount || b.pct || 0; g.turns = Math.max(g.turns, b.turns || 0); g.untilTurnEnd = g.untilTurnEnd || b.untilTurnEnd;
     groups.set(b.kind, g);
   }
   for (const [kind, g] of groups) {
@@ -1335,11 +1335,11 @@ async function useFactionAbility(side = 'left') {
     if (side === 'left') note(_t("Знамя поднято: +{0} к Силе на {1 ход|хода|ходов}", [F.banner.power, F.banner.turns]));
   } else if (id === 'venom') {
     const dmg = Combat.venomTick(Combat.power(f), f.dmg);
-    foe.poison = { turns: F.venom.turns, dmg };
+    const pz = Combat.addVenomLayer(foe, dmg, F.venom.turns);
     showFloat(other(side), _t("Яд!"), 'venom');
     SND.transmute();
     logEvent(side, _t("{0}: Ядовитый укус — {1} урона в начале каждого из {2 хода|ходов|ходов} противника", [f.name, dmg, F.venom.turns]));
-    if (side === 'left') note(_t("Яд: {0} будет терять по {1} ХП {2}", [foe.name, dmg, `${F.venom.turns} ${turnsWord(F.venom.turns)}`]));
+    if (side === 'left') note(pz.layers.length > 1 ? _t("Яд ×{0}: {1} будет терять по {2} ХП за ход", [pz.layers.length, foe.name, pz.dmg]) : _t("Яд: {0} будет терять по {1} ХП {2}", [foe.name, dmg, `${F.venom.turns} ${turnsWord(F.venom.turns)}`]));
   } else if (id === 'hammer') {
     const keep = busy;
     busy = true;
@@ -1442,7 +1442,7 @@ function toggleMagic(side = 'left') {
   if (f.magic) {                                   // отмена: возвращаем ровно уплаченное (цена могла измениться от снаряжения)
     const paid = f.magicFree ? 0 : (f.magicPaid || magicCostOf(side, 'lightning'));   // Зелье грозы — бесплатно, и возврата нет
     for (const t of MAGIC_TYPES) f.counts[t] += paid;
-    f.magic = false; f.magicPaid = 0; f.magicFree = false;
+    f.magic = false; f.magicPaid = 0; f.magicFree = false; f.stormMult = 0;
     renderCounters(side);
   } else if (canAffordMagic(side, 'lightning')) { f.magicPaid = magicCostOf(side, 'lightning'); f.magic = true; spendMagic(side, -1, 'lightning'); }
   renderMagic();
@@ -1845,7 +1845,7 @@ function setTurn(side) {
     Combat.clearTurnEndBuffs(fighters[turnSide]);   // эликсир силы и т.п. — до конца хода
     fighters[turnSide].magic = false;               // Шаровая молния тоже гаснет, когда ход переходит
     fighters[turnSide].magicPaid = 0;
-    fighters[turnSide].magicFree = false;
+    fighters[turnSide].magicFree = false; fighters[turnSide].stormMult = 0;
   }
   turnSide = side;
   if (side !== prevTurn) { fighters.left.itemsUsed = {}; fighters.right.itemsUsed = {}; renderBag(); }   // 2.4.0: новый ход — предметы снова доступны
@@ -3871,10 +3871,10 @@ async function enemyTurn() {
 async function heroPoisonTick() {
   const f = fighters.left;
   if (!f.poison || !(f.poison.turns > 0) || f.hp <= 0 || over) return false;
-  f.poison.turns--;
+  const pdmg = Combat.tickPoison(f.poison);
   showFloat('left', _t("Яд"), 'venom');
   dmgTag = 'poison';
-  const dealt = dealDamage('left', f.poison.dmg, true, false);
+  const dealt = dealDamage('left', pdmg, true, false);
   logEvent('right', _t("Яд: {0} теряет {1} ХП", [f.name, dealt]));
   flushTurnDamage();
   renderFighters(); renderMagic();
@@ -3890,9 +3890,9 @@ async function enemyTurnStart() {
   const say = (text) => { note(`${f.name}: ${text}`); logEvent('right', `${f.name}: ${text}`); };
 
   if (f.poison && f.poison.turns > 0 && f.hp > 0) {   // пал оригинал гриба, а двойник ещё стоит — яду жечь некого
-    f.poison.turns--;
+    const pdmg = Combat.tickPoison(f.poison);
     showFloat('right', _t("Яд"), 'venom');
-    const dealt = dealDamage('right', f.poison.dmg, true, false);   // яд жжёт оригинал, двойник его не прикрывает
+    const dealt = dealDamage('right', pdmg, true, false);   // яд жжёт оригинал, двойник его не прикрывает
     logEvent('left', _t("Яд: {0} теряет {1} ХП", [f.name, dealt]));
     flushTurnDamage();
     renderMagic();
@@ -3997,7 +3997,7 @@ async function enemyTurnStart() {
     if (over) return true;
   }
   const G = f.guardian && World.GUARDIANS[f.guardian];
-  if (G && G.mech === 'pack' && f.hp > 0 && f.turnNo % World.PACK.every === 0) {
+  if (G && G.mech === 'pack' && f.hp > 0 && BattleRand.next() * 100 < World.PACK.chance) {
     if (acted) await sleep(450);
     showFloat('left', _t("Стая"), 'debuff');
     dmgTag = 'pack';
@@ -4104,7 +4104,7 @@ async function resolveBoard(side) {
     // реакция существа) → камни дочищаются. Раньше всё это совпадало в один кадр, и звуки линии и удара сливались.
     const hitAt = dmg > 0 ? Math.round(RULES.timing.clear * 0.5) : 0;
     if (hitAt) await sleep(hitAt);
-    turnStats.dmg += dealDamage(target, dmg, false, true, f.magic ? Balance.magic.lightning.mult * Sky.spellMul(selNow(), 'lightning') : 1);   // (камни + Сила) × Молния
+    turnStats.dmg += dealDamage(target, dmg, false, true, f.magic ? (f.stormMult || Balance.magic.lightning.mult) * Sky.spellMul(selNow(), 'lightning') : 1);   // (камни + Сила) × Молния
     flushTurnDamage();                               // 2.4.5: крупная цифра — в момент удара, а не после всего хода
     await sleep(RULES.timing.clear - hitAt);
 

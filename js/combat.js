@@ -10,6 +10,10 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 
 const C_B = (typeof Balance !== 'undefined') ? Balance : require('./balance.js');
 const C_G = (typeof Gear !== 'undefined') ? Gear : require('./items.js');
+// 2.4.8: лесенки Зелья здоровья (ХП) и Боевого настоя (% Силы) — те же, что у эликсиров по цветам (js/elixirs.js)
+const C_El = () => (typeof Elixirs !== 'undefined' ? Elixirs : require('./elixirs.js'));
+const C_He = () => (typeof Hero !== 'undefined' ? Hero : require('./hero.js'));
+const tierOfFighter = (f) => (f.monsterId ? (f.tier || 1) : C_He().tierFor(f.level || 1));
 
 const Combat = (() => {
   // случайные числа боя: общий поток BattleRand (в бою по сети он по зерну), а в тестах без него — Math.random
@@ -70,6 +74,8 @@ const Combat = (() => {
 
   // Сумма всех усилений урона (эликсир силы, Знамя, Вой).
   const buffPower = (f) => f.buffs.reduce((s, b) => s + (b.amount || 0), 0);
+  // 2.4.8: Боевой настой: +N% ко всему удару (базовый урон камней плюс Сила)
+  const buffPct = (f) => f.buffs.reduce((s, b) => s + (b.pct || 0), 0);
 
   // Сумма усилений одного вида (kind) — Изворотливость копит Блок, Возмездие копит Рикошет; несколько
   // срабатываний подряд СКЛАДЫВАЮТСЯ (каждое — отдельная запись в buffs со своим таймером в 3 хода).
@@ -130,7 +136,7 @@ const Combat = (() => {
       out.amount = amount;
       return out;
     }
-    amount = Math.ceil((amount + power(attacker)) * mult);   // (камни + Сила) × магия; рост урона — внутри Силы
+    amount = Math.ceil((amount + power(attacker)) * mult * (1 + buffPct(attacker) / 100));   // 2.4.8: Боевой настой — % ко всему удару (камни + Сила)   // (камни + Сила) × магия; рост урона — внутри Силы
     // Жертва: если заклинатель принёс в жертву ХП перед этим сбором, следующий удар усилен ×mult —
     // одноразово, флаг снимается сразу (см. Combat.applySacrifice).
     if (attacker.tripleNext) {
@@ -266,11 +272,12 @@ const Combat = (() => {
 
   /* Расходник. Возвращает описание эффекта или null, если использовать нельзя.
      { kind, heal } | { kind, power, turns } | { kind, stones } | { kind } */
-  function useConsumable(f, kind, types, rand = battleRand) {
-    const K = C_B.consumables;
+  function useConsumable(f, key, types, rand = battleRand) {
+    const K = C_B.consumables, Gr = (typeof Gear !== 'undefined') ? Gear : require('./items.js');
+    const { base: kind, tier } = Gr.parseCons(key), LD = K.ladders, at = (name) => LD[name][(tier || 1) - 1];   // цвет свитка → значение из лесенки
     if (kind === 'potion') {
       if (f.hp >= f.max) return null;
-      const heal = Math.min(f.max - f.hp, Math.max(1, Math.round((f.dmg || 1) * C_B.damage.stone * K.potion.stones)));   // цифрой: урон 8 камней
+      const heal = Math.min(f.max - f.hp, C_El().heal(tierOfFighter(f)));   // 2.4.8: фиксированное число ХП по цвету (30 … 350)
       f.hp += heal;
       return { kind, heal };
     }
@@ -278,8 +285,9 @@ const Combat = (() => {
       if (f.buffs.some((b) => b.kind === 'power')) return null;
       // «До конца хода» — держится через все действия текущего хода (в т.ч. бонусные ходы за линию 4+)
       // и снимается только когда ход передаётся противнику (см. Combat.clearTurnEndBuffs, вызывается из game.js/setTurn).
-      f.buffs.push({ kind: 'power', amount: K.elixir.power, untilTurnEnd: true });
-      return { kind, power: K.elixir.power };
+      const pct = C_El().powerPct(tierOfFighter(f));            // 2.4.8: +10% Силы на 1-м цвете … +100% на 10-м
+      f.buffs.push({ kind: 'power', pct, untilTurnEnd: true });
+      return { kind, pct };
     }
     if (kind === 'dust') {
       for (const t of types) f.counts[t] += K.dust.stones;
@@ -293,15 +301,15 @@ const Combat = (() => {
     // Свиток удачи: один раз за бой, +% к монетам и ресурсам, если этот бой выигран (см. grantRewards в game.js).
     if (kind === 'luck') {
       if (f.luck) return null;
-      f.luck = K.luck.pct;
-      return { kind, pct: K.luck.pct };
+      const lp = tier ? at('luck') : K.luck.pct; f.luck = lp;
+      return { kind, pct: lp };
     }
     // Настой стойкости: наугад — либо мгновенный прирост максимума ХП (держится весь бой), либо заряд
     // гарантированного блока следующего удара (см. target.shield в hit()).
     if (kind === 'honeyjar') {
       const Kj = K.honeyjar;
       if (rand() < Kj.hpChance) {
-        const add = Math.round(f.max * Kj.hpPct);
+        const add = Math.round(f.max * (tier ? at('honeyjar') : Kj.hpPct));
         f.max += add; f.hp += add; f.tempMax = (f.tempMax || 0) + add;   // 1.6.0: пересчёт характеристик (эликсиры) не стирает добавку
         return { kind, mode: 'hp', amount: add };
       }
@@ -311,23 +319,25 @@ const Combat = (() => {
     // 1.3.0, Алхимик: Зелье грозы — бесплатная Шаровая молния на этот ход; Каменная кожа — 2 гарантированных блока.
     if (kind === 'storm') {
       if (f.magic) return null;
-      f.magic = true; f.magicFree = true;
+      f.magic = true; f.magicFree = true; if (tier) f.stormMult = at('storm');
       return { kind };
     }
     // 2.4.0: Свитки отравы и регенерации — прибавка к характеристике до конца боя (пересчёт не стирает: tempVenom/tempLeech в game.js)
     if (kind === 'scrollvenom') {
       if (f.scrollVenom) return null;
-      f.stats.venom = (f.stats.venom || 0) + K.scrollvenom.venom; f.tempVenom = (f.tempVenom || 0) + K.scrollvenom.venom; f.scrollVenom = true;
-      return { kind, venom: K.scrollvenom.venom };
+      const v = tier ? at('scrollvenom') : K.scrollvenom.venom;
+      f.stats.venom = (f.stats.venom || 0) + v; f.tempVenom = (f.tempVenom || 0) + v; f.scrollVenom = true;
+      return { kind, venom: v };
     }
     if (kind === 'scrollregen') {
       if (f.scrollRegen) return null;
-      f.stats.leech = (f.stats.leech || 0) + K.scrollregen.leech; f.stats.leechPower = (f.stats.leechPower || 0) + K.scrollregen.leechPower;
-      f.tempLeech = (f.tempLeech || 0) + K.scrollregen.leech; f.tempLeechP = (f.tempLeechP || 0) + K.scrollregen.leechPower; f.scrollRegen = true;
-      return { kind, leech: K.scrollregen.leech, leechPower: K.scrollregen.leechPower };
+      const lc = tier ? at('scrollregen') : K.scrollregen.leech, lp = tier ? at('scrollregenPower') : K.scrollregen.leechPower;
+      f.stats.leech = (f.stats.leech || 0) + lc; f.stats.leechPower = (f.stats.leechPower || 0) + lp;
+      f.tempLeech = (f.tempLeech || 0) + lc; f.tempLeechP = (f.tempLeechP || 0) + lp; f.scrollRegen = true;
+      return { kind, leech: lc, leechPower: lp };
     }
     if (kind === 'stoneskin') {
-      const sk = Math.max(1, Math.round(K.stoneskin.armor * armorUnit(f.dmg)));
+      const sk = Math.max(1, Math.round((tier ? at('stoneskin') : K.stoneskin.armor) * armorUnit(f.dmg)));
       f.stats.defense = (f.stats.defense || 0) + sk; f.tempDef = (f.tempDef || 0) + sk;
       return { kind, armor: sk };
     }
@@ -579,6 +589,28 @@ const Combat = (() => {
   }
 
   // Урон яда за один ход: растёт с уровнем и Силой отравителя.
+  // 2.4.8: Ядовитый укус Ящеров складывается: до 3 слоёв, у каждого свои 3 хода и свой урон. Полный урон хода = сумма слоёв.
+  const VENOM_LAYERS = 3;
+  function addVenomLayer(target, dmg, turns) {
+    const p = target.poison, layers = (p && p.turns > 0 && p.layers) ? p.layers.filter((l) => l.turns > 0) : [];
+    if (p && p.turns > 0 && !p.layers && p.dmg > 0) layers.push({ turns: p.turns, dmg: p.dmg });   // чужой яд (дротик, шипы) считается за слой
+    if (layers.length >= VENOM_LAYERS) { layers.sort((a, b) => a.turns - b.turns); layers.shift(); }   // полный стек: уходит самый старый слой
+    layers.push({ turns, dmg });
+    target.poison = { layers, turns: Math.max(...layers.map((l) => l.turns)), dmg: layers.reduce((s, l) => s + l.dmg, 0) };
+    return target.poison;
+  }
+  // Один тик яда: возвращает урон этого хода; сроки слоёв сокращаются, истёкшие уходят.
+  function tickPoison(p) {
+    if (!p || !(p.turns > 0)) return 0;
+    const dealt = p.dmg;
+    if (p.layers) {
+      for (const l of p.layers) l.turns--;
+      p.layers = p.layers.filter((l) => l.turns > 0);
+      p.turns = p.layers.length ? Math.max(...p.layers.map((l) => l.turns)) : 0;
+      p.dmg = p.layers.reduce((s, l) => s + l.dmg, 0);
+    } else p.turns--;
+    return dealt;
+  }
   const venomTick = (pow, dmg = 1) => Math.ceil(C_B.faction.venom.base * dmg + 0.25 * pow);
   // Лечение Целебного дождя: сумма номиналов цветных камней × рост урона заклинателя.
   const rainHeal = (f, sum) => Math.min(f.max - f.hp, Math.round(sum * (f.dmg || 1)));
@@ -682,7 +714,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

@@ -114,7 +114,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(veiled > 0, 'свойство «Туман» прячет камни');
   await p.evaluate(() => { fighters.left.hp = 0; checkEnd(); }); await toMap(p);
   // страж b1: зов стаи
-  const pack = await p.evaluate(async () => { MapView.startSpecial({ id: 'wolf', tier: 2, boss: 'b1' }); await new Promise((r) => setTimeout(r, 1300)); const hp0 = fighters.left.hp; fighters.right.turnNo = 3; await enemyTurnStart(); return { g: fighters.right.guardian, lost: hp0 - fighters.left.hp, max: fighters.left.max }; });
+  const pack = await p.evaluate(async () => { MapView.startSpecial({ id: 'wolf', tier: 2, boss: 'b1' }); await new Promise((r) => setTimeout(r, 1300)); const hp0 = fighters.left.hp; World.PACK.chance = 100; fighters.right.turnNo = 3; await enemyTurnStart(); return { g: fighters.right.guardian, lost: hp0 - fighters.left.hp, max: fighters.left.max }; });
   ok(pack.g === 'b1' && pack.lost >= Math.round(pack.max * 0.06), 'страж b1: «Зов стаи» кусает');
   await p.evaluate(() => { fighters.left.hp = 0; checkEnd(); }); await toMap(p);
   // страж b5: ярость на половине ХП

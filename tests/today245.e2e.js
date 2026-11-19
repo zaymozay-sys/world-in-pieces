@@ -14,7 +14,7 @@ const must = (t, c, d) => { if (!c) bad++; console.log(`  ${c ? 'ok  ' : 'FAIL'}
   await p.evaluate(() => { Profile.data.wins = Math.max(Profile.data.wins || 0, 30); });
   await p.click('#m-today'); await p.waitForTimeout(500);
   const txt = await p.evaluate(() => (document.querySelector('.modal') || {}).innerText || '');
-  must('окно «Сегодня» открывается', /Сегодня/.test(txt));
+  must('окно «Сегодня» открывается', /Задания дня/.test(txt));
   must('есть головоломка, испытание и поручение', /Головоломка дня/.test(txt) && /Испытание дня/.test(txt) && /Поручение библиотеки/.test(txt), txt.slice(0, 200));
   await p.click('[data-today="puzzle"]'); await p.waitForTimeout(400);
   must('кнопка головоломки ведёт на вкладку арены', await p.evaluate(() => Screens.screen === 'arena' && Screens.arenaTab() === 'puzzle'));
