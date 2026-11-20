@@ -57,6 +57,7 @@ self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) =
 self.addEventListener('fetch', (e) => {
   const r = e.request; if (r.method !== 'GET') return;
   const u = new URL(r.url); if (u.origin !== location.origin) return;
+  if (u.pathname.endsWith('/version.json')) return;                 // 2.5.3: проверка обновления — всегда напрямую из сети
   if (/\\/(art|icons|fonts)\\//.test(u.pathname)) {            // картинки не меняются: сначала сохранённое
     e.respondWith(caches.open('wip-art').then((c) => c.match(r).then((m) => m || fetch(r).then((x) => { if (x.ok) c.put(r, x.clone()); return x; }))));
   } else if (r.mode === 'navigate' || u.pathname.endsWith('/') || u.pathname.endsWith('index.html')) {   // страница: сеть, иначе сохранённая
@@ -66,6 +67,9 @@ self.addEventListener('fetch', (e) => {
   }
 });
 ''' % (ver, jsname))
+# 2.5.3: version.json — по нему js/update.js узнаёт, что вышла новая версия (плашка «Вышло обновление»)
+_ver = re.search(r"GAME_VERSION = '([^']+)'", open(os.path.join(ROOT, 'js', 'version.js'), encoding='utf-8').read()).group(1)
+open(os.path.join(D, 'version.json'), 'w', encoding='utf-8').write('{"v":"%s"}' % _ver)
 html = html.replace('</body>', "<script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});</script>\n</body>", 1)
 open(os.path.join(D, 'index.html'), 'w', encoding='utf-8').write(html)
 for f in os.listdir(os.path.join(D, 'js')):

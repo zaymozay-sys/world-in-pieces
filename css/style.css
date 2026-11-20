@@ -5071,3 +5071,6 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 #m-today.has-dot::after, .map-menu [data-mdo="m-today"].has-dot::after { content: ''; position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: #4fcf6a; box-shadow: 0 0 0 2px rgba(20, 16, 10, .85); }
 /* 2.5.0: подсказка и кнопка «Начать игру!» стоят на сплошной подложке — текст карточки под ними не просвечивает */
 .modal .reset:has(> button[data-act="start"]) { background: linear-gradient(180deg, rgba(28, 24, 19, 0), rgb(28, 24, 19) 30%); }
+/* 2.5.3: плашка «Вышло обновление» (js/update.js) */
+.upd-banner { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 9000; display: flex; align-items: center; gap: 10px; max-width: min(92vw, 520px); padding: 10px 12px; border-radius: 12px; background: #24160d; color: #f3e6c8; border: 1px solid #b8893a; box-shadow: 0 8px 26px rgba(0, 0, 0, .6); font-size: 14px; line-height: 1.3; }
+.upd-banner .upd-x { min-width: 32px; padding: 4px 8px; background: transparent; border: 0; color: #c9b48a; }
