@@ -19,6 +19,6 @@ assert.match(css, /grid-template-columns: repeat\(4,minmax\(0,1fr\)\)/);
 assert.match(game, /contains\('phone'\) && !document\.body\.classList\.contains\('old-dock'\)\) return/);
 assert.match(game, /spellbarEl\.addEventListener\('click'/);
 assert.match(html, /id="dock-menu"/);
-assert.match(html, /data-do="layout"/);
+assert.doesNotMatch(html, /data-do="layout"/);   // 2.5.2: пункт «Раскладка боя» убран из меню боя
 assert.match(game, /bagEl\.addEventListener\('click'/);
 console.log('battle-dock: HTML/CSS/event handlers wired correctly');

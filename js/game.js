@@ -191,7 +191,7 @@ function buildFighter(side) {
 const enemyBag = (level) => Combat.enemyBag(level);
 // Все баффы урона: эликсир силы, Знамя людей, Вой волка.
 const buffPower = (f) => Combat.buffPower(f);
-const BUFF_NAMES = { power: _t("Боевой настой"), banner: _t("Знамя"), howl: _t("Вой"), rage: _t("Ярость"), weaken: _t("Морок"), mire: _t("Трясина"), sap: _t("Липкость") };
+const BUFF_NAMES = { power: _t("Эликсир силы"), banner: _t("Знамя"), howl: _t("Вой"), rage: _t("Ярость"), weaken: _t("Морок"), mire: _t("Трясина"), sap: _t("Липкость") };
 const WEAPON_PERK_NAMES = { pierceBlock: _t("Пробивной болт (иногда пробивает Блок)"), armorShred: _t("Крошит Броню с каждым ударом") };
 const itemColor = (it) => (it.set && Gear.SETS[it.set] ? Gear.SETS[it.set].color : Gear.NEUTRAL_COLOR);
 // Идёт ли бой (или игрок на карте). Снаряжение можно менять вне боя, до первого хода и после конца боя.
@@ -782,12 +782,12 @@ function useConsumable(side, key) {
   usedNow[kind] = true;
   if (kind === 'potion') {
     SND.heal();
-    showCenterPop('+' + ef.heal, 'heal', _t("Зелье здоровья"));
-    logEvent(side, _t("{0}: Зелье здоровья, +{1} ХП", [f.name, ef.heal]));
+    showCenterPop('+' + ef.heal, 'heal', _t("Эликсир жизни"));
+    logEvent(side, _t("{0}: Эликсир жизни, +{1} ХП", [f.name, ef.heal]));
   } else if (kind === 'elixir') {
     SND.lightning();
-    logEvent(side, _t("{0}: Боевой настой, +{1}% к урону до конца хода", [f.name, ef.pct]));
-    note(_t("{0}: Боевой настой", [f.name]));
+    logEvent(side, _t("{0}: Эликсир силы, +{1}% к урону до конца хода", [f.name, ef.pct]));
+    note(_t("{0}: Эликсир силы", [f.name]));
   } else if (kind === 'dust') {
     renderCounters(side);
     SND.match(4, 1);
@@ -1199,7 +1199,7 @@ const ecSvg = (g) => (typeof Art !== 'undefined' && Art.has('ui/fx-' + g)) ? `<i
 const turnsWord = (n) => (n % 10 === 1 && n % 100 !== 11 ? _t("ход") : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? _t("хода") : _t("ходов"));
 // Свои имена эффектов для столбца (у BUFF_NAMES нет Изворотливости и Возмездия — бейдж «1/2» не трогаем).
 const EC_BUFFS = {
-  power: ['power', _t("Боевой настой"), _t("урон выше")], banner: ['power', _t("Знамя"), _t("урон выше")], howl: ['power', _t("Вой"), _t("удар сильнее")], rage: ['power', _t("Ярость"), _t("удар сильнее")],
+  power: ['power', _t("Эликсир силы"), _t("урон выше")], banner: ['power', _t("Знамя"), _t("урон выше")], howl: ['power', _t("Вой"), _t("удар сильнее")], rage: ['power', _t("Ярость"), _t("удар сильнее")],
   weaken: ['down', _t("Морок"), _t("урон слабее")], mire: ['down', _t("Трясина"), ''], sap: ['down', _t("Липкость"), ''],
   evasion: ['shield', _t("Изворотливость"), _t("Блок")], retribution: ['spikes', _t("Возмездие"), _t("Рикошет")],
 };
@@ -2085,13 +2085,13 @@ function battleAnalysis(result) {
   if (result === 'win') verdict = _t("Победа: потеряно {0}% здоровья.", [pct(lost, H.max)]);
   else {
     const c = [
-      [rec.poison / Math.max(1, H.max), _t("Главная беда — яд: он снял {0} ХП ({1}% здоровья), а Броня и Блок от него не помогают. Помогают зелья и более короткий бой.", [rec.poison, pct(rec.poison, H.max)]), 0.12],
+      [rec.poison / Math.max(1, H.max), _t("Главная беда — яд: он снял {0} ХП ({1}% здоровья), а Броня и Блок от него не помогают. Помогают эликсиры и более короткий бой.", [rec.poison, pct(rec.poison, H.max)]), 0.12],
       [rec.stuns * 0.12, _t("Вас оглушили: потеряно ходов — {0}. Блок даёт шанс устоять, наденьте вещи с Блоком.", [rec.stuns]), 0.12],
       [rec.absorbed / Math.max(1, rec.dealt + rec.absorbed), _t("Щит противника принял {0} урона ({1}% ваших ударов). Бейте крупными линиями, пока щит не растаял.", [rec.absorbed, pct(rec.absorbed, rec.dealt + rec.absorbed)]), 0.25],
       [rec.pen / Math.max(1, H.max), _t("Неверные ходы стоили {0} ХП ({1}% здоровья): ищите ход заранее.", [rec.pen, pct(rec.pen, H.max)]), 0.1],
     ].filter((x) => x[0] >= x[2]).sort((a, b) => b[0] / b[2] - a[0] / a[2])[0];
     verdict = c ? c[1] : rec.dealt >= E.max * 0.5
-      ? _t("Вы почти победили: не хватило {0} ХП урона. Эликсир или зелье перед боем могут решить дело.", [Math.max(0, E.hp)])
+      ? _t("Вы почти победили: не хватило {0} ХП урона. Эликсир перед боем может решить дело.", [Math.max(0, E.hp)])
       : _t("Противник бил сильнее, чем вы: усильте Броню и оружие, выпейте эликсир или возьмите питомца.");
   }
   return `<ul>${li.map((x) => `<li>${x}</li>`).join('')}</ul><p class="an-verdict">${verdict}</p>`;
@@ -2774,7 +2774,7 @@ function defeatAdvice() {
   if (dl >= Balance.mobLevels.dot.hard) return _t("Существо на {0} выше вас. Найдите противника по силам — кнопка «По силам» на карте.", [_nn(dl, 'уровень', 'уровня', 'уровней')]);
   const bag = Profile.data.backpack || {};
   if (!battleStyle.elixirs && Profile.elixirBag().length) return _t("В сумке остались эликсиры — выпейте их в бою: они не тратят ход.");
-  if ((bag.potion || 0) > 0 && !(me.itemsUsed && me.itemsUsed.potion)) return _t("Зелье здоровья осталось в сумке — используйте его, когда ХП на исходе.");
+  if ((bag.potion || 0) > 0 && !(me.itemsUsed && me.itemsUsed.potion)) return _t("Эликсир жизни остался в сумке — выпейте его, когда ХП на исходе.");
   return _t("Победа была близко. Проверьте вещи в сумке: Сила и Броня решают исход, а слабое существо рядом даст опыт.");
 }
 function defeat() {
