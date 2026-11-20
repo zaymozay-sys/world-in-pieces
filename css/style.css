@@ -1409,10 +1409,9 @@ button.magic.fac:disabled .charge { opacity: 1; }
   min-height: 22px;
   overflow: hidden;
   font-size: 11px;
-  line-height: 22px;
+  line-height: 1.4;
   color: var(--muted);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 .ability-line b { color: #e0c07a; }
 .ability-box { display: flex; flex-direction: column; gap: 2px; margin: 8px 0; padding: 6px 10px; font-size: 12px; background: #1d1e22; border-left: 3px solid #e0c07a; border-radius: 6px; }
@@ -2231,7 +2230,7 @@ body.ui-columns .fighter.left, body.ui-columns .fighter.right { min-height: 0; o
 body.ui-columns :is(#board,[data-bid="board"]) { contain: layout; }
 
 /* ===== 1.3.6: нарисованные детали карточки и оружейной (если картинки есть) ===== */
-.icard .ic-close { position: absolute; background-image: none; }
+.icard .ic-close { position: absolute; background: transparent; box-shadow: none; border: none; }
 .icard .ic-close::before { content: ""; position: absolute; inset: 0; background: var(--seal) center / contain no-repeat; transform: rotate(45deg); pointer-events: none; }   /* 1.5.8: печать повёрнута на 45° — крест на ней стал «✕» закрытия */
 .scroll[style*="--seal"] .icard .ic-close { background-color: transparent; box-shadow: none; font-size: 0; width: 46px; height: 46px; }
 .scroll[style*="--frame"] .ic-art { position: relative; }
@@ -4386,7 +4385,8 @@ body.phone .overlay .rw-more-btn { margin-bottom: 56px; }
 
 .spell-pick { margin: 8px 0; padding: 8px 10px; background: #1b1c20; border: 1px solid #34363d; border-radius: 10px; }
 .spell-pick .sp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-.spell-pick .sp-chip { padding: 4px 10px; border-radius: 14px; border: 1px solid #4a4d57; background: #25262c; color: inherit; cursor: pointer; font-size: 13px; }
+.spell-pick .sp-chip { padding: 4px 8px; border-radius: 14px; border: 1px solid #4a4d57; background: #25262c; color: inherit; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; }
+.spell-pick .sp-chip .magic-icon { width: 20px; height: 20px; flex: none; }
 .spell-pick .sp-chip.on { border-color: var(--xp, #b58cff); background: #3a3350; }
 .spell-pick small { color: var(--muted); }
 

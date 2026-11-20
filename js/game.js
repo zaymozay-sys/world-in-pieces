@@ -1055,7 +1055,7 @@ function toggleFighterInfo(side) {
   const row = (k, v) => rows.push(`<div><span>${k}</span><b>${v}</b></div>`);
   row(_t("Здоровье"), `${Math.max(0, f.hp)} / ${f.max}`);
   row(_t("Сила"), '+' + Math.round(Combat.power(f)));
-  row(_t("Броня"), st.defense ? '−' + Combat.armorOf(f) : '0');
+  row(_t("Броня"), st.defense ? '' + Combat.armorOf(f) : '0');
   row(_t("Блок"), (st.block || 0) + '%'); row(_t("Рикошет"), (st.ricochet || 0) + '%'); row(_t("Проворство"), (st.initiative || 0) + '%');
   if (st.cunning) row(_t("Хитрость"), st.cunning + '%');
   if (st.leech && st.leechPower) row(_t("Регенерация"), st.leech + '% / ' + st.leechPower + '%');

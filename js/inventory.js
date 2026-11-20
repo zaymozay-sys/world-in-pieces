@@ -1171,7 +1171,7 @@ const Inventory = (() => {
   function spellPicker(lv) {
     if (typeof MAGICS === 'undefined') return '';
     const pool = Profile.spellPool(), cur = Profile.spellLoadout(), slots = Hero.spellSlots(lv.level);
-    const chips = pool.filter((k) => MAGICS[k]).map((k) => `<button type="button" class="sp-chip${cur.includes(k) ? ' on' : ''}" data-spell="${k}" title="${String(MAGICS[k].tip || '').replace(/"/g, '&quot;')}">${MAGICS[k].name}</button>`).join('');
+    const chips = pool.filter((k) => MAGICS[k]).map((k) => { const ico = typeof spellIconHtml === 'function' ? spellIconHtml(k) : (MAGICS[k].icon ? MAGICS[k].icon() : ''); return `<button type="button" class="sp-chip${cur.includes(k) ? ' on' : ''}" data-spell="${k}" title="${String(MAGICS[k].tip || '').replace(/"/g, '&quot;')}">${ico}<span>${MAGICS[k].name}</span></button>`; }).join('');
     return _t("<div class=\"spell-pick\"><b>Магии в бою: {0} / {1}</b><div class=\"sp-chips\">{2}</div><small>Нажмите, чтобы взять магию в бой или убрать её. Менять можно вне боя. Новые магии открываются с новым цветом.</small></div>", [cur.length, slots, chips]);
   }
   function talentPicker(lv) {
@@ -1459,7 +1459,7 @@ const Inventory = (() => {
     if (!t) return;
     if (t.dataset.talent) { if (!canEditGear()) return say(_t("Менять таланты можно вне боя.")); if (Profile.addTalent(t.dataset.talent)) render(); return; }
     if (t.dataset.act === 'talreset') { if (!canEditGear()) return say(_t("Менять таланты можно вне боя.")); const r = Profile.resetTalents(); return r === 'coins' ? say(_t("Не хватает денег на сброс талантов.")) : render(); }
-    if (t.dataset.spell) { if (!canEditGear()) return say(_t("Менять магии можно вне боя.")); if (!Profile.toggleSpell(t.dataset.spell)) say(_t("Все слоты магий заняты: уберите одну, чтобы взять другую.")); else render(); return; }
+    if (t.dataset.spell) { if (!canEditGear()) return say(_t("Менять магии можно вне боя.")); if (!Profile.toggleSpell(t.dataset.spell)) say(_t("Все слоты магий заняты: уберите одну, чтобы взять другую.")); else { const sc = root && root.scrollTop; render(); if (root && sc != null) root.scrollTop = sc; } return; }
     if (t.dataset.act === 'close') return close();
     if (t.dataset.act === 'kennel') { if (typeof Screens !== 'undefined') Screens.open('kennel'); return; }
     if (t.dataset.act === 'valor') { if (typeof Screens !== 'undefined') Screens.openValor(); return; }
