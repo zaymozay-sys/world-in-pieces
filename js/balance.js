@@ -126,7 +126,7 @@ const Balance = {
   // Приёмы фракций: заряд из родных камней; приём ход не тратит.
   faction: {
     charge: 15,
-    banner: { power: 50, turns: 3 },
+    banner: { pct: 50, turns: 3 },
     setVenom: { turns: 3, mult: 0.6 },           // 2.0.9: Отрава от комплекта: яд на turns ходов, урон за ход = mult × Combat.venomTick
     venom: { base: 3, turns: 3 },              // урон за ход = base × рост урона + 0,25 × Сила (Combat.venomTick)
     hammer: { stones: 3, value: 3 },

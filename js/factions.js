@@ -23,7 +23,7 @@ const Factions = (() => {
       stats: { initiative: 6, block: 5 },
       perks: { shop: 0.9, coins: 1.1 },
       perkText: _t("Лавка дешевле на 10%, монет с добычи на 10% больше"),
-      ability: { id: 'banner', name: _t("Знамя"), desc: _t("+50 к Силе на 3 ваших хода") },
+      ability: { id: 'banner', name: _t("Знамя"), desc: _t("+50% к урону на 3 ваших хода") },
     },
     dwarf: {
       name: _t("Гномы"), people: _t("Подгорные кланы"), hero: _t("Дварф"), heroF: _t("Боевая гномка"), figure: 'dwarf',

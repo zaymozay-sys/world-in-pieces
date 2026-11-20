@@ -553,7 +553,7 @@ const MAGICS = {
   heal: { name: _t("Целебный дождь"), icon: healIcon,
     tip: _t("Лечит на сумму номиналов изумрудов на поле; использованные изумруды теряют один уровень номинала (×5 → ×3 → ×1)") },
   chaos: { name: _t("Хаос"), icon: chaosIcon,
-    tip: _t("Перемешивает все камни на поле без готовых линий и бьёт по врагу: за каждую пустую клетку — полкамня урона") },
+    tip: _t("Камни в выбранной области 3×3 перемешиваются в лучший для вас расклад (без готовых линий, с ходом на поле)") },
   pierce: { name: _t("Выпад"), icon: (typeof pierceIcon === 'function' ? pierceIcon : chaosIcon),
     tip: _t("Выберите камень: он сгорит, поле осядет по обычным правилам (каскады — ваши), а ход не тратится. Очень дорого") },
   // Удар доступен всем фракциям с 1-го уровня (как стартовая пятёрка) — в Balance.spellUnlock не упомянут.
@@ -1328,11 +1328,11 @@ async function useFactionAbility(side = 'left') {
   f.charge = 0;
   const F = Balance.faction;
   if (id === 'banner') {
-    f.buffs.push({ kind: 'banner', amount: F.banner.power, turns: F.banner.turns });
+    f.buffs.push({ kind: 'banner', pct: F.banner.pct, turns: F.banner.turns });
     showFloat(side, _t("Знамя!"), 'buff');
     SND.lightning();
-    logEvent(side, _t("{0}: Знамя — +{1} к Силе на {2}", [f.name, F.banner.power, `${F.banner.turns} ${turnsWord(F.banner.turns)}`]));
-    if (side === 'left') note(_t("Знамя поднято: +{0} к Силе на {1 ход|хода|ходов}", [F.banner.power, F.banner.turns]));
+    logEvent(side, _t("{0}: Знамя — +{1}% к урону на {2}", [f.name, F.banner.pct, `${F.banner.turns} ${turnsWord(F.banner.turns)}`]));
+    if (side === 'left') note(_t("Знамя поднято: +{0}% к урону на {1 ход|хода|ходов}", [F.banner.pct, F.banner.turns]));
   } else if (id === 'venom') {
     const dmg = Combat.venomTick(Combat.power(f), f.dmg);
     const pz = Combat.addVenomLayer(foe, dmg, F.venom.turns);
@@ -1726,13 +1726,13 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
     showFloat(target, _t("Блок!"), 'block');
     turnEvents.block++;
     turnEvents.blockTarget = target;
-    SND.swap();
+    SND.shield();
     return 0;
   }
   if (r.absorbed > 0) {                          // 1.7.3: Щит существа принял удар на себя
     if (target === 'right') rec.absorbed += r.absorbed;
     showFloat(target, _t("Щит −{0}", [r.absorbed]), 'block');
-    if (r.amount <= 0) { renderFighters(); SND.swap(); return 0; }
+    if (r.amount <= 0) { renderFighters(); SND.shield(); return 0; }
   }
   if (r.pierce) showFloat(attackerSide, _t("Бронебойный удар!"), 'buff');
   if (r.shred > 0) showFloat(target, _t("Броня трещит!"), 'debuff');
@@ -1817,6 +1817,8 @@ function shake() {
 // 2.0.0: полный журнал боя для кнопки «Журнал боя» на экране итога (на экране хранится только последние 40 строк)
 let battleLog = [], battleNo = 0;
 function logEvent(side, text) {
+  // 2.5.1: в журнале герой назван именем игрока, а не званием народа («Ящер-следопыт»)
+  try { const hn = Profile.data && Profile.data.name && Profile.heroName(); const ft = fighters.left && fighters.left.name; if (hn && ft && !LIVE && fighters.left.name !== hn) text = String(text).split(ft).join(hn); } catch (e) { /* журнал не должен падать */ }
   battleLog.push({ side, text }); if (battleLog.length > 600) battleLog.shift();
   const list = $('log');
   if (!list) return;
@@ -2069,7 +2071,13 @@ function battleAnalysis(result) {
     _t("Нанесено урона: {0} из {1} ХП противника ({2}%)", [rec.dealt, E.max, pct(rec.dealt, E.max)]),
     _t("Получено урона: {0} из {1} ХП героя ({2}%)", [lost, H.max, pct(lost, H.max)]),
   ];
-  if (lost > 0) li.push(_t("Из полученного: ударами {0}, ядом {1}, штрафами за неверные ходы {2}", [rec.taken + rec.pack, rec.poison, rec.pen]));
+  if (lost > 0) { // только ненулевые части; если весь урон — удары, строка не нужна
+    const parts = [];
+    if (rec.taken + rec.pack > 0) parts.push(_t("ударами {0}", [rec.taken + rec.pack]));
+    if (rec.poison > 0) parts.push(_t("ядом {0}", [rec.poison]));
+    if (rec.pen > 0) parts.push(_t("штрафами за неверные ходы {0}", [rec.pen]));
+    if (parts.length > 1 || (parts.length === 1 && !(rec.taken + rec.pack > 0))) li.push(_t("Из полученного: {0}", [parts.join(', ')]));
+  }
   if (rec.blocks) li.push(_t("Заблокировано ударов: {0}", [rec.blocks]));
   if (rec.absorbed) li.push(_t("Щит противника принял урона: {0}", [rec.absorbed]));
   if (rec.stuns || rec.stunResist) li.push(_t("Оглушений: {0} (устояли: {1})", [rec.stuns, rec.stunResist]));
@@ -4273,7 +4281,7 @@ const renderMute = () => {
   muteBtn.classList.toggle('off', !!SND.muted); muteBtn.textContent = SND.muted ? _t("Звук: выкл") : _t("Звук: вкл");
   muteBtn.setAttribute('aria-label', muteBtn.textContent); muteBtn.setAttribute('aria-pressed', String(!!SND.muted));   // 1.6.4 (WIP-05): состояние слышно и скринридеру
 };
-muteBtn.addEventListener('click', () => { SND.setMuted(!SND.muted); renderMute(); SND.swap(); });
+muteBtn.addEventListener('click', () => { SND.setMuted(!SND.muted); renderMute(); });
 renderMute();
 
 // Оформление экрана боя — «колонки» (раньше были ещё «1» и «2», убраны в 1.5.2): бронзовая облицовка (класс ui-modern), плюс

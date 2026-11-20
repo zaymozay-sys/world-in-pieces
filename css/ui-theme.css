@@ -717,3 +717,15 @@ body.ui-columns.phone .modal .card-list:has([data-brew], [data-brew-key], [data-
 @media (min-width: 900px) and (min-height: 560px) {
   .modal.modal-fit:not(.icard-modal) { width: min(760px, 100%); height: auto; min-height: 340px; }
 }
+
+/* 2.5.1: меню ☰ — один шрифт у всех пунктов (с засечками и капителью); подчинённые списки — вложенная тёмная панель с цветной полосой группы */
+.map-menu button, .more-menu button { font-family: var(--ui-display); letter-spacing: .03em; }
+body .map-menu button.mm-head { border-left: 5px solid var(--g, var(--ui-gold)); padding-left: 12px; }
+.map-menu .mm-head::after { transition: transform .15s; }
+.map-menu .mm-head[aria-expanded="true"] { filter: brightness(1.12); border-color: var(--g, var(--ui-gold)); }
+.map-menu .mm-sub { margin: 0 0 4px 10px; padding: 6px 6px 6px 8px; border-left: 3px solid var(--g, var(--ui-gold)); border-radius: 0 8px 8px 0; background: rgba(0, 0, 0, .34); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
+.map-menu .mm-sub button { font-size: 13px; min-height: 36px; background: linear-gradient(180deg, rgba(48, 34, 22, .92), rgba(28, 19, 12, .94)); border-color: #46331d; }
+body .map-menu .g-gfx { --g: #5b9be8; }
+body .map-menu .g-time { --g: #53c7d6; }
+body .map-menu .g-game { --g: #5fcf7b; }
+body .map-menu .g-help { --g: #e0b24a; }
