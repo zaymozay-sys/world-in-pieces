@@ -5,7 +5,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
    кнопок и камней, (3) экскурсия по деревне. Каждый шаг ждёт либо «Далее», либо действия игрока (ход, заклинание,
    приём, победа). Бобёр в учебном бою не бьёт в ответ и не может пасть раньше последнего шага.
    Состояние — Profile.data.tutorial = { done, step }. Пропустить можно в любой момент; пройти заново —
-   в Библиотеке (вкладка «Бобёр»). Награда за первое прохождение — 100 монет и 2 зелья здоровья. */
+   в Библиотеке (вкладка «Бобёр»). Награда за первое прохождение — 100 монет и 2 Эликсира жизни. */
 
 const Tutorial = (() => {
   let box = null, idx = -1, active = false, hlEls = [];
@@ -24,11 +24,11 @@ const Tutorial = (() => {
     { phase: 'battle', target: '#fighter-right .hpbar, .fighter.left .counters', text: _t("Видишь, у меня убавилось здоровья! Синие, красные и зелёные камни урона не наносят — они копятся для магии. Счётчики видны у твоего портрета.") },
     { phase: 'battle', wait: 'cast', kinds: ['fire', 'square'], target: 'button.magic.fire, button.magic.square', enter: () => giveStones(12), text: _t("Дарю тебе по 12 камней каждого цвета: это книга заклинаний, у каждого своя цена. «Огненный крест» собирает в копилку камни крестом в области 5×5, а «Захват» — квадратом 3×3. Удар: постоянный урон + твой базовый + номиналы обсидианов. Выбери одно из них и нажми на клетку поля.") },
     { phase: 'battle', wait: 'win', target: 'button.magic.strike', enter: () => { giveStones(8); weakenBeaver(); },
-      text: _t("Я почти без сил — добей меня! Собери обсидиан или примени «Удар» — он бьёт твоим базовым уроном. Победа приносит опыт, монеты, ресурсы и иногда вещи.") },
+      text: _t("Ещё один точный ход — и я признаю поражение. Собери обсидиан или примени «Удар» — он бьёт твоим базовым уроном. Победа приносит опыт, монеты, ресурсы и иногда вещи.") },
     { phase: 'battle', wait: 'map', target: '.overlay .to-map', text: _t("Победа! Нажми «На карту» — покажу деревню.") },
 
     { phase: 'village', wait: 'faction', enter: () => { if (Profile.data.faction) schedule(idx + 1, 300); else Screens.openFactions(true); }, text: '' },
-    { phase: 'village', target: '#map-zones', text: () => { const F = playerFaction(); return _t("Ты — {0}! Твой приём «{1}» заряжается, когда ты собираешь {2}, и хода не тратит. ", [F.name, F.ability.name, gemName()]) + _t("Теперь в путь! Кружки с цифрой — существа: цифра и цвет — их уровень, чем дальше от деревни, тем сильнее. Начни с крыс, ежей и гадюк у частокола. В каждом здании деревни при первом входе я оставил короткую подсказку. За обучение — 100 монет и 2 зелья здоровья. В бою можно не торопиться: таймера хода нет, «Подсказка» покажет ход, «Отступить» уведёт на карту. Удачи!"); }, nextLabel: _t("Начать игру") },
+    { phase: 'village', target: '#map-zones', text: () => { const F = playerFaction(); return _t("Ты — {0}! Твой приём «{1}» заряжается, когда ты собираешь {2}, и хода не тратит. ", [F.name, F.ability.name, gemName()]) + _t("Теперь в путь! Кружки с цифрой — существа: цифра и цвет — их уровень, чем дальше от деревни, тем сильнее. Начни с крыс, ежей и гадюк у частокола. В каждом здании деревни при первом входе я оставил короткую подсказку. За обучение — 100 монет и 2 Эликсира жизни. В бою можно не торопиться: таймера хода нет, «Подсказка» покажет ход, «Отступить» уведёт на карту. Удачи!"); }, nextLabel: _t("Начать игру") },
   ];
 
   const cur = () => STEPS[idx];
@@ -119,6 +119,8 @@ const Tutorial = (() => {
     }
     if (s.building && typeof MapView !== 'undefined' && MapView.coachRing) MapView.coachRing(s.building);
     place();
+    // 2.5.0: поле боя встаёт на место позже первого кадра — повторная проверка, чтобы окно не закрывало подсвеченные камни (малые телефоны)
+    if (typeof requestAnimationFrame === 'function') { requestAnimationFrame(place); setTimeout(() => { if (active) place(); }, 500); }
   }
   // Окно реплики не должно закрывать то, что показываем: цель в нижней части экрана — окно сверху, иначе снизу.
   function place() {
@@ -242,10 +244,15 @@ const Tutorial = (() => {
       d.tutorial.rewarded = true;
       Profile.addCoins(100);
       Profile.addConsumable('potion', 2);
-      if (typeof MapView !== 'undefined' && MapView.toast) MapView.toast(_t("Бобёр вручил 100 монет и 2 зелья здоровья. В путь!"));
+      if (typeof MapView !== 'undefined' && MapView.toast) MapView.toast(_t("Бобёр вручил 100 монет и 2 Эликсира жизни. В путь!"));
     }
     Profile.save();
-    if (completed && first && typeof Tips !== 'undefined') setTimeout(() => { if (Tips.fire(Profile.data, 'ammo')) Profile.save(); }, 4500);   // подсказка про боеприпас народа — на карте, не в бою
+    if (completed && first && typeof Tips !== 'undefined') {
+      // 2.5.0: подсказка про боеприпас ждёт, пока закрыто окно здания (иначе она вылезала поверх Лавки/Кузницы и закрывала заголовок)
+      let tries = 0;
+      const fireAmmo = () => { if (typeof Screens !== 'undefined' && Screens.isOpen && tries++ < 20) return setTimeout(fireAmmo, 3000); if (Tips.fire(Profile.data, 'ammo')) Profile.save(); };
+      setTimeout(fireAmmo, 4500);
+    }   // подсказка про боеприпас народа — на карте, не в бою
     document.body.classList.add('no-hint');                // 1.8.5: после обучения «Подсказки» в бою нет
     if (typeof MapView !== 'undefined') MapView.renderHud();
     if (!d.faction && typeof Screens !== 'undefined') setTimeout(() => Screens.openFactions(true), 50);   // 1.5.4: пропустили обучение до выбора народа

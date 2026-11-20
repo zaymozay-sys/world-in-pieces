@@ -69,7 +69,7 @@ const Quests = (() => {
       need: (d) => d.wins || 0,
       goal: 6,
       reward: { cons: { elixir: 1, potion: 2 } },
-      rewardText: _t("Боевой настой и 2 зелья здоровья"),
+      rewardText: _t("Эликсир силы и 2 Эликсира жизни"),
     },
 
     // ---------- Мельница: добрый мышь ----------
@@ -121,7 +121,7 @@ const Quests = (() => {
       need: seenCount,
       goal: 5,
       reward: { cons: { potion: 2, elixir: 1 } },
-      rewardText: _t("2 зелья здоровья и эликсир силы"),
+      rewardText: _t("2 Эликсира жизни и Эликсир силы"),
     },
   ];
 
@@ -130,7 +130,7 @@ const Quests = (() => {
     { id: 'lh-scout', giver: 'lighthouse', title: _t("Дальний обзор"), desc: _t("Заметьте на карте восемь разных видов существ — смотритель любит знать, кто бродит у берега."),
       need: seenCount, goal: 8, reward: { coins: 150 }, rewardText: _t("150 медных монет") },
     { id: 'lh-wins', giver: 'lighthouse', title: _t("Огонь не гаснет"), desc: _t("Победите в двадцати боях — береговая нечисть не должна подбираться к маяку."),
-      need: (d) => d.wins || 0, goal: 20, reward: { cons: { potion: 3, elixir: 2 } }, rewardText: _t("3 зелья здоровья и 2 эликсира силы") },
+      need: (d) => d.wins || 0, goal: 20, reward: { cons: { potion: 3, elixir: 2 } }, rewardText: _t("3 Эликсира жизни и 2 Эликсира силы") },
     { id: 'lh-level', giver: 'lighthouse', title: _t("Крепкие ноги"), desc: _t("Дорастите героя до восьмого уровня — к кораблю ведёт долгая дорога."),
       need: (d) => (levelOf(d) >= 8 ? 1 : 0), goal: 1, reward: { coins: 300 }, rewardText: _t("300 медных монет") },
     { id: 'lh-three', giver: 'lighthouse', title: _t("Три цветных сундука"), desc: _t("Откройте все три сундука на берегу — сапфировый у бригантины, рубиновый на восточных камнях и изумрудный у маяка. Ключи: у меня, у старьёвщика и у алхимика."),
@@ -152,7 +152,7 @@ const Quests = (() => {
     { id: 'fest-1', giver: 'tavern', title: _t("Праздник в деревне: гости"), desc: _t("К празднику ждут гостей издалека, а дороги небезопасны. Победите в 25 боях — расчистите путь."),
       need: (d) => d.wins || 0, goal: 25, reward: { coins: 300 }, rewardText: _t("300 медных монет") },
     { id: 'fest-2', giver: 'tavern', title: _t("Праздник в деревне: уют"), desc: _t("Гостям должно быть уютно. Купите три украшения для дома (Ратуша → «Дом») — после первой части праздника."),
-      need: afterQ('fest-1', decorOwn), goal: 3, reward: { coins: 400, cons: { potion: 2 } }, rewardText: _t("400 медных монет и два зелья здоровья") },
+      need: afterQ('fest-1', decorOwn), goal: 3, reward: { coins: 400, cons: { potion: 2 } }, rewardText: _t("400 медных монет и 2 Эликсира жизни") },
     { id: 'fest-3', giver: 'tavern', title: _t("Праздник в деревне: угощение"), desc: _t("Для стола нужны припасы: добудьте шесть разных видов ресурсов — после второй части праздника."),
       need: afterQ('fest-2', resourceKinds), goal: 6, reward: { coins: 600, cons: { luck: 1, honeyjar: 1 } }, rewardText: _t("600 медных монет, свиток удачи и банка мёда") },
     { id: 'mel-1', giver: 'mill', title: _t("Мукомол: проба пера"), desc: _t("Бобёр дал мне задачу, а я не справляюсь. Решите головоломку дня на Арене — любую, хоть без звёзд."),
