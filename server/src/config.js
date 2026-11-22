@@ -19,6 +19,9 @@ const load = (env = process.env) => ({
   rateIp: num(env.RATE_IP, 120),       // запросов в минуту с адреса
   statsKey: env.STATS_KEY || '',      // ключ для чтения счётчиков воронки (/funnel); пусто — чтение выключено
   testSparks: env.TEST_SPARKS === '1',   // этап тестирования: игрок может раз в сутки получить тестовые искры (выключить до запуска платежей)
-  rateAuth: num(env.RATE_AUTH, 20),    // входов в минуту с адреса
+  rateAuth: num(env.RATE_AUTH, 20),
+  mailApiKey: env.RESEND_API_KEY || '',
+  mailFrom: env.MAIL_FROM || '',
+  publicSiteUrl: env.PUBLIC_SITE_URL || '',    // входов в минуту с адреса
 });
 module.exports = { load };

@@ -64,15 +64,18 @@ const Net = (() => {
   // Свой сервер (server/): вход по подписи площадки, снимок профиля с версией. Работает, только если игре дали адрес (env.serverUrl) и fetch.
   const makeRemote = (env, adapter, now) => {
     const base = String(env.serverUrl || '').replace(/\/+$/, '');
-    let token = null, authing = null, off = false, lastVer = Number(env.lastVersion) || 0;
-    const call = async (method, path, body) => {
-      const r = await env.fetch(base + path, { method, headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}), body: body == null ? undefined : JSON.stringify(body) });
+    let token = env.accountSession && /^[0-9a-f]{64}$/.test(env.accountSession.token) ? env.accountSession.token : null;
+    let accountPid = token && validPid(env.accountSession.pid) ? env.accountSession.pid : null;
+    let syncConflict = false, authing = null, off = false, lastVer = Number(env.lastVersion) || 0;
+    const call = async (method, path, body, accessToken = token) => {
+      const r = await env.fetch(base + path, { method, headers: Object.assign({ 'Content-Type': 'application/json' }, accessToken ? { Authorization: 'Bearer ' + accessToken } : {}), body: body == null ? undefined : JSON.stringify(body) });
       let j = null; try { j = await r.json(); } catch (e) { j = null; }
       return { code: r.status, json: j };
     };
     const auth = async () => {
       if (off) return false;
       if (token) return true;
+      if (accountPid) return false;  // An expired email session must never silently become a guest identity.
       if (authing) return authing;
       authing = (async () => {
         const pid = env.getPid ? env.getPid() : null;
@@ -86,16 +89,41 @@ const Net = (() => {
     };
     return {
       get enabled() { return !!base && !off; },
+      get accountPid() { return accountPid; },
+      get syncConflict() { return syncConflict; },
       get lastVersion() { return lastVer; },
+      // Account operations are available on the standalone website only; never ask VK/Yandex to log in through email.
+      async accountRegister(email, password) { if (!(await auth())) return { code: 401, json: { error: 'auth' } }; return call('POST', '/account/register', { email, password }); },
+      async accountResend() { if (!(await auth())) return { code: 401, json: { error: 'auth' } }; return call('POST', '/account/resend', {}); },
+      async accountLogin(email, password) { return call('POST', '/account/login', { email, password }, null); },
+      async accountVerify(secret) { return call('POST', '/account/verify', { token: secret }, null); },
+      async accountResetRequest(email) { return call('POST', '/account/reset/request', { email }, null); },
+      async accountResetConfirm(secret, password) { return call('POST', '/account/reset/confirm', { token: secret, password }, null); },
+      async accountStatus() { return (await auth()) ? call('GET', '/account/status') : { code: 401, json: { error: 'auth' } }; },
+      async accountLogout() { const r = await call('POST', '/account/logout', {}); if (r.code === 200) { token = null; accountPid = null; if (env.persistAccount) env.persistAccount(null); } return r; },
+      // Run after restoring the matching cloud profile. Activation is delayed until local backup succeeds.
+      activateAccount(info) {
+        if (!info || !/^[0-9a-f]{64}$/.test(info.token) || !validPid(info.pid)) return false;
+        token = info.token; accountPid = info.pid; lastVer = Number(info.version) || 0; syncConflict = false;
+        if (env.persistAccount) env.persistAccount({ token, pid: accountPid });
+        if (env.saveVersion) env.saveVersion(lastVer);
+        return true;
+      },
+
       auth,
       // отправка: версия = время, всегда больше предыдущей
       async push(snapshot) {
-        if (!(await auth())) return false;
+        if (syncConflict || !(await auth())) return false;
         const version = Math.max(now(), lastVer + 1);
-        let r = await call('PUT', '/snapshot', { version, snapshot });
-        if (r.code === 401) { token = null; if (!(await auth())) return false; r = await call('PUT', '/snapshot', { version, snapshot }); }
+        const payload = { version, snapshot };
+        if (accountPid) payload.expectedVersion = lastVer || null;
+        let r = await call('PUT', '/snapshot', payload);
+        if (r.code === 401) { token = null; if (!(await auth())) return false; r = await call('PUT', '/snapshot', payload); }
         if (r.code === 200) { lastVer = version; if (env.saveVersion) env.saveVersion(version); return true; }
-        if (r.code === 409 && r.json && r.json.serverVersion) lastVer = Number(r.json.serverVersion) || lastVer;
+        if (accountPid && (r.code === 409 || r.code === 428)) {
+          syncConflict = true;
+          if (typeof window !== 'undefined' && window.dispatchEvent) window.dispatchEvent(new Event('wip-sync-conflict'));
+        } else if (r.code === 409 && r.json && r.json.serverVersion) lastVer = Number(r.json.serverVersion) || lastVer;
         return false;
       },
       // есть ли на сервере снимок новее нашего последнего отправленного

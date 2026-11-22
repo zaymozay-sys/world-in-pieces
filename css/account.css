@@ -1,0 +1,17 @@
+/* Cloud account dialog: standalone site only */
+.wip-account-modal[hidden], .wip-account-modal [hidden] { display: none !important; }
+.wip-account-modal { position:fixed; z-index:100000; inset:0; background:rgba(9,7,15,.82); display:flex; align-items:center; justify-content:center; padding:12px; overflow-y:auto; }
+.wip-account-card { position:relative; width:min(100%,420px); max-height:92dvh; overflow-y:auto; padding:26px 22px 20px; border:2px solid #b79660; border-radius:14px; background:linear-gradient(160deg,#31253c,#17151f 70%); color:#f7eddf; box-shadow:0 15px 45px #0009; }
+.wip-account-card h2 { margin:0 32px 6px 0; font-size:23px; color:#efd3a2; }
+.wip-account-card .wip-account-lead { font-size:14px; line-height:1.5; margin:4px 0 16px; }
+.wip-account-x { position:absolute; right:9px; top:9px; border:0; background:transparent; color:#e5d6c3; font-size:20px; cursor:pointer; }
+#wip-account-form { display:flex; flex-direction:column; gap:12px; }
+#wip-account-form label { display:flex; flex-direction:column; gap:6px; font-size:13px; }
+#wip-account-form input { box-sizing:border-box; min-height:42px; width:100%; border:1px solid #99846d; border-radius:7px; background:#1a1721; padding:8px 12px; color:#fff; font-size:16px; }
+#wip-account-form input:focus { outline:2px solid #f3c778; outline-offset:1px; }
+#wip-account-form button.primary { min-height:44px; font-size:15px; margin-top:6px; }
+.wip-account-status { font-size:13px; min-height:1em; line-height:1.5; color:#cce6c6; overflow-wrap:anywhere; }
+.wip-account-status.bad { color:#ffb5a8; }
+.wip-account-links { display:flex; flex-wrap:wrap; gap:12px; margin-top:12px; }
+.wip-account-links button { background:none; border:0; border-bottom:1px solid #c6a77b; color:#efd3a2; cursor:pointer; padding:2px 0; font-size:13px; }
+@media (max-width:480px) { .wip-account-card { padding:22px 16px 16px; } .wip-account-card h2 { font-size:20px; } }

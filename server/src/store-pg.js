@@ -18,16 +18,28 @@ const create = async (databaseUrl) => {
       if (again.rows[0]) return { pid: again.rows[0].pid, created: false };
       return { pid: null, created: false, taken: true };
     },
+    async playerPlatform(pid) { const r = await q('SELECT platform FROM players WHERE pid=$1', [pid]); return r.rows[0] ? r.rows[0].platform : null; },
     async pidFor(platform, ext) { const r = await q('SELECT pid FROM players WHERE platform=$1 AND ext_id=$2', [platform, ext]); return r.rows[0] ? r.rows[0].pid : null; },
     async createSession(hash, pid, expires) { await q('INSERT INTO sessions(token_hash,pid,expires_at) VALUES($1,$2,to_timestamp($3/1000.0))', [hash, pid, expires]); },
     async sessionPid(hash, now) { const r = await q('SELECT pid FROM sessions WHERE token_hash=$1 AND expires_at>to_timestamp($2/1000.0)', [hash, now]); return r.rows[0] ? r.rows[0].pid : null; },
-    async putSnapshot(pid, version, body, keep) {
+    // Email accounts are linked to an existing player, preserving their equipment and progress.
+    async emailCreate(a) { const r = await q('INSERT INTO email_accounts(pid,email,password_hash) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING pid', [a.pid, a.email, a.passwordHash]); return r.rowCount === 1; },
+    async emailByPid(pid) { const r = await q('SELECT pid,email,password_hash,verified FROM email_accounts WHERE pid=$1', [pid]); return r.rows[0] ? { ...r.rows[0], passwordHash: r.rows[0].password_hash } : null; },
+    async emailByAddress(email) { const r = await q('SELECT pid,email,password_hash,verified FROM email_accounts WHERE email=$1', [email]); return r.rows[0] ? { ...r.rows[0], passwordHash: r.rows[0].password_hash } : null; },
+    async emailVerify(pid) { await q('UPDATE email_accounts SET verified=TRUE WHERE pid=$1', [pid]); },
+    async emailSetPassword(pid, hash) { await q('UPDATE email_accounts SET password_hash=$2 WHERE pid=$1', [pid, hash]); },
+    async emailTokenPut(pid, purpose, hash, until) { await q('DELETE FROM email_tokens WHERE pid=$1 AND purpose=$2', [pid, purpose]); await q('INSERT INTO email_tokens(token_hash,pid,purpose,expires_at) VALUES($1,$2,$3,to_timestamp($4/1000.0))', [hash, pid, purpose, until]); },
+    async emailTokenConsume(hash, purpose, now) { const r = await q('DELETE FROM email_tokens WHERE token_hash=$1 AND purpose=$2 AND expires_at > to_timestamp($3/1000.0) RETURNING pid', [hash, purpose, now]); return r.rows[0] ? r.rows[0].pid : null; },
+    async revokeSessions(pid) { await q('DELETE FROM sessions WHERE pid=$1', [pid]); },
+    async deleteSession(hash) { await q('DELETE FROM sessions WHERE token_hash=$1', [hash]); },
+    async putSnapshot(pid, version, body, keep, expectedVersion, strict = false) {
       const c = await pool.connect();
       try {
         await c.query('BEGIN');
         await c.query('SELECT pid FROM players WHERE pid=$1 FOR UPDATE', [pid]);
         const m = await c.query('SELECT max(version) AS v FROM snapshots WHERE pid=$1', [pid]);
         const cur = m.rows[0].v != null ? Number(m.rows[0].v) : null;
+        if (strict && cur !== expectedVersion) { await c.query('ROLLBACK'); return { ok: false, serverVersion: cur, conflict: true }; }
         if (cur != null && version <= cur) { await c.query('ROLLBACK'); return { ok: false, serverVersion: cur }; }
         await c.query('INSERT INTO snapshots(pid,version,body) VALUES($1,$2,$3)', [pid, version, body]);
         await c.query('DELETE FROM snapshots WHERE pid=$1 AND version NOT IN (SELECT version FROM snapshots WHERE pid=$1 ORDER BY version DESC LIMIT $2)', [pid, keep]);
@@ -134,6 +146,7 @@ const create = async (databaseUrl) => {
     async purge(now, auditMaxAgeMs) {
       const a = await q('DELETE FROM sessions WHERE expires_at <= to_timestamp($1/1000.0)', [now]);
       const b = await q('DELETE FROM audit WHERE created_at < to_timestamp($1/1000.0)', [now - auditMaxAgeMs]);
+      await q('DELETE FROM email_tokens WHERE expires_at < to_timestamp($1/1000.0)', [now]);
       const vd = await q('DELETE FROM vouchers WHERE at < $1', [now - rating.VOUCHER_KEEP_MS]);
       const sp = await q('DELETE FROM square_posts WHERE at < $1', [now - 7 * 86400000]);
       await q('DELETE FROM square_reports WHERE at < $1', [now - 7 * 86400000]);

@@ -164,6 +164,8 @@ MapView.marketNews();           // Торговые ряды: что купил�
       serverUrl: ls('wip-sync-off') === '1' ? '' : (w.GEM_SERVER || ''), onDeleted: () => ls('wip-sync-off', '1'), fetch: typeof fetch === 'function' ? fetch.bind(w) : undefined, guest,
       getPid: () => (Profile.data ? Profile.data.pid : null),
       getCard: () => Duel.makeCard({ nick: Profile.data.name || '', faction: Profile.data.faction, gender: Profile.data.gender, level: Profile.level(), rank: (Profile.data.arena && Profile.data.arena.rank) || 0, gear: Profile.gear() }, Gear.SLOTS),
+      accountSession: (() => { try { return JSON.parse(ls('wip-account-session') || 'null'); } catch (e) { return null; } })(),
+      persistAccount: (x) => { try { if (x) localStorage.setItem('wip-account-session', JSON.stringify(x)); else localStorage.removeItem('wip-account-session'); } catch (e) { /* unavailable */ } },
       lastVersion: Number(ls('wip-sync-ver')) || 0, saveVersion: (v) => ls('wip-sync-ver', String(v)),
       onNewer: (n, remote) => {
         // на сервере есть более новое сохранение: спрашиваем в окне, а не заменяем молча; своё сохранение откладываем в запас
@@ -423,3 +425,9 @@ document.addEventListener('pointerdown', (e) => {
   const start = () => { new MutationObserver(later).observe(document.body, { childList: true, subtree: true }); window.addEventListener('resize', later); };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
+
+// Account dialog is optional; the standard game remains usable without a server.
+if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.GEM_SERVER) {
+  const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = 'css/account.css'; document.head.appendChild(style);
+  const script = document.createElement('script'); script.src = 'js/account-ui.js'; document.body.appendChild(script);
+}

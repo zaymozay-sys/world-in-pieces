@@ -33,6 +33,7 @@ const cleanCard = (c, maxLevel) => {
 const funnel = require('./funnel');
 const telemetry = require('./telemetry');
 const premium = require('./premium');
+const emailAuth = require('./account-auth');
 // Наибольший уровень, который сервер подтверждает игроку: по подтверждённому опыту (savecheck.trust), у нового аккаунта — по стартовому.
 const trustedLevel = async (store, pid) => {
   const ck = await store.getCheck(pid);
@@ -51,7 +52,7 @@ const limiter = (limit, windowMs, now) => {
   };
 };
 
-const create = ({ cfg, store, now = Date.now, tourney = null }) => {
+const create = ({ cfg, store, now = Date.now, tourney = null, mailer = null }) => {
   const funnelOk = limiter(40, 3600000, now), teleOk = limiter(120, 3600000, now), walletOk = limiter(60, 60000, now);
   const ipOk = limiter(cfg.rateIp, 60000, now), authOk = limiter(cfg.rateAuth, 60000, now);
 
@@ -88,6 +89,7 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
     return pid;
   };
 
+  const accounts = emailAuth.create({ cfg, store, now, authed, send, readBody, mailer });
   const handler = async (req, res) => {
     const origin = req.headers.origin;
     try {
@@ -97,6 +99,11 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
       if (req.method === 'OPTIONS') return send(res, 204, {}, origin);
       if (url === '/health') return send(res, 200, { ok: true }, origin);
       if (!ipOk(ip)) return send(res, 429, { error: 'rate' }, origin);
+
+      if (url.startsWith('/account/')) {
+        if (!authOk(ip)) return send(res, 429, { error: 'rate' }, origin);
+        return accounts.route(req, res, url, origin);
+      }
 
       if (url === '/auth' && req.method === 'POST') {
         if (!authOk(ip)) return send(res, 429, { error: 'rate' }, origin);
@@ -111,6 +118,8 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
         if (!known && !want) return send(res, 400, { error: 'pid' }, origin);
         const r = await store.findOrCreatePlayer(platform, ext, want);
         if (!r.pid) return send(res, 409, { error: 'pid-taken' }, origin);
+        // An email-linked hero must not be reopened using the old device guest secret.
+        if (platform === 'site') { const account = await store.emailByPid(r.pid); if (account && account.verified) return send(res, 401, { error: 'email_login_required' }, origin); }
         const token = crypto.randomBytes(32).toString('hex');
         await store.createSession(sha(token), r.pid, now() + cfg.sessionDays * 86400000);
         await store.log(r.created ? 'signup' : 'login', r.pid, platform);
@@ -349,7 +358,13 @@ const create = ({ cfg, store, now = Date.now, tourney = null }) => {
           if (!b || typeof b.snapshot !== 'string' || !Number.isSafeInteger(b.version) || b.version < 1) return send(res, 400, { error: 'body' }, origin);
           let parsed; try { parsed = JSON.parse(b.snapshot); } catch (e) { parsed = null; }
           if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return send(res, 400, { error: 'snapshot' }, origin);
-          const r = await store.putSnapshot(pid, b.version, b.snapshot, cfg.keepSnapshots);
+          // Email accounts have an authoritative cloud revision: reject concurrent stale writes.
+          const account = await store.emailByPid(pid);
+          const strict = !!(account && account.verified);
+          const expected = Object.prototype.hasOwnProperty.call(b, 'expectedVersion') ? b.expectedVersion : undefined;
+          if (strict && (expected === undefined || !(expected === null || (Number.isSafeInteger(expected) && expected > 0)))) return send(res, 428, { error: 'expected-version-required' }, origin);
+          if (strict && parsed.pid !== pid) return send(res, 409, { error: 'wrong-player' }, origin);
+          const r = await store.putSnapshot(pid, b.version, b.snapshot, cfg.keepSnapshots, expected, strict);
           if (r.ok) {
             // правдоподобие: сохранение принято в любом случае, но резкий скачок опыта/побед помечает игрока
             try {

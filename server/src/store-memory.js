@@ -3,6 +3,7 @@ const create = () => {
   const rating = require('./rating');
   const checks = new Map(), vouchers = [];  let voucherSeq = 0;
   const wallets = new Map(), ledger = [], ledgerRefs = new Set(), rightsMap = new Map(), tele = [], posts = [], reports = [], hides = new Map(), funnel = new Map(); let postSeq = 0, teleSeq = 0;
+  const emails = new Map(), emailsByPid = new Map(), emailTokens = new Map();
   const rats = new Map(), rlog = [], claims = new Set(), tours = new Map(), cards = new Map(), players = new Map(), byExt = new Map(), snaps = new Map(), sessions = new Map(), audit = [];
   return {
     async findOrCreatePlayer(platform, ext, wantPid) {
@@ -14,12 +15,23 @@ const create = () => {
       byExt.set(k, pid);
       return { pid, created: true };
     },
+    async playerPlatform(pid) { const p = players.get(pid); return p ? p.platform : null; },
     async pidFor(platform, ext) { return byExt.get(platform + ':' + ext) || null; },
     async createSession(hash, pid, expires) { sessions.set(hash, { pid, expires }); },
     async sessionPid(hash, now) { const s = sessions.get(hash); return s && s.expires > now ? s.pid : null; },
-    async putSnapshot(pid, version, body, keep) {
+    async emailCreate(a) { if (emails.has(a.email) || emailsByPid.has(a.pid) || !players.has(a.pid)) return false; const r = { ...a }; emails.set(a.email, r); emailsByPid.set(a.pid, r); return true; },
+    async emailByPid(pid) { return emailsByPid.get(pid) || null; },
+    async emailByAddress(email) { return emails.get(email) || null; },
+    async emailVerify(pid) { const a = emailsByPid.get(pid); if (a) a.verified = true; },
+    async emailSetPassword(pid, hash) { const a = emailsByPid.get(pid); if (a) a.passwordHash = hash; },
+    async emailTokenPut(pid, purpose, hash, until) { for (const [k,v] of emailTokens) if (v.pid === pid && v.purpose === purpose) emailTokens.delete(k); emailTokens.set(hash, { pid, purpose, until }); },
+    async emailTokenConsume(hash, purpose, now) { const t = emailTokens.get(hash); if (!t || t.purpose !== purpose || t.until <= now) return null; emailTokens.delete(hash); return t.pid; },
+    async revokeSessions(pid) { for (const [k,v] of sessions) if (v.pid === pid) sessions.delete(k); },
+    async deleteSession(hash) { sessions.delete(hash); },
+    async putSnapshot(pid, version, body, keep, expectedVersion, strict = false) {
       const list = snaps.get(pid) || [];
       const last = list[list.length - 1];
+      if (strict && (last ? last.version : null) !== expectedVersion) return { ok: false, serverVersion: last ? last.version : null, conflict: true };
       if (last && version <= last.version) return { ok: false, serverVersion: last.version };
       list.push({ version, body, at: Date.now() });
       while (list.length > keep) list.shift();
@@ -125,6 +137,7 @@ const create = () => {
     async deletePlayer(pid) {
       const p = players.get(pid); if (!p) return false;
       for (const t of tours.values()) if (t.body.includes(pid)) t.body = t.body.split(pid).join('del-' + pid.slice(2, 10));   // имя игрока из турниров убираем
+      { const a = emailsByPid.get(pid); if (a) { emails.delete(a.email); emailsByPid.delete(pid); } for (const [k,t] of emailTokens) if (t.pid === pid) emailTokens.delete(k); }
       players.delete(pid); checks.delete(pid); for (let i = vouchers.length - 1; i >= 0; i--) if (vouchers[i].pid === pid) vouchers.splice(i, 1); rats.delete(pid); for (let i = rlog.length - 1; i >= 0; i--) if (rlog[i].pid === pid || rlog[i].opp === pid) { if (rlog[i].pid !== pid) rlog[i].opp = 'deleted'; else rlog.splice(i, 1); } for (const k of [...claims]) if (k.endsWith('|' + pid)) claims.delete(k);
       for (let i = posts.length - 1; i >= 0; i--) if (posts[i].pid === pid) posts.splice(i, 1);
       for (let i = reports.length - 1; i >= 0; i--) if (reports[i].reporter === pid || reports[i].author === pid) reports.splice(i, 1);
@@ -135,7 +148,7 @@ const create = () => {
       for (const [h, s] of sessions) if (s.pid === pid) sessions.delete(h);
       return true;
     },
-    async purge(now, auditMaxAgeMs) { let n = 0; for (let i = tele.length - 1; i >= 0; i--) if (now - tele[i].at > 30 * 86400000) { tele.splice(i, 1); n++; } for (let i = posts.length - 1; i >= 0; i--) if (now - posts[i].at > 7 * 86400000) { posts.splice(i, 1); n++; } for (let i = reports.length - 1; i >= 0; i--) if (now - reports[i].at > 7 * 86400000) reports.splice(i, 1); for (let i = vouchers.length - 1; i >= 0; i--) if (now - vouchers[i].at > rating.VOUCHER_KEEP_MS) { vouchers.splice(i, 1); n++; } for (let i = rlog.length - 1; i >= 0; i--) if (now - rlog[i].at > 366 * 86400000) { rlog.splice(i, 1); n++; } for (const [k, t] of tours) if (t.state !== 'open' && t.state !== 'running' && now - t.startAt > 60 * 86400000) { tours.delete(k); n++; } for (const [h, s] of sessions) if (s.expires <= now) { sessions.delete(h); n++; } for (let i = audit.length - 1; i >= 0; i--) if (now - audit[i].at > auditMaxAgeMs) { audit.splice(i, 1); n++; } return n; },
+    async purge(now, auditMaxAgeMs) { let n = 0; for (const [k,t] of emailTokens) if (t.until <= now) emailTokens.delete(k); for (let i = tele.length - 1; i >= 0; i--) if (now - tele[i].at > 30 * 86400000) { tele.splice(i, 1); n++; } for (let i = posts.length - 1; i >= 0; i--) if (now - posts[i].at > 7 * 86400000) { posts.splice(i, 1); n++; } for (let i = reports.length - 1; i >= 0; i--) if (now - reports[i].at > 7 * 86400000) reports.splice(i, 1); for (let i = vouchers.length - 1; i >= 0; i--) if (now - vouchers[i].at > rating.VOUCHER_KEEP_MS) { vouchers.splice(i, 1); n++; } for (let i = rlog.length - 1; i >= 0; i--) if (now - rlog[i].at > 366 * 86400000) { rlog.splice(i, 1); n++; } for (const [k, t] of tours) if (t.state !== 'open' && t.state !== 'running' && now - t.startAt > 60 * 86400000) { tours.delete(k); n++; } for (const [h, s] of sessions) if (s.expires <= now) { sessions.delete(h); n++; } for (let i = audit.length - 1; i >= 0; i--) if (now - audit[i].at > auditMaxAgeMs) { audit.splice(i, 1); n++; } return n; },
     // Искры: баланс, права, операции. apply — одна атомарная операция: ref уникален (повтор возвращает прежний итог), баланс не уходит ниже нуля.
     async walletGet(pid) { const w = wallets.get(pid) || { balance: 0, testAt: 0 }; return { balance: w.balance, testAt: w.testAt, rights: [...(rightsMap.get(pid) || [])] }; },
     async walletApply(pid, delta, reason, ref, at, right, setTestAt) {
