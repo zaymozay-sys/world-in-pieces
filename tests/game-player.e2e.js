@@ -113,8 +113,8 @@ async function createNewHero() {
   await page.waitForTimeout(900);
   await page.locator('text=Подгорные кланы').click();
   await page.locator('button.primary[data-gender="m"]').click();
-  await page.locator('input').fill('Автоигрок');
-  await page.locator('text=Начать игру!').click();
+  await page.locator('input[data-nick]').fill('Автоигрок');
+  await page.locator('button[data-act="start"]').click();
   await page.waitForFunction(() => document.body.classList.contains('mode-map'), null, { timeout: 15000 });
   const profile = await page.evaluate(() => ({ name: Profile.data.name, faction: Profile.data.faction }));
   ensure(profile.name === 'Автоигрок' && profile.faction === 'dwarf',
