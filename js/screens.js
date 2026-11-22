@@ -211,12 +211,6 @@ const Screens = (() => {
     root.addEventListener('click', markBought);
     root.addEventListener('toggle', (e) => { const d = e.target; if (d.classList && d.classList.contains('tgroup')) titleOpen[d.dataset.g] = d.open; if (d.classList && d.classList.contains('res-fold')) st.forgeResOpen = d.open; }, true);
     root.addEventListener('input', onInput);
-    root.addEventListener('submit', (e) => {
-      if (cur === 'credits' && e.target.matches('[data-testcode-form]')) {
-        e.preventDefault();
-        credits.submitTestCode();
-      }
-    });
     root.addEventListener('change', (e) => { if (cur === 'best' && e.target.dataset && e.target.dataset.bsort !== undefined) { st.best.sort = e.target.value; const lst = root.querySelector('.beast-list'); if (lst) lst.innerHTML = bestTiles(st.best, Profile.species()); } });
     // 2.0.9: свайп вниз по шапке окна закрывает его (телефон); кнопка «Закрыть» и Esc остаются
     let sw = null;
@@ -398,11 +392,6 @@ const Screens = (() => {
     root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; c.hidden = !!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q)); });
   }
   function onInput(e) {
-    if (cur === 'credits' && e.target.matches('[data-testcode-input]')) {
-      const error = root.querySelector('[data-testcode-error]');
-      if (error) error.hidden = true;
-      return;
-    }
     if (cur === 'valor' && e.target.dataset.vq !== undefined) { st.valor.q = e.target.value; valorFilter(); return; }
     if (cur === 'shop' && e.target.dataset.shq !== undefined) {
       st.shop.q = e.target.value;
@@ -2406,29 +2395,21 @@ const Screens = (() => {
   }
 
   const CHECKLIST_URL = 'https://claude.ai/artifact/QhG7ptvQJyXqygJj1Jh1RP';
-    const withChecklist = (h) => h.replace('</ul>', () => '</ul>' + thanksHtml()).replace('<div class="test-x10">', '<div class="test-x10">' + testCodeHtml() + '<p class="hint"><a href="' + CHECKLIST_URL + '" target="_blank" rel="noopener">' + _t("Чек-лист проверки графики на телефоне и компьютере ↗") + '</a></p>');
+    const withChecklist = (h) => h.replace('</ul>', () => '</ul>' + thanksHtml()).replace('<div class="test-x10">', '<div class="test-x10"><p class="hint"><a href="' + CHECKLIST_URL + '" target="_blank" rel="noopener">' + _t("Чек-лист проверки графики на телефоне и компьютере ↗") + '</a></p>');
 // 1.8.9: благодарности помощникам; список пополняется вручную (сюда добавляют имена)
   const THANKS = ["Антонов Максим", "Сошнин Максим", "Сошнина Елена"];
   const thanksHtml = () => `<p class="hint">${_t("Благодарим за помощь в тестировании игры:")}</p><ul class="credits-list">${THANKS.map((n) => `<li>${String(n).replace(/</g, '&lt;')}</li>`).join('')}</ul>`;
   // Код нужен только для включения: выключение тестового режима всегда доступно без него.
   // Это ограничение интерфейса, а не защита от изменения открытого JavaScript и локальных сохранений.
-  let pendingTestToggle = null;
-  const testCodeHtml = () => !pendingTestToggle ? '' : `
-    <form class="test-code-form" data-testcode-form>
-      <p class="hint">${_t("Чтобы включить тестовый режим, введите код:")}</p>
-      <div class="test-code-actions">
-        <input type="password" data-testcode-input placeholder="${_t("Код доступа")}" aria-label="${_t("Код доступа")}" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" required>
-        <button type="submit" class="primary">${_t("Включить")}</button>
-        <button type="button" data-testcode-cancel="1">${_t("Отмена")}</button>
-      </div>
-      <p class="hint warn" role="alert" data-testcode-error hidden>${_t("Неверный код. Попробуйте ещё раз.")}</p>
-    </form>`;
   const testCodeMatches = (value) => value.trim().toLocaleLowerCase('ru-RU') === 'аякс';
   const requestTestCode = (kind) => {
-    pendingTestToggle = kind;
-    changed();
-    const field = root && root.querySelector('[data-testcode-input]');
-    if (field) field.focus();
+    const code = window.prompt(_t("Чтобы включить тестовый режим, введите код:"));
+    if (code === null) return; // пользователь отменил ввод
+    if (!testCodeMatches(code)) {
+      window.alert(_t("Неверный код. Попробуйте ещё раз."));
+      return;
+    }
+    applyTestToggle(kind, true);
   };
   const applyTestToggle = (kind, enabled) => {
     if (kind === 'spells') {
@@ -2449,32 +2430,14 @@ const credits = {
       return withChecklist(_t("<div class=\"modal\" role=\"dialog\" aria-label=\"О разработчиках\">{0}\n        <div class=\"screen-body credits-body\">\n          <p class=\"hint\">Игру создали:</p>\n          <ul class=\"credits-list\">\n            <li>Воробьев Александр Сергеевич</li>\n            <li>Никифоренко Екатерина Эдуардовна</li>\n          </ul>\n          <p class=\"hint\">© 2026 Воробьев Александр Сергеевич, Никифоренко Екатерина Эдуардовна. Все права защищены.</p>\n          <div class=\"test-x10\">\n            <label class=\"switch\"><button type=\"button\" role=\"switch\" aria-checked=\"{1}\" data-testx10=\"1\" class=\"{2}\"><i></i></button>\n              <span><b>Тест: характеристики героя ×10</b> — {3}</span></label>\n            <label class=\"switch\"><button type=\"button\" role=\"switch\" aria-checked=\"{4}\" data-testspells=\"1\" class=\"{5}\"><i></i></button>\n              <span><b>Тест: все виды магии открыты</b> — {6}</span></label>\n            {7}\n            <p class=\"hint\">Награды за победы в этом режиме выдаются как обычно — удобно проверять добычу. Для проверки сильных персонажей: Сила, Здоровье, Броня и остальные характеристики, ХП и урон вашего героя умножаются на 10 (проценты упираются в обычные потолки). Не забудьте выключить.</p>\n          </div>\n        </div></div>", [head(_t("О разработчиках")), Profile.data.testX10 ? 'true' : 'false', Profile.data.testX10 ? 'on' : '', Profile.data.testX10 ? _t("включено") : _t("выключено"), Profile.data.testAllSpells ? 'true' : 'false', Profile.data.testAllSpells ? 'on' : '', Profile.data.testAllSpells ? _t("включено") : _t("выключено"), typeof inBattle !== 'undefined' && inBattle && typeof over !== 'undefined' && !over ? _t("<p class=\"hint warn\">Во время боя переключать нельзя.</p>") : '']));
     },
     click(b) {
-      if (b.dataset.testcodeCancel) { pendingTestToggle = null; changed(); return; }
       if (b.dataset.testspells) {   // 1.3.8: тест — все виды магии открыты
         if (!Profile.data.testAllSpells) return requestTestCode('spells');
-        pendingTestToggle = null;
         return applyTestToggle('spells', false);
       }
       if (!b.dataset.testx10) return;
       if (typeof inBattle !== 'undefined' && inBattle && typeof over !== 'undefined' && !over) return;   // посреди боя — нельзя
       if (!Profile.data.testX10) return requestTestCode('x10');
-      pendingTestToggle = null;
       applyTestToggle('x10', false);
-    },
-    submitTestCode() {
-      if (!pendingTestToggle || !root) return;
-      const field = root.querySelector('[data-testcode-input]');
-      if (!field) return;
-      if (!testCodeMatches(field.value)) {
-        field.value = '';
-        const error = root.querySelector('[data-testcode-error]');
-        if (error) error.hidden = false;
-        field.focus();
-        return;
-      }
-      const kind = pendingTestToggle;
-      pendingTestToggle = null;
-      applyTestToggle(kind, true);
     },
   };
 
@@ -3633,7 +3596,7 @@ const credits = {
     openToday: () => open('today'),
     todayPending,
     markedSpecies,
-    openCredits: () => { pendingTestToggle = null; open('credits'); },
+    openCredits: () => open('credits'),
     openFactions: (first = false) => {
       st.fac.first = first; st.fac.msg = '';
       if (first) {

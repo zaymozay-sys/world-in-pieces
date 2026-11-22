@@ -1957,15 +1957,6 @@ body.ui-columns .fighter .name { flex-wrap: wrap; row-gap: 2px; }
 @media (max-width: 700px) { .medal-round { width: 54px; height: 54px; } }
 
 
-/* Подтверждение кода перед включением тестовых режимов в титрах. */
-.test-code-form { margin: 10px 0 14px; padding: 12px; background: rgba(22, 14, 9, .7); border: 1px solid #7c6037; border-radius: 9px; }
-.test-code-form > .hint { margin: 0 0 10px; }
-.test-code-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.test-code-form input[type="password"] { flex: 1 1 145px; min-width: 0; max-width: 280px; padding: 9px 10px; font: inherit; background: #150e08; color: #ece4d2; border: 1px solid #80643b; border-radius: 7px; }
-.test-code-form input[type="password"]:focus-visible { outline: 2px solid #e6c36a; outline-offset: 2px; }
-.test-code-form [data-testcode-error] { margin: 9px 0 0; color: #f2a494; }
-.test-code-form [data-testcode-error][hidden] { display: none; }
-
 /* Переключатель «Тест ×10» в окне «О разработчиках» */
 .test-x10 { margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.12); }
 .test-x10 .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; }
