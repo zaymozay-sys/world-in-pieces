@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Smoke: one battle; full: two battles and landscape UI"
+        description: "Smoke: 1 battle; full: 10 consecutive battles, loot report and landscape UI"
         type: choice
         required: true
         default: full
@@ -36,9 +36,9 @@ jobs:
   game-player:
     name: Automatic game player (Chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
-      WIP_PLAYER_MODE: ${{ github.event_name == 'schedule' && 'full' || (inputs.mode || 'smoke') }}
+      WIP_PLAYER_MODE: ${{ github.event_name == 'schedule' && 'full' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[test:10]') && 'full') || (inputs.mode || 'smoke') }}
       CI: "true"
     steps:
       - name: Checkout game
