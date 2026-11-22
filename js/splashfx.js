@@ -36,21 +36,38 @@ const SplashFx = (() => {
       DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(PIXELS / (W * H))));   // 2.4.7: бюджет пикселей холста — на больших экранах без лишней плотности
       cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       const fs = Math.min(W * (W < H ? 0.8 : 0.9) / (opt.title.length * 0.62), H / 3.4);   // 1.8.2: на телефоне стоя поля по краям
-      const step = Math.max(6, Math.round(fs / 12)), y = H * 0.46, sc = 1 / step;
-      // 2.4.7: надпись рисуется в холсте в 1/step размера — один пиксель на узел сетки; читать приходится в десятки раз меньше точек
-      const off = document.createElement('canvas'); off.width = Math.ceil(W * sc); off.height = Math.ceil(H * sc); const o = off.getContext('2d', { willReadFrequently: true });
-      o.setTransform(sc, 0, 0, sc, 0, 0); o.font = font(fs); o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff'; o.fillText(opt.title, W / 2, y);
+      const step = Math.max(6, Math.round(fs / 12)), y = H * 0.46;
+      const pad = Math.ceil(fs * 0.35), top = y - fs / 2 - pad;
+      const tw = Math.ceil(W * DPR), th = Math.ceil((fs + 2 * pad) * DPR);
+      // Осколки и золотая надпись должны иметь одну геометрию глифов.
+      // Сначала рисуем маску в ПОЛНОМ разрешении и лишь затем уменьшаем её для выборки точек.
+      // Раньше текст отдельно растеризовался в масштабе 1/step; браузер менял метрики
+      // и сглаживание букв, а точки брались из углов ячеек (сдвиг на полшага).
+      const glyph = document.createElement('canvas'); glyph.width = tw; glyph.height = th;
+      const gm = glyph.getContext('2d'); gm.setTransform(DPR, 0, 0, DPR, 0, 0);
+      gm.font = font(fs); gm.textAlign = 'center'; gm.textBaseline = 'middle';
+      gm.fillStyle = '#fff'; gm.fillText(opt.title, W / 2, pad + fs / 2);
+      // Точки осколков — центры ячеек, с учётом того же top, что у финального текста.
+      const off = document.createElement('canvas');
+      off.width = Math.ceil(W / step); off.height = Math.ceil((fs + 2 * pad) / step);
+      const o = off.getContext('2d', { willReadFrequently: true });
+      o.drawImage(glyph, 0, 0, tw, th, 0, 0, W / step, (fs + 2 * pad) / step);
       const d = o.getImageData(0, 0, off.width, off.height).data, pts = [];
-      for (let gy = 0; gy < off.height; gy++) for (let gx = 0; gx < off.width; gx++) if (d[(gy * off.width + gx) * 4 + 3] > 128) pts.push([gx * step + rnd(-1, 1), gy * step + rnd(-1, 1)]);
+      for (let gy = 0; gy < off.height; gy++) for (let gx = 0; gx < off.width; gx++) {
+        if (d[(gy * off.width + gx) * 4 + 3] > 128) {
+          pts.push([(gx + 0.5) * step + rnd(-1, 1), top + (gy + 0.5) * step + rnd(-1, 1)]);
+        }
+      }
       let st = step;
       if (pts.length > MAXN) { const f = pts.length / MAXN; for (let i = pts.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; const t = pts[i]; pts[i] = pts[j]; pts[j] = t; } pts.length = MAXN; st = step * Math.sqrt(f); }   // 2.4.7: не больше MAXN осколков — иначе кадр не успевает на слабых устройствах
-      title = { pts, step: st, fs, y };
-      // золотое название с отсветом рисуется один раз и дальше только накладывается (раньше — градиент и тень каждый кадр)
-      const tc = document.createElement('canvas'), pad = Math.ceil(fs * 0.35); tc.width = Math.ceil(W * DPR); tc.height = Math.ceil((fs + 2 * pad) * DPR);
+      title = { pts, step: st, fs, y, top, pad };
+      // Золотая надпись рисуется тем же шрифтом, с той же привязкой и размером,
+      // что белая маска: формы букв теперь совпадают независимо от DPI.
+      const tc = document.createElement('canvas'); tc.width = tw; tc.height = th;
       const t2 = tc.getContext('2d'); t2.setTransform(DPR, 0, 0, DPR, 0, 0); t2.font = font(fs); t2.textAlign = 'center'; t2.textBaseline = 'middle';
       const gg = t2.createLinearGradient(0, pad, 0, pad + fs); gg.addColorStop(0, '#fff1b0'); gg.addColorStop(0.5, '#e8c26a'); gg.addColorStop(1, '#a8782a');
       t2.shadowColor = 'rgba(255,220,120,.8)'; t2.shadowBlur = 24; t2.fillStyle = gg; t2.fillText(opt.title, W / 2, pad + fs / 2);
-      title.cache = tc; title.pad = pad;
+      title.cache = tc;
     }
     // 24 готовых осколка (6 цветов × 4 формы): граненый многоугольник рисуется один раз, в кадре — только drawImage с поворотом
     const U = 48; let sprites = null;
@@ -102,7 +119,7 @@ const SplashFx = (() => {
         drawShard(s, x, y, size, (s.rot + s.spin * t) * (1 - e), 1 - 0.55 * fade);
       }
       if (fade > 0) {
-        ctx.globalAlpha = fade; ctx.drawImage(title.cache, 0, title.y - title.fs / 2 - title.pad, W, title.cache.height / DPR); ctx.globalAlpha = 1;
+        ctx.globalAlpha = fade; ctx.drawImage(title.cache, 0, title.top, W, title.cache.height / DPR); ctx.globalAlpha = 1;
         if (opt.sub) {
           ctx.save(); ctx.globalAlpha = clamp01((t - FLOAT - GATHER - 0.4) / 0.6); ctx.font = `500 ${Math.max(12, title.fs / 6)}px system-ui,sans-serif`;
           ctx.textAlign = 'center'; ctx.fillStyle = '#b9b2c6'; ctx.fillText(opt.sub, W / 2, title.y + title.fs * 0.62); ctx.restore();
