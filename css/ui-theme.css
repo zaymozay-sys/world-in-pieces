@@ -804,6 +804,7 @@ body.phone #map-menu .mm-side button { min-height: 44px; }
 #map-menu .mm-head[aria-expanded="true"]::after { content: ' ◀'; }
 #map-menu .mm-side .mm-sub {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   margin: 0;
   padding: 0 0 0 7px;
@@ -811,5 +812,12 @@ body.phone #map-menu .mm-side button { min-height: 44px; }
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+/* Скрытые группы не должны перекрываться display:grid выше:
+   подменю появляется только по нажатию на соответствующий пункт. */
+body #map-menu .mm-side[hidden],
+body #map-menu .mm-side .mm-sub[hidden] { display: none; }
+body #map-menu .mm-side .mm-sub:not([hidden]) {
+  grid-template-columns: minmax(0, 1fr);
 }
 #map-menu .mm-main .map-ver { padding: 6px 2px 2px; }
