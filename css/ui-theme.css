@@ -161,14 +161,14 @@
 .modal .tabs button small { font-family: system-ui, sans-serif; font-size: 11px; opacity: .8; }
 
 /* ───────────── кнопки ───────────── */
-.modal button:not(.close):not(.itembtn):not(.card-info):not(.dslot):not(.tp):not(.primary):not([class*="slot"]):not(.magic):not(.bagitem):not(.loot-chip) {
+.modal button:not(.close):not(.itembtn):not(.card-info):not(.dslot):not(.tp):not(.primary):not([class*="slot"]):not(.magic):not(.bagitem):not(.loot-chip):not(.wk-link) {
   color: var(--ui-text); background: linear-gradient(180deg, #3b2b1d, #271b12);
   border: 1px solid #6e5230; border-radius: 9px;
   box-shadow: inset 0 1px 0 rgba(255, 224, 160, .14), 0 1px 2px rgba(0, 0, 0, .5);
   transition: border-color .12s, filter .12s, transform .08s;
 }
-.modal button:not(.close):not(.itembtn):not(.card-info):not(.dslot):not(.tp):not(.primary):not([class*="slot"]):not(.magic):not(.bagitem):not(.loot-chip):hover { border-color: var(--ui-gold); filter: brightness(1.12); }
-.modal button:not(.itembtn):not(.dslot):active { transform: translateY(1px); }
+.modal button:not(.close):not(.itembtn):not(.card-info):not(.dslot):not(.tp):not(.primary):not([class*="slot"]):not(.magic):not(.bagitem):not(.loot-chip):not(.wk-link):hover { border-color: var(--ui-gold); filter: brightness(1.12); }
+.modal button:not(.itembtn):not(.dslot):not(.wk-link):active { transform: translateY(1px); }
 .modal button.primary, .overlay button.to-map, .overlay button.primary {
   min-height: var(--ui-tap); padding: 8px 20px;
   font-family: var(--ui-display); font-weight: 700; font-size: 15.5px; letter-spacing: .03em;
