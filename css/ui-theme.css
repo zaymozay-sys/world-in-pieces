@@ -821,3 +821,5 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
   grid-template-columns: minmax(0, 1fr);
 }
 #map-menu .mm-main .map-ver { padding: 6px 2px 2px; }
+/* Раскрытая панель не должна перекрывать свою кнопку ☰: повторный клик закрывает меню. */
+.map-btns > #m-more[aria-expanded="true"] { position: relative; z-index: 81; }
