@@ -1,0 +1,39 @@
+name: Email account and cloud save checks
+on:
+  push:
+    branches:
+      - feature/email-account-cloud-save
+  pull_request:
+    paths:
+      - 'server/src/**'
+      - 'server/migrations/**'
+      - 'server/tests/**'
+      - 'js/net.js'
+      - 'js/account-ui.js'
+      - 'js/boot.js'
+      - 'tests/email-client.test.js'
+      - '.github/workflows/email-account-tests.yml'
+permissions:
+  contents: read
+jobs:
+  account-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check server/src/account-auth.js
+          node --check server/src/app.js
+          node --check js/net.js
+          node --check js/account-ui.js
+      - name: Email account authentication and recovery
+        run: node server/tests/account-auth.test.js
+      - name: Existing HTTP server tests
+        run: node server/tests/server.test.js
+      - name: Existing client network tests
+        run: node tests/net.test.js
+      - name: Account client conflict handling
+        run: node tests/email-client.test.js
