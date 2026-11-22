@@ -2187,20 +2187,43 @@ const MapView = (() => {
     const timerLabel = () => { document.getElementById('mm-timer').textContent = TurnTimerSetting.label(); };
     timerLabel(); window.addEventListener('turn-timer-changed', timerLabel);
     document.getElementById('map-ver').textContent = _t("Версия: {0} (Обновлено: {1})", [GAME_VERSION, GAME_UPDATED]);   // 1.6.4: мелкая надпись в меню
-    // меню ☰ раскрывается слева от ряда кнопок (если слева хватает места), а не под ним
+    // Главное меню всегда одной колонкой у правого края экрана;
+    // активный подраздел — отдельной колонкой слева, обе панели прокручиваются независимо.
+    const menuSide = menu.querySelector('.mm-side');
+    const closeMenu = () => { menu.hidden = true; mbtn.setAttribute('aria-expanded', 'false'); };
     const placeMenu = () => {
-      const st = menu.style; st.position = st.right = st.top = st.left = st.maxHeight = '';
-      const a = (mbtn.closest('.map-btns') || mbtn).getBoundingClientRect(), w = menu.offsetWidth || 220;
-      if (!a.width || a.left < w + 16) return;                      // слева тесно — остаётся под кнопкой
-      st.position = 'fixed'; st.left = 'auto'; st.right = Math.round(window.innerWidth - a.left + 8) + 'px'; st.top = Math.max(6, Math.round(a.top)) + 'px';
-      st.maxHeight = 'calc(100dvh - ' + (Math.max(6, Math.round(a.top)) + 8) + 'px)';
+      const rect = mbtn.getBoundingClientRect();
+      const top = Math.max(6, Math.min(Math.round(rect.top), window.innerHeight - 70));
+      menu.style.position = 'fixed';
+      menu.style.left = 'auto';
+      menu.style.right = 'env(safe-area-inset-right, 0px)';
+      menu.style.top = top + 'px';
+      menu.style.maxHeight = 'none';
+      menu.style.setProperty('--mm-avail', 'calc(100dvh - ' + (top + 8) + 'px)');
     };
-    mbtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; if (!menu.hidden) placeMenu(); });
+    mbtn.setAttribute('aria-expanded', 'false');
+    mbtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      mbtn.setAttribute('aria-expanded', String(!menu.hidden));
+      if (!menu.hidden) placeMenu();
+    });
     window.addEventListener('resize', () => { if (!menu.hidden) placeMenu(); });
-    document.addEventListener('click', (e) => { if (e.isTrusted && !menu.hidden && !menu.contains(e.target)) menu.hidden = true; });
+    document.addEventListener('click', (e) => { if (e.isTrusted && !menu.hidden && !menu.contains(e.target)) closeMenu(); });
     menu.addEventListener('click', (e) => {
-      const hd = e.target.closest('.mm-head');   // 2.0.5: разделы меню сворачиваются, открыт один
-      if (hd) { const sub = hd.nextElementSibling, open = sub.hidden; menu.querySelectorAll('.mm-sub').forEach((x) => { x.hidden = true; x.previousElementSibling.setAttribute('aria-expanded', 'false'); }); sub.hidden = !open; hd.setAttribute('aria-expanded', open ? 'true' : 'false'); return; }
+      const hd = e.target.closest('.mm-head');
+      if (hd) {
+        const sub = document.getElementById(hd.getAttribute('aria-controls'));
+        if (!sub) return;
+        const open = sub.hidden;
+        menu.querySelectorAll('.mm-sub').forEach((item) => { item.hidden = true; });
+        menu.querySelectorAll('.mm-head').forEach((item) => { item.setAttribute('aria-expanded', 'false'); });
+        sub.hidden = !open;
+        menuSide.hidden = !open;
+        hd.setAttribute('aria-expanded', String(open));
+        if (open) menuSide.scrollTop = 0;
+        return;
+      }
       const b = e.target.closest('button[data-mdo]'); if (!b) return;
       if (b.dataset.mdo === 'm-timer') { TurnTimerSetting.toggle(); return; }     // 1.6.5: таймер хода (по умолчанию выкл), меню остаётся открытым
       if (b.dataset.mdo === 'm-night' || b.dataset.mdo === 'm-wx') {       // 1.7.1: время суток и погоду можно выключить, меню остаётся открытым
@@ -2229,7 +2252,7 @@ const MapView = (() => {
       }
       if (b.dataset.mdo === 'm-text') { TextSize.toggle(); b.textContent = TextSize.label(); return; }
       if (b.dataset.mdo === 'm-anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); return; }     // 1.6.4: скорость анимаций, меню остаётся открытым
-      if (b.dataset.mdo !== 'm-mute') menu.hidden = true;     // звук переключается, не закрывая меню
+      if (b.dataset.mdo !== 'm-mute') closeMenu();     // звук переключается, не закрывая меню
       document.getElementById(b.dataset.mdo).click();
     });
     if (!Profile.storageOk) { saveWarned = true; setTimeout(() => toast(_t("Браузер не даёт сохранять игру — прогресс пропадёт при закрытии вкладки. Скачать сохранение можно в Ратуше."), 8000), 2500); }

@@ -52,13 +52,8 @@
         <button id="m-whatsnew" type="button" hidden>Что нового</button>
         <button id="m-more" type="button" title="Меню" aria-haspopup="true">☰</button>
         <div class="map-menu" id="map-menu" hidden>
-          <button type="button" data-mdo="m-today">Задания дня</button>
-          <button type="button" id="mm-mute" data-mdo="m-mute">Звук</button>
-          <button type="button" id="mm-fast" data-mdo="m-fast">Скорость боя</button>
-          <button type="button" data-mdo="m-fs">Полный экран</button>
-          <button type="button" id="mm-lang" data-mdo="m-lang">English</button>
-          <button type="button" class="mm-head g-gfx" aria-expanded="false">Графика и эффекты</button>
-          <div class="mm-sub g-gfx" hidden>
+          <div class="mm-side" hidden>
+          <div class="mm-sub g-gfx" id="mm-sub-gfx" hidden>
             <button type="button" id="mm-anim" data-mdo="m-anim">Анимации: обычные</button>
               <button type="button" id="mm-lite" data-mdo="m-lite">Графика карты: высокая</button>
             <button type="button" id="mm-gpu" data-mdo="m-gpu">Ускорение карты: выкл</button>
@@ -67,27 +62,36 @@
             <button type="button" id="mm-fx-amb" data-mdo="m-fx-amb"></button>
             <button type="button" id="mm-fx-bob" data-mdo="m-fx-bob"></button>
           </div>
-          <button type="button" class="mm-head g-time" aria-expanded="false">Время и погода</button>
-          <div class="mm-sub g-time" hidden>
+          <div class="mm-sub g-time" id="mm-sub-time" hidden>
             <button type="button" id="mm-night" data-mdo="m-night">Время суток: выкл</button>
             <button type="button" id="mm-wx" data-mdo="m-wx">Погода: выкл</button>
             <button type="button" id="mm-skywin" data-mdo="m-skywin">Окошко погоды: вкл</button>
           </div>
-          <button type="button" class="mm-head g-game" aria-expanded="false">Игра</button>
-          <div class="mm-sub g-game" hidden>
+          <div class="mm-sub g-game" id="mm-sub-game" hidden>
             <button type="button" id="mm-timer" data-mdo="m-timer">Таймер хода: выкл</button>
           <button type="button" id="mm-text" data-mdo="m-text">Текст: обычный</button>
             <button type="button" data-mdo="m-battlelogs">Журналы боёв</button>
           </div>
-          <button type="button" class="mm-head g-help" aria-expanded="false">Справка и связь</button>
-          <div class="mm-sub g-help" hidden>
+          <div class="mm-sub g-help" id="mm-sub-help" hidden>
             <button type="button" data-mdo="m-help">Как играть</button>
             <button type="button" data-mdo="m-wiki">База знаний</button>
             <button type="button" data-mdo="m-whatsnew">Что нового</button>
             <button type="button" data-mdo="m-report">Сообщить о проблеме</button>
             <button type="button" data-mdo="m-credits">О разработчиках</button>
           </div>
+          </div>
+          <div class="mm-main">
+          <button type="button" data-mdo="m-today">Задания дня</button>
+          <button type="button" id="mm-mute" data-mdo="m-mute">Звук</button>
+          <button type="button" id="mm-fast" data-mdo="m-fast">Скорость боя</button>
+          <button type="button" data-mdo="m-fs">Полный экран</button>
+          <button type="button" id="mm-lang" data-mdo="m-lang">English</button>
+          <button type="button" class="mm-head g-gfx" aria-expanded="false" aria-controls="mm-sub-gfx">Графика и эффекты</button>
+          <button type="button" class="mm-head g-time" aria-expanded="false" aria-controls="mm-sub-time">Время и погода</button>
+          <button type="button" class="mm-head g-game" aria-expanded="false" aria-controls="mm-sub-game">Игра</button>
+          <button type="button" class="mm-head g-help" aria-expanded="false" aria-controls="mm-sub-help">Справка и связь</button>
           <div class="map-ver" id="map-ver" aria-hidden="false"></div>
+          </div>
         </div>
       </div>
     </div>
