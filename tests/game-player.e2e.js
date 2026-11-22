@@ -9,8 +9,8 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { launch } = require('../tools/browser.js');
 
-const MODE = process.env.WIP_PLAYER_MODE === 'full' ? 'full' : 'smoke';
-const BATTLE_COUNT = MODE === 'full' ? 10 : 1;
+const MODE = ['full', 'soak'].includes(process.env.WIP_PLAYER_MODE) ? process.env.WIP_PLAYER_MODE : 'smoke';
+const BATTLE_COUNT = MODE === 'soak' ? 100 : MODE === 'full' ? 10 : 1;
 const URL = process.env.WIP_URL || pathToFileURL(path.join(__dirname, '..', 'index.html')).href;
 const OUTPUT = path.join(__dirname, '..', 'test-results', 'game-player');
 fs.mkdirSync(OUTPUT, { recursive: true });
@@ -216,7 +216,11 @@ async function fight(number) {
     };
   });
   ensure(!!reward.text, 'Есть экран итогов боя ' + number);
-  await screenshot('battle-' + number + '-result');
+  // Для длинного прогона — контрольный скриншот раз в 10 боёв и при каждом поражении.
+  // В отчёте сохраняются все 100 результатов независимо от числа скриншотов.
+  if (MODE !== 'soak' || number === 1 || number % 10 === 0 || /Поражение|Defeat/i.test(reward.text)) {
+    await screenshot('battle-' + number + '-result');
+  }
   await page.waitForTimeout(1300);
   await page.evaluate(() => document.querySelector('.overlay .to-map').click());
   await page.waitForFunction(() => document.body.classList.contains('mode-map'), null, { timeout: 20000 });
@@ -302,7 +306,7 @@ function writeReport() {
     await menuChecks('desktop-ru');
     for (let number = 1; number <= BATTLE_COUNT; number++) {
       await fight(number);
-      if (number === 1 || number === BATTLE_COUNT || number === 5) await checkSave();
+      if (number === 1 || number === BATTLE_COUNT || number === 5 || (MODE === 'soak' && number % 20 === 0)) await checkSave();
     }
     ensure(report.battles.length === BATTLE_COUNT, 'Все запланированные бои завершены',
       { planned: BATTLE_COUNT, finished: report.battles.length });
@@ -317,7 +321,7 @@ function writeReport() {
     await context.close();
     page = null;
 
-    if (MODE === 'full') {
+    if (MODE !== 'smoke') {
       context = await openContext('landscape RU', { width: 844, height: 390 }, true, 'ru', '#dev-map-meadow');
       await page.waitForFunction(() => document.body.classList.contains('mode-map') &&
         typeof Profile !== 'undefined' && !!Profile.data.faction, null, { timeout: 20000 });

@@ -15,13 +15,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Smoke: 1 battle; full: 10 consecutive battles, loot report and landscape UI"
+        description: "Smoke: 1 battle; full: 10; soak: 100 battles with loot report"
         type: choice
         required: true
         default: full
         options:
           - smoke
           - full
+          - soak
   schedule:
     - cron: "17 3 * * *"
 
@@ -29,16 +30,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: game-player-main
-  cancel-in-progress: true
+  # Do not cancel a 100-fight marathon when another code change is pushed.
+  group: game-player-${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[test:100]') && 'soak' || 'regular' }}
+  cancel-in-progress: false
 
 jobs:
   game-player:
     name: Automatic game player (Chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 90
     env:
-      WIP_PLAYER_MODE: ${{ github.event_name == 'schedule' && 'full' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[test:10]') && 'full') || (inputs.mode || 'smoke') }}
+      WIP_PLAYER_MODE: ${{ github.event_name == 'schedule' && 'full' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[test:100]') && 'soak') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[test:10]') && 'full') || (inputs.mode || 'smoke') }}
       CI: "true"
     steps:
       - name: Checkout game
