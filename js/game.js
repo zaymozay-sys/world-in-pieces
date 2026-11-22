@@ -4436,6 +4436,8 @@ if (host.main) document.addEventListener('keydown', (e) => {
   if (!pop) { pop = document.createElement('div'); pop.className = 'lp-tip'; pop.hidden = true; document.body.appendChild(pop); }
   const HOLD = 450;
   let timer = null, hideT = null, swallow = false, sx = 0, sy = 0;
+  let held = null;
+  const restore = () => { if (held && held.dataset.lpTitle != null) { held.title = held.dataset.lpTitle; delete held.dataset.lpTitle; } held = null; };
   const hide = () => { pop.hidden = true; clearTimeout(hideT); };
   for (const box of [spellbarEl, bagEl].filter((x) => x && typeof x.addEventListener === 'function')) {
     box.addEventListener('pointerdown', (e) => {
@@ -4443,17 +4445,18 @@ if (host.main) document.addEventListener('keydown', (e) => {
       const b = e.target.closest('button[title]');
       if (!b || !b.title) return;
       hide(); sx = e.clientX; sy = e.clientY; clearTimeout(timer);
+      const tipText = b.title; held = b; b.dataset.lpTitle = tipText; b.removeAttribute('title');   // 2.5.4: убираем нативную подсказку браузера на время нажатия — иначе рядом с нашей появляется вторая
       timer = setTimeout(() => {
-        pop.textContent = b.title; pop.hidden = false; swallow = true;
+        pop.textContent = tipText; pop.hidden = false; swallow = true;
         const r = b.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
         pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
         pop.style.top = (r.top - h - 10 < 8 ? r.bottom + 10 : r.top - h - 10) + 'px';
         if (navigator.vibrate) { try { navigator.vibrate(15); } catch (er) { /* не страшно */ } }
       }, HOLD);
     });
-    const end = () => { clearTimeout(timer); if (!pop.hidden) { clearTimeout(hideT); hideT = setTimeout(hide, 3000); } };
+    const end = () => { clearTimeout(timer); restore(); if (!pop.hidden) { clearTimeout(hideT); hideT = setTimeout(hide, 3000); } };
     box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
-    box.addEventListener('pointermove', (e) => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 12) clearTimeout(timer); });
+    box.addEventListener('pointermove', (e) => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 12) { clearTimeout(timer); restore(); } });
     box.addEventListener('contextmenu', (e) => { if (e.pointerType !== 'mouse') e.preventDefault(); });
     box.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
   }
