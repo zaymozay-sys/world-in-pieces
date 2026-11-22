@@ -56,8 +56,17 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Check JavaScript syntax
         run: node tests/syntax.test.js
-      - name: Run test player
-        run: npm run test:player
+      - name: Run test player over local HTTP
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/wip-player-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then break; fi
+            sleep 1
+          done
+          export WIP_URL=http://127.0.0.1:8765/index.html
+          npm run test:player
       - name: Upload report, screenshots and failure details
         if: always()
         uses: actions/upload-artifact@v4

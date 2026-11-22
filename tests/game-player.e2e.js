@@ -238,10 +238,27 @@ async function fight(number) {
 
 async function checkSave() {
   scenario = 'save persistence';
+  const savedState = () => page.evaluate(() => {
+    const key = 'gem-match-profile-v2';
+    let raw = null, parsed = null, readError = null;
+    try {
+      raw = localStorage.getItem(key);
+      if (raw) parsed = JSON.parse(raw);
+    } catch (error) { readError = String(error); }
+    return {
+      urlProtocol: location.protocol, origin: location.origin,
+      storageOk: Profile.storageOk, stale: Profile.stale, rawLength: raw ? raw.length : 0,
+      parsed: parsed ? { name: parsed.name, faction: parsed.faction, wins: parsed.wins,
+        coins: parsed.coins, xp: parsed.xp } : null,
+      readError
+    };
+  });
   const before = await page.evaluate(() => ({
     name: Profile.data.name, faction: Profile.data.faction,
     wins: Profile.data.wins || 0, coins: Profile.data.coins || 0, xp: Profile.data.xp || 0
   }));
+  const storageBefore = await savedState();
+  record('Хранилище перед перезагрузкой', storageBefore);
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => typeof Profile !== 'undefined' &&
     document.body.classList.contains('mode-map') && !document.getElementById('splash'),
@@ -250,9 +267,12 @@ async function checkSave() {
     name: Profile.data.name, faction: Profile.data.faction,
     wins: Profile.data.wins || 0, coins: Profile.data.coins || 0, xp: Profile.data.xp || 0
   }));
-  ensure(before.name === after.name && before.faction === after.faction &&
+  const storageAfter = await savedState();
+  ensure(storageBefore.rawLength > 0 && storageBefore.storageOk &&
+    before.name === after.name && before.faction === after.faction &&
     before.wins === after.wins && before.coins === after.coins && before.xp === after.xp,
-    'Прогресс сохранён после перезагрузки страницы', { before, after });
+    'Прогресс сохранён после перезагрузки страницы',
+    { before, after, storageBefore, storageAfter });
 }
 function writeReport() {
   report.finishedAt = new Date().toISOString();
