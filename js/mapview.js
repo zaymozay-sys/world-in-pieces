@@ -2190,7 +2190,12 @@ const MapView = (() => {
     // Главное меню всегда одной колонкой у правого края экрана;
     // активный подраздел — отдельной колонкой слева, обе панели прокручиваются независимо.
     const menuSide = menu.querySelector('.mm-side');
-    const closeMenu = () => { menu.hidden = true; mbtn.setAttribute('aria-expanded', 'false'); };
+    const collapseSubmenus = () => {
+      menu.querySelectorAll('.mm-sub').forEach((item) => { item.hidden = true; });
+      menu.querySelectorAll('.mm-head').forEach((item) => { item.setAttribute('aria-expanded', 'false'); });
+      menuSide.hidden = true;
+    };
+    const closeMenu = () => { menu.hidden = true; mbtn.setAttribute('aria-expanded', 'false'); collapseSubmenus(); };
     const placeMenu = () => {
       const rect = mbtn.getBoundingClientRect();
       const top = Math.max(6, Math.min(Math.round(rect.top), window.innerHeight - 70));
@@ -2204,9 +2209,10 @@ const MapView = (() => {
     mbtn.setAttribute('aria-expanded', 'false');
     mbtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      menu.hidden = !menu.hidden;
-      mbtn.setAttribute('aria-expanded', String(!menu.hidden));
-      if (!menu.hidden) placeMenu();
+      if (!menu.hidden) return closeMenu();
+      menu.hidden = false;
+      mbtn.setAttribute('aria-expanded', 'true');
+      placeMenu();
     });
     window.addEventListener('resize', () => { if (!menu.hidden) placeMenu(); });
     document.addEventListener('click', (e) => { if (e.isTrusted && !menu.hidden && !menu.contains(e.target)) closeMenu(); });
@@ -2216,8 +2222,7 @@ const MapView = (() => {
         const sub = document.getElementById(hd.getAttribute('aria-controls'));
         if (!sub) return;
         const open = sub.hidden;
-        menu.querySelectorAll('.mm-sub').forEach((item) => { item.hidden = true; });
-        menu.querySelectorAll('.mm-head').forEach((item) => { item.setAttribute('aria-expanded', 'false'); });
+        collapseSubmenus();
         sub.hidden = !open;
         menuSide.hidden = !open;
         hd.setAttribute('aria-expanded', String(open));
