@@ -23,6 +23,7 @@
     "test:duoadopt": "node tests/duoadopt165.e2e.js",
     "test:gear166": "node tests/gear166.e2e.js",
     "test:e2e": "node tests/run-e2e.js",
+    "test:player": "node tests/game-player.e2e.js",
     "test:qa": "node tests/qa164.e2e.js",
     "audit:hit": "node tools/hit-audit.js",
     "audit:quick": "node tools/layout-audit.js --quick",

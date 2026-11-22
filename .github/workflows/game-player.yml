@@ -1,0 +1,66 @@
+name: Game player — browser smoke and full journey
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "js/**"
+      - "css/**"
+      - "tests/game-player.e2e.js"
+      - "tools/browser.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/game-player.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Smoke: one battle; full: two battles and landscape UI"
+        type: choice
+        required: true
+        default: full
+        options:
+          - smoke
+          - full
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: game-player-main
+  cancel-in-progress: true
+
+jobs:
+  game-player:
+    name: Automatic game player (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      WIP_PLAYER_MODE: ${{ github.event_name == 'schedule' && 'full' || (inputs.mode || 'smoke') }}
+      CI: "true"
+    steps:
+      - name: Checkout game
+        uses: actions/checkout@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Check JavaScript syntax
+        run: node tests/syntax.test.js
+      - name: Run test player
+        run: npm run test:player
+      - name: Upload report, screenshots and failure details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-player-report
+          path: test-results/game-player/
+          retention-days: 14
+          if-no-files-found: warn
