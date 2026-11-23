@@ -3197,7 +3197,7 @@ const credits = {
       } else if (s.tab === 'puzzle') {
         const pz = Profile.data.puzzle = Puzzle.clean(Profile.data.puzzle); Puzzle.sync(pz, Daily.today());
         const g = Puzzle.game(pz, pz.day), cells = [];
-        for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${s.pzSel === i ? ' sel' : ''}" data-pzcell="${i}" ${pz.done ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(g.typ[i], g.sp[i])}</button>`);
+        for (let i = 0; i < 36; i++) cells.push(`<button type="button" class="lh-cell${s.pzSel === i ? ' sel' : ''}${lhAnim({ preview: s.pzPreview, fall: s.pzFall }, i)}" data-pzcell="${i}" ${pz.done || s.pzPreview || s.pzFall ? 'disabled' : ''} aria-label="${_t("камень {0}", [i + 1])}">${lhStone(s.pzPreview ? s.pzPreview.typ[i] : g.typ[i], s.pzPreview ? s.pzPreview.sp[i] : g.sp[i])}</button>`);
         const star = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
         body = `<p class="hint">${_t("Головоломка дня: одно поле на всех, всего {0 ход|хода|ходов}. Набирайте очки — линии из 4 дают взрывной камень ✸, из 5 — линейный ✦. Звёзды: {1} / {2} / {3 очко|очка|очков}; за каждую новую звезду — монеты (раз в день).", [Puzzle.movesOf(pz), Puzzle.STARS[0], Puzzle.STARS[1], Puzzle.STARS[2]])}</p>
           <div class="arena-rank"><b>${star(pz.stars)}</b> <small>${_t("Очки: {0} · ходов осталось: {1} · рекорд: {2} · решено дней: {3}", [g.score, Puzzle.movesLeft(pz), pz.best || '—', pz.total])}</small></div>
@@ -3267,12 +3267,28 @@ const credits = {
       }
       if (d.pzcell !== undefined) {
         const pz = Profile.data.puzzle = Puzzle.clean(Profile.data.puzzle), i = +d.pzcell; Puzzle.sync(pz, Daily.today());
-        if (pz.done) return;
+        if (pz.done || s.pzPreview || s.pzFall) return;
         if (s.pzSel === undefined || s.pzSel === null) s.pzSel = i;
         else if (s.pzSel === i) s.pzSel = null;
         else {
-          const r = Puzzle.move(pz, pz.day, s.pzSel, i);
-          if (r.ok) { s.pzSel = null; if (r.coins) { r.coins = Math.round(scaled(r.coins) * Events.mul(evNow().id, 'puzzle')); Profile.addCoins(r.coins); Profile.addConsumable('dust', 1); s.msg = _t("Звезда! Монеты: {0}", [money(r.coins)]) + ' ' + _t("И щепотка каменной пыли для боя."); } else s.msg = ''; Profile.save(); }
+          const from = s.pzSel, previous = Puzzle.game(pz, pz.day);
+          const r = Puzzle.move(pz, pz.day, from, i);
+          if (r.ok) {
+            const pt = Array.from(previous.typ), ps = Array.from(previous.sp);
+            const ra = Math.floor(from / 6), rb = Math.floor(i / 6), ca = from % 6, cb = i % 6;
+            [pt[from], pt[i]] = [pt[i], pt[from]];
+            [ps[from], ps[i]] = [ps[i], ps[from]];
+            const next = Puzzle.game(pz, pz.day);
+            const fall = new Set();
+            for (let k = 0; k < 36; k++) if (next.typ[k] >= 0 && (next.typ[k] !== pt[k] || next.sp[k] !== ps[k])) fall.add(k);
+            const preview = { typ: pt, sp: ps, kept: { [from]: { dx: cb - ca, dy: rb - ra }, [i]: { dx: ca - cb, dy: ra - rb } } };
+            s.pzPreview = preview;
+            setTimeout(() => {
+              if (st.arena !== s || s.pzPreview !== preview) return;
+              s.pzPreview = null; s.pzFall = fall; render();
+              setTimeout(() => { if (st.arena === s && s.pzFall === fall) { s.pzFall = null; render(); } }, 650);
+            }, 650);
+            s.pzSel = null; if (r.coins) { r.coins = Math.round(scaled(r.coins) * Events.mul(evNow().id, 'puzzle')); Profile.addCoins(r.coins); Profile.addConsumable('dust', 1); s.msg = _t("Звезда! Монеты: {0}", [money(r.coins)]) + ' ' + _t("И щепотка каменной пыли для боя."); } else s.msg = ''; Profile.save(); }
           else s.pzSel = i;
         }
         return render();
