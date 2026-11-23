@@ -1312,10 +1312,10 @@ const Inventory = (() => {
     return true;
   }
   // Надеть вещь из ячейки хранения k: место выбирается само; снятая взамен вещь встаёт на её место в сундуке.
-  function fromStash(k) {
+  function fromStash(k, preferredSlot = null) {
     const st = stashLayout(), uid = st[k], entry = uid && Profile.item(uid);
     if (!entry) return _t("Ячейка пуста");
-    const gear = Profile.gear(), it = Gear.item(entry), slot = targetSlot(gear, it, true);
+    const gear = Profile.gear(), it = Gear.item(entry), slot = preferredSlot || targetSlot(gear, it, true);
     const check = Gear.canEquip(gear, entry, slot, Profile.data.faction, Profile.level());
     if (!check.ok) return check.reason;
     const next = Gear.equip(gear, entry, slot);
@@ -1564,23 +1564,36 @@ const Inventory = (() => {
     if (!err) { onGearChanged(); render(); }
     return err;
   }
-  // 2.4.1: «Надеть лучшее» — жадно по Силе: надевает вещь из ячеек, если она сильнее надетой в том же месте и проходит все проверки
+  // Заполняем все доступные слоты, затем улучшаем их. Для одноручного оружия
+  // проверяем обе руки независимо, а не только автоматически выбранную.
   function equipBest() {
     if (!armory || !canEditGear()) return 0;
     let n = 0;
-    for (let pass = 0; pass < 14; pass++) {
+    const limit = Math.max(32, (Profile.data.items || []).length * 3);
+    for (let pass = 0; pass < limit; pass++) {
       const st = stashLayout(), gear = Profile.gear();
       let best = null;
       st.forEach((uid, k) => {
         const e = uid && Profile.item(uid); if (!e) return;
-        const it = Gear.item(e), slot = targetSlot(gear, it, true), cur = Profile.data.loadout[slot] && Profile.item(Profile.data.loadout[slot]);
-        const gain = ((it.stats && it.stats.power) || 0) - (cur ? ((Gear.item(cur).stats || {}).power || 0) : 0);
-        if (gain <= 0 || (best && gain <= best.gain)) return;
-        if (!Gear.canEquip(gear, e, slot, Profile.data.faction, Profile.level()).ok) return;
-        if (Gear.totalCost(Gear.equip(gear, e, slot)) > Profile.budget()) return;
-        best = { k, gain };
+        const it = Gear.item(e); if (!it) return;
+        const slots = it.type === 'weapon1' ? ['main', 'off'] : [targetSlot(gear, it, true)];
+        slots.forEach((slot) => {
+          const cur = gear[slot], oldPower = cur ? ((cur.stats || {}).power || 0) : 0;
+          const power = ((it.stats || {}).power || 0);
+          const gain = power - oldPower;
+          // Пустую ячейку заполняем даже предметом с нулевой Силой.
+          if (cur && gain <= 0) return;
+          const check = Gear.canEquip(gear, e, slot, Profile.data.faction, Profile.level());
+          if (!check.ok) return;
+          const next = Gear.equip(gear, e, slot);
+          if (Gear.totalCost(next) > Profile.budget()) return;
+          // Сначала заполняем пустые ячейки; внутри группы выбираем лучшую вещь.
+          const priority = cur ? 0 : 1;
+          if (!best || priority > best.priority || (priority === best.priority && gain > best.gain))
+            best = { k, slot, gain, priority };
+        });
       });
-      if (!best || fromStash(best.k)) break;
+      if (!best || fromStash(best.k, best.slot)) break;
       n++;
     }
     if (n) { onGearChanged(); render(); }
