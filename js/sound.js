@@ -163,14 +163,22 @@ const Sound = (() => {
     additive(c, out, f, t, [[1, 1, s], [2.0, 0.35, s * 0.55], [3.0, 0.15, s * 0.3], [5.4, 0.09, s * 0.16], [8.2, 0.04, s * 0.09]], vol * 1.5, 0.0015);
     burst(c, out, t, 0.012, Math.min(7000, f * 4), 1, vol * 0.4);
   }
-  // Костяшка домино: тихий сухой стук — короткий щелчок шума плюс глухой «деревянный» тон; тон чуть гуляет, чтобы стуки не повторялись
-  function domino(vol = 0.05, delay = 0, pitch = 1) {
+  // Мягкое трение и глухое касание тяжёлого самоцвета: без музыкальных нот и костяшек.
+  function gemSlide(vol = 0.035, delay = 0) {
     if (muted) return;
     const c = audio(); if (!c) return;
-    const t = c.currentTime + delay + 0.003, out = c.destination, j = 0.92 + Math.random() * 0.16;
-    burst(c, out, t, 0.014, 3200 * pitch * j, 1.6, vol * 1.3);
-    burst(c, out, t + 0.011, 0.02, 1500 * pitch * j, 2.2, vol * 0.8);
-    burst(c, out, t + 0.004, 0.03, 700 * pitch * j, 1.2, vol * 0.7);   // 2.4.9: вместо звенящего тона — глухой деревянный «тук» шумом, без высоты ноты
+    const t = c.currentTime + delay + 0.003;
+    const n = Math.floor(c.sampleRate * 0.115);
+    const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) {
+      const p = i / n;
+      d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * p) * Math.pow(1 - p, 0.7);
+    }
+    const src = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; lp.type = 'lowpass'; lp.frequency.value = 850; lp.Q.value = 0.55;
+    g.gain.value = vol; src.connect(lp).connect(g).connect(c.destination); src.start(t);
+    // Едва заметный низкий контакт камня с камнем, без тонального звона.
+    burst(c, c.destination, t + 0.075, 0.027, 270, 0.45, vol * 0.42);
   }
   // Гонг: неклассический набор обертонов, медленное нарастание, долгое затухание.
   function gong(f, dur = 2, vol = 0.07, delay = 0) {
@@ -217,11 +225,11 @@ const Sound = (() => {
     },
     // 2.4.5: инструмент у каждого события выбран владельцем (хэнг / челеста / гонг; молния — гул электричества)
     shield() { hang(131, 0.16, 0.07); hang(98, 0.14, 0.05, 0.01); noise(0.04, 0.02); },   // 2.5.1: глухой стук о щит (блок, поглощение щитом)
-    swap()  { hang(523, 0.25, 0.05); hang(659, 0.25, 0.04, 0.05); },
+    swap()  { gemSlide(0.036); },
     bad()   { hang(185, 0.45, 0.07); hang(175, 0.45, 0.06, 0.02); },
-    match(count = 3, bonus = 1, step = 1) {   // 2.4.6: тихий стук костяшек домино; каждый шаг каскада — чуть выше и звонче
-      const pitch = Math.pow(1.06, Math.min(5, Math.max(0, step - 1))), n = Math.min(5, Math.max(2, count - 1));
-      for (let i = 0; i < n; i++) domino((bonus > 1 ? 0.06 : 0.05) * (0.85 + 0.15 * (i % 2)), i * 0.045, pitch * (1 + 0.04 * i));
+    match(count = 3, bonus = 1, step = 1) {
+      // При сборе комбинации — одно приглушённое касание вместо серии костяшек.
+      gemSlide(0.027);
     },
     hit(amount = 1) { const v = Math.min(0.12, 0.06 + amount / 400); hang(110, 0.18, v); hang(82, 0.18, v * 0.9, 0.015); },
     lightning() { electric(0.12, 0.7); },
