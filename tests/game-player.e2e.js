@@ -42,6 +42,9 @@ async function screenshot(label) {
 }
 function watchBrowserErrors(target) {
   target.on('pageerror', (error) => report.browserErrors.push({ scenario, kind: 'pageerror', message: error.message }));
+  target.on('response', (response) => {
+    if (response.status() >= 400) report.browserErrors.push({ scenario, kind: 'http', status: response.status(), url: response.url() });
+  });
   target.on('console', (message) => {
     if (message.type() === 'error') report.browserErrors.push({ scenario, kind: 'console', message: message.text() });
   });
