@@ -21,9 +21,10 @@ const Wiki = (() => {
 
   // Наглядный пример: 4 одинаковых камня дают дополнительный ход.
   const battleExample = () => {
-    const colors = ['violet', 'teal', 'amber', 'rose', 'violet', 'teal', 'amber', 'rose', 'amber', 'amber', 'amber', 'amber', 'teal', 'rose', 'violet', 'teal'];
+    // Тот же набор SVG-камней, что используется на игровом поле.
+    const colors = ['sapphire', 'emerald', 'ruby', 'onyx', 'sapphire', 'emerald', 'ruby', 'onyx', 'ruby', 'ruby', 'ruby', 'ruby', 'emerald', 'onyx', 'sapphire', 'emerald'];
     return '<div class="wk-battle-example" role="group" aria-label="' + esc(_t("Пример линии из четырёх камней")) + '">'
-      + '<div class="wk-example-board" aria-hidden="true">' + colors.map((color, i) => '<span class="wk-example-gem wk-example-' + color + (i >= 8 && i <= 11 ? ' wk-example-match' : '') + '"></span>').join('') + '</div>'
+      + '<div class="wk-example-board" aria-hidden="true">' + colors.map((color, i) => '<span class="wk-example-gem' + (i >= 8 && i <= 11 ? ' wk-example-match' : '') + '">' + GEM_SVG[color] + '</span>').join('') + '</div>'
       + '<div class="wk-example-note"><strong>' + esc(_t("4 камня в ряд")) + '</strong><span>' + esc(_t("Дополнительный ход!")) + '</span></div></div>';
   };
 
