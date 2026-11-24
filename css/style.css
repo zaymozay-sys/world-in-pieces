@@ -5140,3 +5140,8 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 .wiki-filterbar .wiki-filter{flex:0 0 auto;min-height:38px;white-space:nowrap;border:1px solid #806844;border-radius:22px;padding:7px 14px;background:linear-gradient(150deg,#2b2630,#1c1a21);color:#e4d0a5;font-size:13px;cursor:pointer}
 .wiki-filterbar .wiki-filter.on{border-color:#e4b966;background:linear-gradient(150deg,#75512b,#3d2c23);color:#fff1c8;box-shadow:inset 0 0 0 1px #f6d78b55}
 .wiki-filterbar .wiki-filter:focus-visible{outline:2px solid #f4d18c;outline-offset:2px}
+
+
+/* Small context-sensitive encyclopedia shortcut in supported game windows. */
+.modal header .wiki-context-help{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;border:1px solid #d3a85a;border-radius:50%;background:radial-gradient(circle at 35% 25%,#80592d,#352219 76%);color:#ffe6ac;font:bold 22px Georgia,serif;box-shadow:inset 0 0 0 2px #e2b96335;cursor:pointer}
+.modal header .wiki-context-help:hover,.modal header .wiki-context-help:focus-visible{border-color:#ffe09a;outline-offset:2px}
