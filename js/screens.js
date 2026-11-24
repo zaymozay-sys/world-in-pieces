@@ -3500,8 +3500,24 @@ const credits = {
       return `<div class="modal" role="dialog" aria-label="${_t("База знаний")}">${head(_t("База знаний"))}<div class="screen-body tavern-body">${body}</div></div>`;
     },
     click(b) {
-      if (b.dataset.wart) { const h = st.wiki.hist = st.wiki.hist || []; if (st.wiki.art) h.push(st.wiki.art); st.wiki.art = b.dataset.wart; return render(); }
-      if (b.dataset.wback !== undefined) { const h = st.wiki.hist || []; st.wiki.art = h.length ? h.pop() : null; return render(); }
+      if (b.dataset.wart) {
+        const w = st.wiki, h = w.hist = w.hist || [], positions = w.positions = w.positions || [];
+        h.push(w.art || null);
+        const sb = root.querySelector('.screen-body');
+        positions.push(sb ? sb.scrollTop : 0);
+        w.art = b.dataset.wart;
+        render();
+        const next = root.querySelector('.screen-body'); if (next) next.scrollTop = 0;
+        return;
+      }
+      if (b.dataset.wback !== undefined) {
+        const w = st.wiki, h = w.hist || [], positions = w.positions || [];
+        w.art = h.length ? h.pop() : null;
+        const restore = positions.length ? positions.pop() : 0;
+        render();
+        const sb = root.querySelector('.screen-body'); if (sb) sb.scrollTop = restore;
+        return;
+      }
       if (b.dataset.wgo) return open(b.dataset.wgo);
     },
   };
