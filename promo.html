@@ -822,15 +822,15 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
   }
   function setZoom(value) {
     if (!li || !li.naturalWidth || !li.naturalHeight) return;
-    zoom = Math.max(0.1, Math.min(4, value));
-    li.style.width = Math.round(li.naturalWidth * zoom) + 'px';
-    li.style.height = Math.round(li.naturalHeight * zoom) + 'px';
+    zoom = Math.max(0.001, Math.min(4, value));
+    li.style.setProperty('width', Math.round(li.naturalWidth * zoom) + 'px', 'important');
+    li.style.setProperty('height', Math.round(li.naturalHeight * zoom) + 'px', 'important');
     requestAnimationFrame(centerImage);
   }
   function fitImage() {
     if (!li.naturalWidth || !li.naturalHeight) return;
     fitZoom = Math.min((lbView.clientWidth - 24) / li.naturalWidth, (lbView.clientHeight - 80) / li.naturalHeight);
-    fitZoom = Math.max(0.05, fitZoom);
+    fitZoom = Math.max(0.001, fitZoom);
     setZoom(fitZoom);
   }
   function closePromoImage() {
@@ -838,7 +838,7 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
     lb.classList.remove('on');
     lb.setAttribute('aria-hidden', 'true');
     li.removeAttribute('src');
-    li.style.width = ''; li.style.height = '';
+    li.style.removeProperty('width'); li.style.removeProperty('height');
     window.scrollTo({left:0,top:savedScrollY,behavior:'instant'});
     if (previousFocus && previousFocus.isConnected && previousFocus !== document.body) {
       try { previousFocus.focus({preventScroll:true}); } catch (_) {}
@@ -851,16 +851,15 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
     previousFocus = document.activeElement;
     savedScrollY = window.scrollY || window.pageYOffset || 0;
     li.onload = function () {
-      fitZoom = Math.min((lbView.clientWidth - 24) / li.naturalWidth, (lbView.clientHeight - 80) / li.naturalHeight);
-      // При открытии показываем изображение целиком; увеличение — по желанию.
-      fitImage();
+      // Дожидаемся отображения окна, чтобы размеры экрана были измерены верно.
+      requestAnimationFrame(fitImage);
     };
     // Берём исходный файл из src, а не браузерную уменьшенную копию currentSrc.
     li.src = im.dataset.full || im.getAttribute("src") || im.currentSrc;
     li.alt = im.alt || 'Увеличенное изображение';
     lb.classList.add('on');
     lb.setAttribute('aria-hidden', 'false');
-    if (li.complete && li.naturalWidth) li.onload();
+    if (li.complete && li.naturalWidth) requestAnimationFrame(fitImage);
     if (lbClose) lbClose.focus({preventScroll:true});
   });
   if (lbClose) lbClose.addEventListener('click', closePromoImage);
