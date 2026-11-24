@@ -9,7 +9,7 @@ const Bestiary = require('../js/bestiary.js');
 // десять уровней: сначала радуга, затем серебро, золото и обсидиановый
 assert.strictEqual(Tiers.LIST.length, 10);
 assert.deepStrictEqual(Tiers.LIST.map((t) => t.name),
-  ['Красный', 'Оранжевый', 'Жёлтый', 'Зелёный', 'Голубой', 'Синий', 'Фиолетовый', 'Серебро', 'Золото', 'Обсидиановый']);
+  ['Красный', 'Оранжевый', 'Жёлтый', 'Зелёный', 'Голубой', 'Синий', 'Фиолетовый', 'Серебряный', 'Золотой', 'Обсидиановый']);
 // у каждого уровня есть цвет обводки (edge) и цвет текста на плашке (ink); тёмный обсидиан обведён светлым
 for (const t of Tiers.LIST) assert.ok(t.edge && t.ink, t.name);
 assert.notStrictEqual(Tiers.get(10).edge, Tiers.get(10).color);
