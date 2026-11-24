@@ -1,0 +1,51 @@
+name: Release 2.5.4 candidate
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/release-254.yml'
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - name: Start local server
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/wip-server.log 2>&1 &
+          sleep 2
+      - run: node tests/wiki-browser.cjs
+      - name: 100 automated battles
+        env:
+          WIP_PLAYER_MODE: soak
+          WIP_URL: http://127.0.0.1:8765/
+        run: npm run test:player
+      - run: python3 tools/dist.py
+      - name: Package browser build
+        run: |
+          test -f dist/index.html
+          cd dist
+          zip -qr ../world-in-pieces-2.5.4.zip .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-254-evidence
+          path: |
+            test-results/
+            wiki-test-*.png
+            world-in-pieces-2.5.4.zip
+          if-no-files-found: warn
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(node -p "require('./package.json').version")" = "2.5.4"
+          gh release create v2.5.4 world-in-pieces-2.5.4.zip --target "$GITHUB_SHA" --prerelease --title "World in Pieces 2.5.4" --notes "Test release: encyclopedia improvements, contextual help and UI fixes. Automated checks passed; temporary game testing switches remain enabled."
