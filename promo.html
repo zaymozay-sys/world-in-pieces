@@ -117,7 +117,10 @@ img{display:block}
 .promo-set-item figcaption{font:400 12px/1.35 'Golos Text',sans-serif;color:#d6cfdd;margin-top:8px;overflow-wrap:anywhere}
 @media(max-width:850px){.promo-set{padding:16px}.promo-set-items{overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:10px}.promo-set-item{flex:0 0 112px;scroll-snap-align:start}.promo-set-item figcaption{font-size:11px}}
 
-/* Просмотр без изменения разметки и прокрутки страницы */
+/* Не показывать старые плюсики даже при сохранённой разметке в кеше */
+.promo-zoom-plus{display:none!important}
+.promo-zoom-wrap{display:contents}
+ /* Просмотр без изменения разметки и прокрутки страницы */
 .promo-zoomable{cursor:zoom-in}
 .lb{position:fixed!important;inset:0!important;z-index:99999!important;display:none!important;align-items:center!important;justify-content:center!important;box-sizing:border-box;width:100%;height:100%;padding:18px!important;background:rgba(10,8,16,.94);overflow:hidden}
 .lb.on{display:flex!important}
@@ -777,6 +780,12 @@ img{display:block}
     var to = Number(el.getAttribute('data-count')), done = false;
     function run() { if (done) return; done = true; if (reduce) { el.textContent = to; return; } var t0 = performance.now(); (function step(t) { var k = Math.min(1, (t - t0) / 1100); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); })(t0); }
     if ('IntersectionObserver' in window) { var o = new IntersectionObserver(function (es) { if (es[0].isIntersecting) { run(); o.disconnect(); } }); o.observe(el); } else run();
+  });
+  /* Убираем остатки прежнего увеличителя, если они сохранились в DOM. */
+  [].slice.call(document.querySelectorAll('.promo-zoom-plus')).forEach(function (el) { el.remove(); });
+  [].slice.call(document.querySelectorAll('.promo-zoom-wrap')).forEach(function (el) {
+    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+    el.remove();
   });
   /* Только обработчики клика: исходную разметку и размеры картинок не трогаем. */
   [].slice.call(document.querySelectorAll('body img')).forEach(function (im) {
