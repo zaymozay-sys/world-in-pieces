@@ -7,7 +7,7 @@ const Screens = (() => {
   let cur = null;
   const QTY_STEPS = [1, 5, 10, 25];
   const st = {
-    wiki:  { q: '', art: null },
+    wiki:  { q: '', art: null, filter: 'all' },
     shop:  { tab: 'buy', resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
     forge: { tab: 'upgrade', view: 'list', sel: null, filter: 'weapon', msg: '', craftTier: 0, choice: {} },
     best:  { sel: null, tier: 1, q: '', f: 'all', fam: '', view: 'list' },
@@ -3476,10 +3476,20 @@ const credits = {
     },
   };
   /* =============== БАЗА ЗНАНИЙ (2.0.9) =============== */
+  const wikiFilters = () => [
+    ['all', _t("Все")], ['battle', _t("Правила")], ['m:', _t("Существа")],
+    ['p:', _t("Питомцы")], ['i:', _t("Снаряжение")],
+    ['supply', _t("Расходники")], ['b:', _t("Здания")]
+  ];
+  const wikiFilterMatch = (a, f) => f === 'all' || (f === 'battle'
+    ? !a.hidden : f === 'supply' ? /^(c:|a:|x:)/.test(a.id) : a.id.startsWith(f));
   const wikiList = (q) => {
-    const list = Wiki.search(q);
+    const query = String(q || '').trim();
+    const filter = st.wiki.filter || 'all';
+    const source = query || filter !== 'all' ? Wiki.search(query) : Wiki.BASE;
+    const list = source.filter((a) => wikiFilterMatch(a, filter));
     if (!list.length) return `<p class="hint">${_t("Ничего не найдено")}</p>`;
-    if (String(q || '').trim()) return `<div class="wiki-list">${list.map((a) => `<button type="button" class="wiki-item" data-wart="${a.id}">${a.title()}</button>`).join('')}</div>`;
+    if (query || filter !== 'all') return `<div class="wiki-list">${list.map((a) => `<button type="button" class="wiki-item" data-wart="${a.id}">${a.title()}</button>`).join('')}</div>`;
     return Wiki.SECTIONS().map(([sid, name]) => `<h3 class="wiki-sec">${name}</h3><div class="wiki-list">${list.filter((a) => a.sec === sid).map((a) => `<button type="button" class="wiki-item" data-wart="${a.id}">${a.title()}</button>`).join('')}</div>`).join('');
   };
   const wiki = {
@@ -3495,11 +3505,20 @@ const credits = {
           + `${(a.go || []).length ? `<div class="wiki-go">${a.go.map(([id, lab]) => `<button type="button" data-wgo="${id}">${_t("Открыть: {0}", [lab()])}</button>`).join('')}</div>` : ''}`
           + `${see.length ? `<div class="wiki-see"><b>${_t("Смотрите также")}:</b> ${see.map((x) => `<button type="button" class="wk-link" data-wart="${x.id}">${x.title()}</button>`).join(' · ')}</div>` : ''}</article>`;
       } else {
-        body = `<input type="search" class="wiki-q" data-wq placeholder="${_t("Поиск по базе знаний")}" value="${escText(s.q || '')}"><div class="wiki-res">${wikiList(s.q)}</div>`;
+        body = `<input type="search" class="wiki-q" data-wq placeholder="${_t("Поиск по базе знаний")}" value="${escText(s.q || '')}"><div class="wiki-filterbar" role="group" aria-label="${_t("Категории")}">${wikiFilters().map(([id, name]) => `<button type="button" data-wfilter="${id}" class="wiki-filter ${(s.filter || 'all') === id ? 'on' : ''}" aria-pressed="${(s.filter || 'all') === id}">${name}</button>`).join('')}</div><div class="wiki-res">${wikiList(s.q)}</div>`;
       }
       return `<div class="modal" role="dialog" aria-label="${_t("База знаний")}">${head(_t("База знаний"))}<div class="screen-body tavern-body">${body}</div></div>`;
     },
     click(b) {
+      if (b.dataset.wfilter) {
+        st.wiki.filter = b.dataset.wfilter;
+        root.querySelectorAll('[data-wfilter]').forEach((el) => {
+          const on = el.dataset.wfilter === st.wiki.filter;
+          el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on));
+        });
+        const res = root.querySelector('.wiki-res'); if (res) res.innerHTML = wikiList(st.wiki.q);
+        return;
+      }
       if (b.dataset.wart) {
         const w = st.wiki, h = w.hist = w.hist || [], positions = w.positions = w.positions || [];
         h.push(w.art || null);
