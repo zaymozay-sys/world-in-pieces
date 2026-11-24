@@ -19,9 +19,18 @@ const Wiki = (() => {
   const slotInfo = () => { const steps = []; for (let t = 2; t <= 10; t++) if (Hero.spellSlots(t * 10 - 9) > Hero.spellSlots(t * 10 - 19)) steps.push(t); return { base: Hero.spellSlots(1), steps: steps.join(', ') }; };
   const tierNames = () => (typeof Tiers !== 'undefined' ? Tiers.LIST.map((t) => t.name) : []);
 
+  // Наглядный пример: 4 одинаковых камня дают дополнительный ход.
+  const battleExample = () => {
+    const colors = ['violet', 'teal', 'amber', 'rose', 'violet', 'teal', 'amber', 'rose', 'amber', 'amber', 'amber', 'amber', 'teal', 'rose', 'violet', 'teal'];
+    return '<div class="wk-battle-example" role="group" aria-label="' + esc(_t("Пример линии из четырёх камней")) + '">'
+      + '<div class="wk-example-board" aria-hidden="true">' + colors.map((color, i) => '<span class="wk-example-gem wk-example-' + color + (i >= 8 && i <= 11 ? ' wk-example-match' : '') + '"></span>').join('') + '</div>'
+      + '<div class="wk-example-note"><strong>' + esc(_t("4 камня в ряд")) + '</strong><span>' + esc(_t("Дополнительный ход!")) + '</span></div></div>';
+  };
+
   const BASE = [
     { id: 'battle', sec: 'battle', title: () => _t("Как устроен бой"), keys: 'камни линия ход таймер заклинания дополнительный ход',
       body: () => p(_t("Меняйте местами два соседних камня, чтобы собрать линию из трёх и больше камней одного цвета. Собранные камни бьют врага и копятся для заклинаний."))
+        + battleExample()
         + p(_t("Линия из четырёх и больше камней даёт дополнительный ход. Над ходом можно думать сколько угодно; при желании в меню включается «Таймер хода»: 30 секунд на ход, три пропуска подряд — и бой проигран."))
         + p(_t("«Ур.» везде — уровень героя: у существа — на каком уровне бой идёт на равных, у вещи — с какого её можно надеть.")),
       go: [] },
