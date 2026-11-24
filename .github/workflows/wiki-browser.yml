@@ -1,0 +1,28 @@
+name: Wiki browser smoke tests
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'js/wiki.js'
+      - 'js/screens.js'
+      - 'css/style.css'
+      - 'tests/wiki-browser.cjs'
+      - '.github/workflows/wiki-browser.yml'
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/wiki-browser.cjs
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wiki-test-screenshots
+          path: wiki-test-*.png
+          if-no-files-found: ignore
