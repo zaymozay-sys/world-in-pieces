@@ -125,13 +125,22 @@ img{display:block}
 .promo-zoom-plus{position:absolute;top:7px;right:7px;width:30px;height:30px;border:1px solid #d6bb83;border-radius:50%;background:rgba(22,16,30,.85);color:#fff3d6;font:700 22px/1 'Golos Text',sans-serif;display:grid;place-items:center;cursor:zoom-in;z-index:2;box-shadow:0 2px 8px #0008}
 .promo-zoom-plus:hover{background:#56402e}
 @media(max-width:650px){.promo-zoom-plus{width:27px;height:27px;font-size:19px}}
+
+/* Просмотр изображений: центрирование в видимой области и заметное закрытие */
+.lb{position:fixed!important;inset:0!important;width:100vw;height:100dvh;box-sizing:border-box;display:none;align-items:center!important;justify-content:center!important;overflow:hidden;padding:clamp(12px,3vw,32px)!important;z-index:99999!important}
+.lb.on{display:flex!important}
+.lb>img{display:block;position:relative;margin:auto!important;width:auto!important;height:auto!important;max-width:calc(100vw - 32px)!important;max-height:calc(100dvh - 64px)!important;object-fit:contain;flex:0 1 auto;cursor:default}
+.lb-close{position:fixed;top:max(14px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));z-index:100000;display:flex;align-items:center;gap:9px;min-height:46px;padding:9px 16px;border:1px solid #d8bc80;border-radius:12px;background:#2d2035;color:#fff4df;font:600 15px 'Golos Text',sans-serif;box-shadow:0 5px 24px #000a;cursor:pointer}
+.lb-close:hover,.lb-close:focus-visible{background:#60415a;outline:2px solid #f1d29a;outline-offset:2px}
+body.promo-lightbox-open{overflow:hidden}
+@media(max-width:600px){.lb-close{top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));padding:10px 13px}.lb>img{max-height:calc(100dvh - 92px)!important}}
 </style>
 
 </head>
 <body>
 <script>document.documentElement.className+=' js'</script>
 <div class="topbar" id="topbar"><div class="in"><b>Хрупкий мир</b><a class="play-btn" href="https://zaymozay-sys.github.io/world-in-pieces/">Играть</a></div></div>
-<div class="lb" id="lb"><img alt=""></div>
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Просмотр изображения" aria-hidden="true"><button type="button" class="lb-close" aria-label="Закрыть изображение">✕ <span>Закрыть</span></button><img alt=""></div>
 
 
 <div style="background:#14101c;color:#f4eee2;font-family:'Golos Text',system-ui,sans-serif;display:flex;flex-direction:column;gap:96px;padding-bottom:72px">
@@ -789,16 +798,38 @@ img{display:block}
     var plus = document.createElement('button'); plus.type = 'button'; plus.className = 'promo-zoom-plus'; plus.textContent = '+';
     plus.setAttribute('aria-label', 'Увеличить: ' + (im.alt || 'изображение')); wrap.appendChild(plus);
   });
-  /* увеличение скриншотов */
+  /* Увеличение изображений: окно по центру, отдельная кнопка закрытия. */
   var lb = document.getElementById('lb'), li = lb && lb.querySelector('img');
+  var lbClose = lb && lb.querySelector('.lb-close');
+  var lbPreviousFocus = null;
+  function closePromoImage() {
+    if (!lb || !lb.classList.contains('on')) return;
+    lb.classList.remove('on');
+    lb.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('promo-lightbox-open');
+    if (lbPreviousFocus && typeof lbPreviousFocus.focus === 'function') lbPreviousFocus.focus();
+    lbPreviousFocus = null;
+  }
   document.addEventListener('click', function (e) {
     var plus = e.target.closest && e.target.closest('.promo-zoom-plus');
     var im = plus ? plus.parentNode.querySelector('img') : (e.target.closest && e.target.closest('img.promo-zoomable'));
-    if (im && lb) { li.src = im.currentSrc || im.src; li.alt = im.alt; lb.classList.add('on'); lb.setAttribute('role','dialog'); lb.setAttribute('aria-modal','true'); }
-
-    else if (lb && lb.classList.contains('on')) lb.classList.remove('on');
+    if (im && lb && !lb.contains(im)) {
+      lbPreviousFocus = plus || (document.activeElement && document.activeElement !== document.body ? document.activeElement : null);
+      li.src = im.currentSrc || im.src;
+      li.alt = im.alt || 'Увеличенное изображение';
+      lb.classList.add('on');
+      lb.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('promo-lightbox-open');
+      if (lbClose) lbClose.focus();
+    }
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && lb) lb.classList.remove('on'); });
+  if (lbClose) lbClose.addEventListener('click', closePromoImage);
+  if (lb) lb.addEventListener('click', function (e) { if (e.target === lb) closePromoImage(); });
+  document.addEventListener('keydown', function (e) {
+    if (!lb || !lb.classList.contains('on')) return;
+    if (e.key === 'Escape') closePromoImage();
+    if (e.key === 'Tab' && lbClose) { e.preventDefault(); lbClose.focus(); }
+  });
 })();
 </script>
 </body>
