@@ -3488,10 +3488,12 @@ const credits = {
       let body;
       if (a) {
         const bk = Wiki.banner(a), see = Wiki.see(a);
-        body = `<div class="wiki-art"><button type="button" data-wback>${(s.hist || []).length ? _t("← Назад") : _t("← К списку")}</button>`
-          + `${bk && typeof Art !== 'undefined' && Art.has(bk) && !/^b:/.test(a.id) ? (a.hidden ? `<img class="wiki-portrait" src="${Art.url(bk)}" alt="">` : `<div class="wiki-banner" style="background-image:url('${Art.url(bk)}')"></div>`) : ''}<h3>${a.title()}</h3>${Wiki.linked(a)}`
+        const artType = /^m:/.test(a.id) ? _t("Бестиарий") : /^p:/.test(a.id) ? _t("Питомцы") : /^i:/.test(a.id) ? _t("Снаряжение") : /^b:/.test(a.id) ? _t("Здания") : /^c:|^a:|^x:/.test(a.id) ? _t("Предметы") : (Wiki.SECTIONS().find(([sid]) => sid === a.sec) || [null, _t("Энциклопедия")])[1];
+        const hasCover = bk && typeof Art !== 'undefined' && Art.has(bk) && !/^b:/.test(a.id);
+        body = `<article class="wiki-art wiki-codex"><nav class="wiki-art-nav"><button type="button" data-wback>${(s.hist || []).length ? _t("← Назад") : _t("← К списку")}</button><span class="wiki-art-category">${artType}</span></nav>`
+          + `<div class="wiki-art-head">${hasCover ? (a.hidden ? `<div class="wiki-art-cover wiki-art-cover-portrait"><img src="${Art.url(bk)}" alt="" loading="lazy"></div>` : `<div class="wiki-art-cover wiki-art-cover-scene"><img src="${Art.url(bk)}" alt="" loading="lazy"></div>`) : ''}<div class="wiki-art-heading"><span class="wiki-art-kicker">${artType}</span><h3>${a.title()}</h3></div></div><div class="wiki-art-content">${Wiki.linked(a)}</div>`
           + `${(a.go || []).length ? `<div class="wiki-go">${a.go.map(([id, lab]) => `<button type="button" data-wgo="${id}">${_t("Открыть: {0}", [lab()])}</button>`).join('')}</div>` : ''}`
-          + `${see.length ? `<div class="wiki-see"><b>${_t("Смотрите также")}:</b> ${see.map((x) => `<button type="button" class="wk-link" data-wart="${x.id}">${x.title()}</button>`).join(' · ')}</div>` : ''}</div>`;
+          + `${see.length ? `<div class="wiki-see"><b>${_t("Смотрите также")}:</b> ${see.map((x) => `<button type="button" class="wk-link" data-wart="${x.id}">${x.title()}</button>`).join(' · ')}</div>` : ''}</article>`;
       } else {
         body = `<input type="search" class="wiki-q" data-wq placeholder="${_t("Поиск по базе знаний")}" value="${escText(s.q || '')}"><div class="wiki-res">${wikiList(s.q)}</div>`;
       }
