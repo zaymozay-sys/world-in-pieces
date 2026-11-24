@@ -5124,3 +5124,12 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 .wk-example-gem svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 2px #0008)}
 .wk-example-match{filter:drop-shadow(0 0 5px #ffd56b)}
 .wk-example-match svg{filter:drop-shadow(0 0 4px #ffd56b)}
+
+
+/* Wiki: data-driven bestiary and equipment characteristic cards. */
+.wiki-codex .wk-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:15px 0 20px}
+.wiki-codex .wk-fact{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0;padding:12px 14px;border:1px solid rgba(207,165,91,.36);border-radius:10px;background:linear-gradient(140deg,rgba(113,84,49,.23),rgba(30,28,36,.7))}
+.wiki-codex .wk-fact-label{font-size:12px;line-height:1.3;color:#c5b393}
+.wiki-codex .wk-fact-value{font-size:clamp(15px,2.4vw,19px);line-height:1.25;color:#f6e3b7;overflow-wrap:anywhere}
+@media(min-width:700px){.wiki-codex .wk-facts{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:370px){.wiki-codex .wk-fact{padding:9px 10px}.wiki-codex .wk-facts{gap:7px}}
