@@ -17,7 +17,19 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm test
+      - name: Run regression tests
+        run: |
+          mkdir -p test-results
+          set -o pipefail
+          npm test 2>&1 | tee test-results/release-regression.log
+      - name: Save failure diagnostics to repository
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f test-results/release-regression.log ]; then
+            gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/release-diagnostics/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.log" -f message='Save release regression diagnostics' -f branch=main -f content="$(base64 -w0 test-results/release-regression.log)"
+          fi
       - name: Start local server
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/wip-server.log 2>&1 &
