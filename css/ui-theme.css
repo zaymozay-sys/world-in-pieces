@@ -94,6 +94,9 @@
   }
   .modal:not(.icard-modal) > header .wallet-head { order: -1; margin: 0 auto 0 0; }
   .modal:not(.icard-modal) > header .close { margin-left: auto; }
+  /* Кнопка помощи справа рядом с крестиком, а не под центральной плашкой. */
+  .modal:not(.icard-modal) > header:has(.wiki-context-help) .close { margin-left: 0; }
+  .modal:not(.icard-modal) > header .wiki-context-help { position: relative; z-index: 1; }
 }
 .modal header .wallet-head {
   display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 16px;

@@ -10,7 +10,9 @@ const Update = (() => {
   const inBattle = () => { try { const b = document.getElementById('board'); return !!(b && b.offsetParent !== null); } catch (e) { return false; } };
   const parse = (txt) => { const m = /"v"\s*:\s*"([^"]+)"/.exec(txt) || /GAME_VERSION\s*=\s*'([^']+)'/.exec(txt); return m ? m[1] : null; };
   async function latest() {
-    for (const u of ['version.json', 'js/version.js']) {
+    // Исходная страница подключает version.js непосредственно; dist — хешированный bundle.
+    const source = typeof document !== 'undefined' && !!document.querySelector('script[src="js/version.js"]');
+    for (const u of source ? ['js/version.js', 'version.json'] : ['version.json', 'js/version.js']) {
       try { const r = await fetch(u + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) continue; const v = parse(await r.text()); if (v) return v; } catch (e) { /* нет сети — молча */ }
     }
     return null;

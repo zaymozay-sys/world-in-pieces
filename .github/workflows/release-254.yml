@@ -42,7 +42,11 @@ jobs:
       - name: Start local server
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/wip-server.log 2>&1 &
-          sleep 2
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
       - run: node tests/wiki-browser.cjs
       - name: 100 automated battles
         env:
