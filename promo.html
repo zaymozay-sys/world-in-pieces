@@ -149,7 +149,7 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
 <body>
 <script>document.documentElement.className+=' js'</script>
 <div class="topbar" id="topbar"><div class="in"><b>Хрупкий мир</b><a class="play-btn" href="https://zaymozay-sys.github.io/world-in-pieces/">Играть</a></div></div>
-<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Просмотр изображения" aria-hidden="true"><button type="button" class="lb-close" aria-label="Закрыть изображение">✕ <span>Закрыть</span></button><div class="lb-view"><div class="lb-stage"><img alt=""></div></div><div class="lb-tools"><button type="button" class="lb-minus" aria-label="Уменьшить">−</button><button type="button" class="lb-fit">Вписать</button><button type="button" class="lb-original">Оригинал 1:1</button><button type="button" class="lb-plus" aria-label="Увеличить">+</button></div></div>
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Просмотр изображения" aria-hidden="true"><button type="button" class="lb-close" aria-label="Закрыть изображение">✕ <span>Закрыть</span></button><div class="lb-view"><div class="lb-stage"><img alt=""></div></div><div class="lb-tools"><button type="button" class="lb-minus" aria-label="Уменьшить">−</button><button type="button" class="lb-fit">Вписать</button><button type="button" class="lb-plus" aria-label="Увеличить">+</button></div></div>
 
 
 <div style="background:#14101c;color:#f4eee2;font-family:'Golos Text',system-ui,sans-serif;display:flex;flex-direction:column;gap:96px;padding-bottom:72px">
@@ -813,7 +813,6 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
   var lbPlus = lb && lb.querySelector('.lb-plus');
   var lbMinus = lb && lb.querySelector('.lb-minus');
   var lbFit = lb && lb.querySelector('.lb-fit');
-  var lbOriginal = lb && lb.querySelector('.lb-original');
   var previousFocus = null, savedScrollY = 0, zoom = 1, fitZoom = 1;
   function centerImage() {
     if (!lbView) return;
@@ -866,7 +865,6 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
   if (lbPlus) lbPlus.addEventListener('click', function () { setZoom(zoom * 1.5); });
   if (lbMinus) lbMinus.addEventListener('click', function () { setZoom(zoom / 1.5); });
   if (lbFit) lbFit.addEventListener('click', fitImage);
-  if (lbOriginal) lbOriginal.addEventListener('click', function () { setZoom(1); });
   if (lb) lb.addEventListener('click', function (e) { if (e.target === lb || e.target === lbView) closePromoImage(); });
   document.addEventListener('keydown', function (e) {
     if (!lb || !lb.classList.contains('on')) return;
