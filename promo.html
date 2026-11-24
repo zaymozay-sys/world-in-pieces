@@ -116,6 +116,15 @@ img{display:block}
 .promo-set-item img{display:block;width:100%;aspect-ratio:1;object-fit:contain;border-radius:8px;background:#0e0d15;border:1px solid #ffffff22;box-sizing:border-box}
 .promo-set-item figcaption{font:400 12px/1.35 'Golos Text',sans-serif;color:#d6cfdd;margin-top:8px;overflow-wrap:anywhere}
 @media(max-width:850px){.promo-set{padding:16px}.promo-set-items{overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:10px}.promo-set-item{flex:0 0 112px;scroll-snap-align:start}.promo-set-item figcaption{font-size:11px}}
+
+/* Увеличение всех иллюстраций промо, включая предметы комплектов */
+#lb{z-index:9999}
+#lb img{max-width:min(96vw,1800px);max-height:94vh;object-fit:contain}
+.promo-zoomable{cursor:zoom-in}
+.promo-zoom-wrap{position:relative;display:block;min-width:0}
+.promo-zoom-plus{position:absolute;top:7px;right:7px;width:30px;height:30px;border:1px solid #d6bb83;border-radius:50%;background:rgba(22,16,30,.85);color:#fff3d6;font:700 22px/1 'Golos Text',sans-serif;display:grid;place-items:center;cursor:zoom-in;z-index:2;box-shadow:0 2px 8px #0008}
+.promo-zoom-plus:hover{background:#56402e}
+@media(max-width:650px){.promo-zoom-plus{width:27px;height:27px;font-size:19px}}
 </style>
 
 </head>
@@ -769,11 +778,24 @@ img{display:block}
     function run() { if (done) return; done = true; if (reduce) { el.textContent = to; return; } var t0 = performance.now(); (function step(t) { var k = Math.min(1, (t - t0) / 1100); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); })(t0); }
     if ('IntersectionObserver' in window) { var o = new IntersectionObserver(function (es) { if (es[0].isIntersecting) { run(); o.disconnect(); } }); o.observe(el); } else run();
   });
+  /* Все изображения контента открываются в увеличенном виде; плюсик на миниатюрах. */
+  [].slice.call(document.querySelectorAll('body > div:not(#lb) img')).forEach(function (im) {
+    if (im.closest('#topbar') || im.closest('.lb')) return;
+    im.classList.add('promo-zoomable');
+    if (!im.closest('.promo-set-item, .shot, .mc, .elx, .bc')) return;
+    var parent = im.parentNode;
+    var wrap = document.createElement('span'); wrap.className = 'promo-zoom-wrap';
+    parent.insertBefore(wrap, im); wrap.appendChild(im);
+    var plus = document.createElement('button'); plus.type = 'button'; plus.className = 'promo-zoom-plus'; plus.textContent = '+';
+    plus.setAttribute('aria-label', 'Увеличить: ' + (im.alt || 'изображение')); wrap.appendChild(plus);
+  });
   /* увеличение скриншотов */
   var lb = document.getElementById('lb'), li = lb && lb.querySelector('img');
   document.addEventListener('click', function (e) {
-    var im = e.target.closest && e.target.closest('.shot img, .bc img.bgi');
-    if (im && lb) { li.src = im.currentSrc || im.src; li.alt = im.alt; lb.classList.add('on'); }
+    var plus = e.target.closest && e.target.closest('.promo-zoom-plus');
+    var im = plus ? plus.parentNode.querySelector('img') : (e.target.closest && e.target.closest('img.promo-zoomable'));
+    if (im && lb) { li.src = im.currentSrc || im.src; li.alt = im.alt; lb.classList.add('on'); lb.setAttribute('role','dialog'); lb.setAttribute('aria-modal','true'); }
+
     else if (lb && lb.classList.contains('on')) lb.classList.remove('on');
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && lb) lb.classList.remove('on'); });
