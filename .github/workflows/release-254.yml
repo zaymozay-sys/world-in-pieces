@@ -28,7 +28,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -f test-results/release-regression.log ]; then
-            gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/release-diagnostics/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.log" -f message='Save release regression diagnostics' -f branch=main -f content="$(base64 -w0 test-results/release-regression.log)"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            mkdir -p release-diagnostics
+            tail -c 120000 test-results/release-regression.log > release-diagnostics/latest.log
+            git add release-diagnostics/latest.log
+            if ! git diff --cached --quiet; then
+              git commit -m "Save release regression diagnostics"
+              git push origin HEAD:main
+            fi
           fi
       - name: Start local server
         run: |
