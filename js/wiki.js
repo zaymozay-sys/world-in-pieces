@@ -314,6 +314,9 @@ const Wiki = (() => {
   const petName = (id) => (Pets.HOME[id] && Pets.HOME[id].name) || (Pets.EGGS[id] && Pets.EGGS[id].chick) || (Bestiary.MONSTERS[id] && Bestiary.MONSTERS[id].name) || id;
   const facName = (id) => { try { return Factions.get(id).name; } catch (e) { return id; } };
   const dropPct = (x) => (x >= 0.995 ? '100%' : Math.round(x * 100) + '%');
+  // Compact characteristic panels: values always come from the game catalogs.
+  const factPanel = (facts) => '<div class="wk-facts">' + facts.filter((x) => x && x[1] !== undefined && x[1] !== null).map(([label, value]) =>
+    '<div class="wk-fact"><span class="wk-fact-label">' + esc(label) + '</span><strong class="wk-fact-value">' + esc(value) + '</strong></div>').join('') + '</div>';
   const creatureArticle = (id) => {
     const m = Bestiary.MONSTERS[id];
     return { id: 'm:' + id, sec: 'creatures', hidden: true, banner: 'monsters/' + id, title: () => m.name, keys: `${m.family || ''} ${m.name} существо монстр`,
@@ -322,8 +325,8 @@ const Wiki = (() => {
         const drops = (m.drops || []).map(([k, ch, lo, hi]) => `<li>${typeof MonsterArt !== 'undefined' ? MonsterArt.resIcon(k, 1) : ''}<b>${esc(Bestiary.RESOURCES[k] ? Bestiary.RESOURCES[k].name : k)}</b> — ${dropPct(ch)}, ${lo === hi ? lo : lo + '–' + hi}</li>`);
         const tame = Pets.isTameableSpecies(id);
         return p(esc(m.desc || ''))
-          + ul([_t("Семейство: {0}", [esc(m.family || '—')]), _t("Здоровье: {0}, сила: {1}, броня: {2}", [m.hp, (m.stats && m.stats.power) || 0, (m.stats && m.stats.defense) || 0]),
-            m.unlock ? _t("Появляется после {0 победы|побед|побед}", [m.unlock]) : null].filter(Boolean))
+          + factPanel([[_t("Семейство"), m.family || '—'], [_t("Здоровье"), m.hp], [_t("Сила"), (m.stats && m.stats.power) || 0], [_t("Броня"), (m.stats && m.stats.defense) || 0]])
+          + (m.unlock ? p(_t("Появляется после {0 победы|побед|побед}", [m.unlock])) : '')
           + (ab ? p(`<b>${_t("Приём")}:</b> ${wl('abilities', ab.name)} — ${esc(ab.desc)}`) : '')
           + (drops.length ? `<h4 class="wk-fam">${_t("Добыча")}</h4><ul>${drops.join('')}</ul>` : '')
           + (tame ? p(`${_t("Этого зверя можно приручить:")} ${wl('p:' + id, petName(id))}`) : '');
@@ -345,10 +348,10 @@ const Wiki = (() => {
   const itemArticle = (id) => {
     const it = Gear.ITEMS[id];
     return { id: 'i:' + id, sec: 'gear', hidden: true, banner: 'items/' + id, title: () => it.name, keys: `${it.name} ${Gear.TYPE_NAMES[it.type] || ''} вещь предмет`,
-      body: () => ul([_t("Вид: {0}", [esc(Gear.TYPE_NAMES[it.type] || it.type)]), _t("Редкость: {0}", [esc(Gear.RARITY_NAMES[it.rarity] || it.rarity)]),
-        ...(Object.entries(it.stats || {}).map(([k, v]) => `<b>${esc(Gear.STAT_NAMES[k] || k)}</b>: +${v}`)),
-        it.perk && typeof WEAPON_PERK_NAMES !== 'undefined' && WEAPON_PERK_NAMES[it.perk.type] ? esc(WEAPON_PERK_NAMES[it.perk.type]) : null,
-        it.cost && Hero.pointsOn() ? _t("Очков снаряжения: {0}", [it.cost]) : null].filter(Boolean))
+      body: () => factPanel([[_t("Вид"), Gear.TYPE_NAMES[it.type] || it.type], [_t("Редкость"), Gear.RARITY_NAMES[it.rarity] || it.rarity],
+        ...Object.entries(it.stats || {}).map(([k, v]) => [Gear.STAT_NAMES[k] || k, (v >= 0 ? '+' : '') + v]),
+        ...(it.cost && Hero.pointsOn() ? [[_t("Очков снаряжения"), it.cost]] : [])])
+        + (it.perk && typeof WEAPON_PERK_NAMES !== 'undefined' && WEAPON_PERK_NAMES[it.perk.type] ? p(esc(WEAPON_PERK_NAMES[it.perk.type])) : '')
         + (it.set && Gear.SETS[it.set] ? p(`${_t("Комплект")}: ${wl('sets', Gear.SETS[it.set].name)}`) : '')
         + (it.faction ? p(_t("Подходит народу: {0}", [esc(facName(it.faction))])) : ''),
       go: [['forge', () => _t("Кузница")]] };
