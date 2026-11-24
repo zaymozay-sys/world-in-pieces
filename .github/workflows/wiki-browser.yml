@@ -19,7 +19,13 @@ jobs:
           node-version: '22'
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium
-      - run: node tests/wiki-browser.cjs
+      - name: Start local web server
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/wiki-server.log 2>&1 &
+          echo $! > /tmp/wiki-server.pid
+          sleep 2
+      - name: Run wiki browser checks against checked-out commit
+        run: node tests/wiki-browser.cjs
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
