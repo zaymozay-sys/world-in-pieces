@@ -226,10 +226,34 @@ const Screens = (() => {
     if (root) { ModalFocus.close(root); root.remove(); root = null; }
     document.removeEventListener('keydown', onKey);
     cur = null;
+    wikiReturnScreen = null;
     try { if (typeof MapView !== 'undefined' && MapView.refreshMonsters) MapView.refreshMonsters(); } catch (e) { /* вне карты */ }   // 2.4.5: подсветка источников для закладок рецептов
   }
   const onKey = (e) => { if (e.key === 'Escape' && !mustChoose()) close(); };
-  function open(id) { mount(); cur = id; render(); }
+  let wikiReturnScreen = null;
+  const wikiHelpTopics = { shop: 'gear', forge: 'forge', best: 'bestiary', kennel: 'pets', alchemist: 'elixirs', village: 'village', arena: 'arena', library: 'runes', jeweler: 'gems', lighthouse: 'lighthouse', market: 'resources' };
+  function openWikiHelp(from) {
+    if (!wikiHelpTopics[from] || !Wiki.find(wikiHelpTopics[from])) return;
+    wikiReturnScreen = from;
+    st.wiki.art = wikiHelpTopics[from];
+    st.wiki.hist = [];
+    st.wiki.positions = [];
+    cur = 'wiki';
+    render();
+    const body = root && root.querySelector('.screen-body'); if (body) body.scrollTop = 0;
+  }
+  function returnWikiHelp() {
+    if (!wikiReturnScreen) return false;
+    const previous = wikiReturnScreen;
+    wikiReturnScreen = null;
+    st.wiki.art = null;
+    st.wiki.hist = [];
+    st.wiki.positions = [];
+    cur = previous;
+    render();
+    return true;
+  }
+  function open(id) { mount(); if (id !== 'wiki') wikiReturnScreen = null; cur = id; render(); }
   const titleOpen = {};      // 1.8.4: какие группы титулов развёрнуты (запоминается, пока открыта страница)
   let keepScroll = false;
   // 2.1.2: рядом с «Купить» в Лавке появляется «за ✦N» (расходники и ресурсы)
@@ -362,7 +386,8 @@ const Screens = (() => {
     if (tp) { tp.parentNode.classList.toggle('open'); return; }
     const b = e.target.closest('button');
     if (!b || b.disabled) return;
-    if (b.dataset.act === 'close') return close();
+    if (b.dataset.act === 'wiki-context') return openWikiHelp(cur);
+    if (b.dataset.act === 'close') { if (cur === 'wiki' && returnWikiHelp()) return; return close(); }
     if (b.dataset.tryon && cur) return openTryOn(b.dataset.tryon);
     if (b.dataset.tipShow) { if (Profile.data.tips) delete Profile.data.tips[b.dataset.tipShow]; Profile.save(); return render(); }
     if (b.dataset.tip) { Profile.data.tips = Profile.data.tips || {}; Profile.data.tips[b.dataset.tip] = true; Profile.save(); return render(); }
@@ -419,7 +444,7 @@ const Screens = (() => {
     if (btn) btn.disabled = !canStartGame();
   }
   const canStartGame = () => !!(st.fac.name && st.fac.name.trim() && st.fac.gender && st.fac.picked);
-  const head = (title) => _t("<header><h2>{0}</h2><span class=\"wallet-head\">{1}</span><button type=\"button\" class=\"close\" data-act=\"close\">Закрыть</button></header>", [title, money(Profile.data.coins)]);
+  const head = (title) => `<header><h2>${title}</h2><span class="wallet-head">${money(Profile.data.coins)}</span>${wikiHelpTopics[cur] ? `<button type="button" class="wiki-context-help" data-act="wiki-context" title="${_t("Открыть статью в базе знаний")}" aria-label="${_t("Открыть статью в базе знаний")}">?</button>` : ''}<button type="button" class="close" data-act="close">${_t("Закрыть")}</button></header>`;
   const tabs = (items, active) => `<div class="tabs">${items.map((it) => !it ? '<span class="tab-sep" aria-hidden="true"></span>' : (([k, label]) => `<button type="button" class="${k === active ? 'on' : ''}" data-tab="${k}">${label}</button>`)(it)).join('')}</div>`;
   const tierPicker = (max, active, attr) => `<div class="tier-picker">${Tiers.LIST.map((t) => `<button type="button" class="tp ${t.id === active ? 'on' : ''}" data-tier="${t.id}" style="--t:${t.color};--ti:${t.ink}" ${t.id > max ? 'disabled' : ''} data-${attr}="${t.id}" title="${t.name}">${t.id}</button>`).join('')}</div>`;
   // Короткая подсказка при первом открытии окна; гаснет по кнопке «Понятно» (Profile.data.tips)
@@ -3530,6 +3555,7 @@ const credits = {
         return;
       }
       if (b.dataset.wback !== undefined) {
+        if (!(st.wiki.hist || []).length && wikiReturnScreen) return returnWikiHelp();
         const w = st.wiki, h = w.hist || [], positions = w.positions || [];
         w.art = h.length ? h.pop() : null;
         const restore = positions.length ? positions.pop() : 0;
