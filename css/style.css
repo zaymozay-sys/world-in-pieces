@@ -5117,3 +5117,10 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 .wk-example-match{filter:drop-shadow(0 0 5px #ffdd81) brightness(1.2)}
 .wk-example-note{display:flex;flex-direction:column;gap:7px;text-align:center;max-width:180px;color:#f4e1b7}.wk-example-note strong{font-size:18px}.wk-example-note span{color:#a9efc1;font-weight:700}
 @media(max-width:390px){.wk-battle-example{gap:12px}.wk-example-board{grid-template-columns:repeat(4,30px)}.wk-example-gem{width:30px;height:30px}}
+
+
+/* Wiki tutorial uses the actual GEM_SVG artwork from the battle board. */
+.wk-example-gem{display:flex;align-items:center;justify-content:center;clip-path:none;border-radius:0;background:none;box-shadow:none;filter:none}
+.wk-example-gem svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 2px #0008)}
+.wk-example-match{filter:drop-shadow(0 0 5px #ffd56b)}
+.wk-example-match svg{filter:drop-shadow(0 0 4px #ffd56b)}
