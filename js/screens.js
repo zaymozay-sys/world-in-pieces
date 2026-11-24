@@ -3511,7 +3511,7 @@ const credits = {
   const wikiList = (q) => {
     const query = String(q || '').trim();
     const filter = st.wiki.filter || 'all';
-    const source = query || filter !== 'all' ? Wiki.search(query) : Wiki.BASE;
+    const source = query ? Wiki.search(query) : filter !== 'all' ? Wiki.ARTICLES : Wiki.BASE;
     const list = source.filter((a) => wikiFilterMatch(a, filter));
     if (!list.length) return `<p class="hint">${_t("Ничего не найдено")}</p>`;
     if (query || filter !== 'all') return `<div class="wiki-list">${list.map((a) => `<button type="button" class="wiki-item" data-wart="${a.id}">${a.title()}</button>`).join('')}</div>`;
