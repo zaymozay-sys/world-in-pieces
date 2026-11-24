@@ -133,13 +133,23 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
 .lb-close{position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));z-index:100000;display:flex;align-items:center;gap:8px;min-height:44px;padding:9px 14px;border:1px solid #d8bc80;border-radius:10px;background:#2d2035;color:#fff4df;font:600 15px 'Golos Text',sans-serif;box-shadow:0 5px 24px #000a;cursor:pointer}
 .lb-close:hover,.lb-close:focus-visible{background:#60415a;outline:2px solid #f1d29a;outline-offset:2px}
 @media(max-width:600px){.lb>img{max-height:calc(100dvh - 76px)!important}}
+
+/* Реальное увеличение: картинка может быть больше экрана, прокрутка только внутри просмотрщика */
+.lb{padding:0!important;display:none!important}
+.lb.on{display:block!important}
+.lb-view{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:thin}
+.lb-stage{display:flex;align-items:center;justify-content:center;width:max-content;min-width:100%;height:max-content;min-height:100%}
+.lb .lb-stage img{display:block!important;position:static!important;max-width:none!important;max-height:none!important;width:auto;height:auto;object-fit:contain!important;aspect-ratio:auto!important;margin:0!important;flex:none!important;border-radius:5px}
+.lb-tools{position:fixed;bottom:max(14px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:100000;display:flex;gap:6px;padding:6px;border:1px solid #8b729c;border-radius:12px;background:#261e31ed;box-shadow:0 4px 20px #000a}
+.lb-tools button{min-height:40px;min-width:44px;padding:6px 12px;border:0;border-radius:8px;background:#493958;color:#fff4e3;font:600 16px 'Golos Text',sans-serif;cursor:pointer}
+.lb-tools button:hover{background:#675079}
 </style>
 
 </head>
 <body>
 <script>document.documentElement.className+=' js'</script>
 <div class="topbar" id="topbar"><div class="in"><b>Хрупкий мир</b><a class="play-btn" href="https://zaymozay-sys.github.io/world-in-pieces/">Играть</a></div></div>
-<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Просмотр изображения" aria-hidden="true"><button type="button" class="lb-close" aria-label="Закрыть изображение">✕ <span>Закрыть</span></button><img alt=""></div>
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Просмотр изображения" aria-hidden="true"><button type="button" class="lb-close" aria-label="Закрыть изображение">✕ <span>Закрыть</span></button><div class="lb-view"><div class="lb-stage"><img alt=""></div></div><div class="lb-tools"><button type="button" class="lb-minus" aria-label="Уменьшить">−</button><button type="button" class="lb-fit">Вписать</button><button type="button" class="lb-plus" aria-label="Увеличить">+</button></div></div>
 
 
 <div style="background:#14101c;color:#f4eee2;font-family:'Golos Text',system-ui,sans-serif;display:flex;flex-direction:column;gap:96px;padding-bottom:72px">
@@ -797,16 +807,37 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
     if (im.closest('#lb, #topbar')) return;
     im.classList.add('promo-zoomable');
   });
-  var lb = document.getElementById('lb'), li = lb && lb.querySelector('img');
+  var lb = document.getElementById('lb'), li = lb && lb.querySelector('.lb-stage img');
+  var lbView = lb && lb.querySelector('.lb-view');
   var lbClose = lb && lb.querySelector('.lb-close');
-  var previousFocus = null;
-  var savedScrollY = 0;
+  var lbPlus = lb && lb.querySelector('.lb-plus');
+  var lbMinus = lb && lb.querySelector('.lb-minus');
+  var lbFit = lb && lb.querySelector('.lb-fit');
+  var previousFocus = null, savedScrollY = 0, zoom = 1, fitZoom = 1;
+  function centerImage() {
+    if (!lbView) return;
+    lbView.scrollLeft = Math.max(0, (lbView.scrollWidth - lbView.clientWidth) / 2);
+    lbView.scrollTop = Math.max(0, (lbView.scrollHeight - lbView.clientHeight) / 2);
+  }
+  function setZoom(value) {
+    if (!li || !li.naturalWidth || !li.naturalHeight) return;
+    zoom = Math.max(0.1, Math.min(4, value));
+    li.style.width = Math.round(li.naturalWidth * zoom) + 'px';
+    li.style.height = Math.round(li.naturalHeight * zoom) + 'px';
+    requestAnimationFrame(centerImage);
+  }
+  function fitImage() {
+    if (!li.naturalWidth || !li.naturalHeight) return;
+    fitZoom = Math.min((lbView.clientWidth - 24) / li.naturalWidth, (lbView.clientHeight - 80) / li.naturalHeight);
+    fitZoom = Math.max(0.05, fitZoom);
+    setZoom(fitZoom);
+  }
   function closePromoImage() {
     if (!lb || !lb.classList.contains('on')) return;
     lb.classList.remove('on');
     lb.setAttribute('aria-hidden', 'true');
     li.removeAttribute('src');
-    // Возвращаем прежнюю вертикальную позицию, не допуская горизонтального сдвига.
+    li.style.width = ''; li.style.height = '';
     window.scrollTo({left:0,top:savedScrollY,behavior:'instant'});
     if (previousFocus && previousFocus.isConnected && previousFocus !== document.body) {
       try { previousFocus.focus({preventScroll:true}); } catch (_) {}
@@ -818,18 +849,26 @@ body>div:not(.lb){max-width:100%;box-sizing:border-box}
     if (!im || !lb || lb.contains(im)) return;
     previousFocus = document.activeElement;
     savedScrollY = window.scrollY || window.pageYOffset || 0;
+    li.onload = function () {
+      fitZoom = Math.min((lbView.clientWidth - 24) / li.naturalWidth, (lbView.clientHeight - 80) / li.naturalHeight);
+      // По умолчанию крупнее вписанного вида; до исходного размера, без потери пропорций.
+      setZoom(Math.min(1, Math.max(fitZoom, fitZoom * 2)));
+    };
     li.src = im.currentSrc || im.src;
     li.alt = im.alt || 'Увеличенное изображение';
     lb.classList.add('on');
     lb.setAttribute('aria-hidden', 'false');
+    if (li.complete && li.naturalWidth) li.onload();
     if (lbClose) lbClose.focus({preventScroll:true});
   });
   if (lbClose) lbClose.addEventListener('click', closePromoImage);
-  if (lb) lb.addEventListener('click', function (e) { if (e.target === lb) closePromoImage(); });
+  if (lbPlus) lbPlus.addEventListener('click', function () { setZoom(zoom * 1.5); });
+  if (lbMinus) lbMinus.addEventListener('click', function () { setZoom(zoom / 1.5); });
+  if (lbFit) lbFit.addEventListener('click', fitImage);
+  if (lb) lb.addEventListener('click', function (e) { if (e.target === lb || e.target === lbView) closePromoImage(); });
   document.addEventListener('keydown', function (e) {
     if (!lb || !lb.classList.contains('on')) return;
     if (e.key === 'Escape') closePromoImage();
-    else if (e.key === 'Tab' && lbClose) { e.preventDefault(); lbClose.focus({preventScroll:true}); }
   });
 })();
 </script>
