@@ -290,12 +290,15 @@ const AI = (() => {
     }
     return best;
   }
-  // Ценность расклада поля для игрока, когда первым ходит противник: мой лучший ход минус его лучший ход.
+  // Оценка локального Хаоса не должна зависеть от последнего противника или его потребности в цветах.
   function layoutValue(typ, val) {
-    if (Engine.bonusMap(typ)) return -Infinity;            // готовых линий быть не должно
-    const me = bestOf(typ, val, { w: ADVISE.w, dmg: (g) => g[3] }), en = bestOf(typ, val, NORMAL);
-    if (!me) return -Infinity;
-    return me.s - (en ? en.s : 0);
+    if (Engine.bonusMap(typ)) return -Infinity;
+    const savedWant = want; want = null;
+    try {
+      const me = bestOf(typ, val, { w: ADVISE.w, dmg: (g) => g[3] }), en = bestOf(typ, val, NORMAL);
+      if (!me) return -Infinity;
+      return me.s - (en ? en.s : 0);
+    } finally { want = savedWant; }
   }
 
   return { choose, settings, advise, layoutValue };
