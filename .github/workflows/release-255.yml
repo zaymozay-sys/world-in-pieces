@@ -1,0 +1,86 @@
+name: Release 2.5.5 candidate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-255.yml'
+permissions:
+  contents: read
+concurrency:
+  group: release-255
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npx playwright install --with-deps chromium
+      - name: Regression suite
+        run: npm test
+      - name: Two-client PvP (preparation and area spells)
+        env:
+          FORCE: temper,mirror,square,fire
+        run: node tools/live-e2e.js 1
+      - name: Two-client PvP (ordinary tactical play)
+        run: node tools/live-e2e.js 1
+      - name: Browser checks
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/wip-server.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/wiki-browser.cjs
+      - name: 100 automated battles
+        env:
+          WIP_PLAYER_MODE: soak
+          WIP_URL: http://127.0.0.1:8765/
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/wip-soak.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:player
+      - run: python3 tools/dist.py
+      - name: Package browser build
+        run: |
+          test "$(node -p "require('./package.json').version")" = "2.5.5"
+          test -f dist/index.html
+          cd dist
+          zip -qr ../world-in-pieces-2.5.5.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-255-build
+          path: world-in-pieces-2.5.5.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-255-evidence
+          path: test-results/
+          if-no-files-found: warn
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-255-build
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test -s world-in-pieces-2.5.5.zip
+          gh release create v2.5.5 world-in-pieces-2.5.5.zip --target "$GITHUB_SHA" --prerelease --title "World in Pieces 2.5.5" --notes "Test release: revised hero and pet spell economy, preparatory magic, simulator parity and combat balance. Regression, two-client PvP, browser checks and 100 automated battles passed. Temporary game testing switches remain enabled."
