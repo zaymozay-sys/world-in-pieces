@@ -95,5 +95,6 @@
 "tests/spell-economy.test.js",
 "tests/area-spell-path.test.js",
 "tests/utility-spell-path.test.js",
-"tests/pet-magic-balance.test.js"
+"tests/pet-magic-balance.test.js",
+"tests/equipment-magic-parity.test.js"
 ]
