@@ -18,56 +18,156 @@ jobs:
         run: |
           mkdir -p balance-results
           node tools/balance.js --n=60 --tiers=1,4,7,10 --species=rat,wolf,bandit,orc,troll,golem,wraith,dragon --workers=2 --seed=255 --json=balance-results/battles.json --out=balance-results/summary.md
-      - name: Compare realistic map encounters, player skill and spell use
+      - name: Prepare isolated simulator with ammunition model
         run: |
-          node <<'NODE' | tee balance-results/realistic-summary.txt
+          node <<'NODE'
           const fs = require('fs');
-          const sim = require('./tools/sim.js');
-          const { Hero, Balance } = global;
-          const map = require('./js/hexmap.js');
-          const factions = ['human','dwarf','elf','lizard'];
-          const selection = {1:['rat','wolf','pinestump','forestling'],4:['wolf','bandit','orc','beetle'],7:['orc','troll','golem','wraith'],10:['golem','wraith','dragon','mushroom']};
-          const profiles = [
-            {name:'no-magic',magic:false,skill:.55,share:.8},
-            {name:'full-magic',magic:true,skill:.55,share:.8},
-            {name:'skilled',magic:true,skill:.85,share:.8},
-            {name:'well-equipped',magic:true,skill:.55,share:1},
-            {name:'late-color',magic:true,skill:.55,share:.8,late:true}
+          let src = fs.readFileSync('tools/sim.js','utf8');
+          function patch(a,b) {
+            if(src.split(a).length!==2)throw Error('Simulator patch anchor not unique: '+a);
+            src=src.replace(a,b);
+          }
+          patch("const AI = require(J('ai.js'));","const AI = require(J('ai.js'));\nconst QAAmmo = require(J('ammo.js'));");
+          patch("Combat.useConsumable(f, kind, MAGIC_NAMES)","Combat.useConsumable(f, kind, MAGIC_NAMES, rand)");
+          const ammo = `
+          function qaShoot() {
+            const h = S.f.left, e = S.f.right, option = player.qaAmmo;
+            if (!option || h.isPet || S.over || h.qaShotTurn === h.turnNo || (h.qaShots||0)>=option.count) return;
+            const kind = Gear.shotKind(h.gear) || QAAmmo.forFaction(h.faction);
+            const fam = Bestiary.MONSTERS[e.id]?.family;
+            const variant = option.enhanced ?
+              (h.hp<h.max*.6 && QAAmmo.unlocked('heal',h.heroLevel) ? 'heal' :
+              QAAmmo.mult(kind,fam)>1 && QAAmmo.unlocked('hunt',h.heroLevel) ? 'hunt' :
+              QAAmmo.unlocked('hard',h.heroLevel) ? 'hard' : null) : null;
+            const aim = kind==='bomb' ? bestSquare(S) : null;
+            if(kind==='bomb'&&!aim)return;
+            h.qaShotTurn=h.turnNo; h.qaShots=(h.qaShots||0)+1;
+            S.stats.bySpell['ammo:'+kind]=(S.stats.bySpell['ammo:'+kind]||0)+1;
+            const base=Math.round(Combat.strikeDamage(h)*Gear.shotMult(h.gear)*(option.perk?1.35:1));
+            const mult=QAAmmo.multV(kind,fam,variant)*QAAmmo.dmgMul(variant);
+            h.hp=Math.min(h.max,h.hp+QAAmmo.healAmount(variant,Elixirs.heal(Hero.tierFor(h.heroLevel))));
+            for(const t of MAGIC_NAMES)h.counts[t]+=QAAmmo.charmStones(kind,variant);
+            if(kind==='bolt'){
+              hit('left',Math.round(QAAmmo.boltDamage(base)*mult),true);
+              e.buffs=[];e.shield=0;e.mirrorReady=false;e.tripleNext=false;e.doubleNext=false;
+            }else if(kind==='moonarrow'){
+              hit('left',Math.round(QAAmmo.arrowDamage(base)*mult),true);
+              for(const[t,n]of Object.entries(QAAmmo.steal(e.counts,MAGIC_NAMES,QAAmmo.stealCount(kind,variant)))){e.counts[t]-=n;h.counts[t]+=n;}
+            }else if(kind==='dart'){
+              const dmg=Math.max(1,Math.round(Combat.venomTick(Combat.power(h),h.dmg)*mult));
+              e.poison={turns:Math.max(QAAmmo.DART_TURNS,e.poison?.turns||0),dmg:Math.max(dmg,e.poison?.dmg||0)};
+            }else if(kind==='bomb')burn('left',aim.idx,'square',mult,true);
+            checkEnd();
+          }
+          `;
+          patch("  function heroTurn() {",ammo+"\n  function heroTurn() {");
+          patch("      if (player.items) player.items(S, h, useItem);","      if (player.items) player.items(S, h, useItem);\n      qaShoot();\n      if (checkEnd()) return;");
+          fs.writeFileSync('tools/sim-qa.js',src);
+          NODE
+          node --check tools/sim-qa.js
+      - name: Compare legal full equipment and stacked enhancements
+        shell: bash
+        run: |
+          node <<'NODE' | tee balance-results/prepared-summary.txt
+          const fs = require('fs');
+          const sim = require('./tools/sim-qa.js');
+          const H=global.Hero,G=global.Gear,B=global.Balance,M=global.Medals,E=global.Elixirs,Be=global.Bestiary;
+          const map=require('./js/hexmap.js');
+          global.Stones=require('./js/stones.js');
+          const R=require('./js/runes.js');
+          const factions=['human','dwarf','elf','lizard'];
+          const selection={1:['rat','wolf','pinestump','forestling'],4:['wolf','bandit','orc','beetle'],7:['orc','troll','golem','wraith'],10:['golem','wraith','dragon','mushroom']};
+          const profiles=[
+            {name:'old-budget',magic:true,budget:true},
+            {name:'full-gear-no-magic',magic:false},
+            {name:'full-gear',magic:true},
+            {name:'prepared-no-ammo',magic:true,prepared:true},
+            {name:'prepared-with-ammo',magic:true,prepared:true,ammo:true},
+            {name:'veteran',magic:true,prepared:true,ammo:true,veteran:true,late:true}
           ];
-          const rows = [];
-          const n = 60;
-          for (const p of profiles) for (const [t,species] of Object.entries(selection)) {
-            const tier = +t;
-            const level = p.late ? (tier === 10 ? Hero.MAX_LEVEL : Hero.itemLevel(tier+1)-1) : Hero.itemLevel(tier);
-            for (const monster of species) {
-              const spawn = map.SPAWN[monster]?.tiers;
-              if (!spawn || tier < spawn[0] || tier > spawn[1]) throw Error('Invalid map encounter: '+monster+' / '+tier);
-              for (const faction of factions) {
-                const r = sim.simulate({monster,tier,level,faction,n,seedBase:255,
-                  gear:()=>sim.typicalGear(level,p.share),
-                  player:()=>sim.humanPlayer({skill:p.skill,top:p.skill>.8?3:4,useMagic:p.magic}),
-                  tune:{fullSpells:true,economic:true,utility:true}});
+          const rows=[],kits=[],n=60;
+          function makeKit(tier,faction,veteran) {
+            const pool=G.craftFor(faction,tier);
+            const sets=Object.keys(G.SET_WINDOWS).filter(s=>tier>=G.SET_WINDOWS[s][0]&&tier<=G.SET_WINDOWS[s][1]&&pool.filter(i=>i.set===s).length>=3);
+            const scoreSet=s=>pool.filter(i=>i.set===s).length;
+            const preferred=sets.sort((a,b)=>scoreSet(b)-scoreSet(a)||a.localeCompare(b))[0];
+            let gear=G.emptyLoadout();
+            for(const slot of G.SLOTS){
+              const candidates=pool.filter(i=>G.fits(slot,i.type)).sort((a,b)=>(b.set===preferred)-(a.set===preferred)||b.cost-a.cost||a.id.localeCompare(b.id));
+              for(const it of candidates){
+                const entry=G.makeEntry(it.id,tier);
+                if(!G.canEquip(gear,entry,slot,faction,H.itemLevel(tier)).ok)continue;
+                if(veteran){
+                  entry.plus=Math.min(G.TEMPER_MAX,tier);
+                  if(tier>=3){
+                    entry.cut=tier;entry.gems=[1,Math.min(tier,4)];
+                    for(let j=0;j<R.socketsFor(entry);j++){
+                      const rune=it.type==='weapon1'?'rune-might':it.type==='weapon2'?'rune-might2':j===0?'rune-ward':'rune-insight';
+                      if(!R.insert(entry,rune,j,tier))throw Error('Invalid rune');
+                    }
+                  }
+                }
+                gear=G.equip(gear,entry,slot);break;
+              }
+            }
+            return gear;
+          }
+          function meds(tier){
+            const earned=Be.ORDER.filter(id=>map.SPAWN[id]?.tiers?.[0]<=tier).map(id=>({id:M.killMedalId(id)}));
+            if(tier===10)for(const k of M.GROUP_ORDER)for(const id of M.GROUPS[k].ids())earned.push({id});
+            return [...new Map(earned.map(e=>[e.id,e])).values()];
+          }
+          const pct=v=>(100*v).toFixed(1)+'%';
+          const avg=(a,k)=>a.reduce((s,r)=>s+r[k],0)/a.length;
+          const total=a=>a.reduce((s,r)=>s+r.n,0);
+          for(const p of profiles)for(const[t,species]of Object.entries(selection)){
+            const tier=+t,level=p.late?(tier===10?H.MAX_LEVEL:H.itemLevel(tier+1)-1):H.itemLevel(tier);
+            for(const faction of factions){
+              const kit=p.budget?null:makeKit(tier,faction,p.veteran);
+              const earned=p.veteran?meds(tier):[];
+              const extra=p.veteran?G.combine(R.bonusForGear(kit),M.bonusStats(earned,Be)):undefined;
+              const elixirs=p.prepared?Object.fromEntries(Object.keys(E.KINDS).filter(k=>!['food','endure'].includes(k)).map(k=>[k,tier])):undefined;
+              // Finite inventory; use each prepared scroll once, plus dust and haste when useful.
+              const bag=p.prepared?{dust:2,scroll:1,...Object.fromEntries(['scrollvenom','scrollregen','honeyjar','storm','stoneskin'].map(k=>[G.tierKey(k,tier),1]))}:undefined;
+              const boost=p.veteran?{style:M.hasPerk(earned,'style'),daily:M.hasPerk(earned,'daily'),strike:M.hasPerk(earned,'strike'),streak:M.hasPerk(earned,'streak'),familyPct:tier===10?5:0}:undefined;
+              const player=()=>{
+                const q=sim.humanPlayer({skill:p.veteran?.85:.55,top:p.veteran?3:4,useMagic:p.magic});
+                if(p.prepared)q.items=(S,h,use)=>{
+                  if(h.turnNo===1){
+                    for(const key of Object.keys(bag))if(!['dust','scroll'].includes(key)&&!key.startsWith('storm@'))use('left',key);
+                    if(!h.haste)use('left','scroll');
+                  }
+                  if(h.turnNo===2&&!h.magic)use('left',G.tierKey('storm',tier));
+                  if(h.turnNo>=2&&Math.min(h.counts.sapphire,h.counts.ruby,h.counts.emerald)<2)use('left','dust');
+                };
+                if(p.ammo)q.qaAmmo={count:5,enhanced:p.veteran,perk:p.veteran&&M.hasPerk(earned,'shot')};
+                return q;
+              };
+              if(kit)kits.push({profile:p.name,tier,level,faction,gear:kit,stats:G.statsFor(kit,level),extra,elixirs,bag});
+              for(const monster of species){
+                const window=map.SPAWN[monster]?.tiers;
+                if(!window||tier<window[0]||tier>window[1])throw Error('Invalid map encounter '+monster+'/'+tier);
+                const r=sim.simulate({monster,tier,level,faction,n,seedBase:255,gear:kit||(()=>sim.typicalGear(level,.8)),extra,elixirs,bag,boost,
+                  pet:p.veteran?{species:'dog',tier,fed:true,scale:1+G.petBonus(kit)/100}:undefined,
+                  player,tune:{fullSpells:true,economic:true,utility:true}});
                 rows.push({profile:p.name,tier,level,monster,faction,n,...r});
               }
             }
           }
-          const pct = v => (100*v).toFixed(1)+'%';
-          const avg = (a,k) => a.reduce((s,r)=>s+r[k],0)/a.length;
-          const total = a => a.reduce((s,r)=>s+r.n,0);
-          console.log('BATTLES '+total(rows));
-          for (const p of profiles) {
-            const a = rows.filter(r=>r.profile===p.name);
-            const casts = {};
-            for (const r of a) for (const [k,v] of Object.entries(r.bySpell)) casts[k]=(casts[k]||0)+v;
+          console.log('BATTLES '+total(rows)+'; gearPoints='+B.hero.gearPoints);
+          for(const p of profiles){
+            const a=rows.filter(r=>r.profile===p.name),casts={};
+            for(const r of a)for(const[k,v]of Object.entries(r.bySpell))casts[k]=(casts[k]||0)+v;
             console.log('PROFILE '+JSON.stringify({name:p.name,battles:total(a),win:pct(avg(a,'win')),actions:avg(a,'actions').toFixed(2),perTier:Object.fromEntries(Object.keys(selection).map(t=>[t,pct(avg(a.filter(r=>r.tier===+t),'win'))])),perFaction:Object.fromEntries(factions.map(f=>[f,pct(avg(a.filter(r=>r.faction===f),'win'))])),casts}));
           }
-          for (const [t,species] of Object.entries(selection)) for(const monster of species) {
-            const a = rows.filter(r=>r.tier===+t&&r.monster===monster);
+          for(const[t,species]of Object.entries(selection))for(const monster of species){
+            const a=rows.filter(r=>r.tier===+t&&r.monster===monster);
             console.log('ENCOUNTER '+JSON.stringify({tier:+t,monster,...Object.fromEntries(profiles.map(p=>[p.name,pct(avg(a.filter(r=>r.profile===p.name),'win'))]))}));
           }
-          fs.writeFileSync('balance-results/realistic.json',JSON.stringify(rows,null,1));
+          fs.writeFileSync('balance-results/prepared.json',JSON.stringify({rows,kits},null,1));
           NODE
       - name: Spell utility comparison
+        shell: bash
         run: |
           node tools/spell-utility-study.js --n=100 --seed=255 | tee balance-results/spell-utility.jsonl
       - uses: actions/upload-artifact@v4
