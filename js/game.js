@@ -4875,6 +4875,9 @@ if (host.main) {
   veiled: { get: () => veiled, enumerable: true, configurable: true },
   liveBegin: { get: () => liveBegin, enumerable: true, configurable: true },
   liveHash: { get: () => liveHash, enumerable: true, configurable: true },
+  liveState: { get: () => liveState, enumerable: true, configurable: true },
+  lightningMult: { get: () => lightningMult, enumerable: true, configurable: true },
+  temperCells: { get: () => temperCells, enumerable: true, configurable: true },
   liveActive: { get: () => !!LIVE, enumerable: true, configurable: true },
   wispBlocks: { get: () => wispBlocks, enumerable: true, configurable: true }
   });

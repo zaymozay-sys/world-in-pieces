@@ -85,7 +85,14 @@ const DRIVER = require('./e2e-driver');
         await A.page.evaluate(() => window.__drive({ spells: false }));               // и снова играет
       }
     }
-    const fin = async (P) => { await P.page.waitForFunction(() => over, null, { timeout: 240000 }); return P.page.evaluate(() => ({ win: Combat.enemyDefeated(fighters.right), overlay: (document.getElementById('overlay') || {}).textContent || '', hp: [fighters.left.hp, fighters.right.hp], log: window.__log.slice(-6), spells: window.__log.filter((x) => /^(cast|inst|fac)/.test(x)).reduce((o, x) => (o[x] = (o[x] || 0) + 1, o), {}), hash: liveHash(), desync: window.__desync || null })); };
+    const fin = async (P) => {
+      try { await P.page.waitForFunction(() => over, null, { timeout: 240000 }); }
+      catch (e) {
+        for (const client of [A, B]) console.error('PvP timeout:', client.name, JSON.stringify(await client.page.evaluate(() => ({ over, busy, aiming, turnSide, liveActive, state: liveState(), log: window.__log?.slice(-30), desync: window.__desync || null }))), client.errs);
+        throw e;
+      }
+      return P.page.evaluate(() => ({ win: Combat.enemyDefeated(fighters.right), overlay: (document.getElementById('overlay') || {}).textContent || '', hp: [fighters.left.hp, fighters.right.hp], log: window.__log.slice(-6), spells: window.__log.filter((x) => /^(cast|inst|fac)/.test(x)).reduce((o, x) => (o[x] = (o[x] || 0) + 1, o), {}), hash: liveHash(), desync: window.__desync || null }));
+    };
     if (SC === 'forfeit') {
       const rb = await fin(B); console.log('сдача: Боря', JSON.stringify({ win: rb.win, ov: rb.overlay.slice(0, 40) }));
       if (!rb.win) { okAll = false; console.log('РАСХОЖДЕНИЕ: после сдачи Ани Боря должен победить'); }
