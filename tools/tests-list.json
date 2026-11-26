@@ -94,5 +94,6 @@
 "tests/grani.test.js",
 "tests/spell-economy.test.js",
 "tests/area-spell-path.test.js",
-"tests/utility-spell-path.test.js"
+"tests/utility-spell-path.test.js",
+"tests/pet-magic-balance.test.js"
 ]
