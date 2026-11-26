@@ -46,7 +46,7 @@ if (process.env.BAL_OVERRIDE) {
 
 const N = 6, ONYX = 3;
 let CHAOS_DMG = 0;
-let TUNE = null;    // правила для опытов: { delay: {thr, ticks}, decay, lightOnce, burnLoot: { fire, square }, fullSpells, economic } (доля возвращённых камней, 0..1)
+let TUNE = null;    // правила для опытов: { delay: {thr, ticks}, decay, lightOnce, burnLoot: { fire, square }, fullSpells, economic, squareCascade, tacticalLightning } (доля возвращённых камней, 0..1)
 let BOOST = null;   // опыт «всё усиление»: { strike, familyPct, style, daily, streak } — умения и коллекции медалей
 const TYPES = ['sapphire', 'ruby', 'emerald', 'onyx'];
 const MAGIC_T = [0, 1, 2];
@@ -101,7 +101,7 @@ function Battle(hero, mon, player) {
     typ: new Array(36).fill(-1), val: new Array(36).fill(0),
     f: { left: hero, right: mon }, over: false, winner: null,
     locks: { cols: new Set(), forSide: null }, veiled: new Set(),
-    stats: { bySpell: {}, heroActions: 0, monActions: 0, heroDmg: 0, monDmg: 0, spells: 0, abilities: 0, rounds: 0 },
+    stats: { bySpell: {}, areaImpact: {}, heroActions: 0, monActions: 0, heroDmg: 0, monDmg: 0, spells: 0, abilities: 0, rounds: 0 },
   };
   const fill = () => Engine.fillEmpty(S.typ, S.val, rand, B.board.multiplierChance);
   fill();
@@ -157,7 +157,7 @@ function Battle(hero, mon, player) {
   const refillIfNeeded = () => { if (empty() || !Engine.hasMoves(S.typ)) fill(); };
 
   // Собирает совпадения, начисляет камни и урон, падение и сдвиг, каскады. Возвращает, была ли линия 4+.
-  function resolve(side) {
+  function resolve(side, cascadeMult = 1, impact = null) {
     const f = S.f[side], tgt = S.f[other(side)];
     const home = side === 'left' ? TYPES.indexOf(hero.fac.gem) : -1;
     // как в игре: собранный обсидиан x5 убирает соседей в радиусе 1 (Engine.obsidianBurst)
@@ -180,7 +180,8 @@ function Battle(hero, mon, player) {
       }
       if (charge) addCharge(charge);
       if (side === 'right') { let got = 0; for (let i = 0; i < 36; i++) if (bon[i]) got += S.val[i] * bon[i]; Combat.addSpores(f, got); }   // споры гриба
-      hit(side, dmg, false, (f.magic ? B.magic.lightning.mult : 1) * (TUNE && TUNE.decay ? Math.pow(TUNE.decay, pass - 1) : 1));
+      const dealt = hit(side, dmg, false, cascadeMult * (f.magic ? B.magic.lightning.mult : 1) * (TUNE && TUNE.decay ? Math.pow(TUNE.decay, pass - 1) : 1));
+      if (impact) { impact.waves++; if (dealt.kind === 'hit') impact.cascadeDamage += dealt.amount; }
       for (let i = 0; i < 36; i++) if (bon[i]) { S.typ[i] = -1; S.val[i] = 0; }
       if ((side === 'left' ? Combat.enemyDefeated(S.f.right) : tgt.hp <= 0) || f.hp <= 0) return extra;
       Engine.gravity(S.typ, S.val);
@@ -192,8 +193,9 @@ function Battle(hero, mon, player) {
   }
 
   // Хвост действия: разбор поля, конец боя, новые камни, усиления. Возвращает 2 — дополнительный ход, 1 — нет.
-  function after(side, finish = true, extraIn = false) {
-    const extra = resolve(side) || extraIn;
+  function after(side, finish = true, extraIn = false, cascadeMult = 1, impact = null) {
+    const extra = resolve(side, cascadeMult, impact) || extraIn;
+    if (impact && extra) impact.extra = true;
     if (finish) S.f[side].magic = Combat.continueMagic(S.f[side].magic, extra);
     if (checkEnd()) return 1;
     refillIfNeeded();
@@ -238,7 +240,7 @@ function Battle(hero, mon, player) {
     }
     if (shape !== 'row') {
       const fl = S.f[side];
-      const share = Math.max(0, Math.min(1, (TUNE && TUNE.burnLoot && TUNE.burnLoot[shape === 'square' ? 'square' : 'fire']) ?? 1));
+      const share = Math.max(0, Math.min(1, (!free && TUNE && TUNE.burnLoot ? TUNE.burnLoot[shape === 'square' ? 'square' : 'fire'] : undefined) ?? (Combat.areaSpellRules(shape, free).collect ? 1 : 0)));
       for (let i = 0; i < 4; i++) {
         const n = Math.floor(gain[i] * share);
         fl.counts[TYPES[i]] += n;
@@ -247,12 +249,26 @@ function Battle(hero, mon, player) {
       dmg = (shape === 'square' ? B.magic.square : B.magic.cross).fixed + obs;
       spellMul = (shape === 'square' ? B.magic.square : B.magic.cross).mult * mult;
     }
-    hit(side, dmg, false, spellMul);
+    const kind = shape === 'square' ? 'square' : 'fire';
+    const direct = hit(side, dmg, false, spellMul);
+    const impact = side === 'left' && !free && shape !== 'row' ? { directDamage: direct.kind === 'hit' ? direct.amount : 0, cascadeDamage: 0, waves: 0, extra: false } : null;
+    const recordImpact = () => {
+      if (!impact) return;
+      const aggregate = S.stats.areaImpact[kind] || (S.stats.areaImpact[kind] = { casts: 0, directDamage: 0, cascadeDamage: 0, waves: 0, withCascade: 0, withExtra: 0 });
+      aggregate.casts++;
+      for (const k of ['directDamage', 'cascadeDamage', 'waves']) aggregate[k] += impact[k];
+      if (impact.waves) aggregate.withCascade++;
+      if (impact.extra) aggregate.withExtra++;
+    };
     for (const i of cells) { S.typ[i] = -1; S.val[i] = 0; }
-    if (S.f.left.hp <= 0 || Combat.enemyDefeated(S.f.right)) { checkEnd(); return 1; }
+    if (S.f.left.hp <= 0 || Combat.enemyDefeated(S.f.right)) { recordImpact(); checkEnd(); return 1; }
     Engine.gravity(S.typ, S.val);
     Engine.shiftRight(S.typ, S.val);
-    return after(side, !free);
+    // Бонус только в каскадах этого Захвата, никогда не переносится на следующий ход.
+    const cascadeMult = shape === 'square' && !free ? (TUNE?.squareCascade ?? Combat.areaSpellRules('square').cascadeMult) : 1;
+    const result = after(side, !free, false, cascadeMult, impact);
+    recordImpact();
+    return result;
   }
   function transmute(side, idx) {
     spend(side, 'transmute');
@@ -616,10 +632,37 @@ function heroMoves(S, locked, magic, homeT) {
   return out.sort((x, y) => y.s - x.s);
 }
 // Resource-aware targeting for spell economy experiments. The value of a colour increases when it is scarce.
+// Stronger tactical model: consider visible cascades and a known continuation of a 4+ line.
+function economicLightning(S, h, locked) {
+  const cost = Combat.spellCost(h, 'lightning');
+  const weight = MAGIC_NAMES.map(t => h.counts[t] <= cost * 2 ? .7 : .15);
+  let best = null;
+  const visible = seenBoard(S);
+  for (const m of Engine.legalMoves(visible.slice())) {
+    if (locked && (locked.includes(m.a) || locked.includes(m.b))) continue;
+    if (visible[m.a] >= 4 || visible[m.b] >= 4) continue;
+    const t = S.typ.slice(), v = S.val.slice(), g = [0,0,0,0];
+    [t[m.a],t[m.b]] = [t[m.b],t[m.a]]; [v[m.a],v[m.b]] = [v[m.b],v[m.a]];
+    Engine.resolve(t,v,g,ONYX);
+    const dmg = g.reduce((a,b)=>a+b,0) * B.magic.lightning.mult;
+    let next = 0;
+    if (g.extra && !(TUNE && TUNE.lightOnce)) {
+      for (const a of Engine.legalMoves(t.slice())) {
+        const tt=t.slice(),vv=v.slice(),gg=[0,0,0,0];
+        [tt[a.a],tt[a.b]]=[tt[a.b],tt[a.a]]; [vv[a.a],vv[a.b]]=[vv[a.b],vv[a.a]];
+        Engine.resolve(tt,vv,gg,ONYX);
+        next = Math.max(next, gg.reduce((x,y)=>x+y,0) * B.magic.lightning.mult);
+      }
+    }
+    const value = dmg + (g.extra ? 4 : 0) + next * .5 + weight.reduce((sum,w,i)=>sum+w*(g[i]-cost),0);
+    if (!best || value > best.value) best = {kind:'lightning', a:m.a,b:m.b,value};
+  }
+  return best;
+}
 function economicArea(S, h, kind) {
   const rule = kind === 'fire' ? B.magic.cross : B.magic.square;
   const cost = Combat.spellCost(h, kind);
-  const share = Math.max(0, Math.min(1, (TUNE && TUNE.burnLoot && TUNE.burnLoot[kind]) ?? 1));
+  const share = Math.max(0, Math.min(1, (TUNE && TUNE.burnLoot && TUNE.burnLoot[kind]) ?? (Combat.areaSpellRules(kind === 'fire' ? 'cross' : 'square').collect ? 1 : 0)));
   const weight = MAGIC_NAMES.map(t => h.counts[t] <= cost * 2 ? .7 : .15);
   let best = null;
   for (let idx = 0; idx < 36; idx++) {
@@ -634,7 +677,8 @@ function economicArea(S, h, kind) {
       t[i] = -1; v[i] = 0;
     }
     Engine.gravity(t,v); Engine.shiftRight(t,v); Engine.resolve(t,v,g,ONYX);
-    const d = (rule.fixed + direct[3]) * rule.mult + g[3];
+    const cascadeMult = kind === 'square' ? (TUNE?.squareCascade ?? 1) : 1;
+    const d = (rule.fixed + direct[3]) * rule.mult + g[3] * cascadeMult;
     const value = d + (g.extra ? 4 : 0) + weight.reduce((sum,w,i)=>sum+w*(Math.floor(direct[i]*share)+g[i]-cost),0);
     if (!best || value > best.value) best = {idx,dmg:d,value};
   }
@@ -681,9 +725,11 @@ function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false, on
         // Ситуативные решения для расширенного набора: не спамить активными флагами.
         const foe = S.f.right, dmg = Combat.strikeDamage(h);
         if (A.strike && (foe.hp <= dmg || (onlySpells && onlySpells.includes('strike') && normal[0]?.dmg < 2))) return { kind: 'strike' };
-        if (A.mirror && h.hp < h.max * .45 && heroMoves(S, null, false, -1)[0]?.dmg >= 6) return { kind: 'mirror' };
-        if (A.sacrifice && h.hp > h.max * .65 && normal[0]?.dmg >= 5) return { kind: 'sacrifice' };
-        if (A.fury && normal[0]?.dmg >= 4) return { kind: 'fury' };
+        if (!(TUNE && TUNE.tacticalLightning)) {
+          if (A.mirror && h.hp < h.max * .45 && heroMoves(S, null, false, -1)[0]?.dmg >= 6) return { kind: 'mirror' };
+          if (A.sacrifice && h.hp > h.max * .65 && normal[0]?.dmg >= 5) return { kind: 'sacrifice' };
+          if (A.fury && normal[0]?.dmg >= 4) return { kind: 'fury' };
+        }
         // лечение, если здоровья мало и дождь заметно лечит
         if (A.heal) {
           let sum = 0;
@@ -696,7 +742,10 @@ function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false, on
             const x = economicArea(S,h,kind);
             if (x) options.push({kind,idx:x.idx,value:x.value});
           }
-          if (A.lightning) {
+          if (A.lightning && TUNE.tacticalLightning) {
+            const action = economicLightning(S,h,locked);
+            if (action) options.push(action);
+          } else if (A.lightning) {
             const mg = heroMoves(S,locked,true,homeT);
             const cost = Combat.spellCost(h,'lightning');
             if (mg.length) options.push({kind:'lightning',a:mg[0].a,b:mg[0].b,value:mg[0].dmg*B.magic.lightning.mult-cost*1.3+(mg[0].s-mg[0].dmg*3)*.4});
@@ -714,6 +763,11 @@ function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false, on
           if (fire && fireV >= lightDmg && fireV > normDmg + 3) return { kind: 'fire', idx: fire.idx };
           if (A.lightning && lightDmg > normDmg + 3) { const m = pick(mg); return { kind: 'lightning', a: m.a, b: m.b }; }
         }
+      }
+      if (useMagic && TUNE && TUNE.tacticalLightning && !h.magic) {
+        if (A.mirror && h.hp < h.max * .45 && heroMoves(S, null, false, -1)[0]?.dmg >= 6) return { kind: 'mirror' };
+        if (A.sacrifice && h.hp > h.max * .65 && normal[0]?.dmg >= 5) return { kind: 'sacrifice' };
+        if (A.fury && normal[0]?.dmg >= 4) return { kind: 'fury' };
       }
       if (useMagic && TUNE && TUNE.fullSpells && !h.magic && (normal[0]?.dmg || 0) < 3) {
         if (A.tide && (normal[0]?.dmg || 0) === 0) return { kind: 'tide' };
@@ -778,7 +832,7 @@ const PLAYERS = {
 function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
-  const bySpell = {};
+  const bySpell = {}, areaImpact = {};
   let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
@@ -801,12 +855,16 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
     if (S.winner === 'left') { wins++; hpLeft += hero.hp / hero.max; actWin.push(S.stats.heroActions); }
     if (S.winner === 'draw') draws++;
     for (const [k, v] of Object.entries(S.stats.bySpell)) bySpell[k] = (bySpell[k] || 0) + v;
+    for (const [kind, values] of Object.entries(S.stats.areaImpact)) {
+      const total = areaImpact[kind] || (areaImpact[kind] = {});
+      for (const [key, value] of Object.entries(values)) total[key] = (total[key] || 0) + value;
+    }
     actions += S.stats.heroActions; rounds += S.stats.rounds; spells += S.stats.spells; abil += S.stats.abilities;
     heroDmg += S.stats.heroDmg; monDmg += S.stats.monDmg; monActs += S.stats.monActions;
   }
   actWin.sort((a, b) => a - b);
   return {
-    bySpell, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
+    bySpell, areaImpact, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
     hpLeft: wins ? hpLeft / wins : 0, heroDmgPerAct: heroDmg / Math.max(1, actions), monDmgPerAct: monDmg / Math.max(1, monActs),
     medianActionsWin: actWin.length ? actWin[Math.floor(actWin.length / 2)] : 0,
   };
