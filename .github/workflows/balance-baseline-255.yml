@@ -1,0 +1,25 @@
+name: Combat balance baseline 2.5.5
+on:
+  push:
+    branches: [qa/balance-baseline-255]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Simulate 7680 battles across four factions and four tiers
+        run: |
+          mkdir -p balance-results
+          node tools/balance.js --n=60 --tiers=1,4,7,10 --species=rat,wolf,bandit,orc,troll,golem,wraith,dragon --workers=2 --seed=255 --json=balance-results/battles.json --out=balance-results/summary.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: combat-balance-baseline-255
+          path: balance-results/
+          if-no-files-found: error
