@@ -46,7 +46,7 @@ if (process.env.BAL_OVERRIDE) {
 
 const N = 6, ONYX = 3;
 let CHAOS_DMG = 0;
-let TUNE = null;    // правила для опытов: { delay: {thr, ticks}, decay, lightOnce, burnLoot: { fire, square } } (доля возвращённых камней, 0..1)
+let TUNE = null;    // правила для опытов: { delay: {thr, ticks}, decay, lightOnce, burnLoot: { fire, square }, fullSpells, economic } (доля возвращённых камней, 0..1)
 let BOOST = null;   // опыт «всё усиление»: { strike, familyPct, style, daily, streak } — умения и коллекции медалей
 const TYPES = ['sapphire', 'ruby', 'emerald', 'onyx'];
 const MAGIC_T = [0, 1, 2];
@@ -118,7 +118,16 @@ function Battle(hero, mon, player) {
     const f = S.f[side], c = Combat.spellCost(f, kind);
     for (const t of MAGIC_NAMES) f.counts[t] -= c;
   };
-  const afford = (side) => Object.fromEntries(['lightning','fire','square','transmute','heal','chaos'].map(kind => [kind, (side !== 'left' || !Hero || Hero.isSpellUnlocked(kind, hero.heroLevel)) && canAfford(side, kind)]));
+  const baseSpells = ['lightning', 'fire', 'square', 'transmute', 'heal', 'chaos'];
+  const extraSpells = ['strike', 'mirror', 'sacrifice', 'fury', 'tide', 'temper', 'pierce'];
+  const afford = (side) => {
+    const f = S.f[side], kinds = side === 'left' && TUNE && TUNE.fullSpells ? baseSpells.concat(extraSpells) : baseSpells;
+    const A = Object.fromEntries(kinds.map(kind => [kind, (side !== 'left' || !Hero || Hero.isSpellUnlocked(kind, hero.heroLevel)) && canAfford(side, kind)]));
+    if (A.fury) A.fury = Engine.dominantType(S.typ, S.val) === TYPES.indexOf(hero.fac.gem) && !f.doubleNext;
+    if (A.mirror) A.mirror = !f.mirrorReady;
+    if (A.sacrifice) A.sacrifice = f.hp > 1 && !f.tripleNext;
+    return A;
+  };
   const aimOnly = () => ({});   // под Молнией ИИ может добавить Крест или Захват
   const anyAfford = (side) => Object.values(afford(side)).some(Boolean);
   const hit = (side, amount, raw = false, mult = 1) => {
@@ -280,6 +289,44 @@ function Battle(hero, mon, player) {
     }
     if (fallback) cells.forEach((c, i) => { S.typ[c] = fallback[i][0]; S.val[c] = fallback[i][1]; });
     return after(side);
+  }
+  // Расширенная модель героя для аудита магии (tune.fullSpells). Эффекты повторяют game.js.
+  function extraSpell(side, act) {
+    const f = S.f[side], kind = act.kind;
+    if (kind === 'temper' || kind === 'pierce') {
+      const i = act.idx;
+      if (!Number.isInteger(i) || i < 0 || i >= 36 || S.typ[i] < 0) return 0;
+      if (kind === 'temper') {
+        const cells = [i, i-6, i+6].concat(i%6>0 ? [i-1] : [], i%6<5 ? [i+1] : [])
+          .filter(j => j >= 0 && j < 36 && S.typ[j] >= 0 && S.val[j] < 5);
+        if (!cells.length) return 0;
+        spend(side, kind);
+        for (const j of cells) S.val[j] += 2;
+        return after(side);
+      }
+      spend(side, kind);
+      if (!(side === 'left' && S.f.right.ability === 'wisp' && S.val[i] < 3)) {
+        f.counts[TYPES[S.typ[i]]] += S.val[i];
+        if (side === 'left' && TYPES[S.typ[i]] === hero.fac.gem) addCharge(S.val[i]);
+      }
+      S.typ[i] = -1; S.val[i] = 0;
+      Engine.gravity(S.typ, S.val); Engine.shiftRight(S.typ, S.val);
+      after(side, false);
+      return S.over ? 1 : 2;
+    }
+    spend(side, kind);
+    if (kind === 'strike') hit(side, Combat.strikeDamage(f), true);
+    else if (kind === 'mirror') Combat.applyMirror(f);
+    else if (kind === 'sacrifice') Combat.applySacrifice(f);
+    else if (kind === 'fury') Combat.applyFury(f);
+    else if (kind === 'tide') {
+      const present = MAGIC_T.filter(t => S.typ.includes(t));
+      if (present.length) {
+        const from = present[ri(present.length)], rest = MAGIC_T.filter(t => t !== from), to = rest[ri(rest.length)];
+        for (let i = 0; i < 36; i++) if (S.typ[i] === from) S.typ[i] = to;
+      }
+    }
+    return checkEnd() ? 1 : after(side);
   }
   function prankSwap() {
     const cells = [];
@@ -462,6 +509,7 @@ function Battle(hero, mon, player) {
       else if (act.kind === 'transmute') { S.stats.spells++; res = transmute('left', act.idx); }
       else if (act.kind === 'heal') { S.stats.spells++; res = heal('left'); }
       else if (act.kind === 'chaos') { S.stats.spells++; res = chaos('left'); }
+      else if (extraSpells.includes(act.kind) && available[act.kind]) { res = extraSpell('left', act); if (res) S.stats.spells++; else res = 1; }
       else {
         if (act.kind === 'lightning') { S.stats.spells++; h.magic = true; spend('left', 'lightning'); }
         res = doMove('left', act.a, act.b);
@@ -567,6 +615,31 @@ function heroMoves(S, locked, magic, homeT) {
   }
   return out.sort((x, y) => y.s - x.s);
 }
+// Resource-aware targeting for spell economy experiments. The value of a colour increases when it is scarce.
+function economicArea(S, h, kind) {
+  const rule = kind === 'fire' ? B.magic.cross : B.magic.square;
+  const cost = Combat.spellCost(h, kind);
+  const share = Math.max(0, Math.min(1, (TUNE && TUNE.burnLoot && TUNE.burnLoot[kind]) ?? 1));
+  const weight = MAGIC_NAMES.map(t => h.counts[t] <= cost * 2 ? .7 : .15);
+  let best = null;
+  for (let idx = 0; idx < 36; idx++) {
+    const r = Math.floor(idx / 6), c = idx % 6;
+    if (S.typ[idx] < 0) continue;
+    const t = S.typ.slice(), v = S.val.slice(), g = [0,0,0,0], direct = [0,0,0,0];
+    for (let i = 0; i < 36; i++) {
+      if (t[i] < 0) continue;
+      const dr = Math.abs(Math.floor(i / 6)-r), dc = Math.abs(i % 6-c);
+      if (kind === 'fire' ? (dr > 2 || dc > 2 || (dr && dc)) : (dr > 1 || dc > 1)) continue;
+      if (!(S.f.right.ability === 'wisp' && v[i] < 3)) direct[t[i]] += v[i];
+      t[i] = -1; v[i] = 0;
+    }
+    Engine.gravity(t,v); Engine.shiftRight(t,v); Engine.resolve(t,v,g,ONYX);
+    const d = (rule.fixed + direct[3]) * rule.mult + g[3];
+    const value = d + (g.extra ? 4 : 0) + weight.reduce((sum,w,i)=>sum+w*(Math.floor(direct[i]*share)+g[i]-cost),0);
+    if (!best || value > best.value) best = {idx,dmg:d,value};
+  }
+  return best;
+}
 function bestFire(S) {
   let best = null;
   for (let idx = 0; idx < 36; idx++) {
@@ -600,26 +673,78 @@ function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false, on
       // (true/false тоже допустимо — «хватает на всё»/«ни на что»).
       const A = typeof afford === 'boolean' ? { lightning: afford, fire: afford, transmute: afford, heal: afford, chaos: afford } : afford;
       if (onlySpells) for (const kind of Object.keys(A)) if (!onlySpells.includes(kind)) A[kind] = false;
-      const canMagic = A.lightning || A.fire || A.square || A.transmute || A.heal || A.chaos;
+      const canMagic = Object.values(A).some(Boolean);
       const homeT = TYPES.indexOf(h.fac.gem);
       const pick = (list) => (rand() < skill ? list[0] : list[ri(Math.min(top, list.length))]);
       const normal = heroMoves(S, locked, h.magic, homeT);
       if (useMagic && canMagic) {
+        // Ситуативные решения для расширенного набора: не спамить активными флагами.
+        const foe = S.f.right, dmg = Combat.strikeDamage(h);
+        if (A.strike && (foe.hp <= dmg || (onlySpells && onlySpells.includes('strike') && normal[0]?.dmg < 2))) return { kind: 'strike' };
+        if (A.mirror && h.hp < h.max * .45 && heroMoves(S, null, false, -1)[0]?.dmg >= 6) return { kind: 'mirror' };
+        if (A.sacrifice && h.hp > h.max * .65 && normal[0]?.dmg >= 5) return { kind: 'sacrifice' };
+        if (A.fury && normal[0]?.dmg >= 4) return { kind: 'fury' };
         // лечение, если здоровья мало и дождь заметно лечит
         if (A.heal) {
           let sum = 0;
           for (let i = 0; i < 36; i++) if (S.typ[i] === 2) sum += S.val[i];
           if (h.hp < h.max * 0.4 && Math.min(sum * (h.dmg || 1), h.max - h.hp) >= h.max * 0.15) return { kind: 'heal' };
         }
-        const mg = A.lightning ? heroMoves(S, locked, true, homeT) : [];
-        const fire = A.fire ? bestFire(S) : null;
-        const lightDmg = mg.length ? mg[0].dmg*B.magic.lightning.mult : 0;
-        const normDmg = normal.length ? normal[0].dmg : 0;
-        const sq = A.square ? bestSquare(S) : null;
-        const fireV = fire ? (fire.dmg+B.magic.cross.fixed) * B.magic.cross.mult : -1, sqV = sq ? (sq.dmg+B.magic.square.fixed) * B.magic.square.mult : -1;
-        if (sq && sqV > fireV && sqV >= lightDmg && sqV > normDmg + 3) return { kind: 'square', idx: sq.idx };
-        if (fire && fireV >= lightDmg && fireV > normDmg + 3) return { kind: 'fire', idx: fire.idx };
-        if (A.lightning && lightDmg > normDmg + 3) { const m = pick(mg); return { kind: 'lightning', a: m.a, b: m.b }; }
+        if (TUNE && TUNE.economic) {
+          const options = [];
+          for (const kind of ['fire','square']) if (A[kind]) {
+            const x = economicArea(S,h,kind);
+            if (x) options.push({kind,idx:x.idx,value:x.value});
+          }
+          if (A.lightning) {
+            const mg = heroMoves(S,locked,true,homeT);
+            const cost = Combat.spellCost(h,'lightning');
+            if (mg.length) options.push({kind:'lightning',a:mg[0].a,b:mg[0].b,value:mg[0].dmg*B.magic.lightning.mult-cost*1.3+(mg[0].s-mg[0].dmg*3)*.4});
+          }
+          options.sort((a,b)=>b.value-a.value);
+          if (options.length && options[0].value > (normal[0]?.s || 0)/3 + 2) return options[0];
+        } else {
+          const mg = A.lightning ? heroMoves(S, locked, true, homeT) : [];
+          const fire = A.fire ? bestFire(S) : null;
+          const lightDmg = mg.length ? mg[0].dmg * B.magic.lightning.mult : 0;
+          const normDmg = normal.length ? normal[0].dmg : 0;
+          const sq = A.square ? bestSquare(S) : null;
+          const fireV = fire ? (fire.dmg+B.magic.cross.fixed) * B.magic.cross.mult : -1, sqV = sq ? (sq.dmg+B.magic.square.fixed) * B.magic.square.mult : -1;
+          if (sq && sqV > fireV && sqV >= lightDmg && sqV > normDmg + 3) return { kind: 'square', idx: sq.idx };
+          if (fire && fireV >= lightDmg && fireV > normDmg + 3) return { kind: 'fire', idx: fire.idx };
+          if (A.lightning && lightDmg > normDmg + 3) { const m = pick(mg); return { kind: 'lightning', a: m.a, b: m.b }; }
+        }
+      }
+      if (useMagic && TUNE && TUNE.fullSpells && !h.magic && (normal[0]?.dmg || 0) < 3) {
+        if (A.tide && (normal[0]?.dmg || 0) === 0) return { kind: 'tide' };
+        if (A.temper || A.pierce || A.transmute) {
+          let best = null;
+          for (let i = 0; i < 36; i++) {
+            if (S.typ[i] < 0) continue;
+            for (const kind of ['pierce', 'transmute']) {
+              if (!A[kind] || (kind === 'transmute' && S.typ[i] === ONYX)) continue;
+              const t = S.typ.slice(), v = S.val.slice();
+              if (kind === 'pierce') { t[i] = -1; v[i] = 0; Engine.gravity(t,v); Engine.shiftRight(t,v); }
+              else {
+                for (let j=0;j<36;j++) if (t[j]===S.typ[i] && Math.abs(Math.floor(j/6)-Math.floor(i/6))<=1 && Math.abs(j%6-i%6)<=1) t[j]=ONYX;
+              }
+              const g = [0,0,0,0];
+              Engine.resolve(t,v,g,ONYX);
+              const score = g[3] * 2 + (g[0]+g[1]+g[2]) * .3 + (g.extra ? 4 : 0);
+              if (score >= 6 && (!best || score > best.score)) best = {kind,idx:i,score};
+            }
+          }
+          if (best) return best;
+          if (A.temper) {
+            let best = null;
+            for (let i=0;i<36;i++) {
+              if (S.typ[i]<0) continue;
+              const cells=[i,i-6,i+6].concat(i%6>0?[i-1]:[],i%6<5?[i+1]:[]).filter(j=>j>=0&&j<36&&S.typ[j]>=0&&S.val[j]<5);
+              if (cells.length>=4 && (!best || cells.length>best.n)) best={kind:'temper',idx:i,n:cells.length};
+            }
+            if (best) return best;
+          }
+        }
       }
       if (!normal.length) return (useMagic && A.chaos) ? { kind: 'chaos' } : null;
       const m = pick(normal);
