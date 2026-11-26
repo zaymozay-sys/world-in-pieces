@@ -545,9 +545,9 @@ const MAGICS = {
   lightning: { name: _t("Шаровая молния"), icon: magicIcon,
     tip: _t("Сильнейшая магия: на один ход каждый собранный камень любого цвета бьёт с множителем x1,5") },
   fire: { name: _t("Огненный крест"), icon: fireIcon,
-    tip: _t("Собирает камни креста (область 5x5) в копилку. Урон: фиксированный + базовый + номиналы обсидианов; обычные камни урона не дают") },
+    tip: _t("Сжигает камни креста (область 5x5) без пополнения копилки. Прямой урон ×2; обычные каскады начисляют камни") },
   square: { name: _t("Захват"), icon: squareIcon,
-    tip: _t("Собирает квадрат камней 3x3 в копилку. Урон: фиксированный + базовый + номиналы обсидианов; обычные камни урона не дают") },
+    tip: _t("Собирает квадрат камней 3x3 в копилку. Прямой урон ×1,5; урон вызванных Захватом каскадов ×1,25") },
   transmute: { name: _t("Превращение"), icon: transmuteIcon,
     tip: _t("Выбранный камень и все камни его цвета вокруг (область 3x3) становятся обсидианом") },
   heal: { name: _t("Целебный дождь"), icon: healIcon,
@@ -3235,7 +3235,9 @@ function hideCross() {
 async function castFire(side, cell, opts = {}) {
   const shape = opts.shape || 'cross', mult = opts.mult || 1;
   const title = opts.name || (shape === 'point' ? _t("Выпад") : shape === 'square' ? _t("Захват") : _t("Огненный крест"));
-  const collect = !!opts.collect || shape !== 'row';   // крест и квадрат собирают камни в копилку (дыхание дракона — нет; Коготь питомца — да)
+  const collect = !!opts.collect || shape !== 'row';   // расчёт урона от обсидианов; Коготь питомца собирает ряд
+  const areaRules = Combat.areaSpellRules(shape, !!opts.free);
+  const directCollect = collect && areaRules.collect;  // Крест сжигает без прямого сбора; каскады начисляются обычно
   stopAim();
   clearSelection();
   if (!opts.free) spendMagic(side, -1, shape === 'point' ? 'pierce' : shape === 'square' ? 'square' : 'fire');
@@ -3261,10 +3263,12 @@ async function castFire(side, cell, opts = {}) {
       else if (collect) {
         all += tile.value;
         if (tile.ti === ONYX) obs += tile.value;
-        const fl = fighters[side];
-        fl.counts[tile.type] += tile.value;         // в копилку без бонусов линии
-        gotTypes.add(tile.type);
-        if (facOn(side) && factionOf(side) && tile.type === factionOf(side).gem) charge += tile.value;
+        if (directCollect) {
+          const fl = fighters[side];
+          fl.counts[tile.type] += tile.value;       // в копилку без бонусов линии
+          gotTypes.add(tile.type);
+          if (facOn(side) && factionOf(side) && tile.type === factionOf(side).gem) charge += tile.value;
+        }
       } else dmg += tile.value * mult;              // дыхание: урон по номиналу камня
       tile.el.style.setProperty('--d', dist * 70 + 'ms');
       tile.el.classList.add('burn');
@@ -3286,7 +3290,7 @@ async function castFire(side, cell, opts = {}) {
     turnStats.stones += burning.length;
   }
   const dealt = dealDamage(target, dmg, false, true, spellMul);
-  logEvent(side, _t("{0}: {1}, собрано {2}, урон {3}", [fighters[side].name, title, burning.length, dealt]));
+  logEvent(side, _t(directCollect ? "{0}: {1}, собрано {2}, урон {3}" : "{0}: {1}, сожжено {2}, урон {3}", [fighters[side].name, title, burning.length, dealt]));
   await sleep(RULES.timing.burn + maxDist * 70);
 
   for (const { r, c } of burning) {
@@ -3303,7 +3307,7 @@ async function castFire(side, cell, opts = {}) {
   await sleep(RULES.timing.fall);
   shiftRight();
   await sleep(RULES.timing.shift);
-  return afterSpell(side, opts.forceFinish || (!opts.free && shape !== 'point'));   // Выпад — ход не тратится; Коготь (free+forceFinish) — тратится
+  return afterSpell(side, opts.forceFinish || (!opts.free && shape !== 'point'), areaRules.cascadeMult);   // Выпад — ход не тратится; Коготь (free+forceFinish) — тратится
 }
 
 // Конец действия стороны: баффы теряют по ходу, Свиток спешки даёт дополнительный ход.
@@ -3319,9 +3323,9 @@ function finishAction(side, extra) {
 }
 
 // Общий хвост заклинания: каскады, итоги хода, конец боя, новые камни.
-async function afterSpell(side, finish = true) {
+async function afterSpell(side, finish = true, cascadeMult = 1) {
   turnStats = { stones: 0, dmg: 0, bonus: 1 };
-  const extra = await resolveBoard(side);
+  const extra = await resolveBoard(side, cascadeMult);
   logTurn(side);
   if (flushTurnDamage()) await sleep(500);
   if (finish) fighters[side].magic = Combat.continueMagic(fighters[side].magic, extra);   // Молния не переживает ход (Крест/Захват после неё)
@@ -4052,7 +4056,7 @@ const sideDown = (s) => (s === 'right' ? Combat.enemyDefeated(fighters.right) : 
 const wispBlocks = (side, tile) => side === 'left' && fighters.right.ability === 'wisp' && tile.value < 3;
 
 // Собирает совпадения, начисляет камни и урон стороне side, затем падение и сдвиг.
-async function resolveBoard(side) {
+async function resolveBoard(side, cascadeMult = 1) {
   const f = fighters[side];
   const target = other(side);
 
@@ -4112,7 +4116,7 @@ async function resolveBoard(side) {
     // реакция существа) → камни дочищаются. Раньше всё это совпадало в один кадр, и звуки линии и удара сливались.
     const hitAt = dmg > 0 ? Math.round(RULES.timing.clear * 0.5) : 0;
     if (hitAt) await sleep(hitAt);
-    turnStats.dmg += dealDamage(target, dmg, false, true, f.magic ? (f.stormMult || Balance.magic.lightning.mult) * Sky.spellMul(selNow(), 'lightning') : 1);   // (камни + Сила) × Молния
+    turnStats.dmg += dealDamage(target, dmg, false, true, cascadeMult * (f.magic ? (f.stormMult || Balance.magic.lightning.mult) * Sky.spellMul(selNow(), 'lightning') : 1));   // (камни + Сила) × Молния × бонус каскадов этого заклинания
     flushTurnDamage();                               // 2.4.5: крупная цифра — в момент удара, а не после всего хода
     await sleep(RULES.timing.clear - hitAt);
 
