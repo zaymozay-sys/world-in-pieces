@@ -122,8 +122,8 @@ function Battle(hero, mon, player) {
   const baseSpells = ['lightning', 'fire', 'square', 'transmute', 'heal', 'chaos'];
   const extraSpells = ['strike', 'mirror', 'sacrifice', 'fury', 'tide', 'temper', 'pierce'];
   const afford = (side) => {
-    const f = S.f[side], kinds = side === 'left' && TUNE && TUNE.fullSpells ? baseSpells.concat(extraSpells) : baseSpells;
-    const A = Object.fromEntries(kinds.map(kind => [kind, (side !== 'left' || !Hero || Hero.isSpellUnlocked(kind, hero.heroLevel)) && canAfford(side, kind)]));
+    const f = S.f[side], kinds = f.isPet ? Object.keys(B.petMagic.costs) : side === 'left' && TUNE && TUNE.fullSpells ? baseSpells.concat(extraSpells) : baseSpells;
+    const A = Object.fromEntries(kinds.map(kind => [kind, (f.isPet || side !== 'left' || !Hero || Hero.isSpellUnlocked(kind, hero.heroLevel)) && canAfford(side, kind)]));
     if (side === 'left') {
       for (const kind of kinds) if (simFree(kind) && f.prepUsed?.[kind]) A[kind] = false;
       if (f.prepUsed?.chaosFailed) A.chaos = false;
@@ -393,10 +393,10 @@ function Battle(hero, mon, player) {
     return false;
   }
   const lockedCells = (side) => {
-    if (S.locks.forSide !== side) return null;
     const out = [];
-    for (const c of S.locks.cols) for (let r = 0; r < N; r++) out.push(r * N + c);
-    return out;
+    if(S.locks.forSide===side)for (const c of S.locks.cols) for (let r = 0; r < N; r++) out.push(r * N + c);
+    if(side==='right'&&S.foeVeiled)out.push(...S.foeVeiled);
+    return out.length?out:null;
   };
   const useItem = (side, kind) => {
     const f = S.f[side];
@@ -412,9 +412,9 @@ function Battle(hero, mon, player) {
     const f = S.f.right, h = S.f.left;
     f.turnNo++; tickPend(f); if (checkEnd()) return;
     if (f.poison && f.poison.turns > 0) {
-      f.poison.turns--;
-      Combat.hit(h, f, f.poison.dmg, true, rand);
-      S.stats.heroDmg += f.poison.dmg;
+      const dmg=Combat.tickPoison(f.poison);
+      Combat.hit(h, f, dmg, true, rand);
+      S.stats.heroDmg += dmg;
       if (checkEnd()) return;
     }
     if (f.hp <= 0) { cloneTurn(); return; }           // оригинал гриба пал, но его двойник ещё стоит
@@ -466,13 +466,14 @@ function Battle(hero, mon, player) {
       if (res !== 2 || f.hp <= 0) break;
     }
     if (S.locks.forSide === 'right') S.locks = { cols: new Set(), forSide: null };
+    S.foeVeiled?.clear();
     cloneTurn();
     // 1.7.3: Оглушение — герой пропускает ход, существо ходит ещё раз; Отрава — яд жжёт героя в начале его хода
     if (h.stunned && !S.over) { h.stunned = false; S.stats.stuns = (S.stats.stuns || 0) + 1; monsterTurn(); return; }
     if (h.poison && h.poison.turns > 0 && !S.over) {
-      h.poison.turns--;
-      Combat.hit(f, h, h.poison.dmg, true, rand);
-      S.stats.monDmg += h.poison.dmg;
+      const dmg=Combat.tickPoison(h.poison);
+      Combat.hit(f, h, dmg, true, rand);
+      S.stats.monDmg += dmg;
       checkEnd();
     }
   }
@@ -543,19 +544,47 @@ function Battle(hero, mon, player) {
     if (!h.elx.fury) h.critExtra = 0;
     h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx)); h.elxPct = Elixirs.activePct(h.elx);
   }
+  function petBoardAbility(h){
+    if(!h.isPet||h.petInt<5||!['regen','steal','howl','drum','weaken','pinch','mire','sap','petrify','veil','breath','prank'].includes(h.ability))return;
+    const a=Combat.monsterTurnStart(h,S.f.right,MAGIC_NAMES,rand);if(!a)return;
+    if(a.kind==='steal')h.counts[a.type]+=a.stones;
+    else if(a.kind==='petrify'){const cols=[0,1,2,3,4,5].filter(c=>S.typ.some((t,i)=>i%6===c&&t>=0));if(cols.length)S.locks={cols:new Set([cols[ri(cols.length)]]),forSide:'right'};}
+    else if(a.kind==='veil'){const cells=S.typ.map((t,i)=>t>=0?i:-1).filter(i=>i>=0);S.foeVeiled=new Set();for(let i=0;i<a.stones&&cells.length;i++)S.foeVeiled.add(cells.splice(ri(cells.length),1)[0]);}
+    else if(a.kind==='prank')h.petPrank=true;
+    else if(a.kind==='breath'){const row=Pets.petBestRow(S.typ,S.val,h,S.f.right,false);if(row.r>=0)burn('left',row.r*6,'row',a.mult,true);}
+  }
+  function castPet(kind){
+    const h=S.f.left,K=B.petMagic;
+    if(!h.isPet||!canAfford('left',kind))return 0;
+    if(kind==='lick'&&h.hp>=h.max)return 0;
+    const row=kind==='claw'?Pets.petBestRow(S.typ,S.val,h,S.f.right):null;
+    if(row&&row.r<0)return 0;
+    spend('left',kind);
+    if(kind==='fang')hit('left',K.fangStones);
+    else if(kind==='lick')h.hp+=Math.min(h.max-h.hp,Math.max(1,Math.round(h.max*K.lickHp)));
+    else if(kind==='claw'){
+      let obs=0;
+      for(let i=row.r*6;i<row.r*6+6;i++)if(S.typ[i]>=0){if(!(S.f.right.ability==='wisp'&&S.val[i]<3)){h.counts[TYPES[S.typ[i]]]+=S.val[i];if(S.typ[i]===ONYX)obs+=S.val[i];}S.typ[i]=-1;S.val[i]=0;}
+      hit('left',K.clawDamage.fixed+obs,false,K.clawDamage.mult);
+      Engine.gravity(S.typ,S.val);Engine.shiftRight(S.typ,S.val);
+    }
+    return checkEnd()?1:after('left');
+  }
   function heroTurn() {
     const h = S.f.left;
     h.prepUsed = {}; h.turnNo++; for (const k of Object.keys(h.elxCds)) if (h.elxCds[k] > 0) h.elxCds[k]--; tickPend(h); if (checkEnd()) return;
+    if(h.isPet){petBoardAbility(h);if(checkEnd())return;}
     for (let guard = 0; guard < 20; guard++) {
       elxStep();
       if (player.items) player.items(S, h, useItem);
       if (h.fac.ability.id !== 'none' && h.charge >= B.faction.charge) useFaction();
       if (S.over) return;
-      const available = h.magic ? aimOnly() : afford('left');
+      const available = h.isPet ? afford('left') : h.magic ? aimOnly() : afford('left');
       const act = player.choose(S, h, available, lockedCells('left'));
       S.stats.heroActions++;
       let res;
       if (!act) { Combat.hit(S.f.right, h, Combat.invalidPenalty(h), true, rand); res = 1; if (checkEnd()) return; }
+      else if (h.isPet && B.petMagic.costs[act.kind]!==undefined) { res=castPet(act.kind); if(res)S.stats.spells++; else res=1; }
       else if (act.kind === 'fire') { S.stats.spells++; res = burn('left', act.idx); }
       else if (act.kind === 'square') { S.stats.spells++; res = burn('left', act.idx, 'square'); }
       else if (act.kind === 'transmute') { S.stats.spells++; res = transmute('left', act.idx); }
@@ -573,6 +602,7 @@ function Battle(hero, mon, player) {
       if (S.over) return;
       if (res !== 2) break;
     }
+    if(h.petPrank&&!S.over){h.petPrank=false;prankSwap();}
   }
 
   function useFaction() {
@@ -595,13 +625,13 @@ function Battle(hero, mon, player) {
       while (picks.length < G.stones && near.length) { const [r, c] = near.splice(ri(near.length), 1)[0]; picks.push(r * N + c); }
       for (const i of picks) { S.typ[i] = gi; S.val[i] = value; }
       h.charge = 0;
-      if (Engine.bonusMap(S.typ)) resolve('left');
+      if (Engine.bonusMap(S.typ)) { resolve('left'); if(checkEnd())return; }
       if (!S.over && !Engine.hasMoves(S.typ)) fill();
       return;
     } else if (id === 'banner') {
-      h.buffs.push({ kind: 'banner', amount: F.banner.power, turns: F.banner.turns });
+      h.buffs.push({ kind: 'banner', pct: F.banner.pct, turns: F.banner.turns });
     } else if (id === 'venom') {
-      S.f.right.poison = { turns: F.venom.turns, dmg: Combat.venomTick(Combat.power(h), h.dmg) };
+      Combat.addVenomLayer(S.f.right, Combat.venomTick(Combat.power(h), h.dmg), F.venom.turns);
     } else if (id === 'hammer') {
       const cand = [];
       for (let i = 0; i < 36; i++) if (S.typ[i] >= 0 && S.typ[i] !== ONYX) cand.push(i);
@@ -754,7 +784,8 @@ const zoneCells = idx => Array.from({length:36},(_,i)=>i).filter(i=>Math.abs(Mat
 const temperZone = idx => [idx,idx-6,idx+6].concat(idx%6>0?[idx-1]:[],idx%6<5?[idx+1]:[]).filter(i=>i>=0&&i<36);
 function previewHit(h, foe, raw, mult=1) {
   if(raw<=0) return 0;
-  const d=Combat.mitigate(Math.ceil((raw+Combat.power(h))*mult),Combat.armorOf(foe));
+  const pct=(h.buffs||[]).reduce((sum,b)=>sum+(b.pct||0),0);
+  const d=Combat.mitigate(Math.ceil((raw+Combat.power(h))*mult*(1+pct/100)),Combat.armorOf(foe));
   return d*(1+Math.min(1,(h.stats.fury||0)/100))*(1-Math.min(.9,(foe.stats.block||0)/100));
 }
 function previewResolve(typ,val,h,foe,mult=1,all=false,firstMult=1) {
@@ -778,7 +809,7 @@ function tacticalUtility(S,h,A,locked) {
   const foe=Combat.enemyTarget(S.f.right),scale=Math.max(1,Combat.power(h)/6);
   const weights=MAGIC_NAMES.map(t=>h.counts[t]<9?.55:.18);
   const cost=k=>Combat.spellCost(h,k)*weights.reduce((a,b)=>a+b,0);
-  const active=(h.tripleNext?B.magic.sacrifice.mult:1)*(h.doubleNext?B.magic.fury.mult:1);
+  const active=Combat.preparationDamageMult(h);
   const free=simFree;
   const score=r=>r.damage/scale+r.g.slice(0,3).reduce((a,n,i)=>a+n*weights[i],0)+(r.extra?5:0);
   const options=[], add=(kind,value,damage=0,params={})=>{if(Number.isFinite(value)) options.push({kind,value,damage,...params});};
@@ -1037,7 +1068,8 @@ const PLAYERS = {
 function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
-  const bySpell = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
+  const bySpell = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
+  let petBoardWins=0;
   let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
@@ -1060,6 +1092,8 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
     if (S.winner === 'left') { wins++; hpLeft += hero.hp / hero.max; actWin.push(S.stats.heroActions); }
     if (S.winner === 'draw') draws++;
     for (const [k, v] of Object.entries(S.stats.bySpell)) bySpell[k] = (bySpell[k] || 0) + v;
+    for(const [k,v] of Object.entries(S.stats.petBoardSpells||{}))petBoardSpells[k]=(petBoardSpells[k]||0)+v;
+    if(S.stats.petBoardWin)petBoardWins++;
     for (const [kind, values] of Object.entries(S.stats.areaImpact)) {
       const total = areaImpact[kind] || (areaImpact[kind] = {});
       for (const [key, value] of Object.entries(values)) total[key] = (total[key] || 0) + value;
@@ -1071,7 +1105,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
   }
   actWin.sort((a, b) => a - b);
   return {
-    bySpell, areaImpact, burst, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
+    bySpell, petBoardSpells, petBoardWin:duo?petBoardWins/n:0, areaImpact, burst, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
     hpLeft: wins ? hpLeft / wins : 0, heroDmgPerAct: heroDmg / Math.max(1, actions), monDmgPerAct: monDmg / Math.max(1, monActs),
     medianActionsWin: actWin.length ? actWin[Math.floor(actWin.length / 2)] : 0,
   };
@@ -1082,20 +1116,24 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
    Питомец на своей доске: ХП ×boardHp, урон ×boardDmg, без вещей, играет ИИ с умом duo.int (по умолчанию 50). Выживший добивает
    врага павшего с тем здоровьем, что у того осталось; своё здоровье выживший не восстанавливает. */
 function petAsHero(spec, level) {
-  const mk = Pets.makePet(spec.species, spec.tier), pf = Pets.petFighter(mk);
-  const intl = spec.int != null ? spec.int : 50;
-  const dmgM = Pets.BOARD_DMG * (Pets.isRare ? (Pets.isRare(mk) ? 1.2 : 1) : 1);
-  const h = makeHero({ faction: 'none', level, gear: Gear.emptyLoadout(), baseHp: Math.round(pf.max * (intl < 10 ? 1.9 : 1.6) * (Pets.isRare(mk) ? 1.35 : 1)), dmg: (pf.dmg || 1) * dmgM });
-  h.stats = h.stats0 = pf.stats;
-  h.max = h.hp = Math.round(pf.max * (intl < 10 ? 1.9 : 1.6) * (Pets.isRare(mk) ? 1.35 : 1));
-  h.name = 'pet'; h.petBoard = true;
+  const mk=Pets.makePet(spec.species,spec.tier);
+  const intl=spec.int??50;
+  mk.xp=Math.round(-Pets.INT_XP*Math.log(Math.max(.0001,1-(intl-1)/99)));
+  const pf=Pets.petFighter(mk), hp=Math.round(pf.max*Pets.boardHp(mk)), dmg=(pf.dmg||1)*Pets.boardDmg(mk);
+  const h=makeHero({faction:'none',level,gear:Gear.emptyLoadout(),baseHp:hp,dmg});
+  h.stats=h.stats0=pf.stats; h.max=h.hp=hp;
+  h.name = 'pet'; h.petBoard = true; h.isPet=true; h.petInt=intl; h.ability=pf.ability;
+  h.secondWind=pf.secondWind; h.secondWindFrac=pf.secondWindFrac;
   return { h, intl };
 }
+function petPlayer(intl,only=null){return {choose(S,h,A,locked){const k=Pets.petSpellPlan(h,S.f.right,S.typ,S.val,intl,only);if(k&&A[k])return {kind:k};const v=Combat.aiView(h,S.f.right);return AI.choose(S.typ.slice(),S.val.slice(),v.hpMe,v.hpOpp,intl,{}, {locked,maxMe:v.maxMe,healMult:v.healMult,lightning:h.magic?B.magic.lightning.mult:0});}};}
 function duoBattle(hero, monA, plHero, o) {
   const spec = o.duo, { h: pet, intl } = petAsHero(spec, o.level);
-  const monB = makeMonster(o.monster, o.tier, { aiLevel: o.aiLevel, swarm: o.swarm, elite: o.elite, level: o.level });
+  const monB=JSON.parse(JSON.stringify(monA));
+  Object.assign(monB,{hp:monB.max,buffs:[],clone:null,counts:{sapphire:0,ruby:0,emerald:0,onyx:0}});
   const A = Battle(hero, monA, plHero).run();
-  const Bt = Battle(pet, monB, aiPlayer(intl)).run();
+  const Bt = Battle(pet, monB, petPlayer(intl)).run();
+  A.stats.petBoardSpells={...Bt.stats.bySpell}; A.stats.petBoardWin=Bt.winner==='left';
   const heroWon = A.winner === 'left', petWon = Bt.winner === 'left';
   const res = (S, win) => { S.winner = win ? 'left' : 'right'; return S; };
   const rev = (f) => { f.buffs = []; f.haste = false; f.magic = false; f.stunned = false; f.charge = 0; };
@@ -1105,7 +1143,7 @@ function duoBattle(hero, monA, plHero, o) {
     return { S: res(A, C.winner === 'left'), strict: C.winner === 'left', kills: C.winner === 'left' ? 2 : 1 };
   }
   if (petWon) {                                     // питомец добивает врага героя: по правилу кода это тоже победа боя
-    rev(pet); rev(monA); const C = Battle(pet, monA, aiPlayer(intl)).run();
+    rev(pet); rev(monA); const C = Battle(pet, monA, petPlayer(intl)).run();
     return { S: res(A, C.winner === 'left'), strict: false, kills: 1 };
   }
   return { S: res(A, false), strict: false, kills: 0 };
@@ -1118,7 +1156,7 @@ function typicalGear(level, share = 0.8) {
 }
 const STARTER = { main: 'sword-novice', off: 'shield-wood', head: 'leather-head', chest: 'leather-chest', arms: 'leather-arms', legs: 'leather-legs', amulet: null };
 
-module.exports = { typicalGear, STARTER, simulate, Battle, makeHero, makeMonster, PLAYERS, humanPlayer, aiPlayer, seed, get rand() { return rand; } };
+module.exports = { typicalGear, STARTER, simulate, Battle, makeHero, makeMonster, petAsHero, petPlayer, PLAYERS, humanPlayer, aiPlayer, seed, get rand() { return rand; } };
 
 /* ---------- командная строка ---------- */
 if (require.main === module) {
