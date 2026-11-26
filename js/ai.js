@@ -118,10 +118,11 @@ const AI = (() => {
   function burnSim(typ, val, idx, o = {}) {
     const r0 = Math.floor(idx / Engine.N), c0 = idx % Engine.N;
     const t = typ.slice(), v = val.slice();
-    let burn = o.fixed || 0;
+    let burn = o.fixed || 0, loot = 0;
     for (let i = 0; i < t.length; i++) {
       const rr = Math.floor(i / Engine.N), cc = i % Engine.N;
       if ((rr === r0 || cc === c0) && Math.abs(rr - r0) <= 2 && Math.abs(cc - c0) <= 2 && t[i] >= 0) {   // крест 5x5, как в игре
+        if (o.collect && t[i] !== ONYX) loot += v[i];
         if (o.lightning) burn += v[i] * o.lightning; else if (t[i] === ONYX) burn += v[i]; t[i] = -1; v[i] = 0;
       }
     }
@@ -130,7 +131,8 @@ const AI = (() => {
     const g = [0, 0, 0, 0];
     Engine.resolve(t, v, g, ONYX);
     const cas = o.lightning ? g[0] + g[1] + g[2] + g[3] : g[3];
-    return { t, v, dmg: burn * (o.mult || 1) + cas, s: burn * NORMAL.w[3] + score(g, NORMAL) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
+    const cascadeMult = o.cascadeMult ?? 1, directDamage = burn * (o.mult || 1);
+    return { t, v, dmg: directDamage + cas * cascadeMult, s: directDamage * NORMAL.w[3] + score(g, NORMAL) + (cascadeMult - 1) * cas * NORMAL.w[3] + loot * NORMAL.w[0] + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
   }
 
   // Превращение: выбранный камень и все камни его цвета в области 3x3 становятся обсидианом.
@@ -138,9 +140,10 @@ const AI = (() => {
   function squareSim(typ, val, idx, o = {}) {
     const r0 = Math.floor(idx / Engine.N), c0 = idx % Engine.N;
     const t = typ.slice(), v = val.slice();
-    let burn = o.fixed || 0;
+    let burn = o.fixed || 0, loot = 0;
     for (let i = 0; i < t.length; i++) {
       if (Math.abs(Math.floor(i / Engine.N) - r0) <= 1 && Math.abs(i % Engine.N - c0) <= 1 && t[i] >= 0) {
+        if (o.collect && t[i] !== ONYX) loot += v[i];
         if (o.lightning) burn += v[i] * o.lightning; else if (t[i] === ONYX) burn += v[i]; t[i] = -1; v[i] = 0;
       }
     }
@@ -149,7 +152,8 @@ const AI = (() => {
     const g = [0, 0, 0, 0];
     Engine.resolve(t, v, g, ONYX);
     const cas = o.lightning ? g[0] + g[1] + g[2] + g[3] : g[3];
-    return { t, v, dmg: burn * (o.mult || 1) + cas, s: burn * NORMAL.w[3] + score(g, NORMAL) + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
+    const cascadeMult = o.cascadeMult ?? 1, directDamage = burn * (o.mult || 1);
+    return { t, v, dmg: directDamage + cas * cascadeMult, s: directDamage * NORMAL.w[3] + score(g, NORMAL) + (cascadeMult - 1) * cas * NORMAL.w[3] + loot * NORMAL.w[0] + (g.extra ? EXTRA_VALUE : 0), extra: !!g.extra };
   }
   function transmuteSim(typ, val, idx) {
     const ct = typ[idx];
@@ -209,7 +213,7 @@ const AI = (() => {
     const budget = considerMagic ? TIME_BUDGET_MS / 5 : TIME_BUDGET_MS;
 
     const lm = ctx.lightning > 0 ? ctx.lightning : 0;                    // Шаровая молния уже активна: камни любого цвета бьют
-    const sp = (kind) => ({ fixed: balanceRef().magic[kind].fixed, mult: balanceRef().magic[kind].mult, lightning: lm });
+    const sp = (kind) => ({ ...balanceRef().magic[kind], collect: kind !== 'cross' || balanceRef().magic.cross.collect !== false, lightning: lm });
     let ranked = search(typ, val, hpMe, hpOpp, cfg, lm ? MAGIC : NORMAL, budget);
     let kind = 'move';
     let best = ranked && ranked.length ? ranked[0].v : -Infinity;
