@@ -242,6 +242,17 @@ const Combat = (() => {
   // себя перед ходом противника; одноразовое — снимается при первом же попадании или при поражении/победе.
   function applyMirror(f) { f.mirrorReady = true; }
 
+  // Не списывать повторно камни за уже действующий одноразовый эффект; Жертва не должна убивать героя при касте.
+  const freePreparation = kind => (C_B.magic.freePrep || []).includes(kind);
+  function preparedSpellAvailable(f, kind) {
+    if (freePreparation(kind) && (f.magic || (f.prepUsed && f.prepUsed[kind]))) return false;
+    if (C_B.magic.exclusiveBuffs && (kind === 'sacrifice' || kind === 'fury') && (f.tripleNext || f.doubleNext)) return false;
+    if (kind === 'mirror') return !f.mirrorReady;
+    if (kind === 'sacrifice') return !f.tripleNext && f.hp > Math.max(1, Math.round(f.hp * C_B.magic.sacrifice.hpPct / 100));
+    if (kind === 'fury') return !f.doubleNext;
+    return true;
+  }
+
   // Жертва: сжигает долю ТЕКУЩЕГО ХП заклинателя (см. Balance.magic.sacrifice.hpPct) и взводит тройной
   // урон его следующего удара (см. tripleNext в hit()). Возвращает { loss, revived } — сколько ХП потеряно
   // и не поднял ли это «Неупокоенного» (крайний случай, если Жертва добивает саму себя).
@@ -720,7 +731,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, areaSpellRules, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, freePreparation, preparedSpellAvailable, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, areaSpellRules, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).
