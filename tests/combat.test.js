@@ -344,7 +344,7 @@ for (const k of ['mirror', 'sacrifice', 'tide', 'temper', 'strike']) assert.ok(B
   assert.strictEqual(Gear.stats({ ...Gear.emptyLoadout(), amulet: 'amulet-fox' }).cunning, Gear.item('amulet-fox').stats.cunning);
 }
 
-// Кулак ярости: doubleNext удваивает ровно один следующий удар; вместе с Жертвой множители перемножаются.
+// Кулак ярости: doubleNext удваивает следующий удар; совместно с Жертвой действует общий предел ×4.
 {
   const f = fighter();
   Combat.applyFury(f);
@@ -357,7 +357,7 @@ for (const k of ['mirror', 'sacrifice', 'tide', 'temper', 'strike']) assert.ok(B
   assert.strictEqual(Combat.hit(f, fighter(), 10, false, never).amount, base, 'второй удар обычный');
   const g = fighter();
   g.tripleNext = true; Combat.applyFury(g);
-  assert.strictEqual(Combat.hit(g, fighter(), 10, false, never).amount, base * B.magic.fury.mult * B.magic.sacrifice.mult);
+  assert.strictEqual(Combat.hit(g, fighter(), 10, false, never).amount, base * Math.min(B.magic.fury.mult * B.magic.sacrifice.mult, B.magic.comboCap));
   assert.ok(!g.tripleNext && !g.doubleNext);
   assert.strictEqual(B.magic.costs.fury, 4);
   assert.strictEqual(B.spellUnlock.fury, 31);   // 2.0.9: магии открываются с начала цвета; Кулак ярости — с 4-го цвета
