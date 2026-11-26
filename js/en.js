@@ -1,6 +1,9 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Пересмотрена стоимость магии и заклинаний питомцев.": "Rebalanced hero and pet spell costs.",
+  "Хаос, Закалка и Зеркало не передают ход; Захват усиливает вызванные им каскады.": "Chaos, Temper and Mirror retain your turn; Grasp boosts cascades it causes.",
+  "Огненный крест сжигает камни без прямого сбора; Шаровая молния сохраняет бонус дополнительных ходов.": "Fire Cross burns stones without directly collecting them; Ball Lightning retains its extra-turn bonus.",
   "любых": "any",
   "цена: {0}": "cost: {0}",
   "Цена: {0}. У существа (сапфир/рубин/изумруд): {1}": "Cost: {0}. The creature has (sapphire/ruby/emerald): {1}",

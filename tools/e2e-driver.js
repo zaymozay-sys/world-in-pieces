@@ -18,21 +18,24 @@ window.__drive = (opts) => {
       }
       if (opts.force) {
         for (const k of opts.force) {
-          if (!spellOpen(k) || !canAffordMagic('left', k) || f.magic) continue;
+          if (!spellOpen(k) || !canAffordMagic('left', k) || f.magic || !Combat.preparedSpellAvailable(f, k)) continue;
           if (k === 'heal' && f.hp >= f.max) continue;
-          if (['fire', 'square', 'transmute', 'chaos', 'pierce'].includes(k)) {
-            let cell = null; for (let r = 0; r < N && !cell; r++) for (let c = 0; c < N; c++) if (grid[r][c]) { cell = { r, c }; break; }
+          if (['fire', 'square', 'transmute', 'chaos', 'pierce', 'temper'].includes(k)) {
+            let cell = null; for (let r = 0; r < N && !cell; r++) for (let c = 0; c < N; c++) if (grid[r][c] && (k !== 'transmute' || grid[r][c].ti !== ONYX) && (k !== 'temper' || temperCells({r,c}).length)) { cell = { r, c }; break; }
             if (!cell) continue; aimKind = k; aiming = true; log.push('cast ' + k); await playerCast(cell); return;
           }
-          if (k === 'fury') continue;
+          if (k === 'fury' && !furyState().ok) continue;
+          if (k === 'lightning') continue;
           log.push('inst ' + k); await playerInstant(k); return;
         }
       }
-      const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, 60, afford, { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('left') });
+      const mv = AI.choose(typOf(), valOf(), v.hpMe, v.hpOpp, 60, afford, { maxMe: v.maxMe, healMult: v.healMult, locked: lockedCells('left'), lightning: lightningMult(f) });
       if (!mv) { log.push('нет хода'); return; }
       if (mv.kind === 'lightning') { toggleMagic(); await new Promise((r) => setTimeout(r, 50)); }
       else if (mv.kind === 'fire' || mv.kind === 'square' || mv.kind === 'transmute' || mv.kind === 'chaos' || mv.kind === 'pierce') {
-        aimKind = mv.kind; aiming = true; log.push('cast ' + mv.kind); await playerCast({ r: Math.floor(mv.idx / N), c: mv.idx % N }); return;
+        const idx = Number.isInteger(mv.idx) ? mv.idx : typOf().findIndex(t => t >= 0);
+        if (idx < 0) return;
+        aimKind = mv.kind; aiming = true; log.push('cast ' + mv.kind); await playerCast({ r: Math.floor(idx / N), c: idx % N }); return;
       } else if (mv.kind === 'heal' || mv.kind === 'strike' || mv.kind === 'mirror' || mv.kind === 'tide' || mv.kind === 'sacrifice' || mv.kind === 'temper') { log.push('inst ' + mv.kind); await playerInstant(mv.kind); return; }
       if (mv.a !== undefined) { await playerMove({ r: Math.floor(mv.a / N), c: mv.a % N }, { r: Math.floor(mv.b / N), c: mv.b % N }); }
     } catch (e) { log.push('ERR ' + e.message); } finally { busyTick = false; }
