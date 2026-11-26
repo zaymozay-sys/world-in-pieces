@@ -238,11 +238,11 @@ const AI = (() => {
         if (tb) offer({ kind: 'transmute', idx: tb.idx }, tb.v);
       }
 
-      // Целебный дождь: лечит на сумму номиналов сапфиров, рубинов и изумрудов на поле.
+      // Целебный дождь: лечит на сумму номиналов только изумрудов на поле (как castHeal).
       // ctx.healMult переводит номиналы в те же единицы, что и hpMe (см. Combat.aiView).
       if (A.heal && ctx.maxMe) {
         let sum = 0;
-        for (let i = 0; i < typ.length; i++) if (typ[i] >= 0 && typ[i] !== ONYX) sum += val[i];
+        for (let i = 0; i < typ.length; i++) if (typ[i] === 2) sum += val[i];
         const healed = Math.min(sum * (ctx.healMult || 1), ctx.maxMe - hpMe);
         if (healed >= Math.max(3, ctx.maxMe * 0.08) && hpMe <= ctx.maxMe * 0.6) {
           let v = healed * 2;
