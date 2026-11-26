@@ -25,6 +25,7 @@ const DRIVER = require('./e2e-driver');
       if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
       return handler(req, res);
     }
+    if (u === '/js/config.js') { res.writeHead(200, { 'Content-Type': MIME['.js'] }); return res.end('window.GEM_SERVER = ' + JSON.stringify('http://127.0.0.1:' + port) + ';'); }
     const f = path.join(ROOT, u === '/' ? 'index.html' : u);
     if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res);
@@ -40,10 +41,10 @@ const DRIVER = require('./e2e-driver');
   const mkPage = async (name, faction, level) => {
     const ctx = await br.newContext({ viewport: { width: 1000, height: 800 } }); const page = await ctx.newPage();
     const errs = []; page.on('pageerror', (e) => errs.push(e.message)); page.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) errs.push('console: ' + m.text()); });
-    await page.addInitScript((u) => { Object.defineProperty(window, 'GEM_SERVER', { value: u, writable: false }); localStorage.setItem('wip-sync-off', '0'); window.__LIVE_DEBUG = true; }, base);
+    await page.addInitScript((u) => { localStorage.setItem('wip-sync-off', '0'); window.__LIVE_DEBUG = true; }, base);
     await page.addInitScript(DRIVER);
     await page.goto(base + '/index.html'); await page.waitForTimeout(3500);
-    await page.evaluate(({ name, faction, level }) => { Profile.data.name = name; Profile.data.faction = faction; Profile.data.gender = 'm'; if (level > 1) Profile.data.xp = level; Profile.save(); }, { name, faction, level });
+    await page.evaluate(({ name, faction, level }) => { Profile.data.name = name; Profile.data.faction = faction; Profile.data.gender = 'm'; if (level > 1) Profile.data.xp = level; Profile.data.wins = Math.max(Profile.data.wins || 0, 10); Profile.save(); }, { name, faction, level });
     return { page, errs, name };
   };
   const FORCE = process.env.FORCE ? process.env.FORCE.split(',') : null;
@@ -52,17 +53,21 @@ const DRIVER = require('./e2e-driver');
   const A = await mkPage('Аня', FACS[0], XP), B = await mkPage('Боря', FACS[1], XP);
   console.log('уровни', await A.page.evaluate(() => Profile.level()), await B.page.evaluate(() => Profile.level()));
   for (const P of [A, B]) {
-    await P.page.waitForFunction(() => Net.current && Net.current.remote && Net.current.ready, null, { timeout: 15000 });
+    await P.page.waitForFunction(() => Net.current && Net.current.remote && Net.current.remote.enabled && Net.current.ready, null, { timeout: 15000 });
+    if (!await P.page.evaluate(() => Net.current.remote.auth())) throw new Error('Локальная авторизация тестового клиента не прошла: ' + P.name);
     await P.page.evaluate(() => Net.current.flush ? Net.current.flush() : 0);
   }
   let okAll = true;
   for (let n = 1; n <= bouts; n++) {
     for (const P of [A, B]) {
       await P.page.evaluate(() => { Screens.open('arena'); });
-      await P.page.waitForTimeout(300);
-      await P.page.evaluate(() => { const t = document.querySelector('[data-tab="players"]'); if (t) t.click(); });
-      await P.page.waitForTimeout(200);
-      await P.page.evaluate(() => { const b = document.querySelector('[data-arena="live-find"]'); if (!b) throw new Error('нет кнопки «Живой бой»'); b.click(); });
+      try {
+        await P.page.locator('[data-tab="players"]').click({ timeout: 10000 });
+        await P.page.locator('[data-arena="live-find"]').click({ timeout: 10000 });
+      } catch (e) {
+        console.log('Подготовка PvP:', P.name, JSON.stringify(await P.page.evaluate(() => ({ screen: Screens.screen, tab: Screens.arenaTab(), remote: !!Net.current?.remote?.enabled, tabs: [...document.querySelectorAll('[data-tab]')].map(b => b.dataset.tab), dialog: document.querySelector('.modal')?.textContent?.slice(0, 700) }))), P.errs);
+        throw e;
+      }
     }
     for (const P of [A, B]) await P.page.waitForFunction(() => typeof liveActive !== 'undefined' && liveActive && inBattle, null, { timeout: 30000 });
     for (const P of [A, B]) await P.page.evaluate(([spells, force, facs]) => window.__drive({ spells, force, facs }), [true, FORCE, !!process.env.FACS]);
@@ -80,7 +85,14 @@ const DRIVER = require('./e2e-driver');
         await A.page.evaluate(() => window.__drive({ spells: false }));               // и снова играет
       }
     }
-    const fin = async (P) => { await P.page.waitForFunction(() => over, null, { timeout: 240000 }); return P.page.evaluate(() => ({ win: Combat.enemyDefeated(fighters.right), overlay: (document.getElementById('overlay') || {}).textContent || '', hp: [fighters.left.hp, fighters.right.hp], log: window.__log.slice(-6), spells: window.__log.filter((x) => /^(cast|inst|fac)/.test(x)).reduce((o, x) => (o[x] = (o[x] || 0) + 1, o), {}), hash: liveHash(), desync: window.__desync || null })); };
+    const fin = async (P) => {
+      try { await P.page.waitForFunction(() => over, null, { timeout: 240000 }); }
+      catch (e) {
+        for (const client of [A, B]) console.error('PvP timeout:', client.name, JSON.stringify(await client.page.evaluate(() => ({ over, busy, aiming, turnSide, liveActive, state: liveState(), log: window.__log?.slice(-30), desync: window.__desync || null }))), client.errs);
+        throw e;
+      }
+      return P.page.evaluate(() => ({ win: Combat.enemyDefeated(fighters.right), overlay: (document.getElementById('overlay') || {}).textContent || '', hp: [fighters.left.hp, fighters.right.hp], log: window.__log.slice(-6), spells: window.__log.filter((x) => /^(cast|inst|fac)/.test(x)).reduce((o, x) => (o[x] = (o[x] || 0) + 1, o), {}), hash: liveHash(), desync: window.__desync || null }));
+    };
     if (SC === 'forfeit') {
       const rb = await fin(B); console.log('сдача: Боря', JSON.stringify({ win: rb.win, ov: rb.overlay.slice(0, 40) }));
       if (!rb.win) { okAll = false; console.log('РАСХОЖДЕНИЕ: после сдачи Ани Боря должен победить'); }

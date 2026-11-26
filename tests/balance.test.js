@@ -70,5 +70,5 @@ assert.ok(mean >= 0.1 && mean <= 0.75, 'средний шанс против «�
 
 console.log('balance: все тесты пройдены');
 { const B = require('../js/balance.js'); const A = require('assert');
-  A.strictEqual(B.magic.costs.pierce, 6); A.ok(B.magic.costs.pierce > B.magic.costs.lightning, 'Выпад — самое дорогое заклинание');
+  A.strictEqual(B.magic.costs.pierce, 4); A.ok(B.magic.costs.pierce < B.magic.costs.lightning, 'Выпад — позиционная магия, Молния дороже');
   A.strictEqual(B.spellUnlock.pierce, 61); console.log('pierce ok'); }

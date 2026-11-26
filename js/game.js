@@ -121,7 +121,7 @@ const fighters = {
 
 const fEl = (side) => $('fighter-' + side);
 // kind — какое заклинание ('lightning' по умолчанию): у каждого своя цена (Balance.magic.costs).
-const magicCostOf = (side, kind = 'lightning') => (fighters[side].isPet ? ((PET_MAGICS[kind] || {}).cost || 99) : Combat.spellCost(fighters[side], kind));
+const magicCostOf = (side, kind = 'lightning') => Combat.spellCost(fighters[side], kind);
 // 2.3.5: у питомца своя магия (PET_MAGICS) — магия героя ему недоступна, и наоборот.
 const canAffordMagic = (side, kind = 'lightning') => (fighters[side].isPet ? !!PET_MAGICS[kind] : !PET_MAGICS[kind]) && MAGIC_TYPES.every((t) => fighters[side].counts[t] >= magicCostOf(side, kind));
 // Может ли сторона позволить себе хоть одно из пяти заклинаний (для ИИ — решает, стоит ли вообще думать про магию).
@@ -545,31 +545,31 @@ const MAGICS = {
   lightning: { name: _t("Шаровая молния"), icon: magicIcon,
     tip: _t("Сильнейшая магия: на один ход каждый собранный камень любого цвета бьёт с множителем x1,5") },
   fire: { name: _t("Огненный крест"), icon: fireIcon,
-    tip: _t("Собирает камни креста (область 5x5) в копилку. Урон: фиксированный + базовый + номиналы обсидианов; обычные камни урона не дают") },
+    tip: _t("Сжигает камни креста (область 5x5) без пополнения копилки. Прямой урон ×2; обычные каскады начисляют камни") },
   square: { name: _t("Захват"), icon: squareIcon,
-    tip: _t("Собирает квадрат камней 3x3 в копилку. Урон: фиксированный + базовый + номиналы обсидианов; обычные камни урона не дают") },
+    tip: _t("Собирает квадрат камней 3x3 в копилку. Прямой урон ×1,5; урон вызванных Захватом каскадов ×1,25") },
   transmute: { name: _t("Превращение"), icon: transmuteIcon,
     tip: _t("Выбранный камень и все камни его цвета вокруг (область 3x3) становятся обсидианом") },
   heal: { name: _t("Целебный дождь"), icon: healIcon,
     tip: _t("Лечит на сумму номиналов изумрудов на поле; использованные изумруды теряют один уровень номинала (×5 → ×3 → ×1)") },
   chaos: { name: _t("Хаос"), icon: chaosIcon,
-    tip: _t("Камни в выбранной области 3×3 перемешиваются в лучший для вас расклад (без готовых линий, с ходом на поле)") },
+    tip: _t("Перемешивает выбранную область 3×3 для поиска выгодного расклада. Ход не тратится; один раз за собственный ход.") },
   pierce: { name: _t("Выпад"), icon: (typeof pierceIcon === 'function' ? pierceIcon : chaosIcon),
-    tip: _t("Выберите камень: он сгорит, поле осядет по обычным правилам (каскады — ваши), а ход не тратится. Очень дорого") },
+    tip: _t("Выберите камень: он сгорит, поле осядет по обычным правилам (каскады — ваши), а ход не тратится.") },
   // Удар доступен всем фракциям с 1-го уровня (как стартовая пятёрка) — в Balance.spellUnlock не упомянут.
   strike: { name: _t("Удар"), icon: strikeIcon,
-    tip: _t("Наносит фиксированный базовый урон героя; убийство Ударом идёт в отдельную серию медалей") },
+    tip: _t("Наносит фиксированный базовый урон героя, игнорируя броню и блок. Добивание даёт отдельную серию медалей.") },
   // Заклинания ниже открываются по уровню героя (Balance.spellUnlock, см. Hero.isSpellUnlocked).
   mirror: { name: _t("Зеркало"), icon: mirrorIcon,
-    tip: _t("Следующий полученный удар целиком отражается атакующему") },
+    tip: _t("Следующий полученный обычный удар целиком отражается атакующему. Ход не тратится; повторное применение до отражения недоступно.") },
   tide: { name: _t("Прилив"), icon: tideIcon,
-    tip: _t("Один случайный цвет на поле целиком перекрашивается в другой") },
+    tip: _t("Один случайный цвет на поле, кроме обсидиана, целиком перекрашивается в другой случайный цвет.") },
   sacrifice: { name: _t("Жертва"), icon: sacrificeIcon,
-    tip: _t("Сжигает часть своего текущего ХП — следующий собранный камень наносит утроенный урон") },
+    tip: _t("Тратит ход и 15% текущего здоровья. Следующий обычный удар наносит тройной урон; вместе с Кулаком ярости — ×4.") },
   temper: { name: _t("Закалка"), icon: (typeof furyIcon === 'function' ? furyIcon : strikeIcon),
-    tip: _t("Выбранный камень и четыре соседних поднимаются на ступень номинала (×1 → ×3 → ×5). Усиленные камни сильнее бьют, лечат и копят господство цвета; ход тратится") },
+    tip: _t("Выбранный камень и четыре соседних поднимаются на ступень номинала (×1 → ×3 → ×5). Ход не тратится; один раз за собственный ход.") },
   fury: { name: _t("Кулак ярости"), icon: (typeof furyIcon === 'function' ? furyIcon : strikeIcon),
-    tip: _t("Следующий удар наносит двойной урон. Только пока камней вашего цвета на поле больше (по номиналам), чем любого другого") },
+    tip: _t("Тратит ход. Следующий обычный удар наносит двойной урон; вместе с Жертвой — ×4. Требует господства цвета фракции по номиналам.") },
 };
 
 /* ---------- Магия питомца (2.3.5) ----------
@@ -578,12 +578,12 @@ const MAGICS = {
    сам (petAiSpell), под ручным управлением — кнопки. Рисованные значки — art/spells/pet-<kind>, пока их нет —
    встроенные SVG. */
 const PET_MAGICS = {
-  fang: { name: _t("Клык"), cost: 3, icon: strikeIcon,
+  fang: { name: _t("Клык"), cost: Balance.petMagic.costs.fang, icon: strikeIcon,
     tip: _t("Укус со всей звериной силы: мгновенный урон, как за сбор девяти камней") },
-  lick: { name: _t("Зализать раны"), cost: 4, icon: healIcon,
-    tip: _t("Питомец зализывает раны и восстанавливает треть своего полного здоровья") },
-  claw: { name: _t("Коготь"), cost: 5, icon: fireIcon,
-    tip: _t("Взмах когтя сметает ряд, где больше всего камней: камни уходят в копилку питомца, а обсидианы бьют врага") },
+  lick: { name: _t("Зализать раны"), cost: Balance.petMagic.costs.lick, icon: healIcon,
+    tip: _t("Питомец зализывает раны и восстанавливает 30% максимального здоровья") },
+  claw: { name: _t("Коготь"), cost: Balance.petMagic.costs.claw, icon: fireIcon,
+    tip: _t("Взмах когтя сметает наиболее ценный ряд: камни уходят в копилку питомца, а обсидианы бьют врага") },
 };
 
 // Иконка заклинания или приёма фракции: готовый рисунок из art/spells/ (ключ «spells/<kind>», для приёма —
@@ -634,8 +634,8 @@ function buildSpellbar() {
     if (b.classList.contains('new-spell') && Profile.data.spellSeen) { Profile.data.spellSeen[k] = true; Profile.save(); b.classList.remove('new-spell'); }
     if (k === 'faction') useFactionAbility();
     else if (k === 'lightning') toggleMagic();
-    else if (k === 'fire' || k === 'transmute' || k === 'square' || k === 'pierce' || k === 'temper') toggleAim(k);
-    else playerInstant(k);      // heal, chaos, strike, mirror, tide, sacrifice, fury
+    else if (k === 'fire' || k === 'transmute' || k === 'square' || k === 'pierce' || k === 'temper' || k === 'chaos') toggleAim(k);
+    else playerInstant(k);      // heal, strike, mirror, tide, sacrifice, fury
   });
 }
 
@@ -727,7 +727,7 @@ function useAmmo(stockKey, cell = null) {
   }
   if (kind === 'bolt') {
     const dealt = dealDamage('right', Math.round(Ammo.boltDamage(base) * am), true);
-    e.buffs = []; e.shield = 0; e.mirrorReady = false; e.tripleNext = false;
+    e.buffs = []; e.shield = 0; e.mirrorReady = false; e.tripleNext = false; e.doubleNext = false;
     SND.fire();
     showFloat('right', _t("Болт!"), 'buff');
     logEvent('left', _t("{0}: Освящённый болт — урон {1}, усиления и щит противника сняты", [f.name, dealt]));
@@ -989,9 +989,10 @@ function spellDisabled(kind, on, ready) {
   const f = fighters.left;
   if (busy || over) return true;
   if (!spellOpen(kind)) return true;   // не открыто по уровню героя
+  if (!Combat.preparedSpellAvailable(f, kind)) return true;
   if (kind === 'lightning') return aiming || (!on && !ready);
   if ((kind === 'fire' || kind === 'square') && f.magic) return true;   // 2.0.5: после Молнии Крест/Захват в этом ходу недоступны
-  if (kind === 'fire' || kind === 'transmute' || kind === 'square' || kind === 'pierce' || kind === 'temper') return (aiming && !on) || (!on && !ready);
+  if (kind === 'fire' || kind === 'transmute' || kind === 'square' || kind === 'pierce' || kind === 'temper' || kind === 'chaos') return (aiming && !on) || (!on && !ready);
   if (aiming || f.magic || !ready) return true;            // heal, chaos, strike, mirror, tide, sacrifice
   if (kind === 'heal' && f.hp >= f.max) return true;
   if (kind === 'fury' && !furyState().ok) return true;      // родной цвет не господствует на поле
@@ -1031,6 +1032,7 @@ function renderMagic() {
       const fs = furyState();
       if (!fs.ok) btn.title += _t("\nНужно, чтобы камней вашего цвета ({0}) на поле было больше, чем любого другого, с учётом номиналов (сейчас: {1} против {2})", [GEM_NAMES[GEM_TYPES[fs.home]], fs.mine, fs.other]);
     }
+    if (!locked && !Combat.preparedSpellAvailable(f, kind)) btn.title += _t("\nЗаклинание уже действует, использовано в этом ходу или Жертва оставит вас без здоровья");
     btn.innerHTML = spellIconHtml(kind, (PET ? 'pbar-' : 'bar-') + kind);   // цифры цены на значке убраны: цена — в подсказке, а доступность видна по яркости значка
     btn.classList.toggle('locked', !!locked);
     btn.classList.toggle('new-spell', !!(needLvl && !locked && Profile.data.spellSeen && !Profile.data.spellSeen[kind]));
@@ -1850,7 +1852,7 @@ function setTurn(side) {
     fighters[turnSide].magicFree = false; fighters[turnSide].stormMult = 0;
   }
   turnSide = side;
-  if (side !== prevTurn) { fighters.left.itemsUsed = {}; fighters.right.itemsUsed = {}; renderBag(); }   // 2.4.0: новый ход — предметы снова доступны
+  if (side !== prevTurn) { fighters.left.itemsUsed = {}; fighters.right.itemsUsed = {}; fighters.left.prepUsed = {}; fighters.right.prepUsed = {}; renderBag(); }   // 2.4.0: новый ход — предметы снова доступны
   if (side === 'left' && side !== prevTurn) rec.turns++;
   if (side === 'left' && fighters.left.skillCd > 0 && side !== prevTurn) fighters.left.skillCd--;
   if (side === 'left' && side !== prevTurn) for (const k of Object.keys(fighters.left.elxCds || {})) if (fighters.left.elxCds[k] > 0) fighters.left.elxCds[k]--;
@@ -1924,7 +1926,7 @@ const liveCell = (i) => ({ r: Math.floor(i / N), c: i % N });
 // Отпечаток состояния боя, одинаковый для обоих клиентов: порядок бойцов — по ролям (A, B), а не «слева/справа».
 function liveState() {
   if (!LIVE) return '';
-  const st = (f) => [f.hp, f.max, f.shield || 0, f.magic ? 1 : 0, f.charge || 0, (f.buffs || []).map((b) => b.kind + b.turns).join('.'), f.poison ? f.poison.turns + 'p' + f.poison.dmg : 0, ...GEM_TYPES.map((t) => f.counts[t] || 0)].join(',');
+  const st = (f) => [f.hp, f.max, f.shield || 0, f.magic ? 1 : 0, f.charge || 0, f.mirrorReady ? 1 : 0, f.tripleNext ? 1 : 0, f.doubleNext ? 1 : 0, (Balance.magic.freePrep || []).map(k => f.prepUsed && f.prepUsed[k] ? 1 : 0).join('.'), (f.buffs || []).map((b) => b.kind + b.turns).join('.'), f.poison ? f.poison.turns + 'p' + f.poison.dmg : 0, ...GEM_TYPES.map((t) => f.counts[t] || 0)].join(',');
   const A = LIVE.role === 'A' ? fighters.left : fighters.right, B = LIVE.role === 'A' ? fighters.right : fighters.left;
   const g = grid.map((row) => row.map((t) => (t ? t.ti + ':' + t.value : '-')).join(' ')).join('/');
   return st(A) + '|' + st(B) + '|' + g;
@@ -2462,8 +2464,8 @@ function startGame() {
   veiled.clear();
   fighters.left.charge = 0; fighters.right.charge = 0;
   rec = newRec();
-  Object.assign(fighters.right, { stoneMode: true, mobTypes: MAGIC_TYPES, tempMax: 0, tempDef: 0, tempVenom: 0, tempLeech: 0, tempLeechP: 0, scrollVenom: false, scrollRegen: false, turnNo: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
-  Object.assign(fighters.left, { revived2: false, secondWind: false, elx: {}, elxCds: {}, elxUsed: {}, tempMax: 0, tempDef: 0, tempVenom: 0, tempLeech: 0, tempLeechP: 0, scrollVenom: false, scrollRegen: false, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0 });
+  Object.assign(fighters.right, { stoneMode: true, mobTypes: MAGIC_TYPES, tempMax: 0, tempDef: 0, tempVenom: 0, tempLeech: 0, tempLeechP: 0, scrollVenom: false, scrollRegen: false, turnNo: 0, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, spores: 0, clonesMade: 0, clone: null, luck: 0, mirrorReady: false, tripleNext: false, doubleNext: false, magicPaid: 0, prepUsed: {} });
+  Object.assign(fighters.left, { revived2: false, secondWind: false, elx: {}, elxCds: {}, elxUsed: {}, tempMax: 0, tempDef: 0, tempVenom: 0, tempLeech: 0, tempLeechP: 0, scrollVenom: false, scrollRegen: false, revived: false, charged: false, poison: null, ward: 0, stunned: false, shredDone: 0, shield: 0, doubleNext: false, luck: 0, mirrorReady: false, tripleNext: false, magicPaid: 0, prepUsed: {} });
   elxArm();                                          // 1.5.1: эффекты эликсиров на новый бой
   for (const s of ['left', 'right']) {
     fighters[s].buffs = [];
@@ -3177,7 +3179,7 @@ const FIRE_RADIUS = 2;
 function toggleAim(kind) {
   if (busy || over) return;
   if (aiming) { stopAim(); note(_t("Ваш ход")); return; }
-  if (kind !== 'growth' && kind !== 'bomb' && !canAffordMagic('left', kind)) return;
+  if (kind !== 'growth' && kind !== 'bomb' && (!canAffordMagic('left', kind) || !Combat.preparedSpellAvailable(fighters.left, kind))) return;
   if ((kind === 'fire' || kind === 'square') && fighters.left.magic) { note(_t("Нельзя в одном ходу с Молнией")); return; }
   clearSelection();
   aiming = true;
@@ -3235,7 +3237,10 @@ function hideCross() {
 async function castFire(side, cell, opts = {}) {
   const shape = opts.shape || 'cross', mult = opts.mult || 1;
   const title = opts.name || (shape === 'point' ? _t("Выпад") : shape === 'square' ? _t("Захват") : _t("Огненный крест"));
-  const collect = !!opts.collect || shape !== 'row';   // крест и квадрат собирают камни в копилку (дыхание дракона — нет; Коготь питомца — да)
+  const collect = !!opts.collect || shape !== 'row';   // расчёт урона от обсидианов; Коготь питомца собирает ряд
+  if (shape === 'point' && !grid[cell.r]?.[cell.c]) { stopAim(); note(_t("Выберите камень, а не пустую клетку")); return 0; }
+  const areaRules = Combat.areaSpellRules(shape, !!opts.free);
+  const directCollect = collect && areaRules.collect;  // Крест сжигает без прямого сбора; каскады начисляются обычно
   stopAim();
   clearSelection();
   if (!opts.free) spendMagic(side, -1, shape === 'point' ? 'pierce' : shape === 'square' ? 'square' : 'fire');
@@ -3261,10 +3266,12 @@ async function castFire(side, cell, opts = {}) {
       else if (collect) {
         all += tile.value;
         if (tile.ti === ONYX) obs += tile.value;
-        const fl = fighters[side];
-        fl.counts[tile.type] += tile.value;         // в копилку без бонусов линии
-        gotTypes.add(tile.type);
-        if (facOn(side) && factionOf(side) && tile.type === factionOf(side).gem) charge += tile.value;
+        if (directCollect) {
+          const fl = fighters[side];
+          fl.counts[tile.type] += tile.value;       // в копилку без бонусов линии
+          gotTypes.add(tile.type);
+          if (facOn(side) && factionOf(side) && tile.type === factionOf(side).gem) charge += tile.value;
+        }
       } else dmg += tile.value * mult;              // дыхание: урон по номиналу камня
       tile.el.style.setProperty('--d', dist * 70 + 'ms');
       tile.el.classList.add('burn');
@@ -3276,17 +3283,17 @@ async function castFire(side, cell, opts = {}) {
   }
   if (collect) {
     // Фиксированный + базовый урон героя + обсидианы; под Шаровой молнией — все собранные камни с её множителем.
-    const B = Balance.magic, fx = (shape === 'square' ? B.square : B.cross).fixed;
+    const B = Balance.magic, damageRule = opts.damageRule || (shape === 'square' ? B.square : B.cross), fx = damageRule.fixed;
     const stones = obs;
     dmg = shape === 'point' ? 0 : fx + stones;   // Выпад: урона нет, ценна позиция
     // (камни + Сила) × множитель заклинания × слабость семейства (1.5.1, шашка) × ливень гасит огонь (1.7.1)
-    spellMul = (shape === 'square' ? B.square : B.cross).mult * mult * Sky.spellMul(selNow(), 'fire');
+    spellMul = damageRule.mult * mult * Sky.spellMul(selNow(), 'fire');
     renderCounters(side, [...gotTypes]);
     if (charge) addCharge(charge, side);
     turnStats.stones += burning.length;
   }
   const dealt = dealDamage(target, dmg, false, true, spellMul);
-  logEvent(side, _t("{0}: {1}, собрано {2}, урон {3}", [fighters[side].name, title, burning.length, dealt]));
+  logEvent(side, _t(directCollect ? "{0}: {1}, собрано {2}, урон {3}" : "{0}: {1}, сожжено {2}, урон {3}", [fighters[side].name, title, burning.length, dealt]));
   await sleep(RULES.timing.burn + maxDist * 70);
 
   for (const { r, c } of burning) {
@@ -3303,7 +3310,7 @@ async function castFire(side, cell, opts = {}) {
   await sleep(RULES.timing.fall);
   shiftRight();
   await sleep(RULES.timing.shift);
-  return afterSpell(side, opts.forceFinish || (!opts.free && shape !== 'point'));   // Выпад — ход не тратится; Коготь (free+forceFinish) — тратится
+  return afterSpell(side, opts.forceFinish || (!opts.free && shape !== 'point'), areaRules.cascadeMult);   // Выпад — ход не тратится; Коготь (free+forceFinish) — тратится
 }
 
 // Конец действия стороны: баффы теряют по ходу, Свиток спешки даёт дополнительный ход.
@@ -3319,9 +3326,9 @@ function finishAction(side, extra) {
 }
 
 // Общий хвост заклинания: каскады, итоги хода, конец боя, новые камни.
-async function afterSpell(side, finish = true) {
+async function afterSpell(side, finish = true, cascadeMult = 1) {
   turnStats = { stones: 0, dmg: 0, bonus: 1 };
-  const extra = await resolveBoard(side);
+  const extra = await resolveBoard(side, cascadeMult);
   logTurn(side);
   if (flushTurnDamage()) await sleep(500);
   if (finish) fighters[side].magic = Combat.continueMagic(fighters[side].magic, extra);   // Молния не переживает ход (Крест/Захват после неё)
@@ -3377,15 +3384,14 @@ async function castHeal(side) {
 // Хаос игрока (1.3.8): перемешивается область 3x3 вокруг выбранной клетки; из случайных раскладов (и локальных
 // улучшений обменами) берётся лучший для игрока по AI.layoutValue — без готовых линий и с ходом на поле.
 async function castChaosArea(side, cell) {
+  if (!Combat.preparedSpellAvailable(fighters[side], 'chaos')) { stopAim(); return 0; }
   stopAim();
   clearSelection();
-  spendMagic(side, -1, 'chaos');
-  note(_t("Хаос!"));
-  SND.chaos();
   const cells = [];
   for (let r = Math.max(0, cell.r - 1); r <= Math.min(N - 1, cell.r + 1); r++)
     for (let c = Math.max(0, cell.c - 1); c <= Math.min(N - 1, cell.c + 1); c++) if (grid[r][c]) cells.push({ r, c });
   const tiles = cells.map(({ r, c }) => grid[r][c]);
+  if (tiles.length < 2) { note(_t("Выберите область с несколькими камнями")); return 0; }
   const place = (perm) => cells.forEach(({ r, c }, i) => { grid[r][c] = perm[i]; });
   const value = (perm) => { place(perm); return AI.layoutValue(typOf(), valOf()); };
   let best = tiles.slice(), bestV = value(best), cur = best, curV = bestV;
@@ -3405,6 +3411,11 @@ async function castChaosArea(side, cell) {
     }
   }
   place(best);
+  if (best.every((tile, i) => tile.ti === tiles[i].ti && tile.value === tiles[i].value)) { note(_t("Расклад не изменился")); return 0; }
+  spendMagic(side, -1, 'chaos');
+  const free = Combat.freePreparation('chaos');
+  if (free) (fighters[side].prepUsed || (fighters[side].prepUsed = {}))['chaos'] = true;
+  note(_t("Хаос!")); SND.chaos();
   cells.forEach(({ r, c }, i) => {
     setPos(best[i], r, c);
     best[i].el.classList.add('chaos');
@@ -3412,7 +3423,7 @@ async function castChaosArea(side, cell) {
   });
   logEvent(side, _t("{0}: Хаос, область 3x3 перемешана в лучший расклад", [fighters[side].name]));
   await sleep(650);
-  return afterSpell(side);
+  return afterSpell(side, !free);
 }
 
 // Хаос: камни перемешиваются между занятыми клетками (без готовых линий, с ходом). Используется противником.
@@ -3456,8 +3467,9 @@ async function castChaos(side) {
 async function castTransmute(side, cell) {
   stopAim();
   clearSelection();
+  const center = grid[cell.r]?.[cell.c];
+  if (!center || center.ti === ONYX) { note(_t("Выберите камень, не обсидиан")); return 0; }
   spendMagic(side, -1, 'transmute');
-  const center = grid[cell.r][cell.c];
   const targets = [];
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
@@ -3484,19 +3496,25 @@ async function castTransmute(side, cell) {
 // Зеркало: следующий удар, который получит сторона side, целиком отражается атакующему (см. Combat.hit).
 // Одноразовое, эффекта на поле нет — просто взводит флаг и завершает ход, как Целебный дождь/Хаос.
 async function castMirror(side) {
+  if (!Combat.preparedSpellAvailable(fighters[side], 'mirror')) return 0;
   clearSelection();
   spendMagic(side, -1, 'mirror');
+  const free = Combat.freePreparation('mirror');
+  if (free) (fighters[side].prepUsed || (fighters[side].prepUsed = {}))['mirror'] = true;
   Combat.applyMirror(fighters[side]);
   note(_t("Зеркало!"));
   SND.transmute();
   logEvent(side, _t("{0}: Зеркало — следующий полученный удар отразится обратно", [fighters[side].name]));
-  return afterSpell(side);
+  return afterSpell(side, !free);
 }
 
 // Жертва: сжигает часть своего ТЕКУЩЕГО ХП, следующий собранный камень наносит утроенный урон.
 async function castSacrifice(side) {
+  if (!Combat.preparedSpellAvailable(fighters[side], 'sacrifice')) return 0;
   clearSelection();
   spendMagic(side, -1, 'sacrifice');
+  const free = Combat.freePreparation('sacrifice');
+  if (free) (fighters[side].prepUsed || (fighters[side].prepUsed = {}))['sacrifice'] = true;
   const f = fighters[side];
   const r = Combat.applySacrifice(f);
   note(_t("Жертва!"));
@@ -3506,31 +3524,34 @@ async function castSacrifice(side) {
   if (r.revived) onRevived(side);
   renderFighters();
   if (checkEnd()) return 1;
-  return afterSpell(side);
+  return afterSpell(side, !free);
 }
 
 // Кулак ярости: следующий удар заклинателя — двойной (см. Combat.applyFury / doubleNext в Combat.hit).
 // Условие (родной цвет господствует на поле) проверяют spellDisabled/playerInstant. Ход ведёт себя как у Жертвы.
 async function castFury(side) {
+  if (!Combat.preparedSpellAvailable(fighters[side], 'fury')) return 0;
   clearSelection();
   spendMagic(side, -1, 'fury');
+  const free = Combat.freePreparation('fury');
+  if (free) (fighters[side].prepUsed || (fighters[side].prepUsed = {}))['fury'] = true;
   const f = fighters[side];
   Combat.applyFury(f);
   note(_t("Кулак ярости!"));
   SND.transmute();
   logEvent(side, _t("Кулак ярости: следующий удар — двойной"));
   renderFighters();
-  return afterSpell(side);
+  return afterSpell(side, !free);
 }
 
 // Прилив: один случайный присутствующий на поле цвет (кроме обсидиана) целиком превращается в другой
 // случайный цвет — управляемый родственник Хаоса (тот перемешивает поле целиком и непредсказуемо).
 async function castTide(side) {
   clearSelection();
-  spendMagic(side, -1, 'tide');
   const typ = typOf();
   const present = GEM_TYPES.map((_, i) => i).filter((ti) => ti !== ONYX && typ.includes(ti));
-  if (!present.length) { note(_t("Прилив: на поле нет камней, которые можно перекрасить")); return afterSpell(side); }
+  if (!present.length) { note(_t("Прилив: на поле нет камней, которые можно перекрасить")); return 0; }
+  spendMagic(side, -1, 'tide');
   const from = present[rnd(present.length)];
   const rest = GEM_TYPES.map((_, i) => i).filter((ti) => ti !== ONYX && ti !== from);
   const to = rest[rnd(rest.length)];
@@ -3558,11 +3579,14 @@ async function castTide(side) {
 const temperCells = (cell) => [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]].map(([dr, dc]) => ({ r: cell.r + dr, c: cell.c + dc }))
   .filter((p) => p.r >= 0 && p.c >= 0 && p.r < N && p.c < N && grid[p.r][p.c] && grid[p.r][p.c].value < 5);
 async function castTemper(side, cell) {
+  if (!Combat.preparedSpellAvailable(fighters[side], 'temper')) { stopAim(); return 0; }
   stopAim();
   clearSelection();
   const picks = temperCells(cell);
   if (!picks.length) { if (side === 'left') note(_t("Все эти камни уже ×5")); return 0; }
   spendMagic(side, -1, 'temper');
+  const free = Combat.freePreparation('temper');
+  if (free) (fighters[side].prepUsed || (fighters[side].prepUsed = {}))['temper'] = true;
   note(_t("Закалка!"));
   SND.heal();
   logEvent(side, _t("{0}: Закалка — {1} усилены", [fighters[side].name, _nn(picks.length, 'камень', 'камня', 'камней')]));
@@ -3575,7 +3599,7 @@ async function castTemper(side, cell) {
     t.el.classList.add('arrive');
   }
   await sleep(300);
-  return afterSpell(side);
+  return afterSpell(side, !free);
 }
 
 // Удар: универсальное заклинание всех фракций (та же цена «камней каждого вида», что у остальных заклинаний
@@ -3619,6 +3643,7 @@ async function playerCast(cell) {
   if (busy || over) return;                   // 1.6.5 (A2-16): ход уже идёт или бой окончен — второй вызов не запускает второе заклинание
   const kind = aimKind;
   if (!canAffordMagic('left', kind)) { stopAim(); note(_t("Не хватает камней на это заклинание")); tipOnce('short'); return; }
+  if (!Combat.preparedSpellAvailable(fighters.left, kind)) { stopAim(); return; }
   stopTurnTimer();
   skipStreak = 0;                             // реальный ход — сбрасывает счётчик пропусков по таймеру
   busy = true;
@@ -3627,9 +3652,10 @@ async function playerCast(cell) {
   if (LIVE) LIVE.net.act({ k: 'cast', kind, i: cell.r * N + cell.c });
   const res = kind === 'chaos' ? await castChaosArea('left', cell) : kind === 'transmute' ? await castTransmute('left', cell) : kind === 'temper' ? await castTemper('left', cell)
     : kind === 'square' ? await castFire('left', cell, { shape: 'square' }) : kind === 'pierce' ? await castFire('left', cell, { shape: 'point' }) : await castFire('left', cell);
-  endPlayerAction();
+  if (res === 0) { busy = false; renderMagic(); renderCounters('left'); startTurnTimer(); return; }
+  if (!Combat.freePreparation(kind)) endPlayerAction();
   if (TUT()) Tutorial.event('cast', kind);
-  if (kind === 'pierce') {                          // Выпад: ход не тратится — ходим дальше
+  if (kind === 'pierce' || Combat.freePreparation(kind)) {                          // Выпад: ход не тратится — ходим дальше
     if (over) return;
     busy = false; renderMagic(); renderCounters('left'); note(_t("Ваш ход")); startTurnTimer();
     return;
@@ -3655,14 +3681,9 @@ function renderPetMagic() {
   }
 }
 // Клык бьёт как сбор PET_FANG_STONES камней (та же формула удара: камни + Сила, минус броня врага).
-const PET_FANG_STONES = 9;
-const petFangDamage = () => Math.max(1, Math.round(PET_FANG_STONES + Combat.power(fighters.left)));   // оценка для ИИ (без брони)
-// Ряд, где больше всего камней (для Когтя).
-function petBestRow() {
-  let best = -1, n = 0;
-  for (let r = 0; r < N; r++) { const k = grid[r].filter(Boolean).length; if (k > n) { n = k; best = r; } }
-  return { r: best, n };
-}
+const PET_FANG_STONES = Balance.petMagic.fangStones;
+// Общий выбор ряда для игры и симулятора.
+function petBestRow() { return Pets.petBestRow(typOf(),valOf(),fighters.left,fighters.right); }
 async function castPetFang() {
   clearSelection();
   spendMagic('left', -1, 'fang');
@@ -3680,10 +3701,11 @@ async function castPetFang() {
   return afterSpell('left');
 }
 async function castPetLick() {
+  const f = fighters.left;
+  if(f.hp>=f.max)return 0;
   clearSelection();
   spendMagic('left', -1, 'lick');
-  const f = fighters.left;
-  const amount = Math.min(f.max - f.hp, Math.max(1, Math.round(f.max * 0.30)));
+  const amount = Math.min(f.max - f.hp, Math.max(1, Math.round(f.max * Balance.petMagic.lickHp)));
   note(_t("Зализать раны!"));
   SND.heal();
   f.hp += amount;
@@ -3695,9 +3717,9 @@ async function castPetLick() {
 }
 async function castPetClaw() {
   const row = petBestRow();
-  if (row.r < 0) return 1;
+  if (row.r < 0) return 0;
   spendMagic('left', -1, 'claw');
-  return castFire('left', { r: row.r, c: 0 }, { free: true, forceFinish: true, collect: true, shape: 'row', mult: 0.9, name: _t("Коготь") });
+  return castFire('left', { r: row.r, c: 0 }, { free: true, forceFinish: true, collect: true, shape: 'row', damageRule: Balance.petMagic.clawDamage, name: _t("Коготь") });
 }
 const PET_CASTERS = { fang: castPetFang, lick: castPetLick, claw: castPetClaw };
 // Ручное заклинание питомца — как playerInstant, но из PET_MAGICS.
@@ -3710,17 +3732,14 @@ async function castPetSpell(kind) {
   renderMagic();
   invalidStreak = 0;
   const res = await PET_CASTERS[kind]();
+  if(res===0){busy=false;renderMagic();renderCounters('left');startTurnTimer();return;}
   endPlayerAction();
   await afterPlayerSpell(res);
 }
 // Выбор заклинания ИИ питомца: добить Клыком, подлечиться, смести полный ряд Когтем (умный питомец).
 function petAiSpell() {
   if (!PET) return null;
-  const f = fighters.left, foe = fighters.right;
-  if (canAffordMagic('left', 'fang') && foe.hp > 0 && foe.hp <= petFangDamage()) return 'fang';
-  if (canAffordMagic('left', 'lick') && f.hp < f.max * 0.45 && autoLevel >= 15) return 'lick';
-  if (canAffordMagic('left', 'claw') && autoLevel >= 40 && petBestRow().n >= N - 1) return 'claw';
-  return null;
+  return Pets.petSpellPlan(fighters.left,fighters.right,typOf(),valOf(),autoLevel);
 }
 
 // Заклинания без выбора цели (Целебный дождь, Хаос).
@@ -3729,9 +3748,11 @@ const INSTANT_CASTERS = {
   mirror: castMirror, tide: castTide, sacrifice: castSacrifice, fury: castFury,
 };
 async function playerInstant(kind) {
+  if (kind === 'chaos') { toggleAim(kind); return; } // локальный Хаос требует выбора области
   if (busy || over || aiming || fighters.left.magic || !canAffordMagic('left', kind)) return;
   if (!spellOpen(kind)) return;
   if (kind === 'heal' && fighters.left.hp >= fighters.left.max) return;
+  if (!Combat.preparedSpellAvailable(fighters.left, kind)) return;
   if (kind === 'fury' && !furyState().ok) return;
   stopTurnTimer();
   skipStreak = 0;                             // реальный ход — сбрасывает счётчик пропусков по таймеру
@@ -3740,12 +3761,10 @@ async function playerInstant(kind) {
   invalidStreak = 0;
   if (LIVE) LIVE.net.act({ k: 'inst', kind });
   const res = await INSTANT_CASTERS[kind]('left');
-  endPlayerAction();
+  if (res === 0) { busy = false; renderMagic(); renderCounters('left'); startTurnTimer(); return; }
+  if (!Combat.freePreparation(kind)) endPlayerAction();
   if (TUT()) Tutorial.event('cast', kind);
-  if (res === 0) {                                  // Прорицание: ход не тратится
-    busy = false; renderMagic(); renderCounters('left'); startTurnTimer();
-    return;
-  }
+  if (Combat.freePreparation(kind)) { if (!over) { busy = false; renderMagic(); renderCounters('left'); note(_t("Ваш ход")); startTurnTimer(); } return; }
   await afterPlayerSpell(res);
 }
 
@@ -4052,7 +4071,7 @@ const sideDown = (s) => (s === 'right' ? Combat.enemyDefeated(fighters.right) : 
 const wispBlocks = (side, tile) => side === 'left' && fighters.right.ability === 'wisp' && tile.value < 3;
 
 // Собирает совпадения, начисляет камни и урон стороне side, затем падение и сдвиг.
-async function resolveBoard(side) {
+async function resolveBoard(side, cascadeMult = 1) {
   const f = fighters[side];
   const target = other(side);
 
@@ -4112,7 +4131,7 @@ async function resolveBoard(side) {
     // реакция существа) → камни дочищаются. Раньше всё это совпадало в один кадр, и звуки линии и удара сливались.
     const hitAt = dmg > 0 ? Math.round(RULES.timing.clear * 0.5) : 0;
     if (hitAt) await sleep(hitAt);
-    turnStats.dmg += dealDamage(target, dmg, false, true, f.magic ? (f.stormMult || Balance.magic.lightning.mult) * Sky.spellMul(selNow(), 'lightning') : 1);   // (камни + Сила) × Молния
+    turnStats.dmg += dealDamage(target, dmg, false, true, cascadeMult * (f.magic ? (f.stormMult || Balance.magic.lightning.mult) * Sky.spellMul(selNow(), 'lightning') : 1));   // (камни + Сила) × Молния × бонус каскадов этого заклинания
     flushTurnDamage();                               // 2.4.5: крупная цифра — в момент удара, а не после всего хода
     await sleep(RULES.timing.clear - hitAt);
 
@@ -4856,6 +4875,9 @@ if (host.main) {
   veiled: { get: () => veiled, enumerable: true, configurable: true },
   liveBegin: { get: () => liveBegin, enumerable: true, configurable: true },
   liveHash: { get: () => liveHash, enumerable: true, configurable: true },
+  liveState: { get: () => liveState, enumerable: true, configurable: true },
+  lightningMult: { get: () => lightningMult, enumerable: true, configurable: true },
+  temperCells: { get: () => temperCells, enumerable: true, configurable: true },
   liveActive: { get: () => !!LIVE, enumerable: true, configurable: true },
   wispBlocks: { get: () => wispBlocks, enumerable: true, configurable: true }
   });
