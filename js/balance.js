@@ -77,7 +77,8 @@ const Balance = {
     minCost: 2,
     // Эти подготовительные заклинания не передают ход; каждый вид — один раз за собственный ход.
     freePrep: ['chaos', 'temper', 'mirror'],
-    exclusiveBuffs: false, // Жертва и Кулак ярости пока сохраняют прежнюю комбо-механику.
+    exclusiveBuffs: false, // Жертва и Кулак ярости совместимы.
+    comboCap: 4, // Вместе +200% и +100%: максимум ×4 вместо ×6; одиночные множители не меняются.
     // Жертва: доля ТЕКУЩЕГО (не максимального) ХП заклинателя, сжигаемая при касте; mult — во сколько раз
     // усиливается урон следующего собранного камня (см. Combat.applySacrifice / Combat.hit).
     sacrifice: { hpPct: 15, mult: 3 },
@@ -128,6 +129,12 @@ const Balance = {
   },
 
   // Приёмы фракций: заряд из родных камней; приём ход не тратит.
+  petMagic: {
+    costs: { fang: 3, lick: 4, claw: 4 },
+    fangStones: 9, lickHp: 0.30, clawDamage: { fixed: 1, mult: 1.8 },
+    smartRow: true, smartAI: false, accurateFang: true,
+  },
+
   faction: {
     charge: 15,
     banner: { pct: 50, turns: 3 },
