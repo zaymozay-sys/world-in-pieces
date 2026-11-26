@@ -91,5 +91,6 @@
 "tests/gems207.test.js",
 "tests/mastermedals207.test.js",
 "tests/moblevels239.test.js",
-"tests/grani.test.js"
+"tests/grani.test.js",
+"tests/spell-economy.test.js"
 ]
