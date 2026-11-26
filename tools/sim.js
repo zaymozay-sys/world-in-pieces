@@ -52,6 +52,7 @@ const TYPES = ['sapphire', 'ruby', 'emerald', 'onyx'];
 const MAGIC_T = [0, 1, 2];
 const MAGIC_NAMES = ['sapphire', 'ruby', 'emerald'];
 const B = Balance;
+const stormMultiplier = f => f.stormMult || B.magic.lightning.mult;
 const simFree = kind => (TUNE?.freeSpells ?? B.magic.freePrep ?? []).includes(kind);
 const other = (s) => (s === 'left' ? 'right' : 'left');
 const ri = (n) => Math.floor(rand() * n);
@@ -62,14 +63,14 @@ function makeHero(o) {
     : (Factions.get(o.faction) || Factions.get('dwarf'));
   const gear = o.gear || Gear.emptyLoadout();
   const facStats = o.faction === 'none' ? {} : Factions.statsAt(o.faction, Hero ? Hero.tierFloat(o.level || 1) : 1);
-  let stats = Gear.combine(Gear.stats(gear), facStats);
+  let stats = Gear.combine(Gear.statsFor(gear,o.level||1), facStats);
   if (o.extra) stats = Gear.combine(stats, o.extra);   // руны, огранка, медали и прочие усиления сверх вещей
   // 1.6.0: эликсиры { вид: цвет } — по одному каждого вида в сумке; героя «пьёт» их по правилам игры (см. elxStep в Battle)
   const elx = o.elixirs || {};
   const base = o.baseHp != null ? o.baseHp : (Hero ? Hero.baseHp(o.level || 1) : 100);
   const max = base + stats.health;
   const dmg = o.dmg != null ? o.dmg : (Hero ? Hero.dmgMult(o.level || 1) : 1);
-  return { side: 'left', heroLevel: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
+  return { side: 'left', heroLevel: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, weaponPerk: Gear.weaponPerk(gear), base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, charge: 0, ability: null, bag: o.bag ? { ...o.bag } : {},
     stats0: stats, elx: {}, elxUsed: {}, elxPlan: { ...elx }, elxCds: {}, turnNo: 0, noFx: o.elxFx === false, critExtra: 0 };
 }
@@ -87,7 +88,7 @@ function makeMonster(id, tier, o = {}) {
   const stats = Gear.combine(Gear.stats(gear), sc.stats);
   const max = Math.round((sc.hp + stats.health) * (o.elite ? 1.25 : 1));
   const level = o.aiLevel || sc.ai;
-  const mon = { side: 'right', name: m.name, id, tier, gear, stats, base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
+  const mon = { side: 'right', name: m.name, id, tier, gear, stats, weaponPerk: Gear.weaponPerk(gear), base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: m.ability, level, bag: Combat.enemyBag(level), stoneMode: process.env.MOBSTONES !== '0', mobTypes: ['sapphire', 'ruby', 'emerald'],
     turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null, ward: 0, stunned: false, affixes };
   Combat.startStones(mon);
@@ -189,7 +190,7 @@ function Battle(hero, mon, player) {
       }
       if (charge) addCharge(charge);
       if (side === 'right') { let got = 0; for (let i = 0; i < 36; i++) if (bon[i]) got += S.val[i] * bon[i]; Combat.addSpores(f, got); }   // споры гриба
-      const dealt = hit(side, dmg, false, cascadeMult * (f.magic ? B.magic.lightning.mult : 1) * (TUNE && TUNE.decay ? Math.pow(TUNE.decay, pass - 1) : 1));
+      const dealt = hit(side, dmg, false, cascadeMult * (f.magic ? stormMultiplier(f) : 1) * (TUNE && TUNE.decay ? Math.pow(TUNE.decay, pass - 1) : 1));
       if (impact) { impact.waves++; if (dealt.kind === 'hit') impact.cascadeDamage += dealt.amount; }
       for (let i = 0; i < 36; i++) if (bon[i]) { S.typ[i] = -1; S.val[i] = 0; }
       if ((side === 'left' ? Combat.enemyDefeated(S.f.right) : tgt.hp <= 0) || f.hp <= 0) return extra;
@@ -449,7 +450,7 @@ function Battle(hero, mon, player) {
       for (const k of Combat.enemyItemPlan(f, anyAfford('right'), rand)) useItem('right', k);
       const v = Combat.aiView(f, h);
       const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, f.level + Combat.intelBonus(f), f.magic ? aimOnly() : afford('right'),
-        { maxMe: v.maxMe, healMult: v.healMult, want: Combat.wantGems(f), locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: f.magic ? B.magic.lightning.mult : 0 });
+        { maxMe: v.maxMe, healMult: v.healMult, want: Combat.wantGems(f), locked: lockedCells('right'), strike: Combat.strikeDamage(f), lightning: f.magic ? stormMultiplier(f) : 0 });
       if (!mv) break;
       S.stats.monActions++;
       let res;
@@ -499,9 +500,19 @@ function Battle(hero, mon, player) {
   /* ---------- ход героя ---------- */
   // 1.6.0: эликсиры по правилам игры: длинные — в первом ходе; Сила — в первом ходе, где есть крупный ход (или в 6-м);
   // Жизнь — при ХП ниже половины; Камни — со 2-го хода; Жизнь, Камни и Превращение делят «раз в ход»
+  function recalcElixir(h) {
+    h.stats=Gear.combine(h.stats0,Elixirs.bonusStats(h.elx));
+    for(const [key,field] of [['venom','tempVenom'],['leech','tempLeech'],['leechPower','tempLeechP'],['defense','tempDef']]) h.stats[key]=(h.stats[key]||0)+(h[field]||0);
+    h.elxPct=Elixirs.activePct(h.elx);
+    h.max=Math.round((h.base+(h.stats.health||0))*(h.elx.road?.left>0?1+Elixirs.ROAD_HP:1))+(h.tempMax||0);
+    h.hp=Math.min(h.hp,h.max);
+  }
   function drinkElixir(kind) {
     const h = S.f.left, t = h.elxPlan[kind]; delete h.elxPlan[kind];
     const K = Elixirs.KINDS[kind];
+    const fx=!h.noFx&&Elixirs.effect(kind,t);
+    if(fx?.venom)h.tempVenom=(h.tempVenom||0)+fx.venom;
+    if(fx?.leech){h.tempLeech=(h.tempLeech||0)+fx.leech;h.tempLeechP=(h.tempLeechP||0)+(fx.leechPower||0);}
     if (K.mode === 'instant') {
       h.elxCds[kind] = Elixirs.cdOf(kind);
       if (kind === 'health') h.hp = Math.min(h.max, h.hp + Elixirs.heal(t));
@@ -510,14 +521,14 @@ function Battle(hero, mon, player) {
         for (const m of MAGIC_NAMES) { if (h.counts[m] > h.counts[hi]) hi = m; if (h.counts[m] < h.counts[lo]) lo = m; }
         const n = Elixirs.swapMove(t, h.counts[hi], h.counts[lo]); h.counts[hi] -= n; h.counts[lo] += n;
       } else for (const m of MAGIC_NAMES) h.counts[m] += Elixirs.stonesGain(t);
-      return;
+      recalcElixir(h); return;
     }
     if (kind === 'endure') { h.endure = true; return; }              // 2.0.7: «Стойкость»; «Вкусный корм» в симуляторе без питомца не действует
     if (kind === 'food') return;
     Elixirs.drink(h.elx, kind, t, 0); h.elxUsed[kind] = false;
     if (K.haste) h.haste = true;                                       // 2.0.7: «Тоник скорости» — дополнительный ход
     if (K.road) { const m = Math.round(h.max * Elixirs.ROAD_HP); h.max += m; h.hp += m; }   // «Тоник дороги»: +10% к максимуму ХП
-    h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx)); h.elxPct = Elixirs.activePct(h.elx);
+    recalcElixir(h);
   }
   function elxStep() {
     const h = S.f.left, plan = h.elxPlan;
@@ -542,7 +553,7 @@ function Battle(hero, mon, player) {
     if (!Object.keys(h.elx).length) return;
     Elixirs.tick(h.elx);
     if (!h.elx.fury) h.critExtra = 0;
-    h.stats = Gear.combine(h.stats0, Elixirs.bonusStats(h.elx)); h.elxPct = Elixirs.activePct(h.elx);
+    recalcElixir(h);
   }
   function petBoardAbility(h){
     if(!h.isPet||h.petInt<5||!['regen','steal','howl','drum','weaken','pinch','mire','sap','petrify','veil','breath','prank'].includes(h.ability))return;
@@ -653,7 +664,7 @@ function Battle(hero, mon, player) {
     while (!S.over && S.stats.rounds < maxRounds) {
       if (side === 'left') { heroTurn(); elxEndTurn(); petTurn(); } else { monsterTurn(); S.stats.rounds++; }
       // как в игре (setTurn): при передаче хода гаснут баффы «до конца хода» и Шаровая молния
-      Combat.clearTurnEndBuffs(S.f[side]); S.f[side].magic = false;
+      Combat.clearTurnEndBuffs(S.f[side]); S.f[side].magic = false; S.f[side].stormMult=0; S.f[side].magicFree=false;
       side = other(side);
     }
     if (!S.over) { S.over = true; S.winner = 'draw'; }
@@ -819,13 +830,13 @@ function tacticalUtility(S,h,A,locked) {
       if(filter&&locked&&(locked.includes(m.a)||locked.includes(m.b)))continue;
       if(filter&&(S.veiled.has(m.a)||S.veiled.has(m.b)))continue;
       const tt=t.slice(),vv=v.slice();[tt[m.a],tt[m.b]]=[tt[m.b],tt[m.a]];[vv[m.a],vv[m.b]]=[vv[m.b],vv[m.a]];
-      const r=previewResolve(tt,vv,att,def,magic?B.magic.lightning.mult:1,magic,att===h?active:1);
+      const r=previewResolve(tt,vv,att,def,magic?stormMultiplier(att):1,magic,att===h?active:1);
       let value=att===h?score(r):r.damage;
       if(att===h&&r.extra&&magic){
         const moves=Engine.legalMoves(r.t.slice());
         let next=0;
         for(const a of moves){const t2=r.t.slice(),v2=r.v.slice();[t2[a.a],t2[a.b]]=[t2[a.b],t2[a.a]];[v2[a.a],v2[a.b]]=[v2[a.b],v2[a.a]];
-          next=Math.max(next,previewResolve(t2,v2,h,foe,B.magic.lightning.mult,true).damage/scale);}
+          next=Math.max(next,previewResolve(t2,v2,h,foe,stormMultiplier(h),true).damage/scale);}
         value+=next*.45;
       }
       if(!best||value>best.value)best={...m,value,damage:r.damage,firstDamage:r.firstDamage,extra:r.extra};
@@ -1051,7 +1062,7 @@ function aiPlayer(level) {
   return {
     choose(S, h, canMagic, locked) {
       const v = Combat.aiView(h, S.f.right);
-      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, level, canMagic, { maxMe: v.maxMe, healMult: v.healMult, locked, lightning: h.magic ? B.magic.lightning.mult : 0 });
+      const mv = AI.choose(S.typ.slice(), S.val.slice(), v.hpMe, v.hpOpp, level, canMagic, { maxMe: v.maxMe, healMult: v.healMult, locked, lightning: h.magic ? stormMultiplier(h) : 0 });
       if (!mv) return null;
       return mv.kind === 'move' || mv.kind === 'lightning' ? mv : mv;
     },
@@ -1126,7 +1137,7 @@ function petAsHero(spec, level) {
   h.secondWind=pf.secondWind; h.secondWindFrac=pf.secondWindFrac;
   return { h, intl };
 }
-function petPlayer(intl,only=null){return {choose(S,h,A,locked){const k=Pets.petSpellPlan(h,S.f.right,S.typ,S.val,intl,only);if(k&&A[k])return {kind:k};const v=Combat.aiView(h,S.f.right);return AI.choose(S.typ.slice(),S.val.slice(),v.hpMe,v.hpOpp,intl,{}, {locked,maxMe:v.maxMe,healMult:v.healMult,lightning:h.magic?B.magic.lightning.mult:0});}};}
+function petPlayer(intl,only=null){return {choose(S,h,A,locked){const k=Pets.petSpellPlan(h,S.f.right,S.typ,S.val,intl,only);if(k&&A[k])return {kind:k};const v=Combat.aiView(h,S.f.right);return AI.choose(S.typ.slice(),S.val.slice(),v.hpMe,v.hpOpp,intl,{}, {locked,maxMe:v.maxMe,healMult:v.healMult,lightning:h.magic?stormMultiplier(h):0});}};}
 function duoBattle(hero, monA, plHero, o) {
   const spec = o.duo, { h: pet, intl } = petAsHero(spec, o.level);
   const monB=JSON.parse(JSON.stringify(monA));
