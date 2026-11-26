@@ -270,6 +270,12 @@ const Combat = (() => {
     return base + sap;
   };
 
+  // Правила платных заклинаний области. Бесплатная шашка/приём/удар питомца сохраняют прежнюю механику.
+  const areaSpellRules = (shape, free = false) => ({
+    collect: shape !== 'cross' || free || C_B.magic.cross.collect !== false,
+    cascadeMult: shape === 'square' && !free ? (C_B.magic.square.cascadeMult ?? 1) : 1,
+  });
+
   /* Расходник. Возвращает описание эффекта или null, если использовать нельзя.
      { kind, heal } | { kind, power, turns } | { kind, stones } | { kind } */
   function useConsumable(f, key, types, rand = battleRand) {
@@ -714,7 +720,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, areaSpellRules, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).
