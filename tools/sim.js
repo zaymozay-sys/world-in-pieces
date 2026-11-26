@@ -46,12 +46,13 @@ if (process.env.BAL_OVERRIDE) {
 
 const N = 6, ONYX = 3;
 let CHAOS_DMG = 0;
-let TUNE = null;    // правила для опытов: { delay: {thr, ticks}, decay, lightOnce, burnLoot: { fire, square }, fullSpells, economic, squareCascade, tacticalLightning } (доля возвращённых камней, 0..1)
+let TUNE = null;    // правила для опытов: { delay: {thr, ticks}, decay, lightOnce, burnLoot: { fire, square }, fullSpells, economic, squareCascade, tacticalLightning, utility, freeSpells, exclusiveBuffs } (доля возвращённых камней, 0..1)
 let BOOST = null;   // опыт «всё усиление»: { strike, familyPct, style, daily, streak } — умения и коллекции медалей
 const TYPES = ['sapphire', 'ruby', 'emerald', 'onyx'];
 const MAGIC_T = [0, 1, 2];
 const MAGIC_NAMES = ['sapphire', 'ruby', 'emerald'];
 const B = Balance;
+const simFree = kind => (TUNE?.freeSpells ?? B.magic.freePrep ?? []).includes(kind);
 const other = (s) => (s === 'left' ? 'right' : 'left');
 const ri = (n) => Math.floor(rand() * n);
 
@@ -101,7 +102,7 @@ function Battle(hero, mon, player) {
     typ: new Array(36).fill(-1), val: new Array(36).fill(0),
     f: { left: hero, right: mon }, over: false, winner: null,
     locks: { cols: new Set(), forSide: null }, veiled: new Set(),
-    stats: { bySpell: {}, areaImpact: {}, heroActions: 0, monActions: 0, heroDmg: 0, monDmg: 0, spells: 0, abilities: 0, rounds: 0 },
+    stats: { bySpell: {}, areaImpact: {}, burst: {maxShare:0,halfHits:0,fullHits:0,totalHits:0}, heroActions: 0, monActions: 0, heroDmg: 0, monDmg: 0, spells: 0, abilities: 0, rounds: 0 },
   };
   const fill = () => Engine.fillEmpty(S.typ, S.val, rand, B.board.multiplierChance);
   fill();
@@ -123,6 +124,11 @@ function Battle(hero, mon, player) {
   const afford = (side) => {
     const f = S.f[side], kinds = side === 'left' && TUNE && TUNE.fullSpells ? baseSpells.concat(extraSpells) : baseSpells;
     const A = Object.fromEntries(kinds.map(kind => [kind, (side !== 'left' || !Hero || Hero.isSpellUnlocked(kind, hero.heroLevel)) && canAfford(side, kind)]));
+    if (side === 'left') {
+      for (const kind of kinds) if (simFree(kind) && f.prepUsed?.[kind]) A[kind] = false;
+      if (f.prepUsed?.chaosFailed) A.chaos = false;
+      if ((TUNE?.exclusiveBuffs ?? B.magic.exclusiveBuffs) && (f.tripleNext || f.doubleNext)) A.fury = A.sacrifice = false;
+    }
     if (A.fury) A.fury = Engine.dominantType(S.typ, S.val) === TYPES.indexOf(hero.fac.gem) && !f.doubleNext;
     if (A.mirror) A.mirror = !f.mirrorReady;
     if (A.sacrifice) A.sacrifice = f.hp > 1 && !f.tripleNext;
@@ -149,7 +155,10 @@ function Battle(hero, mon, player) {
       if (r.kind === 'reflect' || r.kind === 'blockreflect') { const fx = fire('ricochet'); if (fx) H.hp = Math.min(H.max, H.hp + Math.max(1, Math.round((H.dmg || 1) * B.damage.stone * fx.v))); }
     }
     if (r.critExtra) H.elxUsed.fury = true;
-    if (r.kind === 'hit') S.stats[side === 'left' ? 'heroDmg' : 'monDmg'] += r.amount;
+    if (r.kind === 'hit') {
+      S.stats[side === 'left' ? 'heroDmg' : 'monDmg'] += r.amount;
+      if(side==='left'&&r.amount>0&&tgt.max>0){const share=r.amount/tgt.max,b=S.stats.burst;b.totalHits++;b.maxShare=Math.max(b.maxShare,share);if(share>=.5)b.halfHits++;if(share>=1)b.fullHits++;}
+    }
     return r;
   };
   const addCharge = (n) => { const h = S.f.left; h.charge = Math.min(B.faction.charge, h.charge + n); };
@@ -289,7 +298,31 @@ function Battle(hero, mon, player) {
     for (let i = 0; i < 36; i++) if (S.typ[i] === 2 && S.val[i] > 1) S.val[i] -= 2;
     return after(side);
   }
-  function chaos(side) {
+  const freeUtility = (side, kind) => side === 'left' && simFree(kind);
+  function chaos(side, idx) {
+    if (side === 'left') {
+      const chosen = Number.isInteger(idx) ? idx : 14;
+      const cells = zoneCells(chosen).filter(i=>S.typ[i]>=0), tiles=cells.map(i=>[S.typ[i],S.val[i]]);
+      if(tiles.length<2)return 0;
+      const place=p=>cells.forEach((i,j)=>{S.typ[i]=p[j][0];S.val[i]=p[j][1];});
+      const value=p=>{place(p);return AI.layoutValue(S.typ,S.val);};
+      let best=tiles.slice(), bestV=value(best), cur=best, curV=bestV;
+      for(let k=0;k<120;k++) {
+        const p=k%3?cur.slice():tiles.slice();
+        if(k%3) {const a=ri(p.length), b=ri(p.length);[p[a],p[b]]=[p[b],p[a]];}
+        else for(let a=p.length-1;a>0;a--){const b=ri(a+1);[p[a],p[b]]=[p[b],p[a]];}
+        const v=value(p);if(v>curV){cur=p;curV=v;}if(v>bestV){best=p;bestV=v;}
+      }
+      if(bestV===-Infinity) for(let k=0;k<200&&bestV===-Infinity;k++){
+        const p=tiles.slice();for(let a=p.length-1;a>0;a--){const b=ri(a+1);[p[a],p[b]]=[p[b],p[a]];}
+        const v=value(p);if(v>bestV){best=p;bestV=v;}
+      }
+      place(best);
+      if(best.every((a,i)=>a[0]===tiles[i][0]&&a[1]===tiles[i][1]))return 0;
+      spend(side,'chaos');
+      if(freeUtility(side,'chaos')){S.f[side].prepUsed.chaos=true;after(side,false);return S.over?1:2;}
+      return after(side);
+    }
     spend(side, 'chaos');
     { const e = S.typ.filter((x) => x < 0).length * (CHAOS_DMG || B.magic.chaos.perEmpty); if (e > 0) hit(side, e); }   // Хаос бьёт за каждую пустую клетку (Balance.magic.chaos.perEmpty)
     const cells = [];
@@ -318,6 +351,7 @@ function Battle(hero, mon, player) {
         if (!cells.length) return 0;
         spend(side, kind);
         for (const j of cells) S.val[j] += 2;
+        if(freeUtility(side,'temper')){f.prepUsed.temper=true;return 2;}
         return after(side);
       }
       spend(side, kind);
@@ -342,7 +376,9 @@ function Battle(hero, mon, player) {
         for (let i = 0; i < 36; i++) if (S.typ[i] === from) S.typ[i] = to;
       }
     }
-    return checkEnd() ? 1 : after(side);
+    if(checkEnd()) return 1;
+    if(freeUtility(side,kind) && (kind==='fury'||kind==='sacrifice'||kind==='mirror')) { f.prepUsed[kind]=true; return 2; }
+    return after(side);
   }
   function prankSwap() {
     const cells = [];
@@ -509,7 +545,7 @@ function Battle(hero, mon, player) {
   }
   function heroTurn() {
     const h = S.f.left;
-    h.turnNo++; for (const k of Object.keys(h.elxCds)) if (h.elxCds[k] > 0) h.elxCds[k]--; tickPend(h); if (checkEnd()) return;
+    h.prepUsed = {}; h.turnNo++; for (const k of Object.keys(h.elxCds)) if (h.elxCds[k] > 0) h.elxCds[k]--; tickPend(h); if (checkEnd()) return;
     for (let guard = 0; guard < 20; guard++) {
       elxStep();
       if (player.items) player.items(S, h, useItem);
@@ -524,14 +560,16 @@ function Battle(hero, mon, player) {
       else if (act.kind === 'square') { S.stats.spells++; res = burn('left', act.idx, 'square'); }
       else if (act.kind === 'transmute') { S.stats.spells++; res = transmute('left', act.idx); }
       else if (act.kind === 'heal') { S.stats.spells++; res = heal('left'); }
-      else if (act.kind === 'chaos') { S.stats.spells++; res = chaos('left'); }
+      else if (act.kind === 'chaos') { res = chaos('left',act.idx); if(res) S.stats.spells++; else {h.prepUsed.chaosFailed=true;res=2;} }
       else if (extraSpells.includes(act.kind) && available[act.kind]) { res = extraSpell('left', act); if (res) S.stats.spells++; else res = 1; }
       else {
         if (act.kind === 'lightning') { S.stats.spells++; h.magic = true; spend('left', 'lightning'); }
         res = doMove('left', act.a, act.b);
       }
-      if (S.locks.forSide === 'left') S.locks = { cols: new Set(), forSide: null };
-      S.veiled.clear();
+      if (!(act && (simFree(act.kind) || (act.kind==='chaos'&&h.prepUsed.chaosFailed)))) {
+        if (S.locks.forSide === 'left') S.locks = { cols: new Set(), forSide: null };
+        S.veiled.clear();
+      }
       if (S.over) return;
       if (res !== 2) break;
     }
@@ -710,6 +748,172 @@ function bestSquare(S) {
 }
 
 // skill: вероятность выбрать лучший ход; top — из скольких лучших выбирает в остальных случаях.
+// Tactical audit policy: score immediate effects and resource cost in the same approximate HP units.
+// It is intentionally opt-in; it is not the live opponent AI.
+const zoneCells = idx => Array.from({length:36},(_,i)=>i).filter(i=>Math.abs(Math.floor(i/6)-Math.floor(idx/6))<=1&&Math.abs(i%6-idx%6)<=1);
+const temperZone = idx => [idx,idx-6,idx+6].concat(idx%6>0?[idx-1]:[],idx%6<5?[idx+1]:[]).filter(i=>i>=0&&i<36);
+function previewHit(h, foe, raw, mult=1) {
+  if(raw<=0) return 0;
+  const d=Combat.mitigate(Math.ceil((raw+Combat.power(h))*mult),Combat.armorOf(foe));
+  return d*(1+Math.min(1,(h.stats.fury||0)/100))*(1-Math.min(.9,(foe.stats.block||0)/100));
+}
+function previewResolve(typ,val,h,foe,mult=1,all=false,firstMult=1) {
+  const t=typ.slice(),v=val.slice(),g=[0,0,0,0];
+  let damage=0,firstDamage=0,extra=false,used=false;
+  for (;;) {
+    const bon=Engine.obsidianBurst(t,Engine.bonusMap(t),ONYX,v);
+    if(!bon) break;
+    let raw=0;
+    for(let i=0;i<36;i++) if(bon[i]) {
+      const n=v[i]*bon[i],type=t[i];
+      if(!(foe.ability==='wisp'&&v[i]<3)) {g[type]+=n;if(all||type===ONYX)raw+=n;if(bon[i]>1)extra=true;}
+      t[i]=-1;v[i]=0;
+    }
+    if(raw>0){const hit=previewHit(h,foe,raw,mult*(used?1:firstMult));damage+=hit;if(!used)firstDamage=hit;used=true;}
+    Engine.gravity(t,v);Engine.shiftRight(t,v);
+  }
+  return {t,v,g,damage,firstDamage,extra};
+}
+function tacticalUtility(S,h,A,locked) {
+  const foe=Combat.enemyTarget(S.f.right),scale=Math.max(1,Combat.power(h)/6);
+  const weights=MAGIC_NAMES.map(t=>h.counts[t]<9?.55:.18);
+  const cost=k=>Combat.spellCost(h,k)*weights.reduce((a,b)=>a+b,0);
+  const active=(h.tripleNext?B.magic.sacrifice.mult:1)*(h.doubleNext?B.magic.fury.mult:1);
+  const free=simFree;
+  const score=r=>r.damage/scale+r.g.slice(0,3).reduce((a,n,i)=>a+n*weights[i],0)+(r.extra?5:0);
+  const options=[], add=(kind,value,damage=0,params={})=>{if(Number.isFinite(value)) options.push({kind,value,damage,...params});};
+  function bestMove(t,v,att=h,def=foe,magic=false,filter=false) {
+    let best=null;
+    for(const m of Engine.legalMoves(t.slice())){
+      if(filter&&locked&&(locked.includes(m.a)||locked.includes(m.b)))continue;
+      if(filter&&(S.veiled.has(m.a)||S.veiled.has(m.b)))continue;
+      const tt=t.slice(),vv=v.slice();[tt[m.a],tt[m.b]]=[tt[m.b],tt[m.a]];[vv[m.a],vv[m.b]]=[vv[m.b],vv[m.a]];
+      const r=previewResolve(tt,vv,att,def,magic?B.magic.lightning.mult:1,magic,att===h?active:1);
+      let value=att===h?score(r):r.damage;
+      if(att===h&&r.extra&&magic){
+        const moves=Engine.legalMoves(r.t.slice());
+        let next=0;
+        for(const a of moves){const t2=r.t.slice(),v2=r.v.slice();[t2[a.a],t2[a.b]]=[t2[a.b],t2[a.a]];[v2[a.a],v2[a.b]]=[v2[a.b],v2[a.a]];
+          next=Math.max(next,previewResolve(t2,v2,h,foe,B.magic.lightning.mult,true).damage/scale);}
+        value+=next*.45;
+      }
+      if(!best||value>best.value)best={...m,value,damage:r.damage,firstDamage:r.firstDamage,extra:r.extra};
+    }
+    return best;
+  }
+  const base=bestMove(S.typ,S.val,h,foe,h.magic,true);
+  if(base)add('move',base.value,base.damage,{a:base.a,b:base.b,firstDamage:base.firstDamage});
+  const baseV=base?.value||0;
+  if(h.magic) return options[0]||null;
+  if(A.strike&&foe.hp<=Combat.strikeDamage(h))return {kind:'strike'};
+  if(A.lightning){const r=bestMove(S.typ,S.val,h,foe,true,true);if(r)add('lightning',r.value-cost('lightning'),r.damage,{a:r.a,b:r.b,firstDamage:r.firstDamage});}
+  for(const kind of ['fire','square']) if(A[kind]) {
+    const rule=kind==='fire'?B.magic.cross:B.magic.square, shape=kind==='fire'?'cross':'square';
+    let best=null;
+    for(let idx=0;idx<36;idx++) {
+      if(S.typ[idx]<0)continue;
+      const t=S.typ.slice(),v=S.val.slice(),g=[0,0,0,0];
+      for(let i=0;i<36;i++) {
+        if(t[i]<0)continue;
+        const dr=Math.abs(Math.floor(i/6)-Math.floor(idx/6)),dc=Math.abs(i%6-idx%6);
+        if(kind==='fire'?(dr>2||dc>2||(dr&&dc)):(dr>1||dc>1))continue;
+        if(!(foe.ability==='wisp'&&v[i]<3))g[t[i]]+=v[i];
+        t[i]=-1;v[i]=0;
+      }
+      Engine.gravity(t,v);Engine.shiftRight(t,v);
+      const r=previewResolve(t,v,h,foe,kind==='square'?Combat.areaSpellRules(shape).cascadeMult:1);
+      const d=previewHit(h,foe,rule.fixed+g[ONYX],rule.mult*active);
+      const share=(TUNE.burnLoot?.[kind]??(Combat.areaSpellRules(shape).collect?1:0));
+      for(let i=0;i<3;i++)r.g[i]+=Math.floor(g[i]*share);
+      r.damage+=d;const value=score(r)-cost(kind);
+      if(!best||value>best.value)best={idx,value,damage:r.damage,firstDamage:d||r.firstDamage};
+    }
+    if(best)add(kind,best.value,best.damage,{idx:best.idx,firstDamage:best.firstDamage});
+  }
+  if(A.heal&&h.hp<h.max*.8){
+    const sum=S.typ.reduce((a,t,i)=>a+(t===2?S.val[i]:0),0),healed=Combat.rainHeal(h,sum);
+    if(healed>0)add('heal',healed/scale*(h.hp<h.max*.35?2.0:h.hp<h.max*.55?1.5:1.0)-cost('heal'));
+  }
+  let mirrorBenefit=0;
+  if(A.mirror&&!h.mirrorReady){
+    const opp=bestMove(S.typ,S.val,S.f.right,h,false,false);
+    const potential=opp?.damage||0;
+    if(potential>h.hp*.12 || h.hp<h.max*.45){
+      mirrorBenefit=potential/scale*1.45-cost('mirror');
+      if(!free('mirror'))add('mirror',mirrorBenefit);
+    }
+  }
+  if(A.strike)add('strike',Combat.strikeDamage(h)/scale-cost('strike'),Combat.strikeDamage(h));
+  if(A.tide){
+    let value=0,damage=0,n=0;
+    for(const from of MAGIC_T.filter(t=>S.typ.includes(t)))for(const to of MAGIC_T.filter(t=>t!==from)){
+      const r=previewResolve(S.typ.map(t=>t===from?to:t),S.val,h,foe,1,false,active);
+      value+=score(r);damage+=r.damage;n++;
+    }
+    if(n)add('tide',value/n-cost('tide'),damage/n);
+  }
+  for(const kind of ['transmute','pierce']) if(A[kind]){
+    let cand=[];
+    for(let idx=0;idx<36;idx++){
+      if(S.typ[idx]<0||(kind==='transmute'&&S.typ[idx]===ONYX))continue;
+      const t=S.typ.slice(),v=S.val.slice(),directType=t[idx],directValue=v[idx];
+      if(kind==='pierce'){t[idx]=-1;v[idx]=0;Engine.gravity(t,v);Engine.shiftRight(t,v);}
+      else for(const j of zoneCells(idx))if(S.typ[j]===directType)t[j]=ONYX;
+      const r=previewResolve(t,v,h,foe,1,false,active);
+      if(kind==='pierce'&&!(foe.ability==='wisp'&&directValue<3))r.g[directType]+=directValue;
+      cand.push({idx,r,value:score(r)-cost(kind)});
+    }
+    cand.sort((a,b)=>b.value-a.value);
+    if(kind==='pierce')for(const x of cand.slice(0,4)){const next=bestMove(x.r.t,x.r.v);x.value+=next?.value||0;}
+    cand=cand.slice(0,kind==='pierce'?4:1).sort((a,b)=>b.value-a.value);
+    if(cand.length)add(kind,cand[0].value,cand[0].r.damage,{idx:cand[0].idx,firstDamage:cand[0].r.firstDamage});
+  }
+  if(A.temper&&base){
+    let best=null;
+    for(let idx=0;idx<36;idx++){
+      if(S.typ[idx]<0)continue;
+      const v=S.val.slice(),cells=temperZone(idx).filter(j=>S.typ[j]>=0&&v[j]<5);
+      if(!cells.length)continue;for(const j of cells)v[j]+=2;
+      const t=S.typ.slice();[t[base.a],t[base.b]]=[t[base.b],t[base.a]];[v[base.a],v[base.b]]=[v[base.b],v[base.a]];
+      const r=previewResolve(t,v,h,foe,1,false,active);
+      const delta=Math.max(0,score(r)-baseV),value=(free('temper')?baseV+delta:delta*.35)-cost('temper');
+      if(!best||value>best.value)best={idx,value,damage:r.damage};
+    }
+    if(best)add('temper',best.value,best.damage,{idx:best.idx});
+  }
+  if(A.chaos&&free('chaos')&&baseV<5){
+    let best=null;
+    for(const idx of [7,8,9,10,13,14,15,16,19,20,21,22,25,26,27,28]){
+      const cells=zoneCells(idx).filter(j=>S.typ[j]>=0),t=S.typ.slice(),v=S.val.slice();
+      if(cells.length<4)continue;
+      for(let k=1;k<=2;k++){cells.forEach((j,i)=>{const source=cells[(i+k)%cells.length];t[j]=S.typ[source];v[j]=S.val[source];});
+        if(Engine.bonusMap(t))continue;
+        const r=bestMove(t,v);
+        const value=(r?.value||0)-cost('chaos');
+        if(!best||value>best.value)best={idx,value};
+      }
+    }
+    if(best)add('chaos',best.value,0,{idx:best.idx});
+  }
+  options.sort((a,b)=>b.value-a.value);
+  const best=options[0];
+  if(!best)return null;
+  if(best.damage>=foe.hp*1.05)return best;
+  if(A.mirror&&free('mirror')&&mirrorBenefit>2)return {kind:'mirror'};
+  // Buffs are valued as incremental damage, not as an attack that has already happened.
+  if(!h.tripleNext&&!h.doubleNext&&best.damage>0&&best.kind!=='strike'&&best.kind!=='heal'){
+    let prep=null;
+    for(const kind of ['sacrifice','fury'])if(A[kind]){
+      const rule=B.magic[kind],loss=kind==='sacrifice'?Math.max(1,Math.round(h.hp*rule.hpPct/100)):0;
+      if(loss>=h.hp||kind==='sacrifice'&&h.hp<h.max*.35)continue;
+      const value=((best.firstDamage??best.damage)*(rule.mult-1)/scale)*(free(kind)?1:.45)-cost(kind)-loss/scale*(h.hp<h.max*.6?2.0:1.4);
+      if(value>(free(kind)?2:best.value+2)&&(!prep||value>prep.value))prep={kind,value};
+    }
+    if(prep)return prep;
+  }
+  return best;
+}
+
 function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false, onlySpells = null } = {}) {
   return {
     choose(S, h, afford, locked) {
@@ -718,6 +922,7 @@ function humanPlayer({ skill = 0.55, top = 4, useMagic = true, items = false, on
       const A = typeof afford === 'boolean' ? { lightning: afford, fire: afford, transmute: afford, heal: afford, chaos: afford } : afford;
       if (onlySpells) for (const kind of Object.keys(A)) if (!onlySpells.includes(kind)) A[kind] = false;
       const canMagic = Object.values(A).some(Boolean);
+      if (useMagic && TUNE?.utility) return tacticalUtility(S,h,A,locked);
       const homeT = TYPES.indexOf(h.fac.gem);
       const pick = (list) => (rand() < skill ? list[0] : list[ri(Math.min(top, list.length))]);
       const normal = heroMoves(S, locked, h.magic, homeT);
@@ -832,7 +1037,7 @@ const PLAYERS = {
 function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
-  const bySpell = {}, areaImpact = {};
+  const bySpell = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
   let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
@@ -859,12 +1064,14 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
       const total = areaImpact[kind] || (areaImpact[kind] = {});
       for (const [key, value] of Object.entries(values)) total[key] = (total[key] || 0) + value;
     }
+    burst.maxShare=Math.max(burst.maxShare,S.stats.burst.maxShare);
+    for(const k of ['halfHits','fullHits','totalHits'])burst[k]+=S.stats.burst[k];
     actions += S.stats.heroActions; rounds += S.stats.rounds; spells += S.stats.spells; abil += S.stats.abilities;
     heroDmg += S.stats.heroDmg; monDmg += S.stats.monDmg; monActs += S.stats.monActions;
   }
   actWin.sort((a, b) => a - b);
   return {
-    bySpell, areaImpact, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
+    bySpell, areaImpact, burst, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
     hpLeft: wins ? hpLeft / wins : 0, heroDmgPerAct: heroDmg / Math.max(1, actions), monDmgPerAct: monDmg / Math.max(1, monActs),
     medianActionsWin: actWin.length ? actWin[Math.floor(actWin.length / 2)] : 0,
   };
