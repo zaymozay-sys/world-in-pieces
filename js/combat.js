@@ -128,6 +128,10 @@ const Combat = (() => {
      как обычно на уже удвоенный урон).
      raw = true — урон без модификаторов (штраф за неверный ход, яд).
      Возвращает { kind: 'hit' | 'block' | 'reflect', amount, charged, crit, pierce, heal, revived, attackerRevived }. */
+  function preparationDamageMult(f) {
+    const m=(f.tripleNext?C_B.magic.sacrifice.mult:1)*(f.doubleNext?C_B.magic.fury.mult:1);
+    return f.tripleNext&&f.doubleNext?Math.min(m,C_B.magic.comboCap??Infinity):m;
+  }
   function hit(attacker, target, amount, raw = false, rand = battleRand, mult = 1) {
     const out = { kind: 'hit', amount: 0, charged: false, crit: false, pierce: false, pierceBlock: false, shred: 0, heal: 0, revived: false, attackerRevived: false };
     if (amount <= 0) return out;
@@ -137,20 +141,10 @@ const Combat = (() => {
       return out;
     }
     amount = Math.ceil((amount + power(attacker)) * mult * (1 + buffPct(attacker) / 100));   // 2.4.8: Боевой настой — % ко всему удару (камни + Сила)   // (камни + Сила) × магия; рост урона — внутри Силы
-    // Жертва: если заклинатель принёс в жертву ХП перед этим сбором, следующий удар усилен ×mult —
-    // одноразово, флаг снимается сразу (см. Combat.applySacrifice).
-    if (attacker.tripleNext) {
-      amount *= C_B.magic.sacrifice.mult;
-      attacker.tripleNext = false;
-      out.sacrificed = true;
-    }
-    // Кулак ярости: следующий удар ×fury.mult (одноразово, см. Combat.applyFury). Если одновременно взведена
-    // Жертва — множители перемножаются (×3 · ×2 = ×6): оба заклинания оплачены, и оба расходуются на этот удар.
-    if (attacker.doubleNext) {
-      amount *= C_B.magic.fury.mult;
-      attacker.doubleNext = false;
-      out.fury = true;
-    }
+    // Подготовительные усиления расходуются на первый обычный удар.
+    amount *= preparationDamageMult(attacker);
+    if (attacker.tripleNext) { attacker.tripleNext=false; out.sacrificed=true; }
+    if (attacker.doubleNext) { attacker.doubleNext=false; out.fury=true; }
     // Зеркало: цель заранее прикрылась Зеркалом (Combat.applyMirror) — следующий удар, который она получает,
     // целиком отражается атакующему вместо того, чтобы применяться к цели. Срабатывает один раз и снимается,
     // даже если удар был бы заблокирован — Зеркало «ловит» удар раньше Блока/Брони.
@@ -275,7 +269,9 @@ const Combat = (() => {
 
   // Цена заклинания kind в камнях каждого вида при Магии бойца (по умолчанию — Шаровая молния, самое частое
   // заклинание). Смола Древеня (см. ability 'sap') на 1 ход добавляет камень, независимо от заклинания.
+  const petSpellCost = (kind) => C_B.petMagic.costs[kind] ?? Infinity;
   const spellCost = (f, kind = 'lightning') => {
+    if (f.isPet) return petSpellCost(kind);
     const base = Math.max(C_B.magic.minCost, C_B.magic.costs[kind]);
     const sap = f.buffs.filter((b) => b.kind === 'sap').reduce((s, b) => s + (b.extra || 0), 0);
     return base + sap;
@@ -731,7 +727,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, hit, freePreparation, preparedSpellAvailable, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, areaSpellRules, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, preparationDamageMult, hit, freePreparation, preparedSpellAvailable, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, petSpellCost, areaSpellRules, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).
