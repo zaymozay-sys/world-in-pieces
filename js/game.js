@@ -121,7 +121,7 @@ const fighters = {
 
 const fEl = (side) => $('fighter-' + side);
 // kind — какое заклинание ('lightning' по умолчанию): у каждого своя цена (Balance.magic.costs).
-const magicCostOf = (side, kind = 'lightning') => (fighters[side].isPet ? ((PET_MAGICS[kind] || {}).cost || 99) : Combat.spellCost(fighters[side], kind));
+const magicCostOf = (side, kind = 'lightning') => Combat.spellCost(fighters[side], kind);
 // 2.3.5: у питомца своя магия (PET_MAGICS) — магия героя ему недоступна, и наоборот.
 const canAffordMagic = (side, kind = 'lightning') => (fighters[side].isPet ? !!PET_MAGICS[kind] : !PET_MAGICS[kind]) && MAGIC_TYPES.every((t) => fighters[side].counts[t] >= magicCostOf(side, kind));
 // Может ли сторона позволить себе хоть одно из пяти заклинаний (для ИИ — решает, стоит ли вообще думать про магию).
@@ -565,11 +565,11 @@ const MAGICS = {
   tide: { name: _t("Прилив"), icon: tideIcon,
     tip: _t("Один случайный цвет на поле, кроме обсидиана, целиком перекрашивается в другой случайный цвет.") },
   sacrifice: { name: _t("Жертва"), icon: sacrificeIcon,
-    tip: _t("Тратит ход и 15% текущего здоровья. Следующий обычный удар наносит тройной урон.") },
+    tip: _t("Тратит ход и 15% текущего здоровья. Следующий обычный удар наносит тройной урон; вместе с Кулаком ярости — ×4.") },
   temper: { name: _t("Закалка"), icon: (typeof furyIcon === 'function' ? furyIcon : strikeIcon),
     tip: _t("Выбранный камень и четыре соседних поднимаются на ступень номинала (×1 → ×3 → ×5). Ход не тратится; один раз за собственный ход.") },
   fury: { name: _t("Кулак ярости"), icon: (typeof furyIcon === 'function' ? furyIcon : strikeIcon),
-    tip: _t("Тратит ход. Следующий обычный удар наносит двойной урон. Требует господства цвета фракции по номиналам.") },
+    tip: _t("Тратит ход. Следующий обычный удар наносит двойной урон; вместе с Жертвой — ×4. Требует господства цвета фракции по номиналам.") },
 };
 
 /* ---------- Магия питомца (2.3.5) ----------
@@ -578,12 +578,12 @@ const MAGICS = {
    сам (petAiSpell), под ручным управлением — кнопки. Рисованные значки — art/spells/pet-<kind>, пока их нет —
    встроенные SVG. */
 const PET_MAGICS = {
-  fang: { name: _t("Клык"), cost: 3, icon: strikeIcon,
+  fang: { name: _t("Клык"), cost: Balance.petMagic.costs.fang, icon: strikeIcon,
     tip: _t("Укус со всей звериной силы: мгновенный урон, как за сбор девяти камней") },
-  lick: { name: _t("Зализать раны"), cost: 4, icon: healIcon,
-    tip: _t("Питомец зализывает раны и восстанавливает треть своего полного здоровья") },
-  claw: { name: _t("Коготь"), cost: 5, icon: fireIcon,
-    tip: _t("Взмах когтя сметает ряд, где больше всего камней: камни уходят в копилку питомца, а обсидианы бьют врага") },
+  lick: { name: _t("Зализать раны"), cost: Balance.petMagic.costs.lick, icon: healIcon,
+    tip: _t("Питомец зализывает раны и восстанавливает 30% максимального здоровья") },
+  claw: { name: _t("Коготь"), cost: Balance.petMagic.costs.claw, icon: fireIcon,
+    tip: _t("Взмах когтя сметает наиболее ценный ряд: камни уходят в копилку питомца, а обсидианы бьют врага") },
 };
 
 // Иконка заклинания или приёма фракции: готовый рисунок из art/spells/ (ключ «spells/<kind>», для приёма —
@@ -3283,11 +3283,11 @@ async function castFire(side, cell, opts = {}) {
   }
   if (collect) {
     // Фиксированный + базовый урон героя + обсидианы; под Шаровой молнией — все собранные камни с её множителем.
-    const B = Balance.magic, fx = (shape === 'square' ? B.square : B.cross).fixed;
+    const B = Balance.magic, damageRule = opts.damageRule || (shape === 'square' ? B.square : B.cross), fx = damageRule.fixed;
     const stones = obs;
     dmg = shape === 'point' ? 0 : fx + stones;   // Выпад: урона нет, ценна позиция
     // (камни + Сила) × множитель заклинания × слабость семейства (1.5.1, шашка) × ливень гасит огонь (1.7.1)
-    spellMul = (shape === 'square' ? B.square : B.cross).mult * mult * Sky.spellMul(selNow(), 'fire');
+    spellMul = damageRule.mult * mult * Sky.spellMul(selNow(), 'fire');
     renderCounters(side, [...gotTypes]);
     if (charge) addCharge(charge, side);
     turnStats.stones += burning.length;
@@ -3681,14 +3681,9 @@ function renderPetMagic() {
   }
 }
 // Клык бьёт как сбор PET_FANG_STONES камней (та же формула удара: камни + Сила, минус броня врага).
-const PET_FANG_STONES = 9;
-const petFangDamage = () => Math.max(1, Math.round(PET_FANG_STONES + Combat.power(fighters.left)));   // оценка для ИИ (без брони)
-// Ряд, где больше всего камней (для Когтя).
-function petBestRow() {
-  let best = -1, n = 0;
-  for (let r = 0; r < N; r++) { const k = grid[r].filter(Boolean).length; if (k > n) { n = k; best = r; } }
-  return { r: best, n };
-}
+const PET_FANG_STONES = Balance.petMagic.fangStones;
+// Общий выбор ряда для игры и симулятора.
+function petBestRow() { return Pets.petBestRow(typOf(),valOf(),fighters.left,fighters.right); }
 async function castPetFang() {
   clearSelection();
   spendMagic('left', -1, 'fang');
@@ -3706,10 +3701,11 @@ async function castPetFang() {
   return afterSpell('left');
 }
 async function castPetLick() {
+  const f = fighters.left;
+  if(f.hp>=f.max)return 0;
   clearSelection();
   spendMagic('left', -1, 'lick');
-  const f = fighters.left;
-  const amount = Math.min(f.max - f.hp, Math.max(1, Math.round(f.max * 0.30)));
+  const amount = Math.min(f.max - f.hp, Math.max(1, Math.round(f.max * Balance.petMagic.lickHp)));
   note(_t("Зализать раны!"));
   SND.heal();
   f.hp += amount;
@@ -3721,9 +3717,9 @@ async function castPetLick() {
 }
 async function castPetClaw() {
   const row = petBestRow();
-  if (row.r < 0) return 1;
+  if (row.r < 0) return 0;
   spendMagic('left', -1, 'claw');
-  return castFire('left', { r: row.r, c: 0 }, { free: true, forceFinish: true, collect: true, shape: 'row', mult: 0.9, name: _t("Коготь") });
+  return castFire('left', { r: row.r, c: 0 }, { free: true, forceFinish: true, collect: true, shape: 'row', damageRule: Balance.petMagic.clawDamage, name: _t("Коготь") });
 }
 const PET_CASTERS = { fang: castPetFang, lick: castPetLick, claw: castPetClaw };
 // Ручное заклинание питомца — как playerInstant, но из PET_MAGICS.
@@ -3736,17 +3732,14 @@ async function castPetSpell(kind) {
   renderMagic();
   invalidStreak = 0;
   const res = await PET_CASTERS[kind]();
+  if(res===0){busy=false;renderMagic();renderCounters('left');startTurnTimer();return;}
   endPlayerAction();
   await afterPlayerSpell(res);
 }
 // Выбор заклинания ИИ питомца: добить Клыком, подлечиться, смести полный ряд Когтем (умный питомец).
 function petAiSpell() {
   if (!PET) return null;
-  const f = fighters.left, foe = fighters.right;
-  if (canAffordMagic('left', 'fang') && foe.hp > 0 && foe.hp <= petFangDamage()) return 'fang';
-  if (canAffordMagic('left', 'lick') && f.hp < f.max * 0.45 && autoLevel >= 15) return 'lick';
-  if (canAffordMagic('left', 'claw') && autoLevel >= 40 && petBestRow().n >= N - 1) return 'claw';
-  return null;
+  return Pets.petSpellPlan(fighters.left,fighters.right,typOf(),valOf(),autoLevel);
 }
 
 // Заклинания без выбора цели (Целебный дождь, Хаос).
