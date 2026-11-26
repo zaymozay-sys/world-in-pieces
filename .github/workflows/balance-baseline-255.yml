@@ -18,6 +18,58 @@ jobs:
         run: |
           mkdir -p balance-results
           node tools/balance.js --n=60 --tiers=1,4,7,10 --species=rat,wolf,bandit,orc,troll,golem,wraith,dragon --workers=2 --seed=255 --json=balance-results/battles.json --out=balance-results/summary.md
+      - name: Compare realistic map encounters, player skill and spell use
+        run: |
+          node <<'NODE' | tee balance-results/realistic-summary.txt
+          const fs = require('fs');
+          const sim = require('./tools/sim.js');
+          const { Hero, Balance } = global;
+          const map = require('./js/hexmap.js');
+          const factions = ['human','dwarf','elf','lizard'];
+          const selection = {1:['rat','wolf','pinestump','forestling'],4:['wolf','bandit','orc','beetle'],7:['orc','troll','golem','wraith'],10:['golem','wraith','dragon','mushroom']};
+          const profiles = [
+            {name:'no-magic',magic:false,skill:.55,share:.8},
+            {name:'full-magic',magic:true,skill:.55,share:.8},
+            {name:'skilled',magic:true,skill:.85,share:.8},
+            {name:'well-equipped',magic:true,skill:.55,share:1},
+            {name:'late-color',magic:true,skill:.55,share:.8,late:true}
+          ];
+          const rows = [];
+          const n = 60;
+          for (const p of profiles) for (const [t,species] of Object.entries(selection)) {
+            const tier = +t;
+            const level = p.late ? (tier === 10 ? Hero.MAX_LEVEL : Hero.itemLevel(tier+1)-1) : Hero.itemLevel(tier);
+            for (const monster of species) {
+              const spawn = map.SPAWN[monster]?.tiers;
+              if (!spawn || tier < spawn[0] || tier > spawn[1]) throw Error('Invalid map encounter: '+monster+' / '+tier);
+              for (const faction of factions) {
+                const r = sim.simulate({monster,tier,level,faction,n,seedBase:255,
+                  gear:()=>sim.typicalGear(level,p.share),
+                  player:()=>sim.humanPlayer({skill:p.skill,top:p.skill>.8?3:4,useMagic:p.magic}),
+                  tune:{fullSpells:true,economic:true,utility:true}});
+                rows.push({profile:p.name,tier,level,monster,faction,n,...r});
+              }
+            }
+          }
+          const pct = v => (100*v).toFixed(1)+'%';
+          const avg = (a,k) => a.reduce((s,r)=>s+r[k],0)/a.length;
+          const total = a => a.reduce((s,r)=>s+r.n,0);
+          console.log('BATTLES '+total(rows));
+          for (const p of profiles) {
+            const a = rows.filter(r=>r.profile===p.name);
+            const casts = {};
+            for (const r of a) for (const [k,v] of Object.entries(r.bySpell)) casts[k]=(casts[k]||0)+v;
+            console.log('PROFILE '+JSON.stringify({name:p.name,battles:total(a),win:pct(avg(a,'win')),actions:avg(a,'actions').toFixed(2),perTier:Object.fromEntries(Object.keys(selection).map(t=>[t,pct(avg(a.filter(r=>r.tier===+t),'win'))])),perFaction:Object.fromEntries(factions.map(f=>[f,pct(avg(a.filter(r=>r.faction===f),'win'))])),casts}));
+          }
+          for (const [t,species] of Object.entries(selection)) for(const monster of species) {
+            const a = rows.filter(r=>r.tier===+t&&r.monster===monster);
+            console.log('ENCOUNTER '+JSON.stringify({tier:+t,monster,...Object.fromEntries(profiles.map(p=>[p.name,pct(avg(a.filter(r=>r.profile===p.name),'win'))]))}));
+          }
+          fs.writeFileSync('balance-results/realistic.json',JSON.stringify(rows,null,1));
+          NODE
+      - name: Spell utility comparison
+        run: |
+          node tools/spell-utility-study.js --n=100 --seed=255 | tee balance-results/spell-utility.jsonl
       - uses: actions/upload-artifact@v4
         with:
           name: combat-balance-baseline-255
