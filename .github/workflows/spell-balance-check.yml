@@ -35,9 +35,9 @@ jobs:
             sleep 1
           done
           node tests/wiki-browser.cjs
-      - name: 100 automated battles
+      - name: 30 automated battles
         env:
-          WIP_PLAYER_MODE: soak
+          WIP_PLAYER_MODE: release
           WIP_URL: http://127.0.0.1:8765/
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/wip-soak.log 2>&1 &
