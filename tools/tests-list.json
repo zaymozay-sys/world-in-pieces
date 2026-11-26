@@ -92,5 +92,6 @@
 "tests/mastermedals207.test.js",
 "tests/moblevels239.test.js",
 "tests/grani.test.js",
-"tests/spell-economy.test.js"
+"tests/spell-economy.test.js",
+"tests/area-spell-path.test.js"
 ]
