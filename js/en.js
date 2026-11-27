@@ -1,6 +1,7 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Ресурс": "Resource",
   "Цвет поиска": "Search tier",
   "Найти источник на карте": "Find source on map",
   "В этой локации подходящих целей не найдено": "No matching targets in this location",
