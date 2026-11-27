@@ -3,7 +3,7 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 
    Соты в осевых координатах (q, r), «остриём вверх». Карта — большой шестиугольник радиуса RADIUS
    с деревней в центре. Местность, дороги и места монстров строятся из зерна (seed),
-   поэтому у каждого игрока своя карта, но она не меняется между запусками.
+   новые герои используют общее зерно; старые сохранения сохраняют свою географию.
 
    Цвет (уровень) монстров растёт с удалением от деревни: у стен Красный, на краю карты Фиолетовый. */
 
@@ -758,6 +758,64 @@ const HexMap = (() => {
     return map;
   }
 
+  // Shared world coordinates for new profiles. Existing saved seeds are intentionally preserved.
+  const WORLD_SEEDS = Object.freeze({ mainland: 256027, island: 256028, castle: 256029, tower: 256030 });
+  const sharedSeed = (kind) => WORLD_SEEDS[kind || 'mainland'];
+
+  // Fill coverage gaps AFTER World.place/decorate, so existing cells, events, spawn IDs and saves remain stable.
+  // Add only new ordinary spawns; never replace a boss, rare monster or existing spawn.
+  function ensureCoverage(map, reserved = []) {
+    if (map.kind && map.kind !== 'island') return [];
+    const B = typeof Bestiary !== 'undefined' ? Bestiary : require('./bestiary.js');
+    const before = map.spawns.length, busy = new Set([...reserved, ...map.spawns.map(s => s.idx)]);
+    for (const b of map.buildings) for (const idx of b.cells || [b.idx]) busy.add(idx);
+    if (map.start != null) busy.add(map.start);
+    const free = () => map.cells.filter(c => map.reachable.has(c.idx) && passable(map,c.idx) && !c.road && !c.building && !c.bridge && !c.ford && !busy.has(c.idx) &&
+      (map.kind === 'island' ? c.d >= 2 && c.d < ISLAND_R-1 : c.d > VILLAGE_R));
+    const regular = () => map.spawns.filter(s => !s.boss && !s.zone && !s.guard && !s.guest && !s.rare);
+    function append(id,tier) {
+      const opts=SPAWN[id], cells=free().filter(c=>map.kind==='island' || tierAt(c.d)===tier);
+      // Prefer space between mobs and terrain typical of the species. Relax spacing only if needed.
+      const score=c=>((opts?.terrain?.[c.terrain] || .25)*100) - neighbors(map,c.idx).filter(i=>busy.has(i)).length*1000 + (hsh(c.idx,map.seed)%100)/100;
+      cells.sort((a,b)=>score(b)-score(a)||a.idx-b.idx);
+      if(!cells.length) return false;
+      const c=cells[0];
+      const sp={id:map.spawns.length,idx:c.idx,species:id,tier,coverage:true};
+      if(map.kind==='island')sp.island=true;
+      map.spawns.push(sp);busy.add(c.idx);return true;
+    }
+    if(map.kind==='island'){
+      for(const id of ISLAND_MOBS)if(!regular().some(s=>s.species===id)){
+        const cells=free();if(!cells.length)break;
+        // Match the original island tier distribution at the selected cell.
+        if(append(id,7)){const sp=map.spawns.at(-1);sp.tier=Math.max(6,Math.min(10,6+Math.floor((ISLAND_R-map.cells[sp.idx].d)/2)));}
+      }
+    }else{
+      const eligible=Object.keys(SPAWN).filter(id=>{const s=SPAWN[id],m=B.MONSTERS[id];return m&&!s.fixed&&!s.rare&&!m.boss&&!m.hidden;});
+      const eligibleAt=t=>eligible.filter(id=>SPAWN[id].tiers[0]<=t&&SPAWN[id].tiers[1]>=t);
+      const drops=id=>B.MONSTERS[id].drops.filter(d=>d[1]>0&&d[2]>0).map(d=>d[0]);
+      const resourceKeys=Object.keys(B.RESOURCES).filter(k=>!B.DEEP_RESOURCES.includes(k));
+      const required=t=>resourceKeys.filter(k=>eligibleAt(t).some(id=>drops(id).includes(k)));
+      const missing=t=>{const have=new Set(regular().filter(s=>s.tier===t).flatMap(s=>drops(s.species)));return required(t).filter(k=>!have.has(k));};
+      // Missing species first; pick a legal tier covering the most currently absent resources.
+      for(const id of eligible)if(!regular().some(s=>s.species===id)){
+        const ts=Array.from({length:10},(_,i)=>i+1).filter(t=>eligibleAt(t).includes(id));
+        ts.sort((a,b)=>missing(b).filter(k=>drops(id).includes(k)).length-missing(a).filter(k=>drops(id).includes(k)).length||a-b);
+        for(const t of ts)if(append(id,t))break;
+      }
+      for(let t=1;t<=10;t++){
+        const pool=eligibleAt(t);
+        for(let k=0;k<resourceKeys.length;k++){
+          const gap=missing(t);if(!gap.length)break;
+          const choices=pool.filter(id=>drops(id).some(r=>gap.includes(r))).sort((a,b)=>drops(b).filter(r=>gap.includes(r)).length-drops(a).filter(r=>gap.includes(r)).length||(a<b?-1:a>b?1:0));
+          if(!choices.length||!append(choices[0],t))break;
+        }
+      }
+    }
+    assignLevels(map);
+    return map.spawns.slice(before);
+  }
+
   function pickSpecies(tier, terrain, road, rand) {
     const pool = [];
     for (const [id, s] of Object.entries(SPAWN)) {
@@ -870,7 +928,7 @@ const HexMap = (() => {
 
   return {
     TOWER_POOL, towerPool, towerDepth, TOWER_SCORP_SPAWN, RADIUS, VILLAGE_R, CASTLE_R, ISLAND_R, TOWER_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
-    key, lvlOf, assignLevels, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
+    sharedSeed, ensureCoverage, key, lvlOf, assignLevels, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
   };
 })();
 

@@ -211,7 +211,15 @@ const Screens = (() => {
     root.addEventListener('click', markBought);
     root.addEventListener('toggle', (e) => { const d = e.target; if (d.classList && d.classList.contains('tgroup')) titleOpen[d.dataset.g] = d.open; if (d.classList && d.classList.contains('res-fold')) st.forgeResOpen = d.open; }, true);
     root.addEventListener('input', onInput);
-    root.addEventListener('change', (e) => { if (cur === 'best' && e.target.dataset && e.target.dataset.bsort !== undefined) { st.best.sort = e.target.value; const lst = root.querySelector('.beast-list'); if (lst) lst.innerHTML = bestTiles(st.best, Profile.species()); } });
+    root.addEventListener('change', (e) => {
+      if (cur !== 'best' || !e.target.dataset) return;
+      const d = e.target.dataset;
+      if (d.bsort !== undefined) st.best.sort = e.target.value;
+      else if (d.btier !== undefined) st.best.findTier = e.target.value;
+      else if (d.bres !== undefined) st.best.findRes = e.target.value;
+      else return;
+      st.best.view = 'list'; render();
+    });
     // 2.0.9: свайп вниз по шапке окна закрывает его (телефон); кнопка «Закрыть» и Esc остаются
     let sw = null;
     root.addEventListener('touchstart', (e) => { const h = e.target.closest && e.target.closest('.modal > header'); sw = h && e.touches.length === 1 ? { y: e.touches[0].clientY, x: e.touches[0].clientX } : null; }, { passive: true });
@@ -1159,6 +1167,8 @@ const Screens = (() => {
     const q = (s.q || '').trim().toLowerCase();
     return bestOrdered(known).filter((id) => {
       const open = known.includes(id), m = Bestiary.MONSTERS[id];
+      if (s.findTier && (!HexMap.SPAWN[id] || Number(s.findTier) < HexMap.SPAWN[id].tiers[0] || Number(s.findTier) > HexMap.SPAWN[id].tiers[1])) return false;
+      if (s.findRes && !m.drops.some(d => d[0] === s.findRes && d[1] > 0 && d[2] > 0)) return false;
       if (s.f === 'open' && !open) return false;
       if (s.f === 'locked' && open) return false;
       if (s.fam && (!open || m.family !== s.fam)) return false;
@@ -1202,6 +1212,9 @@ const Screens = (() => {
       <button type="button" class="fam-item ${s.fam ? '' : 'on'}" role="option" data-bfamval="">${_t("Все семейства")}</button>${fams.map((f) => `<button type="button" class="fam-item ${s.fam === f ? 'on' : ''}" role="option" data-bfamval="${escText(f)}">${escText(f)}</button>`).join('')}</div></div></div>` : '';
     return `<div class="beast-ctl"><input type="search" class="beast-q" data-bq placeholder="${_t("Поиск по имени")}" value="${escText(s.q || '')}" aria-label="${_t("Поиск по имени")}">
       <div class="beast-chips">${chips}</div><button type="button" class="fam-btn" data-bfampick="1" aria-haspopup="listbox">${s.fam ? escText(s.fam) : _t("Все семейства")} <span aria-hidden="true">▾</span></button>${pop}
+      <label class="beast-sort">${_t("Цвет поиска")} <select data-btier="1"><option value="">${_t("Все")}</option>${Array.from({length:10}, (_, i) => `<option value="${i+1}"${Number(s.findTier) === i+1 ? ' selected' : ''}>${i+1}</option>`).join('')}</select></label>
+      <label class="beast-sort">${_t("Ресурс")} <select data-bres="1"><option value="">${_t("Все")}</option>${Object.entries(Bestiary.RESOURCES).map(([k,r]) => `<option value="${k}"${s.findRes === k ? ' selected' : ''}>${escText(r.name)}</option>`).join('')}</select></label>
+      ${s.findRes && !inBattle ? `<button type="button" class="primary" data-bfindres="1">${_t("Найти источник на карте")}</button>` : ''}
       <label class="beast-sort">${_t("Сортировка")} <select data-bsort="1">${BEST_SORTS().map(([k, l]) => `<option value="${k}"${(s.sort || 'order') === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label><small class="hint beast-count">${_t("Открыто {0} из {1}", [known.length, all.length])}</small><div class="beast-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${all.length}" aria-valuenow="${known.length}"><i style="width:${Math.round(100 * known.length / Math.max(1, all.length))}%"></i></div></div>`;
   }
   const bestNav = (s) => _t("<div class=\"beast-nav\"><button type=\"button\" data-bback=\"1\">‹ К списку</button><button type=\"button\" data-bstep=\"-1\" aria-label=\"Предыдущий\">‹</button><button type=\"button\" data-bstep=\"1\" aria-label=\"Следующий\">›</button></div>");
@@ -1235,7 +1248,7 @@ const Screens = (() => {
     },
     click(b) {
       const s = st.best, d = b.dataset;
-      if (d.species) { s.sel = d.species; s.tier = Math.min(s.tier, Profile.maxTier(s.sel)); s.view = 'card'; return render(); }
+      if (d.species) { s.sel = d.species; s.tier = Math.min(Number(s.findTier) || s.tier, Profile.maxTier(s.sel)); s.view = 'card'; return render(); }
       if (d.bfampick !== undefined) { s.famOpen = d.bfampick === '1'; return render(); }
       if (d.bfamval !== undefined) { s.fam = d.bfamval; s.famOpen = false; s.view = 'list'; return render(); }
       if (d.bfilter) { s.f = d.bfilter; s.view = 'list'; return render(); }
@@ -1246,10 +1259,8 @@ const Screens = (() => {
         return render();
       }
       if (d.tier) { s.tier = Number(d.tier); return render(); }
-      if (d.show) {
-        close();
-        MapView.focusSpecies(s.sel);
-      }
+      if (d.bfindres && s.findRes && !MapView.inBattle) { close(); MapView.focusResource(s.findRes, Number(s.findTier) || 0); return; }
+      if (d.show) { close(); MapView.focusSpecies(s.sel, s.tier); return; }
       if (d.tame) { if (Profile.tame(d.tame, s.tier)) render(); return; }
       if (d.repairPet) { Profile.repairPet(); return render(); }
     },

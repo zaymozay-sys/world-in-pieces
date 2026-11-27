@@ -153,13 +153,13 @@ const MapView = (() => {
 
   function load() {
     const d = Profile.data;
-    if (!d.map || typeof d.map.seed !== 'number') d.map = { seed: (Math.random() * 2147483646 + 1) | 0, pos: null, revealed: [], defeated: {}, ver: MAP_VER };
+    if (!d.map || typeof d.map.seed !== 'number') d.map = { seed: HexMap.sharedSeed(), pos: null, revealed: [], defeated: {}, ver: MAP_VER };
     if (!d.seen) d.seen = {};
     // 1.8.6: локации — отдельные карты со своим состоянием (d.loc = 'castle' | …); строятся при входе, при выходе отбрасываются
     if (d.castleOn && !d.loc) d.loc = 'castle';
     const loc = LOCS[d.loc] ? d.loc : null;
     if (!loc) d.loc = null;
-    if (loc && (!d[loc] || typeof d[loc].seed !== 'number')) d[loc] = { seed: (Math.random() * 2147483646 + 1) | 0, pos: null, revealed: [], defeated: {}, ver: MAP_VER };
+    if (loc && (!d[loc] || typeof d[loc].seed !== 'number')) d[loc] = { seed: HexMap.sharedSeed(loc), pos: null, revealed: [], defeated: {}, ver: MAP_VER };
     st = loc ? d[loc] : d.map;
     st.defeated = st.defeated || {};
     // Версия 1.1.10: карта выросла (радиус 20, море, маяк) — номера сот сменились, поэтому старое исследование и
@@ -171,8 +171,9 @@ const MapView = (() => {
     }
     if (loc === 'tower' && !(st.floor >= 1)) st.floor = 1;
     map = loc === 'tower' ? HexMap.generate(st.seed, 'tower', st.floor) : HexMap.generate(st.seed, loc || undefined);
-    spawnAt = new Map(map.spawns.map((sp) => [sp.idx, sp]));
     world = loc ? { lairs: [], events: [], elites: loc === 'tower' ? World.pickElites(map, Dungeon.eliteShare(st.floor), (st.floor || 1) >= Dungeon.MIN_ELITE_LEVEL) : new Map(), landmarks: [] } : World.place(map);
+    HexMap.ensureCoverage(map, [...world.events, ...world.lairs, ...world.landmarks].map(x => x.idx));
+    spawnAt = new Map(map.spawns.map(sp => [sp.idx, sp]));
     evAt = new Map(world.events.map((e) => [e.idx, e]));
     lairAt = new Map(world.lairs.map((l) => [l.idx, l]));
     lmAt = new Map((world.landmarks || []).map((m) => [m.idx, m]));
@@ -2856,21 +2857,30 @@ const MapView = (() => {
     skyTick();
   }
 
-  // Бестиарий: «Показать на карте» — ближайшее открытое живое существо вида.
-  function focusSpecies(species) {
-    const cands = map.spawns.filter((sp) => sp.species === species && known(sp.idx) && alive(sp));
-    if (!cands.length) { toast(_t("Сейчас на открытой части карты таких существ нет")); return false; }
-    cands.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]));
-    centerOn(cands[0].idx);
-    showMonster(cands[0]);
+  // Поиск добычи и существ в текущей локации без раскрытия тумана.
+  function focusMob(species, tier, resource) {
+    if (!map || !st) return false;
+    const candidates = [...map.spawns, ...guestList, ...(rareSp ? [rareSp] : [])].filter(sp =>
+      (!sp.rare && !sp.guest || known(sp.idx)) &&
+      (!species || sp.species === species) && (!tier || sp.tier === tier) &&
+      (!resource || Bestiary.MONSTERS[sp.species].drops.some(d => d[0] === resource && d[1] > 0 && d[2] > 0)));
+    candidates.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
+    const sp = candidates.find(s => known(s.idx) && alive(s)) || candidates.find(s => alive(s)) || candidates.find(s => known(s.idx));
+    if (!sp) { toast(_t("В этой локации подходящих целей не найдено")); return false; }
+    centerOn(sp.idx);
+    if (!known(sp.idx)) { toast(_t("Цель в неисследованной области — подойдите ближе")); return true; }
+    if (!alive(sp)) { toast(_t("Цель побеждена — дождитесь возрождения")); return true; }
+    showMonster(sp);
     return true;
   }
+  const focusSpecies = (species, tier = 0) => focusMob(species, tier, null);
+  const focusResource = (resource, tier = 0) => focusMob(null, tier, resource);
 
   return {
     refreshMonsters() { if (map) renderMonsters(); },
-    init, reset, returnFromBattle, focusSpecies, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
+    init, reset, returnFromBattle, focusSpecies, focusResource, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
-    devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = (Math.random() * 2147483646 + 1) | 0; t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
+    devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = HexMap.sharedSeed('tower'); t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
     devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland, devShowMonster: showMonster, get oakCell() { return oakSpot(); },
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack, fightLord,

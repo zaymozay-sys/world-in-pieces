@@ -1,6 +1,11 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Цвет поиска": "Search tier",
+  "Найти источник на карте": "Find source on map",
+  "В этой локации подходящих целей не найдено": "No matching targets in this location",
+  "Цель в неисследованной области — подойдите ближе": "The target is in unexplored territory — move closer",
+  "Цель побеждена — дождитесь возрождения": "The target has been defeated — wait for respawn",
   "Питомцы разумнее выбирают лечение и атаку; Коготь применяется уже при уме 25.": "Pets choose healing and attacks more intelligently; Claw is used from intellect 25.",
   "Бонусы здоровья питомцев больше не учитываются повторно.": "Pet health bonuses are no longer applied twice.",
   "Снижены цены боевых расходников, варки эликсиров, корма и ремонта; награды и цены экипировки сохранены.": "Reduced prices for battle supplies, elixir brewing, pet food and repairs; rewards and equipment prices are unchanged.",
