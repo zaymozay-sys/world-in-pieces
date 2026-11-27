@@ -3365,6 +3365,8 @@
  "Меню ☰: один шрифт у всех пунктов, подчинённые списки выделены цветной полосой группы.": "Menu ☰: one font for every item, and sub-lists are marked with a colored group bar.",
  "Из меню боя убран пункт «Раскладка боя»: в бою она не переключается.": "The \"Battle layout\" item is gone from the battle menu: the layout cannot be switched mid-battle.",
  "В бою Эликсир силы и Эликсир жизни больше не называются «Боевым настоем» и «Зельем здоровья» — ни на значках, ни в журнале, ни в подсказках и письмах.": "In battle the Strength Elixir and Life Elixir are no longer called \"Battle Brew\" and \"Health Potion\" on icons, in the log, tips and letters.",
+ "Вышло обновление {0}": "Update {0} available",
+ "Обновите страницу, чтобы получить исправления.": "Reload the page to get the fixes.",
  "Вышло обновление {0}. Обновите страницу, чтобы получить исправления.": "Update {0} is out. Reload the page to get the fixes.",
  "Игра сама проверяет, вышла ли новая версия: при возврате в свёрнутую вкладку и раз в 10 минут. Если вышла, внизу появляется плашка «Вышло обновление» с кнопкой «Обновить». Во время боя плашка не показывается и ничего не перезагружается.": "The game now checks for a new version when you return to a minimized tab and every 10 minutes. If one is out, an \"Update available\" banner with a Reload button appears at the bottom. Nothing is shown or reloaded during a battle.",
  "Бой не восстанавливается после перезагрузки, поэтому плашка появится только на карте, а страницу игра сама никогда не перезагружает.": "A battle cannot be restored after a reload, so the banner only appears on the map, and the game never reloads the page by itself.",
