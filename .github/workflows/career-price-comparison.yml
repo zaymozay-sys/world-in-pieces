@@ -1,0 +1,36 @@
+name: Career progression price comparison 2.5.6
+on:
+  push:
+    branches: [qa/progression-256]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  career:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [old, new]
+        faction: [human, dwarf, elf, lizard]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Simulate a complete hero career
+        env:
+          WIP_MAX_BATTLES: 14000
+          WIP_MODES: ${{ matrix.mode }}
+          WIP_FACTIONS: ${{ matrix.faction }}
+          WIP_OUT: balance-career.json
+        run: node tools/qa-career-256.js
+      - name: Summarize checkpoints
+        run: |
+          node -e 'const r=require("./balance-career.json")[0];for(const l of r.levels.filter(x=>[1,10,20,30,40,50,60,70,80,90,99].includes(x.level)))console.log("CHECKPOINT",JSON.stringify(l));console.log("FINAL",JSON.stringify({mode:r.mode,faction:r.faction,level:r.level,battles:r.battles,wins:r.wins,coins:r.coins,maxPoor:r.maxPoor}))'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: career-${{ matrix.mode }}-${{ matrix.faction }}
+          path: balance-career.json
+          if-no-files-found: error
