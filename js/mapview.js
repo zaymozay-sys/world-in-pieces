@@ -1281,12 +1281,6 @@ const MapView = (() => {
       const nb = el['map-card'].querySelector('.mc-body'); if (nb) nb.insertBefore(lp, el['map-card'].querySelector('.mc-act'));
     }
     // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
-    // 1.5.4: быстрый бой — слабое (на 2+ цвета ниже) и уже побеждённое существо
-    const beaten = Profile.data.bestiary && Profile.data.bestiary[sp.species] && Profile.data.bestiary[sp.species].wins > 0;
-    if (World.quickAllowed(sp, Hero.tierFor(Profile.level()), beaten, elite)) {
-      const act = el['map-card'].querySelector('.mc-act');
-      if (act) act.insertAdjacentHTML('afterbegin', `<button type="button" data-act="quick" data-sp="${sp.id}" title="${_t("Победа сразу: половина опыта и монет, ресурсы как обычно, без вещей")}">${_t("Быстрый бой")}</button>`);
-    }
     if (Profile.hasUsablePet()) {
       const act = el['map-card'].querySelector('.mc-act');
       if (act) act.insertAdjacentHTML('beforebegin', `<label class="pet-toggle"><input type="checkbox" id="mc-pet"${Profile.petStay() ? '' : ' checked'}> ${_t("Взять питомца в бой: {0}", [Pets.petDisplayName(Profile.pet().speciesId)])}</label>`);
@@ -1414,22 +1408,6 @@ const MapView = (() => {
   const resultCard = (title, html, extra = '') => {
     el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${title}</b><div class="mc-result">${html}</div>${extra}<div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
   };
-  // Быстрый бой: подходит к существу и сразу побеждает (награда — quickReward в game.js).
-  function quickFight(sp) {
-    closeCard();
-    if (sp.rare) return toast(_t("Редкого зверя быстрым боем не взять: сразитесь с ним сами."), 3500);
-    if (!alive(sp)) return;
-    approach(sp.idx, () => {
-      if (!alive(sp)) return;
-      const html = quickReward(sp.species, sp.tier);
-      st.defeated[sp.id] = Date.now() + (sp.guest ? GUEST_REST_MS : RESPAWN_MS);
-      if (st.swarm) delete st.swarm[sp.id];
-      renderMonsters(); renderHud(); marketNews(); save();
-      if (typeof Sound !== 'undefined' && Sound.win) Sound.win();   // 2.3.9: было SND — имя из js/game.js, здесь его нет, и звук победы в быстром бою не играл
-      resultCard(_t("Быстрый бой: {0} повержен", [Bestiary.MONSTERS[sp.species].name]), html);
-    });
-  }
-
   // Вид существа для цвета tier (как на карте; для засад и логов).
   function speciesFor(tier, rand = Math.random) {
     const pool = Object.entries(HexMap.SPAWN).filter(([id, s]) => !s.fixed && tier >= s.tiers[0] && tier <= s.tiers[1] && Bestiary.MONSTERS[id]).map(([id]) => id);
@@ -2118,9 +2096,14 @@ const MapView = (() => {
     saveWarned = true;
     toast(_t("Браузер не даёт сохранять игру — прогресс пропадёт при закрытии вкладки. Скачать сохранение можно в Ратуше."), 8000);
   }
-  function toast(text, ms) {
+  function toast(text, ms, coins) {
     const t = el['map-toast'];
     t.textContent = text;
+    if (Number.isFinite(coins) && coins > 0) {
+      const money = document.createElement('span');
+      money.innerHTML = MonsterArt.moneyHtml(coins);
+      t.append(document.createTextNode(' '), money);
+    }
     t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3200);
@@ -2300,7 +2283,6 @@ const MapView = (() => {
       if (b.dataset.act === 'hq-claim') { if (Quests.claim('hn-belt')) { Profile.chron('belt', 1); toast(_t("Вы получили Пояс охотника!"), 3500); Profile.save(); } showHunter(); }
       if (b.dataset.act === 'hq-open') { closeCard(); Screens.openBestiary(); }
       if (b.dataset.act === 'attack') attack(spById(b.dataset.sp));
-      if (b.dataset.act === 'quick') quickFight(spById(b.dataset.sp));
       if (b.dataset.act === 'siege') siegeFight(b.dataset.siege, b.dataset.k);
       if (b.dataset.ev) eventAction(b);
       if (b.dataset.lair) lairAction(b);
@@ -2337,7 +2319,7 @@ const MapView = (() => {
   let siegeIv = null, siegeReadyAt = 0;
   const hallLevel = () => Village.lvl(Profile.data.village, 'hall');
   const fmtMs = (ms) => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
-  const lootText = (l) => [l && l.coins > 0 ? MonsterArt.moneyHtml(l.coins) : '', l && l.res ? `${Bestiary.RESOURCES[l.res.kind].name} (${Tiers.get(l.res.tier).name}) ×${l.res.n}` : ''].filter(Boolean).join(' · ');
+  const lootText = (l, html = true) => [l && l.coins > 0 ? (html ? MonsterArt.moneyHtml(l.coins) : Tiers.moneyText(l.coins)) : '', l && l.res ? `${Bestiary.RESOURCES[l.res.kind].name} (${Tiers.get(l.res.tier).name}) ×${l.res.n}` : ''].filter(Boolean).join(' · ');
 
   // Враги на карте: [{ r, looter }]
   function siegeTargets() {
@@ -2498,7 +2480,8 @@ const MapView = (() => {
       if (loot) {
         if (loot.coins > 0) Profile.addCoins(loot.coins);
         if (loot.res) Profile.addRes(loot.res.kind, loot.res.tier, loot.res.n);
-        toast(_t("Добыча возвращена: {0}", [lootText(loot) || _t("ничего")]), 4500);
+        const resources = lootText({ ...loot, coins: 0 }, false);
+        toast(_t("Добыча возвращена: {0}", [resources || (loot.coins > 0 ? "" : _t("ничего"))]), 4500, loot.coins);
       }
       updateSiegeUi();
       return;
@@ -2875,6 +2858,6 @@ const MapView = (() => {
     // для тестов
     get state() { return st; }, get map() { return map; }, known, alive, walkTo, tap, attack, fightLord,
     // 1.5.4
-    startSpecial, withLoot, quickFight, devSiege, devSky, skyRefresh, skyLabel, get guests() { return guestList; }, get siege() { return st && st.siege; }, get world() { return world; }, showEvent, showLair, eliteOf,
+    startSpecial, withLoot, devSiege, devSky, skyRefresh, skyLabel, get guests() { return guestList; }, get siege() { return st && st.siege; }, get world() { return world; }, showEvent, showLair, eliteOf,
   };
 })();
