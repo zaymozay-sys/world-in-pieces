@@ -1,6 +1,9 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Новые герои начинают на общей карте; география старых сохранений не меняется.": "New heroes start on a shared map; existing saves keep their geography.",
+  "На материке гарантированы обычные виды и доступные источники ресурсов каждого цвета; на острове — все пять местных видов.": "The mainland guarantees ordinary species and eligible resource sources for each tier; the island guarantees all five local species.",
+  "Бестиарий позволяет искать по цвету и ресурсу и находить подходящую цель на текущей карте.": "The bestiary supports tier and resource filters and locates matching targets on the current map.",
   "Ресурс": "Resource",
   "Цвет поиска": "Search tier",
   "Найти источник на карте": "Find source on map",

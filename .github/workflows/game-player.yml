@@ -1,37 +1,23 @@
-name: Game player — browser smoke and full journey
+name: Game player — manual battle testing
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "index.html"
-      - "js/**"
-      - "css/**"
-      - "tests/game-player.e2e.js"
-      - "tools/browser.js"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/game-player.yml"
   workflow_dispatch:
     inputs:
       mode:
-        description: "Smoke: 1 battle; full: 10; soak: 100 battles with loot report"
+        description: "Smoke: 1 battle; full: 10; release: 30 battles with loot report"
         type: choice
         required: true
-        default: full
+        default: release
         options:
           - smoke
           - full
-          - soak
-  schedule:
-    - cron: "17 3 * * *"
+          - release
 
 permissions:
   contents: read
 
 concurrency:
-  # Do not cancel a 100-fight marathon when another code change is pushed.
-  group: game-player-${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[test:100]') && 'soak' || 'regular' }}
+  group: game-player-manual
   cancel-in-progress: false
 
 jobs:
@@ -40,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      WIP_PLAYER_MODE: ${{ github.event_name == 'schedule' && 'full' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[test:100]') && 'soak') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[test:10]') && 'full') || (inputs.mode || 'smoke') }}
+      WIP_PLAYER_MODE: ${{ inputs.mode }}
       CI: "true"
     steps:
       - name: Checkout game
