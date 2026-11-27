@@ -1,6 +1,7 @@
 /* Автоматический тестовый игрок: настоящая браузерная игра, изолированные сохранения.
    Не меняет игровые исходники и не использует настоящие профили пользователей.
    npm run test:player (smoke) | WIP_PLAYER_MODE=full npm run test:player
+   WIP_PLAYER_MODE=release npm run test:player (30 battles)
 */
 'use strict';
 const assert = require('node:assert/strict');
@@ -9,8 +10,8 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { launch } = require('../tools/browser.js');
 
-const MODE = ['full', 'soak'].includes(process.env.WIP_PLAYER_MODE) ? process.env.WIP_PLAYER_MODE : 'smoke';
-const BATTLE_COUNT = MODE === 'soak' ? 100 : MODE === 'full' ? 10 : 1;
+const MODE = ['full', 'release', 'soak'].includes(process.env.WIP_PLAYER_MODE) ? process.env.WIP_PLAYER_MODE : 'smoke';
+const BATTLE_COUNT = MODE === 'soak' ? 100 : MODE === 'release' ? 30 : MODE === 'full' ? 10 : 1;
 const URL = process.env.WIP_URL || pathToFileURL(path.join(__dirname, '..', 'index.html')).href;
 const OUTPUT = path.join(__dirname, '..', 'test-results', 'game-player');
 fs.mkdirSync(OUTPUT, { recursive: true });
@@ -220,8 +221,8 @@ async function fight(number) {
   });
   ensure(!!reward.text, 'Есть экран итогов боя ' + number);
   // Для длинного прогона — контрольный скриншот раз в 10 боёв и при каждом поражении.
-  // В отчёте сохраняются все 100 результатов независимо от числа скриншотов.
-  if (MODE !== 'soak' || number === 1 || number % 10 === 0 || /Поражение|Defeat/i.test(reward.text)) {
+  // В отчёте сохраняются все результаты независимо от числа скриншотов.
+  if (!['soak', 'release'].includes(MODE) || number === 1 || number % 10 === 0 || /Поражение|Defeat/i.test(reward.text)) {
     await screenshot('battle-' + number + '-result');
   }
   await page.waitForTimeout(1300);
@@ -329,7 +330,7 @@ function writeReport() {
     await menuChecks('desktop-ru');
     for (let number = 1; number <= BATTLE_COUNT; number++) {
       await fight(number);
-      if (number === 1 || number === BATTLE_COUNT || number === 5 || (MODE === 'soak' && number % 20 === 0)) await checkSave();
+      if (number === 1 || number === BATTLE_COUNT || number === 5 || (['soak', 'release'].includes(MODE) && number % 20 === 0)) await checkSave();
     }
     ensure(report.battles.length === BATTLE_COUNT, 'Все запланированные бои завершены',
       { planned: BATTLE_COUNT, finished: report.battles.length });
