@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict');
-const path = require('node:path');
 const fs = require('node:fs');
 const { launch } = require('../tools/browser');
+const base = process.env.WIP_NOTICE_URL || 'http://127.0.0.1:8765';
+const built = process.env.WIP_NOTICE_DIST === '1';
+const output = 'ui-screenshots/' + (built ? 'dist' : 'source');
 (async () => {
   const b = await launch();
   try {
@@ -11,14 +13,17 @@ const { launch } = require('../tools/browser');
         await ctx.addInitScript(l => localStorage.setItem('wip-lang',l),lang);
         const p = await ctx.newPage();
         const errors=[]; p.on('pageerror',e=>errors.push(e.message));
-        await p.goto('http://127.0.0.1:8765/index.html#dev-map-meadow');
+        await p.goto(base + '/index.html#dev-map-meadow');
         await p.waitForFunction(()=>typeof MapView!=='undefined' && MapView.map && document.body.classList.contains('mode-map'));
-        await p.route('**/js/version.js?t=*',r=>r.fulfill({status:200,body:"const GAME_VERSION = '99.0.0';"}));
+        await p.route(built ? '**/version.json?t=*' : '**/js/version.js?t=*',r=>r.fulfill({status:200,body:built ? JSON.stringify({v:'99.0.0'}) : "const GAME_VERSION = '99.0.0';"}));
         await p.evaluate(()=>Update.check(true));
         await p.locator('.upd-banner').waitFor();
         const bounds=await p.locator('.upd-banner').boundingBox();
         assert(bounds.x>=0 && bounds.y>=0 && bounds.x+bounds.width<=width+1 && bounds.y+bounds.height<=height+1,'banner outside viewport');
         assert(await p.locator('.upd-banner .primary').isVisible());
+        assert((await p.locator('.upd-banner strong').textContent()).includes('99.0.0'));
+        fs.mkdirSync(output,{recursive:true});
+        await p.screenshot({path:output+'/'+lang+'-'+width+'x'+height+'-update.png'});
         await p.locator('.upd-x').click();
         assert.equal(await p.locator('.upd-banner').count(),0);
         await p.evaluate(()=>MapView.toast('Loot',10000,187));
@@ -29,8 +34,7 @@ const { launch } = require('../tools/browser');
         assert.equal(await p.locator('#map-toast img').count(),0);
         assert.equal(await p.locator('#map-toast').textContent(),'<img src=x>');
         await p.evaluate(()=>MapView.toast('Loot',10000,187));
-        fs.mkdirSync('ui-screenshots',{recursive:true});
-        await p.screenshot({path:'ui-screenshots/'+lang+'-'+width+'x'+height+'.png'});
+        await p.screenshot({path:output+'/'+lang+'-'+width+'x'+height+'-loot.png'});
         assert.deepEqual(errors,[]);
         console.log('OK',lang,width,height);
       } finally { await ctx.close(); }
