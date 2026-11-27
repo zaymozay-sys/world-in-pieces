@@ -572,7 +572,10 @@ function Battle(hero, mon, player) {
     if(row&&row.r<0)return 0;
     spend('left',kind);
     if(kind==='fang')hit('left',K.fangStones);
-    else if(kind==='lick')h.hp+=Math.min(h.max-h.hp,Math.max(1,Math.round(h.max*K.lickHp)));
+    else if(kind==='lick'){
+      h.hp+=Math.min(h.max-h.hp,Math.max(1,Math.round(h.max*K.lickHp)));
+      h.petLastHealTurn=h.turnNo||0;
+    }
     else if(kind==='claw'){
       let obs=0;
       for(let i=row.r*6;i<row.r*6+6;i++)if(S.typ[i]>=0){if(!(S.f.right.ability==='wisp'&&S.val[i]<3)){h.counts[TYPES[S.typ[i]]]+=S.val[i];if(S.typ[i]===ONYX)obs+=S.val[i];}S.typ[i]=-1;S.val[i]=0;}
@@ -1123,7 +1126,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
 }
 
 /* ---------- бой вдвоём (Duo в game.js): герой и питомец играют каждый свою доску против своей копии врага ----------
-   Победа боя — если выжил хоть один из двоих и добил оставшегося врага (правило кода); strict — если выжил именно герой.
+   Победа боя — только если герой выжил и оба врага повержены (Duo.evaluate).
    Питомец на своей доске: ХП ×boardHp, урон ×boardDmg, без вещей, играет ИИ с умом duo.int (по умолчанию 50). Выживший добивает
    врага павшего с тем здоровьем, что у того осталось; своё здоровье выживший не восстанавливает. */
 function petAsHero(spec, level) {
@@ -1148,14 +1151,11 @@ function duoBattle(hero, monA, plHero, o) {
   const heroWon = A.winner === 'left', petWon = Bt.winner === 'left';
   const res = (S, win) => { S.winner = win ? 'left' : 'right'; return S; };
   const rev = (f) => { f.buffs = []; f.haste = false; f.magic = false; f.stunned = false; f.charge = 0; };
+  if (!heroWon) return { S: res(A, false), strict: false, kills: 0 };
   if (heroWon && petWon) return { S: res(A, true), strict: true, kills: 2 };
   if (heroWon) {                                    // герой добивает врага питомца
     rev(hero); rev(monB); const C = Battle(hero, monB, plHero).run();
-    return { S: res(A, C.winner === 'left'), strict: C.winner === 'left', kills: C.winner === 'left' ? 2 : 1 };
-  }
-  if (petWon) {                                     // питомец добивает врага героя: по правилу кода это тоже победа боя
-    rev(pet); rev(monA); const C = Battle(pet, monA, petPlayer(intl)).run();
-    return { S: res(A, C.winner === 'left'), strict: false, kills: 1 };
+    return { S: res(A, C.winner === 'left'), strict: C.winner === 'left', kills: C.winner === 'left' ? 2 : 0 };
   }
   return { S: res(A, false), strict: false, kills: 0 };
 }
