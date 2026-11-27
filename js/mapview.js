@@ -2118,9 +2118,14 @@ const MapView = (() => {
     saveWarned = true;
     toast(_t("Браузер не даёт сохранять игру — прогресс пропадёт при закрытии вкладки. Скачать сохранение можно в Ратуше."), 8000);
   }
-  function toast(text, ms) {
+  function toast(text, ms, coins) {
     const t = el['map-toast'];
     t.textContent = text;
+    if (Number.isFinite(coins) && coins > 0) {
+      const money = document.createElement('span');
+      money.innerHTML = MonsterArt.moneyHtml(coins);
+      t.append(document.createTextNode(' '), money);
+    }
     t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3200);
@@ -2498,7 +2503,8 @@ const MapView = (() => {
       if (loot) {
         if (loot.coins > 0) Profile.addCoins(loot.coins);
         if (loot.res) Profile.addRes(loot.res.kind, loot.res.tier, loot.res.n);
-        toast(_t("Добыча возвращена: {0}", [lootText(loot, false) || _t("ничего")]), 4500);
+        const resources = lootText({ ...loot, coins: 0 }, false);
+        toast(_t("Добыча возвращена: {0}", [resources || (loot.coins > 0 ? "" : _t("ничего"))]), 4500, loot.coins);
       }
       updateSiegeUi();
       return;
