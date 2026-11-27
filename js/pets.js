@@ -282,7 +282,8 @@ const Pets = (() => {
      тем раньше он перейдёт на следующий цвет (не выше цвета героя). */
   const NOVICE_INT = 10, NOVICE_HP = 1.9, BOARD_DMG = 1.3;   // 1.5.0: новичок (ум < 10) на своём поле ещё крепче
   const isRare = (pet) => !!pet && !!EGG_BY_SPECIES[pet.speciesId];     // питомец из яйца: зверь-донор сильнее, ИИ врага крепче
-  const boardHp = (pet) => (intellect(pet) < NOVICE_INT ? NOVICE_HP : BOARD_HP) * (isRare(pet) ? 1.35 : 1) * petMul(pet, 'hp');
+  // petFighter already applies petMul(hp); the separate board must not multiply the same bonuses twice.
+  const boardHp = (pet) => (intellect(pet) < NOVICE_INT ? NOVICE_HP : BOARD_HP) * (isRare(pet) ? 1.35 : 1);
   const boardDmg = (pet) => BOARD_DMG * (isRare(pet) ? 1.2 : 1) * petMul(pet, 'hit');
   const BOARD_HP = 1.6;                   // на своём поле питомец крепче: слабому уму нужен запас здоровья
   const INT_XP = 1500, DOPE_BONE = 8;     // ум в бою = ум по опыту + допинг от угощений (до 100)
@@ -370,19 +371,35 @@ const Pets = (() => {
     const B=typeof Balance!=='undefined'?Balance:require('./balance.js'), C=typeof Combat!=='undefined'?Combat:require('./combat.js');
     const K=B.petMagic, target=C.enemyTarget(foe), has=k=>(!allowed||allowed.includes(k))&&['sapphire','ruby','emerald'].every(t=>f.counts[t]>=K.costs[k]);
     const raw=K.fangStones+C.power(f), bite=(K.accurateFang??K.smartAI)?C.mitigate(Math.ceil(raw),C.armorOf(target)):Math.max(1,Math.round(raw));
-    if(has('fang')&&target.hp>0&&target.hp<=bite)return 'fang';
-    if(has('lick')&&f.hp<f.max*.45&&intel>=15)return 'lick';
+    const protectedTarget=target.shield>0||target.mirrorReady;
+    if(has('fang')&&target.hp>0&&target.hp<=bite&&!protectedTarget)return 'fang';
     const row=petBestRow(typ,val,f,foe);
-    if(has('claw')&&intel>=40&&row.n>=5)return 'claw';
-    if(K.smartAI&&has('fang')&&intel>=15){
-      const E=typeof Engine!=='undefined'?Engine:require('./engine.js');
-      let best=0;
-      for(const m of E.legalMoves(typ.slice())){
-        const t=typ.slice(),v=val.slice(),g=[0,0,0,0];[t[m.a],t[m.b]]=[t[m.b],t[m.a]];[v[m.a],v[m.b]]=[v[m.b],v[m.a]];
-        E.resolve(t,v,g,3);const dmg=f.magic?g.reduce((a,b)=>a+b,0)*B.magic.lightning.mult:g[3];best=Math.max(best,dmg+(g.extra?4:0));
-      }
-      if(K.fangStones>=best+4)return 'fang';
+    const canClaw=intel>=25&&has('claw')&&row.n>=5;
+    const canHeal=intel>=15&&has('lick')&&f.hp<f.max*.45;
+    const canBite=intel>=15&&has('fang');
+    if(!canClaw&&!canHeal&&!canBite)return null;
+    const estimate=(a,b,stones,mult=1)=>C.mitigate(Math.ceil((stones+C.power(a))*mult),C.armorOf(b));
+    const claw=canClaw?estimate(f,target,K.clawDamage.fixed+(row.obs||0),K.clawDamage.mult):0;
+    if(canClaw&&claw>=target.hp&&!protectedTarget)return 'claw';
+    const E=typeof Engine!=='undefined'?Engine:require('./engine.js');
+    let best=0,extra=false;
+    for(const m of E.legalMoves(typ.slice())){
+      const t=typ.slice(),v=val.slice(),g=[0,0,0,0];[t[m.a],t[m.b]]=[t[m.b],t[m.a]];[v[m.a],v[m.b]]=[v[m.b],v[m.a]];
+      E.resolve(t,v,g,3);if(g[3]>best){best=g[3];extra=!!g.extra;}else if(g[3]===best&&g.extra)extra=true;
     }
+    const normal=best>0?estimate(f,target,best):0;
+    if(normal>=target.hp&&!protectedTarget)return null;
+    if(canHeal){
+      const heal=Math.min(f.max-f.hp,Math.round(f.max*K.lickHp));
+      const incoming=estimate(foe,f,Math.max(3,best));
+      const urgent=incoming>=f.hp*.85&&f.hp+heal>incoming;
+      const recent=Number.isFinite(f.petLastHealTurn)&&(f.turnNo||0)-f.petLastHealTurn<=2;
+      const offense=Math.max(normal,claw,canBite?bite:0);
+      // Repeated heals are reserved for dangerous positions; manual magic is never restricted.
+      if(urgent||(!recent&&heal>incoming&&offense/Math.max(1,target.hp)<heal/f.max))return 'lick';
+    }
+    if(canClaw&&(!extra||claw>=normal))return 'claw';
+    if(canBite&&!extra&&K.fangStones>=best+4)return 'fang';
     return null;
   }
   return { petBestRow, petSpellPlan, ERRANDS, errandOf, errandReady, sendErrand, errandTick, errandTake, AMULETS, AMULET_IDS, amuletId, amuletPower, amuletValue, amuletSwapCost, setAmulet, EVO_TIERS, EVO_TITLES, EVOS, evoStage, canEvolve, evoCost, evolve, evoTitle, GEAR, GEAR_IDS, gearTier, gearUpCost, gearUp, TRUST_MAX, trustOf, trustName, TALENTS, TALENT_IDS, BRANCH_NAMES, talentRank, talentsSpent, talentPoints, talentUp, talentReset, talentResetCost, saveChance, petMul, addTrust, TRAITS, TRAIT_IDS, rollTraits, traitsOf, traitMul, NAME_MAX, cleanName, setName, petTitle, DRILL_INT, STREAK_BONUS, BOARD_DMG, boardDmg, isRare, boardHp, NOVICE_INT, STUDY_MS, STUDY_XP, STUDY_CAP, READY_INT, ACTS, huntCoins, studyOpen, studyLeft, studyStart, studyCollect, battleReady, BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,

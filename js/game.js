@@ -3072,7 +3072,7 @@ function startPetGame(cfg) {
   cfg.fighter.max = Math.round(cfg.fighter.max * (cfg.hpMult || Pets.BOARD_HP)); cfg.fighter.hp = cfg.fighter.max;
   Object.assign(fighters.left, cfg.fighter, {
     isPet: true, name: cfg.name, speciesId: cfg.speciesId, tier: cfg.tier,
-    gear: Gear.emptyLoadout(), innate: {}, base: cfg.fighter.max, level: cfg.level,
+    gear: Gear.emptyLoadout(), innate: {}, base: cfg.fighter.max, level: cfg.level, petLastHealTurn: null,
     counts: Object.fromEntries(GEM_TYPES.map((t) => [t, 0])), buffs: [], haste: false, magic: false, charge: 0, shield: 0, luck: 0,
   });
   adoptFoe(cfg.foe, true);
@@ -3706,6 +3706,7 @@ async function castPetLick() {
   clearSelection();
   spendMagic('left', -1, 'lick');
   const amount = Math.min(f.max - f.hp, Math.max(1, Math.round(f.max * Balance.petMagic.lickHp)));
+  f.petLastHealTurn = f.turnNo || 0;
   note(_t("Зализать раны!"));
   SND.heal();
   f.hp += amount;
