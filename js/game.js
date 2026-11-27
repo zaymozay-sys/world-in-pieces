@@ -2787,13 +2787,6 @@ function defeat() {
   if (host.coord) finishBoard('loss'); else showOverlay(_t("Поражение"), host.main && (isArena() || isChallenge()) ? specialResult(false) : defeatAdvice());
 }
 
-// 1.5.4: быстрый бой с картой (MapView.quickFight) — награда за слабое, уже побеждённое существо без боя.
-function quickReward(monsterId, tier) {
-  const keep = { luck: fighters.left.luck, shot: shotKilledMonster, strike: strikeKilledMonster };
-  fighters.left.luck = 0; shotKilledMonster = false; strikeKilledMonster = false;
-  try { return rewardFor({ monsterId, tier }, false, { quick: true }); } finally { fighters.left.luck = keep.luck; shotKilledMonster = keep.shot; strikeKilledMonster = keep.strike; }
-}
-
 // 1.5.4: итог боя на Арене теней или в Испытании дня (победа, поражение, отступление — один раз за бой).
 function specialResult(win) {
   if (specialDone) return '';
@@ -4778,7 +4771,6 @@ if (host.main) {
   playerMove: { get: () => playerMove, enumerable: true, configurable: true },
   portraitOf: { get: () => portraitOf, enumerable: true, configurable: true },
   prankSwap: { get: () => prankSwap, enumerable: true, configurable: true },
-  quickReward: { get: () => quickReward, enumerable: true, configurable: true },
   recalcStats: { get: () => recalcStats, enumerable: true, configurable: true },
   refillBoard: { get: () => refillBoard, enumerable: true, configurable: true },
   refreshEnemyGear: { get: () => refreshEnemyGear, enumerable: true, configurable: true },
