@@ -27,4 +27,14 @@ for (const [id, lo, hi] of [['hermit', 2, 6], ['wildbees', 6, 10], ['wisp', 3, 6
 // 1.6.7: у каждого ресурса есть родной источник на каждом цвете (кроме перечисленных исключений — их закрывает рынок)
 const EXC = { scrap: [], crystal: [], scale: [], shell: [], horn: [8, 9, 10], resin: [7, 8, 9, 10], ...Object.fromEntries(Bestiary.DEEP_RESOURCES.map((k) => [k, [1, 2, 3, 4, 5, 6, 7]])) };   // 2.0.7: минералы подземелья — только цвета 8–10   // 2.0.7: рог — цвета 1–7, смола — 1–6 (дальше effective-покрытие ниже порога, в рецепты не берутся)
 for (const k of Object.keys(Bestiary.RESOURCES)) for (let t = 1; t <= 10; t++) if (!(EXC[k] || []).includes(t)) assert.ok(Forge.sourceOf(k, t), `ресурс ${k}: на цвете ${t} нет источника`);
+// 2.5.6: tier 10 needs an ordinary feather source; rare griffin is not a substitute.
+assert.deepStrictEqual(HexMap.SPAWN.eagle.tiers,[5,10]);
+assert.ok(!HexMap.SPAWN.eagle.fixed && !HexMap.SPAWN.eagle.rare && !Bestiary.MONSTERS.eagle.boss);
+assert.ok(Bestiary.MONSTERS.eagle.drops.some(([k,ch,min])=>k==='feather'&&ch>0&&min>0));
+assert.ok(Forge.yieldOf('feather',10)>0);
+assert.ok(Forge.ownList('ricochet',10).includes('feather'));
+for(const k of Bestiary.DEEP_RESOURCES){
+  const ids=Bestiary.ORDER.filter(id=>Bestiary.MONSTERS[id].drops.some(d=>d[0]===k)&&HexMap.SPAWN[id]);
+  assert.ok(ids.some(id=>HexMap.SPAWN[id].tower),'deep resource remains available in tower: '+k);
+}
 console.log('forge166: все тесты пройдены (' + n + ' рецептов)');

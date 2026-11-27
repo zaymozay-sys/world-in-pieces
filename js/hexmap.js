@@ -161,7 +161,7 @@ const HexMap = (() => {
     heron: { tiers: [2, 6],  terrain: { swamp: 3, beach: 2 } },
     elk: { tiers: [4, 7],  terrain: { forest: 3, meadow: 2 } },
     goat: { tiers: [4, 8],  terrain: { hills: 4 } },
-    eagle: { tiers: [5, 9],  terrain: { hills: 3, meadow: 1 } },
+    eagle: { tiers: [5, 10], terrain: { hills: 3, meadow: 1 } },
     rhino: { tiers: [5, 9],  terrain: { meadow: 3, hills: 2 } },
     leopard: { tiers: [6, 10], terrain: { hills: 3, forest: 1 } },
     leech: { tiers: [3, 7],  terrain: { swamp: 4 } },
