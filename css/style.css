@@ -5161,3 +5161,13 @@ body.mode-map .map-toast { box-sizing: border-box; width: max-content; max-width
 body.phone .overlay .rw-more-btn { min-height: 44px; margin: 12px auto 0; max-width: 100%; }
 body.phone .overlay .to-map { position: static; margin: 16px auto 12px; max-width: 100%; }
 body.phone .overlay .rw-block, body.phone .overlay .rw-line { box-sizing: border-box; max-width: 100%; overflow-wrap: anywhere; }
+
+/* Compact landscape battle: account for all four control rows and gaps. */
+@media (orientation: landscape) {
+  body.ui-columns.phone.mode-battle { --sb: clamp(28px, min(calc((100vw - 42px - var(--A)) / 8), calc((var(--A) - 20px - 98px - 5 * var(--g) - 20px) / 4)), 64px); }
+  body.ui-columns.phone.mode-battle .fighter.left, body.ui-columns.phone.mode-battle .fighter.right { align-content: start; }
+  body.ui-columns.phone.mode-battle .fighter .avatar { align-self: start; }
+}
+@media (orientation: portrait) {
+  body.ui-columns.phone.mode-battle .bagbar button.bagitem { min-width: 38px; min-height: 38px; }
+}
