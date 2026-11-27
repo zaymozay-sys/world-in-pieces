@@ -1,0 +1,101 @@
+name: Release 2.5.6 candidate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-256.yml'
+permissions:
+  contents: read
+concurrency:
+  group: release-256
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npx playwright install --with-deps chromium
+      - name: Regression suite
+        run: npm test
+      - name: Two-client PvP (preparation and area spells)
+        env:
+          FORCE: temper,mirror,square,fire
+        run: node tools/live-e2e.js 1
+      - name: Two-client PvP (ordinary tactical play)
+        run: node tools/live-e2e.js 1
+      - name: Browser checks
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/wip-server.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/wiki-browser.cjs
+      - name: 30 automated battles
+        env:
+          WIP_PLAYER_MODE: release
+          WIP_URL: http://127.0.0.1:8765/
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/wip-soak.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:player
+      - run: python3 tools/dist.py
+      - name: Package browser build
+        run: |
+          test "$(node -p "require('./package.json').version")" = "2.5.6"
+          test -f dist/index.html
+          cd dist
+          zip -qr ../world-in-pieces-2.5.6.zip .
+          cd ..
+          unzip -tq world-in-pieces-2.5.6.zip
+          sha256sum world-in-pieces-2.5.6.zip > world-in-pieces-2.5.6.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-256-build
+          path: |
+            world-in-pieces-2.5.6.zip
+            world-in-pieces-2.5.6.zip.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-256-evidence
+          path: test-results/
+          if-no-files-found: warn
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-256-build
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test -s world-in-pieces-2.5.6.zip
+          sha256sum -c world-in-pieces-2.5.6.zip.sha256
+          if gh release view v2.5.6 >/dev/null 2>&1; then
+            echo 'v2.5.6 release already exists; refusing duplicate publication'
+            exit 1
+          fi
+          if gh api "repos/$GH_REPO/git/ref/tags/v2.5.6" >/dev/null 2>&1; then
+            echo 'v2.5.6 tag already exists; refusing to reuse it'
+            exit 1
+          fi
+          gh release create v2.5.6 world-in-pieces-2.5.6.zip world-in-pieces-2.5.6.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "World in Pieces 2.5.6" --notes "Test release: tactical pet AI and corrected HP scaling, affordable battle supplies and repairs, improved tier-10 feather availability. Regression, two-client PvP, browser checks and 30 automated battles passed. Temporary testing switches remain enabled."
