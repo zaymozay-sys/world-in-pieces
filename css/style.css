@@ -5145,3 +5145,10 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 /* Small context-sensitive encyclopedia shortcut in supported game windows. */
 .modal header .wiki-context-help{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;border:1px solid #d3a85a;border-radius:50%;background:radial-gradient(circle at 35% 25%,#80592d,#352219 76%);color:#ffe6ac;font:bold 22px Georgia,serif;box-shadow:inset 0 0 0 2px #e2b96335;cursor:pointer}
 .modal header .wiki-context-help:hover,.modal header .wiki-context-help:focus-visible{border-color:#ffe09a;outline-offset:2px}
+
+/* Responsive update notice and bounded map messages. */
+.upd-banner { box-sizing: border-box; width: min(420px, calc(100% - 24px)); max-width: none; display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; padding: 14px; border-radius: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.upd-banner > span { grid-column: 1; grid-row: 1; min-width: 0; overflow-wrap: anywhere; }
+.upd-banner > .primary { grid-column: 1 / -1; grid-row: 2; width: 100%; min-height: 44px; }
+.upd-banner > .upd-x { grid-column: 2; grid-row: 1; align-self: start; min-height: 44px; }
+body.mode-map .map-toast { box-sizing: border-box; width: max-content; max-width: min(420px, calc(100% - 32px)); max-height: 30vh; overflow: auto; overflow-wrap: anywhere; }
