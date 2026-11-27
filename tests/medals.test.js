@@ -57,6 +57,20 @@ for (const id of Bestiary.ORDER) {
 }
 // суммарный бонус растёт с числом медалей и складывается по характеристикам (combine-совместим)
 const one = Medals.bonusStats([{ id: 'kill:rat', tier: 1 }]);
+// Каждый объявленный бонус должен существовать в боевых характеристиках.
+{
+  const supported = new Set(Object.keys(Gear.blankStats()));
+  const bonuses = [
+    ...Object.values(Medals.GROUPS).map(x=>x.bonus),
+    ...Object.values(Medals.WORLD).map(x=>x.bonus),
+    ...Object.values(Medals.STYLE).map(x=>x.bonus),
+    ...Object.values(Medals.SECRET).map(x=>x.bonus),
+    ...Object.values(Medals.ELIXIR_BONUS),
+    ...Object.values(Medals.MASTER).flatMap(x=>[x.group,...x.ms.map((_,i)=>x.bonus(i))])
+  ];
+  for (const bonus of bonuses) for(const key of Object.keys(bonus)) assert.ok(supported.has(key), 'неработающая награда: '+key);
+  assert.strictEqual(Medals.bonusStats([{ id: Medals.worldMedalId('altars') },{ id: Medals.elixirMedalId('stones') }]).cunning,4);
+}
 const two = Medals.bonusStats([{ id: 'kill:rat', tier: 1 }, { id: 'kill:wolf', tier: 1 }]);
 const totalOne = Object.values(one).reduce((a, b) => a + b, 0);
 const totalTwo = Object.values(two).reduce((a, b) => a + b, 0);

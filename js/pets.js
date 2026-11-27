@@ -227,6 +227,18 @@ const Pets = (() => {
 
   // Урон автоатаки питомца (до модификаторов Combat.hit) — доля его собственного максимума ХП; сытый (корм) — сильнее.
   const petAttackAmount = (petF) => Math.max(1, Math.round(petF.max * PET_HIT_SHARE * (petF.fedBonus || 1) * (petF.hitMul || 1)));
+  // На втором поле сытость тоже усиливает урон. Сильнейшее угощение заменяет
+  // предыдущее, а не умножается на него при каждом кормлении.
+  const boardDamage = (base, boardMult, fedBonus = 1) => (base || 1) * boardMult * Math.max(1, fedBonus);
+  function applyFood(fighter, mult) {
+    if (!fighter || fighter.hp <= 0 || fighter.foodMult) return false;
+    const previous = Math.max(1, fighter.fedBonus || 1), next = Math.max(previous, mult);
+    if (next <= previous) return false;
+    fighter.foodMult = mult;
+    fighter.fedBonus = next;
+    if (fighter.isPet) fighter.dmg = (fighter.dmg || 1) * next / previous;
+    return true;
+  }
 
   /* ---------- Питомник (1.3.0): платный уход за питомцем ----------
      Цены растут с цветом питомца (Tiers.PRICE_MULT), как всё остальное в игре. */
@@ -403,7 +415,7 @@ const Pets = (() => {
     if(canBite&&!extra&&K.fangStones>=best+4)return 'fang';
     return null;
   }
-  return { petBestRow, petSpellPlan, ERRANDS, errandOf, errandReady, sendErrand, errandTick, errandTake, AMULETS, AMULET_IDS, amuletId, amuletPower, amuletValue, amuletSwapCost, setAmulet, EVO_TIERS, EVO_TITLES, EVOS, evoStage, canEvolve, evoCost, evolve, evoTitle, GEAR, GEAR_IDS, gearTier, gearUpCost, gearUp, TRUST_MAX, trustOf, trustName, TALENTS, TALENT_IDS, BRANCH_NAMES, talentRank, talentsSpent, talentPoints, talentUp, talentReset, talentResetCost, saveChance, petMul, addTrust, TRAITS, TRAIT_IDS, rollTraits, traitsOf, traitMul, NAME_MAX, cleanName, setName, petTitle, DRILL_INT, STREAK_BONUS, BOARD_DMG, boardDmg, isRare, boardHp, NOVICE_INT, STUDY_MS, STUDY_XP, STUDY_CAP, READY_INT, ACTS, huntCoins, studyOpen, studyLeft, studyStart, studyCollect, battleReady, BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount,
+  return { petBestRow, petSpellPlan, ERRANDS, errandOf, errandReady, sendErrand, errandTick, errandTake, AMULETS, AMULET_IDS, amuletId, amuletPower, amuletValue, amuletSwapCost, setAmulet, EVO_TIERS, EVO_TITLES, EVOS, evoStage, canEvolve, evoCost, evolve, evoTitle, GEAR, GEAR_IDS, gearTier, gearUpCost, gearUp, TRUST_MAX, trustOf, trustName, TALENTS, TALENT_IDS, BRANCH_NAMES, talentRank, talentsSpent, talentPoints, talentUp, talentReset, talentResetCost, saveChance, petMul, addTrust, TRAITS, TRAIT_IDS, rollTraits, traitsOf, traitMul, NAME_MAX, cleanName, setName, petTitle, DRILL_INT, STREAK_BONUS, BOARD_DMG, boardDmg, isRare, boardHp, NOVICE_INT, STUDY_MS, STUDY_XP, STUDY_CAP, READY_INT, ACTS, huntCoins, studyOpen, studyLeft, studyStart, studyCollect, battleReady, BOARD_HP, intellect, dopedIntellect, DOPE_BONE, tierXp, xpGain, addXp, INT_XP, HOME, EGGS, EGG_DROP, HATCH_BATTLES, homeFor, eggFrom, donorOf, hatchCost, TREATS, TREAT_ORDER, treatCost, treatLeft, giveTreat, useTreats, TAMEABLE_FAMILY, TAME_WINS, MAX_DURABILITY, PET_HIT_SHARE, FEED_BATTLES, FEED_BONUS, isTameableSpecies, tameProgress, canTame, petDisplayName, makePet, isUsable, loseDurability, repair, petFighter, petAttackAmount, boardDamage, applyFood,
     repairCost, feedCost, trainCost, feed, train, useFeed };
 })();
 

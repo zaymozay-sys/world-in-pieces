@@ -14,6 +14,23 @@ const fighter = (o = {}) => ({ hp: 100, max: 100, dmg: 1, stats: stats(o.stats),
   counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: null, charged: false, revived: false, turnNo: 0, ...o, stats: stats(o.stats) });
 const never = () => 0.999;   // шансы (блок/рикошет/крит) не срабатывают
 
+// Сытость усиливает второе поле, корм не складывается с предыдущим и не лечит.
+{
+  const p={isPet:true,hp:100,max:150,dmg:Pets.boardDamage(10,1.2,1.1),fedBonus:1.1};
+  assert.ok(Math.abs(p.dmg-13.2)<1e-9);
+  assert.ok(Pets.applyFood(p,1.25));
+  assert.ok(Math.abs(p.dmg-15)<1e-9);
+  assert.strictEqual(p.hp,100);
+  assert.strictEqual(Pets.applyFood(p,1.25),false);
+  assert.ok(Math.abs(p.dmg-15)<1e-9);
+  const solo={hp:100,max:100,dmg:10,fedBonus:1.1};
+  assert.ok(Pets.applyFood(solo,1.25));
+  assert.strictEqual(solo.dmg,10,'автоатака отдельно учитывает fedBonus');
+  assert.strictEqual(solo.fedBonus,1.25);
+  assert.strictEqual(Pets.applyFood({hp:100,dmg:10,fedBonus:1.25},1.15),false,'более слабый корм не расходуется');
+  assert.strictEqual(Pets.applyFood({hp:0},1.25),false);
+}
+
 // --- Приручаемость по семействам ---
 // Звери (крыса, волк, кабан) — приручаемы после нужного числа побед.
 assert.ok(Pets.isTameableSpecies('rat'));

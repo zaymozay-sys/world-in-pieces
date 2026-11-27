@@ -1540,6 +1540,14 @@ function elxSwapPlan(f) {
   for (const t of MAGIC_TYPES) { const n = f.counts[t] || 0; if (!hi || n > hi.n) hi = { t, n }; if (!lo || n < lo.n) lo = { t, n }; }
   return hi && lo && hi.n - lo.n >= 2 ? { from: hi.t, to: lo.t, have: hi.n, low: lo.n } : null;     // 1.8.0: разница меньше 2 — переносить нечего
 }
+function foodTarget() {
+  if (pet && pet.hp > 0) return pet;
+  if (!PET && typeof Duo !== 'undefined' && Duo.on() && Duo.pet && !Duo.state?.done && !Duo.state?.result.pet) {
+    const companion = Duo.pet.fighters.left;
+    if (companion.hp > 0) return companion;
+  }
+  return null;
+}
 function elxWhy(kind, tier) {                              // причина, по которой выпить нельзя ('' — можно)
   const f = fighters.left, K = Elixirs.KINDS[kind];
   if (!host.main || PET || isChallenge()) return _t("Здесь эликсиры не пьют");
@@ -1553,7 +1561,7 @@ function elxWhy(kind, tier) {                              // причина, п
     return '';
   }
   if (kind === 'endure') return f.endure ? _t("Этот вид уже действует") : '';
-  if (kind === 'food') { if (!pet) return _t("Рядом нет питомца"); return pet.foodMult ? _t("Этот вид уже действует") : ''; }
+  if (kind === 'food') { const p = foodTarget(); if (!p) return _t("Рядом нет питомца"); return p.foodMult || (p.fedBonus || 1) >= Elixirs.FOOD_MULT(tier) ? _t("Этот вид уже действует") : ''; }
   const cur = f.elx && f.elx[kind];
   if (cur && cur.left > 0 && (cur.tier > tier || (K.mode === 'turn' && cur.tier >= tier))) return _t("Этот вид уже действует");
   return '';
@@ -1594,7 +1602,7 @@ function useElixir(kind, tier) {
     showFloat('left', K.name, 'buff');
     logEvent('left', _t("{0}: {1} — {2}", [f.name, K.name, Elixirs.describe(kind, tier)]));
   } else if (kind === 'food') {
-    pet.foodMult = Elixirs.FOOD_MULT(tier); pet.fedBonus = Math.max(pet.fedBonus || 1, pet.foodMult); SND.lightning();
+    Pets.applyFood(foodTarget(), Elixirs.FOOD_MULT(tier)); SND.lightning();
     logEvent('left', _t("{0}: {1} — {2}", [f.name, K.name, Elixirs.describe(kind, tier)]));
   } else {
     Elixirs.drink(f.elx, kind, tier, elxExtra());
@@ -3068,7 +3076,7 @@ function startPetGame(cfg) {
   rewarded = true;
   clearLocks();
   veiled.clear();
-  cfg.fighter.dmg = (cfg.fighter.dmg || 1) * (cfg.dmgMult || Pets.BOARD_DMG);
+  cfg.fighter.dmg = Pets.boardDamage(cfg.fighter.dmg, cfg.dmgMult || Pets.BOARD_DMG, cfg.fighter.fedBonus);
   cfg.fighter.max = Math.round(cfg.fighter.max * (cfg.hpMult || Pets.BOARD_HP)); cfg.fighter.hp = cfg.fighter.max;
   Object.assign(fighters.left, cfg.fighter, {
     isPet: true, name: cfg.name, speciesId: cfg.speciesId, tier: cfg.tier,
