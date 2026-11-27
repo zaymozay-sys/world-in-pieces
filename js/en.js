@@ -1,6 +1,7 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Все восемь минералов гарантированно добываются на этажах 3 (цвет 8), 7 (цвет 9) и 8 (цвет 10).": "All eight minerals have guaranteed sources on floors 3 (tier 8), 7 (tier 9), and 8 (tier 10).",
   "Новые герои начинают на общей карте; география старых сохранений не меняется.": "New heroes start on a shared map; existing saves keep their geography.",
   "На материке гарантированы обычные виды и доступные источники ресурсов каждого цвета; на острове — все пять местных видов.": "The mainland guarantees ordinary species and eligible resource sources for each tier; the island guarantees all five local species.",
   "Бестиарий позволяет искать по цвету и ресурсу и находить подходящую цель на текущей карте.": "The bestiary supports tier and resource filters and locates matching targets on the current map.",

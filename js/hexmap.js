@@ -765,16 +765,20 @@ const HexMap = (() => {
   // Fill coverage gaps AFTER World.place/decorate, so existing cells, events, spawn IDs and saves remain stable.
   // Add only new ordinary spawns; never replace a boss, rare monster or existing spawn.
   function ensureCoverage(map, reserved = []) {
-    if (map.kind && map.kind !== 'island') return [];
+    if (map.kind && !['island', 'tower'].includes(map.kind)) return [];
+    // Гарантированные залежи каждого из восьми минералов во всех трёх
+    // глубинных цветах. Остальные этажи сохраняют прежний случайный набор.
+    const mineralTier = map.kind === 'tower' ? ({3:8,7:9,8:10})[map.floor] : 0;
+    if (map.kind === 'tower' && !mineralTier) return [];
     const B = typeof Bestiary !== 'undefined' ? Bestiary : require('./bestiary.js');
     const before = map.spawns.length, busy = new Set([...reserved, ...map.spawns.map(s => s.idx)]);
     for (const b of map.buildings) for (const idx of b.cells || [b.idx]) busy.add(idx);
     if (map.start != null) busy.add(map.start);
     const free = () => map.cells.filter(c => map.reachable.has(c.idx) && passable(map,c.idx) && !c.road && !c.building && !c.bridge && !c.ford && !busy.has(c.idx) &&
-      (map.kind === 'island' ? c.d >= 2 && c.d < ISLAND_R-1 : c.d > VILLAGE_R));
+      (map.kind === 'tower' ? dist(c, map.cells[map.start]) >= 2 : map.kind === 'island' ? c.d >= 2 && c.d < ISLAND_R-1 : c.d > VILLAGE_R));
     const regular = () => map.spawns.filter(s => !s.boss && !s.zone && !s.guard && !s.guest && !s.rare);
     function append(id,tier) {
-      const opts=SPAWN[id], cells=free().filter(c=>map.kind==='island' || tierAt(c.d)===tier);
+      const opts=SPAWN[id], cells=free().filter(c=>map.kind==='island' || map.kind==='tower' || tierAt(c.d)===tier);
       // Prefer space between mobs and terrain typical of the species. Relax spacing only if needed.
       const score=c=>((opts?.terrain?.[c.terrain] || .25)*100) - neighbors(map,c.idx).filter(i=>busy.has(i)).length*1000 + (hsh(c.idx,map.seed)%100)/100;
       cells.sort((a,b)=>score(b)-score(a)||a.idx-b.idx);
@@ -782,9 +786,18 @@ const HexMap = (() => {
       const c=cells[0];
       const sp={id:map.spawns.length,idx:c.idx,species:id,tier,coverage:true};
       if(map.kind==='island')sp.island=true;
+      if(map.kind==='tower'){sp.tower=true;sp.depth=towerDepth(map.floor);}
       map.spawns.push(sp);busy.add(c.idx);return true;
     }
-    if(map.kind==='island'){
+    if(map.kind==='tower'){
+      const pool=TOWER_POOL.map(e=>e[0]);
+      for(const kind of B.DEEP_RESOURCES){
+        const has=id=>B.MONSTERS[id].drops.some(d=>d[0]===kind&&d[1]>0&&d[2]>0);
+        if(regular().some(s=>s.tier===mineralTier&&has(s.species)))continue;
+        const id=pool.find(has);
+        if(id)append(id,mineralTier);
+      }
+    }else if(map.kind==='island'){
       for(const id of ISLAND_MOBS)if(!regular().some(s=>s.species===id)){
         const cells=free();if(!cells.length)break;
         // Match the original island tier distribution at the selected cell.

@@ -2864,7 +2864,10 @@ const MapView = (() => {
       (!resource || Bestiary.MONSTERS[sp.species].drops.some(d => d[0] === resource && d[1] > 0 && d[2] > 0)));
     candidates.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
     const sp = candidates.find(s => known(s.idx) && alive(s)) || candidates.find(s => alive(s)) || candidates.find(s => known(s.idx));
-    if (!sp) { toast(_t("В этой локации подходящих целей не найдено")); return false; }
+    if (!sp) {
+      toast(resource && Bestiary.DEEP_RESOURCES.includes(resource) ? _t("Все восемь минералов гарантированно добываются на этажах 3 (цвет 8), 7 (цвет 9) и 8 (цвет 10).") : _t("В этой локации подходящих целей не найдено"));
+      return false;
+    }
     centerOn(sp.idx);
     if (!known(sp.idx)) { toast(_t("Цель в неисследованной области — подойдите ближе")); return true; }
     if (!alive(sp)) { toast(_t("Цель побеждена — дождитесь возрождения")); return true; }
