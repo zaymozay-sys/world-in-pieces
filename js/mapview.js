@@ -107,10 +107,8 @@ const MapView = (() => {
   const tierOfCell = (i) => HexMap.tierAt(map.cells[i].d);
   const fac = () => Factions.get(Profile.data.faction) || Factions.get('dwarf');
   const myKind = () => Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender);
-  // Характеристики героя: снаряжение + бонусы фракции.
-  const myStats = () => Gear.combine(Gear.combine(Gear.statsFor(Profile.gear(), Profile.level()), Factions.statsAt(Profile.data.faction || 'dwarf', Hero.tierFloat(Profile.level()))), Runes.bonusForGear(Profile.gear()));
-  // Герой для оценки опасности: ХП, урон, характеристики.
-  const myView = () => { const L = Profile.level(), st = myStats(), t = (typeof testMult === 'function') ? testMult() : 1; return { max: (Hero.baseHp(L) + st.health) * t, dmg: Hero.dmgMult(L) * t, stats: st }; };   // t — тестовый режим ×10
+  // Герой для оценки опасности: те же постоянные характеристики, что в карточке героя.
+  const myView = () => Profile.battlePreview();
 
   /* ---------- запуск и сохранение ---------- */
   /* 2.3.9: рисунки карты (<defs>) обновляются точечно. Раньше весь блок заменялся целиком трижды за запуск, и каждый раз

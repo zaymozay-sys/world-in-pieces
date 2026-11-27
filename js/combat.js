@@ -636,6 +636,12 @@ const Combat = (() => {
     hpMe: hpUnits(me, opp), hpOpp: hpUnits(opp, me), maxMe: hpUnits(me, opp, me.max),
     healMult: (me.dmg || 1) / Math.max(0.01, powerEst(opp) * armorFactor(opp, me)),
   });
+  // Единая оценка постоянных характеристик героя, включая потолки тестового множителя.
+  // Расходники, активные благословения и питомец зависят от выбранной тактики боя.
+  function heroPreview(base, dmg, stats, mult = 1) {
+    const scaled = mult === 1 ? C_G.combine(stats, {}) : C_G.combine(Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, v * mult])), {});
+    return { max: base * mult + scaled.health, dmg: dmg * mult, stats: scaled };
+  }
   /* Оценка шанса победы «среднего» игрока: hero = { max, dmg, stats }, mon = { max, dmg, stats, ai }, species — вид.
      Модель и её числа — Balance.danger (обучена на симуляторе). */
   function winChance(hero, mon, species) {
@@ -727,7 +733,7 @@ const Combat = (() => {
     return { skips: n, defeated: n >= TURN_TIMER.skipLimit };
   }
 
-  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, preparationDamageMult, hit, freePreparation, preparedSpellAvailable, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, petSpellCost, areaSpellRules, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
+  return { levelPower, basePower, armorOf, armorAt, armorUnit, mitigate, buffPower, buffStat, power, loseHp, preparationDamageMult, hit, freePreparation, preparedSpellAvailable, applyMirror, applySacrifice, applyFury, strikeDamage, firstMoveChance, spellCost, petSpellCost, areaSpellRules, useConsumable, enemyBag, enemyItemPlan, finishAction, clearTurnEndBuffs, monsterTurnStart, startStones, costSpec, stoneCost, stoneTotal, canPay, paidMode, effectTurns, wantGems, intelBonus, nextMove, cunningSteal, venomTick, addVenomLayer, tickPoison, VENOM_LAYERS, rainHeal, invalidPenalty, hpUnits, aiView, heroPreview, winChance, dangerBand, chance, continueMagic, TURN_TIMER, registerSkip, turnOrder, addSpores, cloneAlive, cloneReady, makeClone, cloneAttackAmount, enemyTarget, enemyDefeated };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

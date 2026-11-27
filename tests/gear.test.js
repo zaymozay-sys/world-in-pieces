@@ -41,6 +41,31 @@ const prog = Gear.setProgress(a).find((p) => p.id === 'guard');
 assert.strictEqual(prog.count, 2);
 assert.strictEqual(prog.active.length, 1);
 
+// Проверяем достижимость каждого бонуса через реальные ограничения ячеек, включая оружие.
+for (const [id, set] of Object.entries(Gear.SETS)) {
+  const entries = Gear.ITEMS.filter(i => i.set === id).map(i => Gear.makeEntry(i.id, 10));
+  let best = Gear.emptyLoadout();
+  function visit(i, gear) {
+    if (i === entries.length) {
+      if (Gear.equipped(gear).length > Gear.equipped(best).length) best = gear;
+      return;
+    }
+    visit(i + 1, gear);
+    for (const slot of Gear.SLOTS) if (!gear[slot] && Gear.canEquip(gear, entries[i], slot, set.faction, 100).ok) {
+      visit(i + 1, Gear.equip(gear, entries[i], slot));
+    }
+  }
+  visit(0, Gear.emptyLoadout());
+  const count = Gear.equipped(best).length, progress = Gear.setProgress(best)[0];
+  assert.strictEqual(Gear.setMaxPieces(id), count, id + ': максимальное число вещей');
+  assert.strictEqual(progress.total, count, id + ': счётчик комплекта');
+  assert.strictEqual(progress.next.length, 0, id + ': недостижимый бонус');
+}
+assert.strictEqual(Gear.setMaxPieces('sea'), 8);
+assert.strictEqual(Gear.setMaxPieces('rune'), 8);
+assert.strictEqual(Gear.setMaxPieces('grove'), 8);
+assert.strictEqual(Gear.setMaxPieces('wanderer'), 7);
+
 // защита ограничена
 let d = Gear.emptyLoadout();
 for (const [slot, id] of [['off', 'guard-shield'], ['head', 'guard-head'], ['chest', 'guard-chest'], ['arms', 'guard-arms'], ['legs', 'guard-legs']]) d = Gear.equip(d, id, slot);

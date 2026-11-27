@@ -28,6 +28,8 @@ global.Bestiary = require(J('bestiary.js'));
 global.Factions = require(J('factions.js'));
 global.Combat = require(J('combat.js'));
 global.Elixirs = require(J('elixirs.js'));
+global.Stones = require(J('stones.js'));
+const Runes = require(J('runes.js'));
 const Pets = require(J('pets.js'));
 global.Medals = require(J('medals.js'));
 let Hero = null;
@@ -64,13 +66,14 @@ function makeHero(o) {
   const gear = o.gear || Gear.emptyLoadout();
   const facStats = o.faction === 'none' ? {} : Factions.statsAt(o.faction, Hero ? Hero.tierFloat(o.level || 1) : 1);
   let stats = Gear.combine(Gear.statsFor(gear,o.level||1), facStats);
+  stats = Gear.combine(stats, Runes.bonusForGear(gear));
   if (o.extra) stats = Gear.combine(stats, o.extra);   // руны, огранка, медали и прочие усиления сверх вещей
   // 1.6.0: эликсиры { вид: цвет } — по одному каждого вида в сумке; героя «пьёт» их по правилам игры (см. elxStep в Battle)
   const elx = o.elixirs || {};
   const base = o.baseHp != null ? o.baseHp : (Hero ? Hero.baseHp(o.level || 1) : 100);
   const max = base + stats.health;
   const dmg = o.dmg != null ? o.dmg : (Hero ? Hero.dmgMult(o.level || 1) : 1);
-  return { side: 'left', heroLevel: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, weaponPerk: Gear.weaponPerk(gear), base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
+  return { side: 'left', heroLevel: o.level || 1, level: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, weaponPerk: Gear.weaponPerk(gear), base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, charge: 0, ability: null, bag: o.bag ? { ...o.bag } : {},
     stats0: stats, elx: {}, elxUsed: {}, elxPlan: { ...elx }, elxCds: {}, turnNo: 0, noFx: o.elxFx === false, critExtra: 0 };
 }
@@ -88,7 +91,7 @@ function makeMonster(id, tier, o = {}) {
   const stats = Gear.combine(Gear.stats(gear), sc.stats);
   const max = Math.round((sc.hp + stats.health) * (o.elite ? 1.25 : 1));
   const level = o.aiLevel || sc.ai;
-  const mon = { side: 'right', name: m.name, id, tier, gear, stats, weaponPerk: Gear.weaponPerk(gear), base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
+  const mon = { side: 'right', name: m.name, id, monsterId: id, tier, gear, stats, weaponPerk: Gear.weaponPerk(gear), base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: m.ability, level, bag: Combat.enemyBag(level), stoneMode: process.env.MOBSTONES !== '0', mobTypes: ['sapphire', 'ruby', 'emerald'],
     turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null, ward: 0, stunned: false, affixes };
   Combat.startStones(mon);

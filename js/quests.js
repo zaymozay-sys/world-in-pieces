@@ -12,9 +12,10 @@ const Q_H = (typeof Hero !== 'undefined') ? Hero : require('./hero.js');
 const Quests = (() => {
   const bestiaryCount = (d) => Object.keys(d.bestiary || {}).length;
   const resourceSum = (d) => Object.values(d.resources || {}).reduce((s, n) => s + n, 0);
-  const resourceKinds = (d) => new Set(Object.keys(d.resources || {}).map((k) => k.split(':')[0])).size;
-  const chestsOpened = (d) => (d.chestOpened ? 1 : 0) + Object.keys(d.xchests || {}).filter((k) => k !== 'obsidian' && d.xchests[k]).length;
+  const resourceKinds = (d) => new Set(Object.entries(d.resources || {}).filter(([, n]) => n > 0).map(([k]) => k.split(':')[0])).size;
+  const chestsOpened = (d) => (d.chestOpened ? 1 : 0) + ['ruby', 'emerald'].filter(k => d.xchests && d.xchests[k]).length;
   const seenCount = (d) => Object.keys(d.seen || {}).length;
+  const encounteredCount = (d) => new Set([...Object.keys(d.seen || {}), ...Object.keys(d.bestiary || {})]).size;
   const itemCount = (d) => (d.items || []).length;
   const levelOf = (d) => Q_H.levelOf(d.xp || 0).level;
 
@@ -169,13 +170,13 @@ const Quests = (() => {
     { id: 'bob-1', giver: 'library', lesson: 'l1', title: _t("Бобёр: первые шаги"), desc: _t("Для начала покажи, что умеешь держать оружие: победи двух существ. Взамен научу собирать четвёрку."),
       need: (d) => d.wins || 0, goal: 2, reward: { coins: 50 }, rewardText: _t("50 медных монет и урок «Прямая четвёрка»") },
     { id: 'bob-2', giver: 'library', lesson: 'l2', title: _t("Бобёр: знакомство со зверьём"), desc: _t("Встреть четыре разных вида существ — записи в Бестиарии растут сами. Тогда научу собирать четвёрку в два хода."),
-      need: afterQ('bob-1', bestiaryCount), goal: 4, reward: { coins: 80 }, rewardText: _t("80 медных монет и урок «Две тройки подряд»") },
+      need: afterQ('bob-1', encounteredCount), goal: 4, reward: { coins: 80 }, rewardText: _t("80 медных монет и урок «Две тройки подряд»") },
     { id: 'bob-3', giver: 'library', lesson: 'l3', title: _t("Бобёр: опыт"), desc: _t("Дорасти до 5 уровня. Тогда покажу, как каскад сам складывает четвёрку."),
       need: afterQ('bob-2', levelOf), goal: 5, reward: { coins: 120 }, rewardText: _t("120 медных монет и урок «Каскад»") },
     { id: 'bob-4', giver: 'library', lesson: 'l4', title: _t("Бобёр: закалка"), desc: _t("Выиграй 15 боёв. Следом научу готовить каскад заранее."),
       need: afterQ('bob-3', (d) => d.wins || 0), goal: 15, reward: { coins: 180 }, rewardText: _t("180 медных монет и урок «Тройка, затем каскад»") },
     { id: 'bob-5', giver: 'library', lesson: 'l5', title: _t("Бобёр: мастерство"), desc: _t("Встреть двенадцать видов существ. Последний урок — самый хитрый: четвёрка за три хода."),
-      need: afterQ('bob-4', bestiaryCount), goal: 12, reward: { coins: 300 }, rewardText: _t("300 медных монет и урок «Цепочка из трёх ходов»") }
+      need: afterQ('bob-4', encounteredCount), goal: 12, reward: { coins: 300 }, rewardText: _t("300 медных монет и урок «Цепочка из трёх ходов»") }
   );
 
   // Список заданий с текущим прогрессом. data — Profile.data (или похожий объект в тестах).
