@@ -679,3 +679,38 @@ body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter .name 
 
 /* 2.4.6: у левой панели значок «i» — в левом верхнем углу (справа от портрета там счётчики камней, значок налезал на первый из них) */
 body.bt-gold.ui-columns:not(.phone) .fighter.left .fi-btn { right: auto; left: 12px; }
+
+/* Landscape: size the actual golden dock, not the legacy --sb grid. */
+@media (orientation: landscape) {
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .arena {
+    min-height: 0; box-sizing: border-box;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) {
+    box-sizing: border-box; min-height: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter:is(.left,.right) {
+    align-self: stretch; min-height: 0; align-content: start;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .fighter .avatar {
+    align-self: start;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .bar {
+    position: static; min-height: 0; align-self: end; z-index: 6;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .bar .btns {
+    grid-template-columns: repeat(4,minmax(0,1fr)); grid-auto-rows: minmax(0,1fr);
+    height: calc(40px * var(--u, 1));
+  }
+  body.no-hint.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .bar .btns {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .bar .btns > button {
+    height: 100%; min-height: 0;
+  }
+  body.bt-gold.ui-columns.phone.mode-battle .game:not(.duo-hidden) .tools > .tool-col:has(> :is(#spellbar,#pet-spellbar)) {
+    max-height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  }
+}
