@@ -5171,3 +5171,6 @@ body.phone .overlay .rw-block, body.phone .overlay .rw-line { box-sizing: border
 @media (orientation: portrait) {
   body.ui-columns.phone.mode-battle .bagbar button.bagitem { min-width: 38px; min-height: 38px; }
 }
+
+/* Do not offer a reload while a battle is active. Restore the same notice on return. */
+body.mode-battle > .upd-banner { display: none; }
