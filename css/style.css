@@ -5152,3 +5152,7 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 .upd-banner > .primary { grid-column: 1 / -1; grid-row: 2; width: 100%; min-height: 44px; }
 .upd-banner > .upd-x { grid-column: 2; grid-row: 1; align-self: start; min-height: 44px; }
 body.mode-map .map-toast { box-sizing: border-box; width: max-content; max-width: min(420px, calc(100% - 32px)); max-height: 30vh; overflow: auto; overflow-wrap: anywhere; }
+
+.upd-banner strong, .upd-banner small { display: block; }
+.upd-banner strong { font-size: 1.1em; color: #f5dfa7; }
+.upd-banner small { margin-top: 5px; font-size: .95em; color: #d8c6a5; }
