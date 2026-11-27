@@ -94,7 +94,7 @@ const Medals = (() => {
   /* 1.7.5: «Алхимик» — по медали за первый выпитый эликсир каждого из девяти видов (в бою). Бонус — по духу эликсира, небольшой;
      комплект из всех девяти даёт умение «Мастер зелий» (эликсиры сильнее на 20%) и реликвию «Флакон алхимика». */
   const ELIXIR_ORDER = ['power', 'defense', 'block', 'ricochet', 'fury', 'cunning', 'health', 'stones', 'swap'];
-  const ELIXIR_BONUS = { power: { power: 1 }, defense: { defense: 1 }, block: { block: 1 }, ricochet: { ricochet: 1 }, fury: { fury: 1 }, cunning: { cunning: 1 }, health: { health: 4 }, stones: { magic: 1 }, swap: { initiative: 1 } };
+  const ELIXIR_BONUS = { power: { power: 1 }, defense: { defense: 1 }, block: { block: 1 }, ricochet: { ricochet: 1 }, fury: { fury: 1 }, cunning: { cunning: 1 }, health: { health: 4 }, stones: { cunning: 1 }, swap: { initiative: 1 } };
   const elixirMedalId = (k) => 'elixir:' + k;
   const elixirKey = (id) => (id.startsWith('elixir:') ? id.slice(7) : null);
   // Медаль за выпитый эликсир вида kind: id, если положена и ещё не получена, иначе null.
@@ -237,7 +237,7 @@ const Medals = (() => {
     visit:  { name: _t("Свой в посёлке"),   desc: _t("побывать в 12 разных зданиях"),            bonus: { health: 10 },  test: (w) => Object.keys(w.visited || {}).length >= 12 },
     chests: { name: _t("Хранитель ключей"), desc: _t("открыть все четыре сундука побережья"),    bonus: { power: P(3) },    test: (w, d) => !!(d && d.chestOpened && d.xchests && d.xchests.ruby && d.xchests.emerald && d.xchests.obsidian) },
     caches: { name: _t("Кладоискатель"),    desc: _t("найти 10 тайников"),                       bonus: { defense: 3 },  test: (w) => (w.caches || 0) >= 10 },
-    altars: { name: _t("Благословлённый"),  desc: _t("получить благословение у 5 древних алтарей"), bonus: { magic: 3 }, test: (w) => (w.altars || 0) >= 5 },
+    altars: { name: _t("Благословлённый"),  desc: _t("получить благословение у 5 древних алтарей"), bonus: { cunning: 3 }, test: (w) => (w.altars || 0) >= 5 },
   };
   const WORLD_ORDER = ['visit', 'chests', 'caches', 'altars'];
   const worldMedalId = (k) => 'world:' + k;

@@ -35,6 +35,7 @@ jobs:
             sleep 1
           done
           node tests/wiki-browser.cjs
+          node tests/prepared-browser.cjs
       - run: python3 tools/dist.py
       - uses: actions/upload-artifact@v4
         if: always()

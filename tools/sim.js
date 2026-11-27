@@ -30,6 +30,8 @@ global.Combat = require(J('combat.js'));
 global.Elixirs = require(J('elixirs.js'));
 global.Stones = require(J('stones.js'));
 const Runes = require(J('runes.js'));
+const Ammo = require(J('ammo.js'));
+const World = require(J('world.js'));
 const Pets = require(J('pets.js'));
 global.Medals = require(J('medals.js'));
 let Hero = null;
@@ -71,11 +73,12 @@ function makeHero(o) {
   // 1.6.0: эликсиры { вид: цвет } — по одному каждого вида в сумке; героя «пьёт» их по правилам игры (см. elxStep в Battle)
   const elx = o.elixirs || {};
   const base = o.baseHp != null ? o.baseHp : (Hero ? Hero.baseHp(o.level || 1) : 100);
-  const max = base + stats.health;
-  const dmg = o.dmg != null ? o.dmg : (Hero ? Hero.dmgMult(o.level || 1) : 1);
+  const bless = World.BLESSINGS[o.bless] ? o.bless : null;
+  const max = bless === 'stone' ? Math.round((base + stats.health) * (1 + World.BLESSINGS.stone.amount / 100)) : base + stats.health;
+  const dmg = (o.dmg != null ? o.dmg : (Hero ? Hero.dmgMult(o.level || 1) : 1)) * (bless === 'might' ? 1 + World.BLESSINGS.might.amount / 100 : 1);
   return { side: 'left', heroLevel: o.level || 1, level: o.level || 1, name: fac.hero, faction: o.faction, fac, gear, stats, weaponPerk: Gear.weaponPerk(gear), base, max, hp: max, dmg, buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, charge: 0, ability: null, bag: o.bag ? { ...o.bag } : {},
-    stats0: stats, elx: {}, elxUsed: {}, elxPlan: { ...elx }, elxCds: {}, turnNo: 0, noFx: o.elxFx === false, critExtra: 0 };
+    stats0: stats, elx: {}, elxUsed: {}, elxPlan: { ...elx }, elxCds: {}, elxExtra: Math.max(0, o.elxExtra || 0), bless, ammo: { ...o.ammo }, turnNo: 0, noFx: o.elxFx === false, critExtra: 0 };
 }
 function makeMonster(id, tier, o = {}) {
   const m = Bestiary.MONSTERS[id];
@@ -106,7 +109,7 @@ function Battle(hero, mon, player) {
     typ: new Array(36).fill(-1), val: new Array(36).fill(0),
     f: { left: hero, right: mon }, over: false, winner: null,
     locks: { cols: new Set(), forSide: null }, veiled: new Set(),
-    stats: { bySpell: {}, areaImpact: {}, burst: {maxShare:0,halfHits:0,fullHits:0,totalHits:0}, heroActions: 0, monActions: 0, heroDmg: 0, monDmg: 0, spells: 0, abilities: 0, rounds: 0 },
+    stats: { bySpell: {}, ammoUsed: {}, areaImpact: {}, burst: {maxShare:0,halfHits:0,fullHits:0,totalHits:0}, heroActions: 0, monActions: 0, heroDmg: 0, monDmg: 0, spells: 0, abilities: 0, rounds: 0 },
   };
   const fill = () => Engine.fillEmpty(S.typ, S.val, rand, B.board.multiplierChance);
   fill();
@@ -404,9 +407,12 @@ function Battle(hero, mon, player) {
   };
   const useItem = (side, kind) => {
     const f = S.f[side];
+    const base = Gear.parseCons(kind).base, used = f.itemsUsed || (f.itemsUsed = {});
+    if (used[base]) return false;
     if (!(f.bag[kind] > 0)) return false;
     if (!Combat.useConsumable(f, kind, MAGIC_NAMES)) return false;
     f.bag[kind]--;
+    used[base] = true;
     return true;
   };
 
@@ -414,7 +420,7 @@ function Battle(hero, mon, player) {
   const tickPend = (f) => { if (f.pend > 0 && f.pendN > 0) { const d = Math.ceil(f.pend / f.pendN); f.pendN--; f.pend -= d; f.hp -= d; if (f.pendN <= 0) f.pend = 0; } };
   function monsterTurn() {
     const f = S.f.right, h = S.f.left;
-    f.turnNo++; tickPend(f); if (checkEnd()) return;
+    f.itemsUsed = {}; f.turnNo++; tickPend(f); if (checkEnd()) return;
     if (f.poison && f.poison.turns > 0) {
       const dmg=Combat.tickPoison(f.poison);
       Combat.hit(h, f, dmg, true, rand);
@@ -507,30 +513,33 @@ function Battle(hero, mon, player) {
     h.stats=Gear.combine(h.stats0,Elixirs.bonusStats(h.elx));
     for(const [key,field] of [['venom','tempVenom'],['leech','tempLeech'],['leechPower','tempLeechP'],['defense','tempDef']]) h.stats[key]=(h.stats[key]||0)+(h[field]||0);
     h.elxPct=Elixirs.activePct(h.elx);
-    h.max=Math.round((h.base+(h.stats.health||0))*(h.elx.road?.left>0?1+Elixirs.ROAD_HP:1))+(h.tempMax||0);
+    const base = h.base+(h.stats.health||0);
+    const blessed = h.bless==='stone' ? Math.round(base*(1+World.BLESSINGS.stone.amount/100)) : base;
+    h.max=Math.round(blessed*(h.elx.road?.left>0?1+Elixirs.ROAD_HP:1))+(h.tempMax||0);
     h.hp=Math.min(h.hp,h.max);
   }
   function drinkElixir(kind) {
     const h = S.f.left, t = h.elxPlan[kind]; delete h.elxPlan[kind];
     const K = Elixirs.KINDS[kind];
+    const mult = 1 + .05 * h.elxExtra;
     const fx=!h.noFx&&Elixirs.effect(kind,t);
     if(fx?.venom)h.tempVenom=(h.tempVenom||0)+fx.venom;
     if(fx?.leech){h.tempLeech=(h.tempLeech||0)+fx.leech;h.tempLeechP=(h.tempLeechP||0)+(fx.leechPower||0);}
     if (K.mode === 'instant') {
       h.elxCds[kind] = Elixirs.cdOf(kind);
-      if (kind === 'health') h.hp = Math.min(h.max, h.hp + Elixirs.heal(t));
+      if (kind === 'health') h.hp = Math.min(h.max, h.hp + Math.round(Elixirs.heal(t) * mult));
       else if (kind === 'swap') {
         let hi = MAGIC_NAMES[0], lo = MAGIC_NAMES[0];
         for (const m of MAGIC_NAMES) { if (h.counts[m] > h.counts[hi]) hi = m; if (h.counts[m] < h.counts[lo]) lo = m; }
-        const n = Elixirs.swapMove(t, h.counts[hi], h.counts[lo]); h.counts[hi] -= n; h.counts[lo] += n;
-      } else for (const m of MAGIC_NAMES) h.counts[m] += Elixirs.stonesGain(t);
+        const n = Elixirs.swapMove(t, h.counts[hi], h.counts[lo], mult); h.counts[hi] -= n; h.counts[lo] += n;
+      } else for (const m of MAGIC_NAMES) h.counts[m] += Math.round(Elixirs.stonesGain(t) * mult);
       recalcElixir(h); return;
     }
     if (kind === 'endure') { h.endure = true; return; }              // 2.0.7: «Стойкость»; «Вкусный корм» в симуляторе без питомца не действует
     if (kind === 'food') return;
-    Elixirs.drink(h.elx, kind, t, 0); h.elxUsed[kind] = false;
+    Elixirs.drink(h.elx, kind, t, h.elxExtra); h.elxUsed[kind] = false;
     if (K.haste) h.haste = true;                                       // 2.0.7: «Тоник скорости» — дополнительный ход
-    if (K.road) { const m = Math.round(h.max * Elixirs.ROAD_HP); h.max += m; h.hp += m; }   // «Тоник дороги»: +10% к максимуму ХП
+    // Тоник дороги повышает предел ХП, но не лечит (game.js: elxRecalc).
     recalcElixir(h);
   }
   function elxStep() {
@@ -557,6 +566,45 @@ function Battle(hero, mon, player) {
     Elixirs.tick(h.elx);
     if (!h.elx.fury) h.critExtra = 0;
     recalcElixir(h);
+  }
+  // Опциональная тактика подготовки: расходуем реальные запасы, один выстрел за ход,
+  // плюс один дополнительный «лёгкий» заряд за весь бой. Питомец не пользуется боеприпасами героя.
+  function ammoStep() {
+    const h = S.f.left, e = S.f.right;
+    if (h.isPet || !h.ammo || !Object.values(h.ammo).some(n => n > 0)) return;
+    const shot = Gear.shotKind(h.gear) || Ammo.forFaction(h.faction);
+    const available = () => Object.keys(h.ammo).filter(key => {
+      const p = Ammo.parse(key);
+      return p.ok && p.kind === shot && h.ammo[key] > 0 && (!h.ammoShot || p.variant === 'light' && !h.lightUsed);
+    });
+    for (let i = 0; i < 2 && !S.over; i++) {
+      const keys = available();
+      const key = keys.find(k => Ammo.parse(k).variant === 'light' && !h.lightUsed) || keys[0];
+      if (!key) break;
+      const { kind, variant } = Ammo.parse(key);
+      const aim = kind === 'bomb' ? bestSquare(S) : null;
+      if (kind === 'bomb' && !aim) break;
+      const base = Math.round(Combat.strikeDamage(h) * Gear.shotMult(h.gear) * (BOOST?.shot ? 1.35 : 1));
+      const family = Bestiary.MONSTERS[e.monsterId]?.family;
+      const mult = Ammo.multV(kind, family, variant) * Ammo.dmgMul(variant);
+      if (kind === 'dart' && e.poison?.turns > 0) break; // не тратим заряд на уже действующий яд
+      h.ammo[key]--;
+      if (variant === 'light' && !h.lightUsed) h.lightUsed = true; else h.ammoShot = true;
+      S.stats.ammoUsed[key] = (S.stats.ammoUsed[key] || 0) + 1;
+      h.hp = Math.min(h.max, h.hp + Ammo.healAmount(variant, Elixirs.heal(Hero.tierFor(h.heroLevel))));
+      for (const t of MAGIC_NAMES) h.counts[t] += Ammo.charmStones(kind, variant);
+      if (kind === 'bolt') {
+        hit('left', Math.round(Ammo.boltDamage(base) * mult), true);
+        e.buffs = []; e.shield = 0; e.mirrorReady = false; e.tripleNext = false; e.doubleNext = false;
+      } else if (kind === 'moonarrow') {
+        hit('left', Math.round(Ammo.arrowDamage(base) * mult), true);
+        for (const [t, n] of Object.entries(Ammo.steal(e.counts, MAGIC_NAMES, Ammo.stealCount(kind, variant)))) { e.counts[t] -= n; h.counts[t] += n; }
+      } else if (kind === 'dart') {
+        const dmg = Math.max(1, Math.round(Combat.venomTick(Combat.power(h), h.dmg) * mult));
+        e.poison = { turns: Math.max(Ammo.DART_TURNS, e.poison?.turns || 0), dmg: Math.max(dmg, e.poison?.dmg || 0) };
+      } else if (kind === 'bomb') burn('left', aim.idx, 'square', mult, true);
+      checkEnd();
+    }
   }
   function petBoardAbility(h){
     if(!h.isPet||h.petInt<5||!['regen','steal','howl','drum','weaken','pinch','mire','sap','petrify','veil','breath','prank'].includes(h.ability))return;
@@ -589,11 +637,13 @@ function Battle(hero, mon, player) {
   }
   function heroTurn() {
     const h = S.f.left;
-    h.prepUsed = {}; h.turnNo++; for (const k of Object.keys(h.elxCds)) if (h.elxCds[k] > 0) h.elxCds[k]--; tickPend(h); if (checkEnd()) return;
+    h.prepUsed = {}; h.ammoShot = false; h.itemsUsed = {}; h.turnNo++; for (const k of Object.keys(h.elxCds)) if (h.elxCds[k] > 0) h.elxCds[k]--; tickPend(h); if (checkEnd()) return;
     if(h.isPet){petBoardAbility(h);if(checkEnd())return;}
     for (let guard = 0; guard < 20; guard++) {
       elxStep();
       if (player.items) player.items(S, h, useItem);
+      ammoStep();
+      if (S.over) return;
       if (h.fac.ability.id !== 'none' && h.charge >= B.faction.charge) useFaction();
       if (S.over) return;
       const available = h.isPet ? afford('left') : h.magic ? aimOnly() : afford('left');
@@ -1082,10 +1132,10 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, swarm, elixirs, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
+function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
-  const bySpell = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
+  const bySpell = {}, ammoUsed = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
   let petBoardWins=0;
   let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
@@ -1096,7 +1146,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
   for (let k = 0; k < n; k++) {
     seed((h ^ Math.imul(k + 1, 2654435761)) >>> 0);
     const g = typeof gear === 'function' ? gear() : gear;
-    const hero = makeHero({ faction, level, gear: g, baseHp, extra, bag, elixirs, elxFx });
+    const hero = makeHero({ faction, level, gear: g, baseHp, extra, bag, ammo, bless, elixirs, elxExtra, elxFx });
     if (pet) { hero.petF = Pets.petFighter(Pets.makePet(pet.species, pet.tier)); hero.petF.fedBonus = (pet.fed ? (Pets.FEED_BONUS || 1.25) : 1) * (pet.scale || 1); }
     if (BOOST) { if (BOOST.style) hero.shield = 1; if (BOOST.daily) hero.secondWind = true; if (BOOST.streak) hero.charge = Math.floor(B.faction.charge / 2); }
     const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes, level, mlvl });
@@ -1109,6 +1159,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
     if (S.winner === 'left') { wins++; hpLeft += hero.hp / hero.max; actWin.push(S.stats.heroActions); }
     if (S.winner === 'draw') draws++;
     for (const [k, v] of Object.entries(S.stats.bySpell)) bySpell[k] = (bySpell[k] || 0) + v;
+    for (const [k, v] of Object.entries(S.stats.ammoUsed)) ammoUsed[k] = (ammoUsed[k] || 0) + v;
     for(const [k,v] of Object.entries(S.stats.petBoardSpells||{}))petBoardSpells[k]=(petBoardSpells[k]||0)+v;
     if(S.stats.petBoardWin)petBoardWins++;
     for (const [kind, values] of Object.entries(S.stats.areaImpact)) {
@@ -1122,7 +1173,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
   }
   actWin.sort((a, b) => a - b);
   return {
-    bySpell, petBoardSpells, petBoardWin:duo?petBoardWins/n:0, areaImpact, burst, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
+    bySpell, ammoUsed, petBoardSpells, petBoardWin:duo?petBoardWins/n:0, areaImpact, burst, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
     hpLeft: wins ? hpLeft / wins : 0, heroDmgPerAct: heroDmg / Math.max(1, actions), monDmgPerAct: monDmg / Math.max(1, monActs),
     medianActionsWin: actWin.length ? actWin[Math.floor(actWin.length / 2)] : 0,
   };
@@ -1132,20 +1183,33 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
    Победа боя — только если герой выжил и оба врага повержены (Duo.evaluate).
    Питомец на своей доске: ХП ×boardHp, урон ×boardDmg, без вещей, играет ИИ с умом duo.int (по умолчанию 50). Выживший добивает
    врага павшего с тем здоровьем, что у того осталось; своё здоровье выживший не восстанавливает. */
-function petAsHero(spec, level) {
-  const mk=Pets.makePet(spec.species,spec.tier);
-  const intl=spec.int??50;
-  mk.xp=Math.round(-Pets.INT_XP*Math.log(Math.max(.0001,1-(intl-1)/99)));
-  const pf=Pets.petFighter(mk), hp=Math.round(pf.max*Pets.boardHp(mk)), dmg=(pf.dmg||1)*Pets.boardDmg(mk);
+function petAsHero(spec, level, heroGear = Gear.emptyLoadout()) {
+  const mk=spec.entry ? JSON.parse(JSON.stringify(spec.entry)) : Pets.makePet(spec.species,spec.tier);
+  if (spec.int != null || !spec.entry) {
+    const intl=spec.int??50;
+    mk.xp=Math.round(-Pets.INT_XP*Math.log(Math.max(.0001,1-(intl-1)/99)));
+  }
+  const pf=Pets.petFighter(mk), tr=Pets.useTreats(mk);
+  const leash=Gear.item(heroGear.leash)?.stats || {};
+  pf.stats=Gear.combine(pf.stats,{...leash,health:0,cunning:0,initiative:0});
+  pf.max=Math.round(pf.max*(1+.03*(leash.health||0)));
+  if(tr.hpMult>1)pf.max=Math.round(pf.max*tr.hpMult);
+  if(tr.defense)pf.stats=Gear.combine(pf.stats,{defense:Math.max(1,Math.round(tr.defense*Combat.armorUnit(pf.dmg)))});
+  const tracker=Gear.petBonus(heroGear);
+  if(tracker)pf.max=Math.round(pf.max*1.15);
+  pf.fedBonus=Math.max(Pets.useFeed(mk),tr.power,tracker?1.1:1);
+  const intl=Pets.dopedIntellect(mk,tr.int+(pf.fedBonus>1&&tr.power<pf.fedBonus?Pets.DOPE_BONE:0));
+  const hp=Math.round(pf.max*Pets.boardHp(mk)), dmg=Pets.boardDamage(pf.dmg,Pets.boardDmg(mk),pf.fedBonus);
   const h=makeHero({faction:'none',level,gear:Gear.emptyLoadout(),baseHp:hp,dmg});
   h.stats=h.stats0=pf.stats; h.max=h.hp=hp;
-  h.name = 'pet'; h.petBoard = true; h.isPet=true; h.petInt=intl; h.ability=pf.ability;
+  h.name = 'pet'; h.petBoard = true; h.isPet=true; h.petInt=intl; h.ability=pf.ability; h.fedBonus=pf.fedBonus;
   h.secondWind=pf.secondWind; h.secondWindFrac=pf.secondWindFrac;
+  if(spec.foodTier)Pets.applyFood(h,Elixirs.FOOD_MULT(spec.foodTier));
   return { h, intl };
 }
 function petPlayer(intl,only=null){return {choose(S,h,A,locked){const k=Pets.petSpellPlan(h,S.f.right,S.typ,S.val,intl,only);if(k&&A[k])return {kind:k};const v=Combat.aiView(h,S.f.right);return AI.choose(S.typ.slice(),S.val.slice(),v.hpMe,v.hpOpp,intl,{}, {locked,maxMe:v.maxMe,healMult:v.healMult,lightning:h.magic?stormMultiplier(h):0});}};}
 function duoBattle(hero, monA, plHero, o) {
-  const spec = o.duo, { h: pet, intl } = petAsHero(spec, o.level);
+  const spec = o.duo, { h: pet, intl } = petAsHero(spec, o.level, hero.gear);
   const monB=JSON.parse(JSON.stringify(monA));
   Object.assign(monB,{hp:monB.max,buffs:[],clone:null,counts:{sapphire:0,ruby:0,emerald:0,onyx:0}});
   const A = Battle(hero, monA, plHero).run();
@@ -1158,6 +1222,8 @@ function duoBattle(hero, monA, plHero, o) {
   if (heroWon && petWon) return { S: res(A, true), strict: true, kills: 2 };
   if (heroWon) {                                    // герой добивает врага питомца
     rev(hero); rev(monB); const C = Battle(hero, monB, plHero).run();
+    for (const k of ['heroActions','monActions','heroDmg','monDmg','spells','abilities','rounds']) A.stats[k]+=C.stats[k];
+    for (const k of ['bySpell','ammoUsed']) for (const [id,n] of Object.entries(C.stats[k])) A.stats[k][id]=(A.stats[k][id]||0)+n;
     return { S: res(A, C.winner === 'left'), strict: C.winner === 'left', kills: C.winner === 'left' ? 2 : 0 };
   }
   return { S: res(A, false), strict: false, kills: 0 };
