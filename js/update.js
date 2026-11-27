@@ -21,8 +21,10 @@ const Update = (() => {
     if (shown || typeof document === 'undefined' || !document.body) return;
     shown = true;
     const d = document.createElement('div'); d.className = 'upd-banner'; d.setAttribute('role', 'status');
-    d.innerHTML = '<span></span><button type="button" class="primary"></button><button type="button" class="upd-x" aria-label="×">✕</button>';
-    d.querySelector('span').textContent = _t("Вышло обновление {0}. Обновите страницу, чтобы получить исправления.", [v]);
+    d.innerHTML = '<span><strong></strong><small></small></span><button type="button" class="primary"></button><button type="button" class="upd-x" aria-label="×">✕</button>';
+    d.querySelector('strong').textContent = _t("Вышло обновление {0}", [v]);
+    d.querySelector('small').textContent = _t("Обновите страницу, чтобы получить исправления.");
+    d.querySelector('.upd-x').setAttribute('aria-label', _t("Закрыть"));
     const b = d.querySelector('.primary'); b.textContent = _t("Обновить");
     b.addEventListener('click', () => location.reload());
     d.querySelector('.upd-x').addEventListener('click', () => { d.remove(); });
