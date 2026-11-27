@@ -14,6 +14,7 @@
 "tests/economy.test.js",
 "tests/gamelength.test.js",
 "tests/map.test.js",
+"tests/map-coverage.test.js",
 "tests/factions.test.js",
 "tests/hero.test.js",
 "tests/combat.test.js",

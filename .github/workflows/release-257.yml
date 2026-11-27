@@ -1,0 +1,90 @@
+name: Release 2.5.7 candidate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-257.yml'
+permissions:
+  contents: read
+concurrency:
+  group: release-257
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npx playwright install --with-deps chromium
+      - name: Regression suite
+        run: npm test
+      - name: Two-client PvP (preparation and area spells)
+        env:
+          FORCE: temper,mirror,square,fire
+        run: node tools/live-e2e.js 1
+      - name: Two-client PvP (ordinary tactical play)
+        run: node tools/live-e2e.js 1
+      - name: Browser checks
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/wip-server.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/wiki-browser.cjs
+      - run: python3 tools/dist.py
+      - name: Package browser build
+        run: |
+          test "$(node -p "require('./package.json').version")" = "2.5.7"
+          test -f dist/index.html
+          cd dist
+          zip -qr ../world-in-pieces-2.5.7.zip .
+          cd ..
+          unzip -tq world-in-pieces-2.5.7.zip
+          sha256sum world-in-pieces-2.5.7.zip > world-in-pieces-2.5.7.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-257-build
+          path: |
+            world-in-pieces-2.5.7.zip
+            world-in-pieces-2.5.7.zip.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-257-evidence
+          path: test-results/
+          if-no-files-found: warn
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-257-build
+      - name: Publish verified prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test -s world-in-pieces-2.5.7.zip
+          sha256sum -c world-in-pieces-2.5.7.zip.sha256
+          if gh release view v2.5.7 >/dev/null 2>&1; then
+            echo 'v2.5.7 release already exists; refusing duplicate publication'
+            exit 1
+          fi
+          if gh api "repos/$GH_REPO/git/ref/tags/v2.5.7" >/dev/null 2>&1; then
+            echo 'v2.5.7 tag already exists; refusing to reuse it'
+            exit 1
+          fi
+          gh release create v2.5.7 world-in-pieces-2.5.7.zip world-in-pieces-2.5.7.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "World in Pieces 2.5.7" --notes "Test release: shared geography for new profiles, guaranteed ordinary monster and surface-resource coverage, all island species, and bestiary search by tier and resource. Existing saves retain their geography. Regression, two-client PvP and browser checks passed. Long automated battle tests are available on demand. Temporary testing switches remain enabled."
