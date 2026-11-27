@@ -26,6 +26,22 @@ const output = 'ui-screenshots/' + (built ? 'dist' : 'source');
         await p.screenshot({path:output+'/'+lang+'-'+width+'x'+height+'-update.png'});
         if (width === 390) {
           await p.waitForFunction(() => Profile.data.testX10 === true);
+          await p.evaluate(() => ItemInfo.open('base:sword-novice:1'));
+          await p.locator('.icard-modal').waitFor();
+          assert.equal(await p.locator('.ic-nums > span').count(),2,'only buy/sell prices on item card');
+          assert(!/очки снаряжения|gear points|equipment points/i.test(await p.locator('.icard-modal').innerText()));
+          await p.evaluate(() => ItemInfo.close());
+          assert.equal(await p.evaluate(() => typeof MapView.quickFight),'undefined','quick battle must not be exposed');
+          await p.evaluate(() => {
+            const sp = MapView.map.spawns.find(s => s.species === 'rat' && s.tier === 1 && !s.boss && !s.zone);
+            if (!sp) throw Error('no low-level rat for quick battle regression');
+            Profile.data.xp = Hero.totalFor(31);
+            Profile.data.bestiary.rat = {wins:1,tier:1};
+            MapView.devShowMonster(sp);
+          });
+          assert.equal(await p.locator('#map-card [data-act="quick"]').count(),0);
+          console.log('OK removed equipment points and quick battle',lang);
+
           await p.evaluate(() => MapView.startTraining('rat', 1, {dev:1}));
           await p.waitForFunction(() => document.body.classList.contains('mode-battle') && Update.inBattle());
           assert.equal(await p.locator('.upd-banner').isVisible(), false, 'update banner must be hidden in battle');
