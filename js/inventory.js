@@ -290,7 +290,7 @@ const Profile = (() => {
     // Лимит очков снаряжения растёт с уровнем.
     budget: () => (Hero.pointsOn() ? Hero.budget(Hero.levelOf(data.xp).level) : Infinity),
     // Цена расходника растёт с уровнем (вместе с доходом).
-    consumablePrice: (k) => Hero.consumablePrice(Gear.CONSUMABLES[Gear.parseCons(k).base].price, Hero.levelOf(data.xp).level),
+    consumablePrice: (k) => Hero.battleConsumablePrice(Gear.CONSUMABLES[Gear.parseCons(k).base].price, Hero.levelOf(data.xp).level),
 
     // Деньги
     addCoins(n) { if (!Number.isFinite(n) || n <= 0) return; data.coins += n; save(); },   // 1.6.4: NaN/отрицательное не портят кошелёк

@@ -26,7 +26,7 @@ assert.ok(/4 камня/.test(E.describe('stones', 1)) && /2 камня/.test(E.
 // Инициативы среди эликсиров нет: она решает только первый ход, а эликсиры пьются уже в бою
 assert.ok(!E.KINDS.initiative && E.KINDS.cunning, 'вместо Инициативы — Хитрость');
 // Каждому виду есть цена и карточка; алхимик: прибавка на 5% за уровень улучшения
-assert.deepStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(E.price), [6, 16, 43, 120, 300, 740, 1800, 6400, 14000, 36000].map((x) => Math.max(1, Math.round(x * require("../js/balance.js").rewards.coinK))));
+{const b=require('../js/balance.js');assert.deepStrictEqual([1,2,3,4,5,6,7,8,9,10].map(E.price),[6,16,43,120,300,740,1800,6400,14000,36000].map((x,i)=>Math.max(1,Math.round(Math.min(x*b.rewards.coinK,b.economy.battleLoot[i]*b.economy.elixirFeeLootShare)))));}
 for (let i = 2; i <= 10; i++) assert.ok(E.price(i) > E.price(i - 1));
 for (const k of E.ORDER) assert.strictEqual(E.price(5, k), E.price(5), 'цена не зависит от вида: ' + k);
 for (const k of E.ORDER) { assert.ok(E.KINDS[k].name && E.describe(k, 3), 'описание: ' + k); assert.ok(['turn', 'long', 'instant', 'pet'].includes(E.KINDS[k].mode)); }

@@ -79,6 +79,8 @@ const Hero = (() => {
   // Во сколько раз цены расходников выше, чем на 1-м уровне (растут вместе с монетами за победы).
   const priceScale = (L) => H_T.at(H_T.PRICE_MULT, tierFloat(L));
   const consumablePrice = (base, L) => Math.max(1, Math.round(base * priceScale(L)));
+  // Battle supplies only; daily rewards and other unrelated prices keep their old scale.
+  const battleConsumablePrice = (base, L) => Math.max(1, Math.round(base / 90 * H_B.economy.ammoLootShare * H_B.economy.battleLoot[tierFor(L) - 1]));
 
   // Заклинание kind доступно с уровня L? Стартовая пятёрка (и общий для всех фракций Удар) не упомянуты
   // в Balance.spellUnlock — они, как и раньше, доступны с 1-го уровня; более сильные заклинания открываются
@@ -88,7 +90,7 @@ const Hero = (() => {
   // Сколько магий (без Удара) можно взять в бой: 5 на старте, +1 на 4-м, 7-м и 10-м цвете.
   const spellSlots = (L) => { const t = tierFor(clampL(L)); return 5 + (t >= 4 ? 1 : 0) + (t >= 7 ? 1 : 0) + (t >= 10 ? 1 : 0); };
 
-  return { spellSlots, clothBonus, priceScale, consumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, pointsOn, noPts, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
+  return { spellSlots, clothBonus, priceScale, consumablePrice, battleConsumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, pointsOn, noPts, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

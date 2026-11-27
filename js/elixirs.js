@@ -68,7 +68,7 @@ const Elixirs = (() => {
   const split = (k) => { const [kind, tier] = k.split(':'); return { kind, tier: Number(tier) }; };
   // Монет (меди) за варку: ≈ четверть средней награды за победу на этом цвете (см. таблицу в HANDOFF), цена одна для всех видов.
   const PRICES = [6, 16, 43, 120, 300, 740, 1800, 6400, 14000, 36000];
-  const price = (tier) => Math.max(1, Math.round(PRICES[Math.max(1, Math.min(10, tier)) - 1] * ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinK));   // 1.6.0: вместе с монетами с мобов
+  const price = (tier) => { const b=typeof Balance!=='undefined'?Balance:require('./balance.js'),i=Math.max(1,Math.min(10,tier))-1;return Math.max(1,Math.round(Math.min(PRICES[i]*b.rewards.coinK,b.economy.battleLoot[i]*b.economy.elixirFeeLootShare))); };
   const need = (tier) => 2;                                        // ресурсов ровно этого цвета
   // 1.5.1: с 5-го цвета у эликсира один заметный эффект за бой (срабатывает сам, сила растёт с цветом).
   const FX_MIN = 5;

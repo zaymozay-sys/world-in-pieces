@@ -51,6 +51,10 @@ assert.strictEqual(Hero.xpReward(M.bandit, 1, 1), Balance.hero.xp.perWin);
 // цены расходников растут вместе с доходом
 assert.strictEqual(Hero.consumablePrice(50, 1), 50);
 assert.ok(Hero.consumablePrice(50, 91) === 50 * Tiers.PRICE_MULT[9]);
+for(let t=1;t<=10;t++){
+  assert.strictEqual(Hero.battleConsumablePrice(90,Hero.itemLevel(t)),Math.round(Balance.economy.battleLoot[t-1]*.30));
+  assert.ok(Hero.battleConsumablePrice(90,Hero.itemLevel(t))<Hero.consumablePrice(90,Hero.itemLevel(t)));
+}
 
 /* ---------- разблокировка заклинаний по уровню (Balance.spellUnlock) ---------- */
 

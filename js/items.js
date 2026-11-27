@@ -324,7 +324,8 @@ const Gear = (() => {
     const it = item(entry); if (!it) return 0;
     const { cur, max } = durOf(entry), miss = max - cur;
     const n = pts === undefined ? miss : Math.max(0, Math.min(miss, Math.floor(pts)));
-    return n > 0 ? Math.max(1, Math.round(it.price * REPAIR_SHARE * n / max)) : 0;
+    const b=typeof Balance!=='undefined'?Balance:require('./balance.js');
+    return n > 0 ? Math.max(1, Math.round(it.price * REPAIR_SHARE * b.economy.repairTier[it.tier-1] * n / max)) : 0;
   }
   // Множитель цены продажи: целая вещь — 1, сломанная — 0,5.
   const wearFactor = (entry) => { const d = durOf(entry); return 0.5 + 0.5 * d.cur / d.max; };
