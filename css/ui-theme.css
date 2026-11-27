@@ -602,9 +602,6 @@ body.bt-gold.phone.mode-battle #status { font-family: var(--ui-serif); font-weig
 
 /* горизонтальный телефон, бой вдвоём: плашкам напарников чуть больше места, без ряда камней */
 @media (orientation: landscape) {
-  body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .arena {
-    grid-template-rows: 0 minmax(0, 1fr) minmax(0, 1fr) calc(38px * var(--u, 1)) calc(40px * var(--u, 1)) 0;
-  }
   body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row { height: calc(38px * var(--u, 1)); gap: var(--g); }
   body.bt-gold.ui-columns.phone.mode-battle.duo-battle .game:not(.duo-pet) .pq-row .pq {
     flex: 1 1 0; min-width: 0; min-height: 0; height: 100%; padding: 2px 6px;
