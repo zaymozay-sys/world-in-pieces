@@ -1,6 +1,10 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Питомцы разумнее выбирают лечение и атаку; Коготь применяется уже при уме 25.": "Pets choose healing and attacks more intelligently; Claw is used from intellect 25.",
+  "Бонусы здоровья питомцев больше не учитываются повторно.": "Pet health bonuses are no longer applied twice.",
+  "Снижены цены боевых расходников, варки эликсиров, корма и ремонта; награды и цены экипировки сохранены.": "Reduced prices for battle supplies, elixir brewing, pet food and repairs; rewards and equipment prices are unchanged.",
+  "Орёл встречается и на десятом цвете, поэтому перо доступно без охоты на редкого грифона.": "Eagles can also appear in tier ten, making feathers available without hunting rare griffins.",
   "Пересмотрена стоимость магии и заклинаний питомцев.": "Rebalanced hero and pet spell costs.",
   "Хаос, Закалка и Зеркало не передают ход; Захват усиливает вызванные им каскады.": "Chaos, Temper and Mirror retain your turn; Grasp boosts cascades it causes.",
   "Огненный крест сжигает камни без прямого сбора; Шаровая молния сохраняет бонус дополнительных ходов.": "Fire Cross burns stones without directly collecting them; Ball Lightning retains its extra-turn bonus.",
