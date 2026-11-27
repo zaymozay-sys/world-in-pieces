@@ -58,3 +58,23 @@ jobs:
           node-version: 22
       - run: npm ci --prefix server
       - run: npm audit --prefix server --omit=dev --json
+
+  security-upgrade-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --prefix server --save-exact ws@8.23.0 --ignore-scripts
+      - run: node -e 'const p=require("./server/package-lock.json"); console.log(JSON.stringify(p.packages["node_modules/ws"], null, 2))'
+      - run: npm audit --prefix server --omit=dev
+      - run: npm ci
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-dependency-candidate
+          path: |
+            server/package.json
+            server/package-lock.json
