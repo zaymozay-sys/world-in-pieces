@@ -66,6 +66,23 @@ d.resources = { 'hide:1': 1, 'fang:1': 1, 'bone:2': 1 };
 assert.strictEqual(Quests.list(d).find((q) => q.id === 'resource-kinds').done, true, 'три разных вида ресурса');
 d.resources = { 'hide:1': 5, 'hide:2': 5 };                // один вид ('hide'), просто на разных уровнях
 assert.strictEqual(Quests.list(d).find((q) => q.id === 'resource-kinds').done, false);
+d.resources = { 'hide:1': 5, 'fang:1': 0, 'bone:1': 0 };
+assert.strictEqual(Quests.list(d).find(q => q.id === 'resource-kinds').value, 1);
+
+// «Встреть» в цепочке Бобра — встреча на карте, не обязательная победа.
+d = fresh();
+d.seen = { rat: 1, wolf: 1, boar: 2, skeleton: 3 };
+d.bestiary = { rat: { wins: 1 } };
+assert.strictEqual(Quests.list(d).find(q => q.id === 'bob-2').done, false, 'предыдущее звено обязательно');
+d.quests['bob-1'] = true;
+assert.strictEqual(Quests.list(d).find(q => q.id === 'bob-2').value, 4, 'повторно вид не считается');
+assert.strictEqual(Quests.list(d).find(q => q.id === 'bob-2').done, true);
+assert.strictEqual(Quests.list(d).find(q => q.id === 'bestiary-3').done, false, 'для охотника нужны победы');
+d.chestOpened = true;
+d.xchests = { ruby: true, obsidian: true, other: true };
+assert.strictEqual(Quests.list(d).find(q => q.id === 'lh-three').value, 2);
+d.xchests.emerald = true;
+assert.strictEqual(Quests.list(d).find(q => q.id === 'lh-three').done, true);
 
 d = fresh();
 d.wins = 10;

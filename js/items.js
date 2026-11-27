@@ -413,6 +413,16 @@ const Gear = (() => {
   const equipped = (gear) => SLOTS.map((s) => item(gear[s])).filter(Boolean);
   const totalCost = (gear) => equipped(gear).reduce((sum, it) => sum + it.cost, 0);
 
+  // Максимум одновременно носимых вещей, а не число вариантов в каталоге.
+  function setMaxPieces(id) {
+    const items = ITEMS.filter(i => i.set === id);
+    const single = items.filter(i => i.type === 'weapon1').length;
+    const shield = items.some(i => i.type === 'shield') ? 1 : 0;
+    const twoHand = items.some(i => i.type === 'weapon2') ? 1 : 0;
+    const other = new Set(items.filter(i => !['weapon1', 'weapon2', 'shield'].includes(i.type)).map(i => i.type)).size;
+    return other + Math.max(twoHand, Math.min(2, single + shield));
+  }
+
   // Сколько предметов каждого набора надето и какие бонусы действуют.
   function setProgress(gear) {
     const counts = {};
@@ -423,7 +433,7 @@ const Gear = (() => {
       const top = Math.max(1, ...equipped(gear).filter((it) => it.set === id).map((it) => it.tier || 1)), m = windowMult(id, top);
       const scaled = (b) => { if (m === 1) return b; const o = {}; for (const k in b) o[k] = k === 'pet' ? b[k] : k === 'defense' ? b[k] * m : Math.max(1, Math.round(b[k] * m)); return o; };
       for (const [need, b] of Object.entries(set.bonuses)) (count >= Number(need) ? active : next).push({ need: Number(need), bonus: scaled(b) });
-      const total = ITEMS.filter((i) => i.set === id).length;
+      const total = setMaxPieces(id);
       return { id, name: set.name, color: set.color, count, total, active, next };
     });
   }
@@ -605,7 +615,7 @@ const Gear = (() => {
   return {
     itemsFor, craftFor, isForgeOnly, RELICS, SLOTS, SLOT_NAMES, STAT_NAMES, TYPE_NAMES, RARITY_NAMES, SETS, LOCKED_SETS, LATE_MIN_TIER, SET_WINDOWS, petBonus, ITEMS, CONSUMABLES, COLORED, tierKey, parseCons, consOf, heldCons, FORGE_KINDS,
     sellTierK, DUR_BASE, DUR_STEP, REPAIR_SHARE, WEAR_SLOTS_SKIP, durMax, durOf, repairCost, wearFactor, durAfterTier, setTier, TEMPER_MAX, FIT_K, fitCost, temperCost, temperStats, CAPS, NEUTRAL_COLOR, item, makeEntry, entryKey, priceAt, sellValue, junkValue, emptyLoadout, shotKind, shotMult, fits, canEquip, equip, unequip,
-    equipped, totalCost, setProgress, stats, statsFor, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, upgradeCostLegacy, craftCost, bulkPrice,
+    equipped, totalCost, setMaxPieces, setProgress, stats, statsFor, combine, blankStats, spellCost, weaponPerk, randomLoadout, upgradeCost, upgradeCostLegacy, craftCost, bulkPrice,
   };
 })();
 

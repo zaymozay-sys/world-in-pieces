@@ -745,6 +745,10 @@ const Profile = (() => {
       const lv = Hero.levelOf(data.xp).level;
       return Gear.combine(Gear.combine(Gear.combine(Gear.statsFor(gear, lv), Factions.statsAt(data.faction || 'dwarf', Hero.tierFloat(lv))), Runes.bonusForGear(gear)), api.medalsBonus ? api.medalsBonus() : {});
     },
+    battlePreview() {
+      const lv = api.level(), mult = data.testX10 ? 10 : 1;
+      return Combat.heroPreview(Hero.baseHp(lv), Hero.dmgMult(lv), api.totalStats(api.gear()), mult);
+    },
 
     // Перенос сохранения: выгрузка в файл и загрузка обратно (например, на другом устройстве или в другом браузере).
     exportSave() { return JSON.stringify(data, null, 2); },
@@ -927,7 +931,7 @@ const ItemInfo = (() => {
     if (setInfo) {
       const prog = mine || owner === 'none' ? Gear.setProgress(gear).find((p) => p.id === it.set) : null;
       const have = prog ? prog.count : 0;
-      const total = Gear.ITEMS.filter((x) => x.set === it.set).length;
+      const total = Gear.setMaxPieces(it.set);
       const rows = Object.entries(setInfo.bonuses).map(([need, b]) => `<li class="${have >= Number(need) ? 'on' : ''}"><b>${need}</b><span>${fmtBonus(b)}</span></li>`).join('');
       setBlock = _t("<section class=\"ic-set\" style=\"--s:{0}\"><h3>Набор «{1}» <span>{2} / {3} надето</span></h3>\n        {4}<ul>{5}</ul></section>", [setInfo.color, setInfo.name, have, total, SET_LORE[it.set] ? `<p class="ic-lore">${SET_LORE[it.set]}</p>` : '', rows]);
     }

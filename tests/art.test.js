@@ -4,25 +4,42 @@ const assert = require('assert');
 global.Tiers = require('../js/tiers.js');
 global.Balance = require('../js/balance.js');
 global.Gear = require('../js/items.js');
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), vm = require('vm');
 
-// список файлов берём из настоящей папки art/ (то, что лежит в репозитории)
-global.ART_FILES = {};
-(function walk(dir, base) {
-  if (!fs.existsSync(dir)) return;
-  for (const n of fs.readdirSync(dir)) {
-    const p = path.join(dir, n);
-    if (fs.statSync(p).isDirectory()) walk(p, base + n + '/');
-    else if (n.endsWith('.webp')) global.ART_FILES[base + n.slice(0, -5)] = 'art/' + base + n;
-  }
-})(path.join(__dirname, '..', 'art'), '');
+// Используем именно манифест игры, а не искусственный каталог всех файлов на диске.
+const root = path.join(__dirname, '..');
+global.ART_FILES = vm.runInNewContext(fs.readFileSync(path.join(root, 'js/art-files.js'), 'utf8') + '\nART_FILES');
 const Art = require('../js/art.js');
 
 // каждый файл из манифеста существует и не пустой
 for (const [k, f] of Object.entries(ART_FILES)) assert.ok(fs.statSync(path.join(__dirname, '..', f)).size > 500, k);
+// Фоны, шрифты и другие ресурсы, подключённые напрямую из CSS, тоже должны существовать.
+const cssDir = path.join(root, 'css');
+const direct = new Set();
+for (const file of fs.readdirSync(cssDir).filter(f => f.endsWith('.css'))) {
+  const css = fs.readFileSync(path.join(cssDir, file), 'utf8');
+  for (const [, url] of css.matchAll(/url\(\s*['"]?([^)'"\s]+)['"]?\s*\)/g)) {
+    if (!url.startsWith('../')) continue;
+    const asset = path.resolve(cssDir, url);
+    assert.ok(fs.existsSync(asset), file + ': ' + url);
+    direct.add(asset);
+  }
+}
+// Допустимы изображения вне манифеста, только когда они явно используются в CSS.
+function checkArt(dir) {
+  for (const file of fs.readdirSync(dir, { withFileTypes: true })) {
+    const asset = path.join(dir, file.name);
+    if (file.isDirectory()) checkArt(asset);
+    else if (file.name.endsWith('.webp')) {
+      const key = path.relative(path.join(root, 'art'), asset).split(path.sep).join('/').slice(0, -5);
+      assert.ok(Art.has(key) || direct.has(asset), 'изображение не подключено: ' + key);
+    }
+  }
+}
+checkArt(path.join(root, 'art'));
 
 const worn = (ids) => { let g = Gear.emptyLoadout(); const slots = { 'sword-novice': 'main', 'shield-wood': 'off', 'leather-head': 'head', 'leather-chest': 'chest', 'leather-arms': 'arms', 'leather-legs': 'legs' };
-  for (const id of ids) g = Gear.equip(g, id, slots[id] || Gear.item(id).type === 'shield' ? 'off' : (Gear.item(id).type.startsWith('weapon') ? 'main' : Gear.item(id).type)); return g; };
+  for (const id of ids) g = Gear.equip(g, id, slots[id] || (Gear.item(id).type === 'shield' ? 'off' : (Gear.item(id).type.startsWith('weapon') ? 'main' : Gear.item(id).type))); return g; };
 
 // стартовая одежда → фигура 1; металл → 2; три вещи своего набора → 3
 assert.strictEqual(Art.bodyLevel('human', worn(['sword-novice', 'shield-wood', 'leather-head', 'leather-chest'])), 1);
