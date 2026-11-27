@@ -2337,7 +2337,7 @@ const MapView = (() => {
   let siegeIv = null, siegeReadyAt = 0;
   const hallLevel = () => Village.lvl(Profile.data.village, 'hall');
   const fmtMs = (ms) => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
-  const lootText = (l) => [l && l.coins > 0 ? MonsterArt.moneyHtml(l.coins) : '', l && l.res ? `${Bestiary.RESOURCES[l.res.kind].name} (${Tiers.get(l.res.tier).name}) ×${l.res.n}` : ''].filter(Boolean).join(' · ');
+  const lootText = (l, html = true) => [l && l.coins > 0 ? (html ? MonsterArt.moneyHtml(l.coins) : Tiers.moneyText(l.coins)) : '', l && l.res ? `${Bestiary.RESOURCES[l.res.kind].name} (${Tiers.get(l.res.tier).name}) ×${l.res.n}` : ''].filter(Boolean).join(' · ');
 
   // Враги на карте: [{ r, looter }]
   function siegeTargets() {
@@ -2498,7 +2498,7 @@ const MapView = (() => {
       if (loot) {
         if (loot.coins > 0) Profile.addCoins(loot.coins);
         if (loot.res) Profile.addRes(loot.res.kind, loot.res.tier, loot.res.n);
-        toast(_t("Добыча возвращена: {0}", [lootText(loot) || _t("ничего")]), 4500);
+        toast(_t("Добыча возвращена: {0}", [lootText(loot, false) || _t("ничего")]), 4500);
       }
       updateSiegeUi();
       return;
