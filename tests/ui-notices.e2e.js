@@ -24,6 +24,19 @@ const output = 'ui-screenshots/' + (built ? 'dist' : 'source');
         assert((await p.locator('.upd-banner strong').textContent()).includes('99.0.0'));
         fs.mkdirSync(output,{recursive:true});
         await p.screenshot({path:output+'/'+lang+'-'+width+'x'+height+'-update.png'});
+        if (width === 390) {
+          await p.waitForFunction(() => Profile.data.testX10 === true);
+          await p.evaluate(() => MapView.startTraining('rat', 1, {dev:1}));
+          await p.waitForFunction(() => document.body.classList.contains('mode-battle') && Update.inBattle());
+          assert.equal(await p.locator('.upd-banner').isVisible(), false, 'update banner must be hidden in battle');
+          await p.evaluate(() => { window.__noticeGuard = true; document.querySelector('.upd-banner .primary').click(); });
+          await p.waitForTimeout(150);
+          assert.equal(await p.evaluate(() => window.__noticeGuard), true, 'reload must be blocked in battle');
+          await p.evaluate(() => MapView.returnFromBattle('flee'));
+          await p.waitForFunction(() => document.body.classList.contains('mode-map') && !Update.inBattle());
+          await p.locator('.upd-banner').waitFor({state:'visible'});
+          console.log('OK battle update guard', lang);
+        }
         await p.locator('.upd-x').click();
         assert.equal(await p.locator('.upd-banner').count(),0);
         await p.evaluate(()=>MapView.toast('Loot',10000,187));
