@@ -1,0 +1,49 @@
+name: UI polish verification
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  notices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          python3 -m http.server 8765 > /tmp/wip-http.log 2>&1 &
+          node tests/ui-notices.e2e.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-notice-screenshots
+          path: ui-screenshots/
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run audit:quick -- --out=/tmp/ui-audit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: layout-audit
+          path: /tmp/ui-audit
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
