@@ -2894,7 +2894,7 @@ body:not(.phone) .map-menu button { min-width: 200px; min-height: 40px; padding:
 .beast-count { flex: 1 1 100%; }
 .beast-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; max-height: 70vh; overflow-y: auto; }
 .beast-list .beast { flex-direction: column; text-align: center; align-items: center; gap: 2px; padding: 6px 4px; min-height: 0; }
-.beast-list .beast b { max-width: 100%; overflow-wrap: anywhere; hyphens: auto; font-size: 12px; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.beast-list .beast b { max-width: 100%; min-width: 0; overflow-wrap: anywhere; hyphens: auto; font-size: 12px; line-height: 1.15; display: block; white-space: normal; }
 .beast-list .beast small { font-size: 10px; }
 .beast-list .hint { grid-column: 1 / -1; }
 .beast-list { grid-auto-rows: max-content; align-content: start; }   /* 2.2.3: плитки не сжимаются в низких окнах, подписи не наезжают друг на друга */
