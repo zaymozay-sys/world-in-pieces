@@ -2115,7 +2115,7 @@ body.ui-columns .fighter .name { flex-wrap: wrap; row-gap: 2px; }
 .ic-cmp { background: #2a2a32; color: #c8cbe0; border-color: #6a6a9066; }
 .ic-req { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 .ic-req .ok { color: #a9d68f; } .ic-req .bad { color: #f08a72; } .ic-req li:not(.ok):not(.bad) { color: #b9ab8c; }
-.ic-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: auto; }
+.ic-nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: auto; }
 .ic-nums > span { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 8px; background: #15130f; border: 1px solid #3a3226; }
 .ic-nums > span > small { color: #9a8f78; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
 .ic-nums > span > b { font-size: 15px; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 4px; }
