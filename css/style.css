@@ -4647,7 +4647,9 @@ body.bt-gold :is(#bagbar,[data-bid="bagbar"]) {
 body.bt-gold .bagbar .bagitem { min-height: 0; }
 body.bt-gold .bagbar .bagitem .item-icon { width: 22px; height: 22px; }
 @media (max-width: 700px) {
-  body.ui-columns.phone.bt-gold { --board: min(calc(100vw - 54px), calc(100dvh - 350px)); }
+  @media (orientation: portrait) {
+    body.ui-columns.phone.bt-gold { --board: max(156px, min(calc(100vw - 54px), calc(100dvh - 350px))); }
+  }
   body.bt-gold .board { margin: 18px auto 20px; }
   body.bt-gold :is(#bagbar,[data-bid="bagbar"]) { grid-template-columns: repeat(5, minmax(0, 52px)); }
 }
@@ -5174,3 +5176,9 @@ body.phone .overlay .rw-block, body.phone .overlay .rw-line { box-sizing: border
 
 /* Do not offer a reload while a battle is active. Restore the same notice on return. */
 body.mode-battle > .upd-banner { display: none; }
+
+/* The legacy landscape grid must not inherit the portrait height deduction. */
+@media (orientation: landscape) {
+  body.ui-columns.phone.bt-gold.old-dock.mode-battle { --board: min(var(--A), calc(100vw - 42px - 8 * var(--sb))); }
+  body.ui-columns.phone.bt-gold.old-dock.mode-battle :is(#board,[data-bid="board"]) { margin: 0; }
+}
