@@ -80,7 +80,7 @@ function inPage() {
       const p = await ctx.newPage(), errs = [];
       p.on('pageerror', (e) => errs.push(e.message));
       try {
-        await p.goto(URL + '#dev-' + sc.replace('-solo', '')); await p.waitForTimeout(/^(fight|boss|result)/.test(sc) ? 3200 : 1800);
+        await p.goto(URL + '#dev-' + sc); await p.waitForTimeout(/^(fight|boss|result)/.test(sc) ? 3200 : 1800);
         await p.waitForTimeout(500);
         if (sc.startsWith('result')) await p.waitForTimeout(2000);
         if (/^(fight|boss)/.test(sc)) {
@@ -96,6 +96,10 @@ function inPage() {
           console.log('BATTLE_GEOMETRY', vn, sc, JSON.stringify(geom));
         }
         const f = await p.evaluate(inPage);
+        if (/^(fight|boss)/.test(sc)) {
+          const board = await p.evaluate(() => { const e = document.querySelector('.game:not(.duo-hidden) .board'); const r = e && e.getBoundingClientRect(); return r ? [r.width,r.height] : [0,0]; });
+          if (Math.min(...board) < 150) f.push(['critical-board', 'Игровое поле слишком мало: ' + board.map(Math.round).join('×')]);
+        }
         // перекрытые / вышедшие за экран / слишком мелкие кнопки (hitlib): кнопки под окном поверх экрана не считаются
         for (const h of await p.evaluate(hitReport)) if (['blocked', 'offscreen', 'small', 'dupid', 'clip'].includes(h.kind) && !(h.kind === 'offscreen' && /Журнал боя/.test(h.text || ''))) f.push(['hit-' + h.kind, (h.el || '') + (h.text ? ' «' + h.text + '»' : '') + (h.rect ? ' [' + h.rect + ']' : '') + (h.by ? ' закрыто: ' + h.by : '') + (h.size ? ' ' + h.size : '')]);
         for (const e of errs) f.push(['js', e]);
@@ -118,4 +122,6 @@ function inPage() {
   const lines = Object.entries(g).sort((a, b) => b[1].length - a[1].length).map(([k, v]) => `${String(v.length).padStart(4)}× ${k}\n       напр.: ${v.slice(0, 3).join(', ')}`);
   fs.writeFileSync(OUT + '/summary.txt', lines.join('\n'));
   console.log(lines.slice(0, 60).join('\n')); console.log('\nвсего находок:', report.length, '· групп:', lines.length, '· снимки и report.json →', OUT);
+  if (report.some(r => r.kind === 'critical-board' || r.kind === 'crash' || r.kind === 'js')) process.exitCode = 1;
 })();
+
