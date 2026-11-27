@@ -21,7 +21,7 @@ assert.strictEqual(Ammo.unlocked('hard', 1), false); assert.strictEqual(Ammo.unl
 let combos = 0, worstRatio = 0;
 const groups = [null, ...Object.keys(Balance.brew.groups)];
 for (let L = 1; L <= 60; L += 1) {
-  const unit = Hero.consumablePrice(Ammo.CATALOG.bolt.price, L);
+  const unit = Hero.battleConsumablePrice(Ammo.CATALOG.bolt.price, L);
   for (let t = 1; t <= 10; t++) for (const k of kinds) {
     const rp = Bestiary.resPrice(k, t), base = Ammo.brewNeed(null, unit, rp);
     for (const g of groups) for (const lvl of [1, 3, 5]) {

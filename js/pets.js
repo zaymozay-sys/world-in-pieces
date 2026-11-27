@@ -232,8 +232,9 @@ const Pets = (() => {
      Цены растут с цветом питомца (Tiers.PRICE_MULT), как всё остальное в игре. */
   const FEED_BATTLES = 3, FEED_BONUS = 1.25;
   const mult = (t) => PT_T.PRICE_MULT[PT_T.clamp(t) - 1];
-  const repairCost = (pet) => Math.round(70 * mult(pet.tier) * Math.max(0, pet.maxDurability - pet.durability));
-  const feedCost = (pet) => Math.round(45 * mult(pet.tier));
+  const upkeep = () => typeof Balance!=='undefined'?Balance.economy:require('./balance.js').economy;
+  const repairCost = (pet) => Math.round(upkeep().battleLoot[PT_T.clamp(pet.tier)-1]*upkeep().petRepairLootShare*Math.max(0,pet.maxDurability-pet.durability));
+  const feedCost = (pet) => Math.round(upkeep().battleLoot[PT_T.clamp(pet.tier)-1]*upkeep().petFeedLootShare*FEED_BATTLES);
   // Обучение: питомец переходит на следующий цвет (не выше цвета героя). null — дальше нельзя.
   const trainCost = (pet, heroTier) => (pet.tier >= Math.min(PT_T.MAX, heroTier) ? null : Math.round(500 * mult(pet.tier + 1)));
   function feed(pet) { pet.fed = FEED_BATTLES; addTrust(pet, 1); return pet; }
@@ -250,7 +251,7 @@ const Pets = (() => {
     apple:   { name: _t("Золотое яблоко"),    price: 200, battles: 2, desc: _t("Всё сразу: удар +25%, броня +15, ХП +30%, ум +25") },
   };
   const TREAT_ORDER = ['bone', 'biscuit', 'honey', 'apple'];
-  const treatCost = (pet, kind) => Math.round(TREATS[kind].price * mult(pet.tier));
+  const treatCost = (pet, kind) => Math.max(1,Math.round(TREATS[kind].price / TREATS.bone.price * feedCost(pet)));
   const treatLeft = (pet, kind) => (kind === 'bone' ? (pet.fed || 0) : ((pet.treats && pet.treats[kind]) || 0));
   function giveTreat(pet, kind) {
     const T = TREATS[kind];

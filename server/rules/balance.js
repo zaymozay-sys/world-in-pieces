@@ -256,6 +256,10 @@ const Balance = {
   economy: {
     coinTier: [1, 1, 1, 0.6, 0.43, 0.275, 0.215, 0.165, 0.13, 0.1],     // монеты с моба на 10-м цвете в ~80 раз больше, чем на 1-м (было ~780)
     sellTier: [1, 1, 1, 0.77, 0.63, 0.55, 0.51, 0.44, 0.39, 0.37],
+    // Reference ordinary PvE loot (coins + resale), measured across four factions.
+    battleLoot: [58, 133, 296, 600, 1113, 2300, 4699, 7281, 11633, 18265],
+    ammoLootShare: 0.30, elixirFeeLootShare: 0.10, petFeedLootShare: 0.20, petRepairLootShare: 0.80,
+    repairTier: [1, 1, 1, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6],
   },
   rewards: {
     coinBase: 0.4,                 // доходы и траты «за уровень» (сундуки, арена, сюжет, деревня)

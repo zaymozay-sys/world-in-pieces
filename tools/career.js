@@ -83,7 +83,7 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
     // бой
     // эликсиры (--elx=N): N видов цвета героя на бой, пока хватает монет сверх запаса; силу считает симулятор боя
     const elxN = Number((process.argv.find((x) => x.startsWith('--elx=')) || '--elx=0').split('=')[1]), plan = {};
-    const elxPrice = Elixirs.price(tf), elxReserve = Math.round(Hero.consumablePrice(Gear.CONSUMABLES.potion.price, L) * shopPerk) * 4;
+    const elxPrice = Elixirs.price(tf), elxReserve = Math.round(Hero.battleConsumablePrice(Gear.CONSUMABLES.potion.price, L) * shopPerk) * 4;
     for (const kind of ['power', 'fury', 'block', 'ricochet', 'health', 'cunning', 'stones', 'defense', 'swap'].slice(0, elxN)) {
       if (P.coins - elxPrice < elxReserve) break;
       P.coins -= elxPrice; lv.spent += elxPrice; global.__elxCoins = (global.__elxCoins || 0) + elxPrice; plan[kind] = tf;
@@ -106,7 +106,7 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
       if (lvl > P.level) P.level = lvl;
     }
     // лавка: одна лучшая покупка за визит, запас на зелья
-    const potionPrice = Math.round(Hero.consumablePrice(Gear.CONSUMABLES.potion.price, P.level) * shopPerk);
+    const potionPrice = Math.round(Hero.battleConsumablePrice(Gear.CONSUMABLES.potion.price, P.level) * shopPerk);
     const reserve = potionPrice * 2;
     const stock = makeShop(P);
     for (let k = 0; k < 3; k++) {                   // до трёх покупок за визит

@@ -72,7 +72,7 @@ const Screens = (() => {
   };
   // 2.2.9: расход ресурсов на боеприпасы растёт с ценой штуки, чтобы изготовление было дешевле покупки в Лавке на ~35%, а выручка в Рядах не превышала вход
   const ammoNeed = (kind, tier, k) => Ammo.brewNeed(null, ammoPrice(k), Bestiary.resPrice(kind, tier));
-  const ammoPrice = (k) => Hero.consumablePrice(Ammo.CATALOG[k].price, Profile.level());   // 1.3.0: боеприпасы
+  const ammoPrice = (k) => Hero.battleConsumablePrice(Ammo.CATALOG[k].price, Profile.level());   // боеприпасы
   const levelNote = (it) => (Hero.canWear(it.wt, Profile.level()) ? '' : _t(" · <b class=\"warn\">надеть можно с {0}-го уровня</b>", [Hero.itemLevel(it.wt)]));
   const repairPrice = (e, pts) => { const c = Gear.repairCost(e, pts); return c > 0 ? Math.max(1, Math.round(c * Factions.perk(Profile.data.faction, 'forge'))) : 0; };   // 1.6.6: цена починки со скидкой народа
   const junkOf = (it) => Gear.junkValue(Math.round(it.price * Gear.wearFactor(Profile.item(it.uid))));   // 1.6.6: изношенная вещь дешевле
@@ -2768,7 +2768,7 @@ const credits = {
     if (kind === 'item') return Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => ({ key: e.uid, have: 1, name: Gear.item(e).name, icon: itemIcon('', '', e.id), tier: e.tier, entry: e }));
     if (kind === 'res') return Profile.resList().map((r) => ({ key: r.kind + ':' + r.tier, have: r.n, name: resLabel(r.kind, r.tier), icon: MonsterArt.resIcon(r.kind, r.tier), tier: r.tier }));
     if (kind === 'cons') return Gear.heldCons(Profile.data.backpack).map(([k, c]) => ({ key: k, have: Profile.data.backpack[k], name: c.name, icon: itemIcon(k), unit: consPrice(Gear.parseCons(k).base) }));
-    return Ammo.stocks((k) => Profile.ammo(k)).map((k) => ({ key: k, have: Profile.ammo(k), name: Ammo.stockName(k), icon: Ammo.icon(k), unit: Hero.consumablePrice(Ammo.CATALOG[Ammo.parse(k).kind].price, Profile.level()) }));
+    return Ammo.stocks((k) => Profile.ammo(k)).map((k) => ({ key: k, have: Profile.ammo(k), name: Ammo.stockName(k), icon: Ammo.icon(k), unit: ammoPrice(Ammo.parse(k).kind) }));
   }
   const lotIcon = (lot) => lot.kind === 'item' ? itemIcon('', '', lot.entry.id) : lot.kind === 'res' ? MonsterArt.resIcon(lot.key.split(':')[0], Number(lot.key.split(':')[1])) : lot.kind === 'cons' ? itemIcon(lot.key) : Ammo.icon(lot.key);
   function mkTake(kind, a, n) {
