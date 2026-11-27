@@ -83,6 +83,18 @@ function inPage() {
         await p.goto(URL + '#dev-' + sc.replace('-solo', '')); await p.waitForTimeout(/^(fight|boss|result)/.test(sc) ? 3200 : 1800);
         await p.waitForTimeout(500);
         if (sc.startsWith('result')) await p.waitForTimeout(2000);
+        if (/^(fight|boss)/.test(sc)) {
+          const geom = await p.evaluate(() => {
+            const selectors = ['.game:not(.duo-hidden)', '.game:not(.duo-hidden) .arena', '#fighter-left', '#fighter-right', '#board', '.game:not(.duo-hidden) .bar', '.game:not(.duo-hidden) .btns', '#mute', '#restart', '#more'];
+            const round = (n) => Math.round(n);
+            return {body: document.body.className, viewport: [innerWidth, innerHeight], scroll: [document.documentElement.scrollHeight,document.body.scrollHeight], nodes: selectors.map(sel => {
+              const e = document.querySelector(sel); if (!e) return [sel,null];
+              const r = e.getBoundingClientRect(), c = getComputedStyle(e);
+              return [sel,[r.x,r.y,r.width,r.height].map(round),c.display,c.gridTemplateRows,c.position];
+            })};
+          });
+          console.log('BATTLE_GEOMETRY', vn, sc, JSON.stringify(geom));
+        }
         const f = await p.evaluate(inPage);
         // перекрытые / вышедшие за экран / слишком мелкие кнопки (hitlib): кнопки под окном поверх экрана не считаются
         for (const h of await p.evaluate(hitReport)) if (['blocked', 'offscreen', 'small', 'dupid', 'clip'].includes(h.kind) && !(h.kind === 'offscreen' && /Журнал боя/.test(h.text || ''))) f.push(['hit-' + h.kind, (h.el || '') + (h.text ? ' «' + h.text + '»' : '') + (h.rect ? ' [' + h.rect + ']' : '') + (h.by ? ' закрыто: ' + h.by : '') + (h.size ? ' ' + h.size : '')]);
