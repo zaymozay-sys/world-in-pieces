@@ -1413,3 +1413,32 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 .shop-workshop .sale-product [data-sale-pick][aria-pressed="true"] { color:#e9d39b; border-color:#c7aa65; }
 .shop-workshop .sale-product .card-act { flex-wrap:wrap; }
 .shop-workshop .sale-product .card-act button { min-height:44px; white-space:normal; }
+
+/* Компактная добыча на карте: размеры определяет содержимое, а не окно существа. */
+body.mode-map .map-card.mc-compact-loot { display:block; width:max-content; min-width:0; max-width:min(100%,420px); margin-inline:auto; box-sizing:border-box; padding:9px 12px; }
+body.mode-map .map-card.mc-compact-loot .mc-body { min-width:0; width:auto; display:grid; gap:5px; }
+body.mode-map .map-card.mc-compact-loot .mc-title { font-size:17px; }
+body.mode-map .map-card.mc-compact-loot .mc-result { margin:0; display:grid; gap:5px; font-size:13px; }
+.mc-compact-loot .mc-loot-coins { display:flex; align-items:center; flex-wrap:wrap; gap:5px; }
+.mc-compact-loot .mc-loot-res { display:flex; flex-wrap:wrap; gap:5px; }
+.mc-compact-loot .mc-loot-item { display:inline-flex; align-items:center; gap:5px; padding:3px 6px; border:1px solid #715635; border-radius:5px; background:rgba(12,8,4,.35); max-width:100%; min-width:0; box-sizing:border-box; }
+.mc-compact-loot .mc-loot-icon { display:grid; place-items:center; flex:0 0 34px; width:34px; height:34px; border:1px solid var(--loot-tier); border-radius:5px; }
+.mc-compact-loot .mc-loot-icon :is(img,svg,.res-icon) { width:30px; height:30px; object-fit:contain; }
+.mc-compact-loot .mc-loot-label { overflow-wrap:anywhere; }
+body.mode-map .map-card.mc-compact-loot .mc-act { margin:0; justify-content:flex-end; }
+body.mode-map .map-card.mc-compact-loot .mc-act button { min-height:44px; margin:0; }
+/* Отделы расходников и ресурсов используют собственную компактную витрину. */
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(205px,100%),1fr)); gap:9px; align-items:stretch; }
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card-list > .card { display:flex; flex-direction:column; text-align:center; align-items:center; min-width:0; gap:7px; padding:10px; background:linear-gradient(165deg,rgba(66,43,24,.95),rgba(25,17,11,.96)); }
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card > :is(.item-icon,.res-icon,.icon-wrap) { width:94px; height:94px; max-width:100%; flex:none; margin:0 auto; object-fit:contain; }
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card > :is(.item-icon,.res-icon,.icon-wrap) :is(img,svg) { width:100%; height:100%; object-fit:contain; }
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card-body { width:100%; min-width:0; flex:1; }
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card-act { width:100%; flex:none; margin:0; flex-wrap:wrap; justify-content:center; }
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card-act button { min-height:44px; max-width:100%; white-space:normal; }
+.shop-workshop .shop-section:is(.shop-cons,.shop-resources) .qty-picker { flex-wrap:wrap; justify-content:center; }
+.shop-workshop .shop-gear .cat-drops { display:flex; flex-wrap:wrap; gap:6px 12px; }
+.shop-workshop .shop-gear .cat-drops label { flex:1 1 145px; min-width:0; }
+.shop-workshop .shop-gear .cat-drops select { min-height:44px; max-width:100%; }
+.shop-workshop .shop-gear :is(.cat-sets,.cat-kinds) { display:none; }
+@media(max-width:719px) { .shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card-list { grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr)); } }
+@media(max-width:370px) { .shop-workshop .shop-section:is(.shop-cons,.shop-resources) .card-list { grid-template-columns:1fr; } }
