@@ -1627,6 +1627,21 @@ const Screens = (() => {
     if (reward.cons) Object.keys(reward.cons).forEach((k) => out.push(`<span class="qr-ico">${itemIcon(k)}</span>`));
     return out.length ? `<span class="quest-reward-icons">${out.join('')}</span>` : '';
   }
+  // Остров: список конкретных целей и состояние всей цепочки.
+  function islandQuestDetails(q) {
+    if (!q.accepted || q.claimed) return '';
+    const goals=Quests.islandObjectives(Profile.data,q.id);
+    if (!goals.length) return '';
+    return '<ul class="isle-objectives">'+goals.map(g=>{
+      const label=g.species?Bestiary.MONSTERS[g.species].name:HexMap.BUILDINGS[g.building].name;
+      return `<li class="${g.done?'done':''}"><span aria-label="${g.done?_t("Выполнено"):_t("Не выполнено")}">${g.done?'✓':'○'}</span> ${label}</li>`;
+    }).join('')+'</ul>';
+  }
+  function islandChainPanel() {
+    const chain=Quests.islandChain(Profile.data);
+    if (!chain.some(q=>q.ready||q.accepted)) return '';
+    return `<section class="isle-chain"><b>${_t("История Затерянного острова")}</b><div class="isle-chain-steps">${chain.map((q,i)=>`<div class="${q.claimed?'done':q.ready?'current':'locked'}"><span>${i+1}. ${q.title.replace(/^.*?: /,'')}</span><small>${q.claimed?_t("Завершено"):q.done&&q.accepted?_t("К сдаче"):q.accepted?_t("В работе"):q.ready?_t("Доступно"):_t("Закрыто")}</small></div>`).join('')}</div></section>`;
+  }
   // Общий рендер карточек заданий одного собеседника (giver — 'tavern' | 'mill').
   function questCards(giver) {
     // 2.2.7: у трактирщика новичку показываем не больше двух ещё не взятых заданий; остальные открываются по мере выполнения
@@ -1637,13 +1652,13 @@ const Screens = (() => {
       if (free > 0) { free--; return true; }
       hidden++; return false;
     });
-    return all.map((q) => {
+    return (giver==='lighthouse'?islandChainPanel():'') + all.map((q) => {
       let act;
       if (q.claimed) act = _t("<span class=\"badge done\">Получено</span>");
       else if (!q.accepted) act = _t("<button type=\"button\" class=\"primary\" data-accept=\"{0}\">Взять задание</button>", [q.id]);
       else if (q.done) act = _t("<button type=\"button\" class=\"primary\" data-claim=\"{0}\">Забрать награду</button>", [q.id]);
       else act = `<span class="quest-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${q.goal}" aria-valuenow="${q.value}">${q.value} / ${q.goal}<i style="--p:${Math.round(100*q.value/q.goal)}%"></i></span>`;
-      return _t("<div class=\"card quest-card {0}\">\n        <div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2}</span>\n          <span class=\"item-foot quest-reward\">{5}Награда: {3}</span></div>\n        <div class=\"card-act\">{4}</div></div>", [q.claimed ? 'is-done' : '', q.title, q.desc, q.rewardText, act, questRewardIcons(q.reward)]);
+      return `<div class="card quest-card ${q.claimed?'is-done':''}"><div class="card-body"><span class="item-title">${q.title}</span><span class="item-foot">${q.desc}</span>${islandQuestDetails(q)}<span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div><div class="card-act">${act}</div></div>`;
     }).join('') + (hidden ? `<p class="hint">${_t("Остальные задания трактирщик покажет, когда справитесь с этими.")}</p>` : '');
   }
   // Общий обработчик клика «Взять задание» / «Забрать награду» для экранов с заданиями. giver задаёт текст ответа.
@@ -3952,7 +3967,7 @@ const credits = {
         const locate = !q.claimed ? `<button type="button" data-quest-locate="${q.id}">${_t("Показать на карте")}</button>` : '';
         return `<article class="card quest-card journal-quest ${q.claimed ? 'is-done' : q.done ? 'quest-ready' : ''}">
           <div class="card-body"><span class="item-title">${q.title}</span><span class="item-foot">${giver ? giver[1] : ''}</span>
-          <span class="item-foot">${q.desc}</span><span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div>
+          <span class="item-foot">${q.desc}</span>${islandQuestDetails(q)}<span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div>
           <div class="journal-quest-progress"><span>${progress} / ${q.goal}</span><progress max="${q.goal}" value="${progress}" aria-label="${q.title}"></progress>${locate}</div></article>`;
       }).join('');
       const nav = Object.keys(groups).map(k => [k, labels[k] + ' · ' + groups[k].length]);
