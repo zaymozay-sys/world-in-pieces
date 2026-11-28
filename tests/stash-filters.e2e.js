@@ -75,6 +75,27 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       assert.equal(await page.locator('.ic-favorite').getAttribute('aria-pressed'),'false');
       await page.evaluate(() => ItemInfo.close());
       assert.equal(await page.evaluate(uid => Profile.canSellItem(uid),favoriteUid),true);
+      await page.evaluate(()=>Inventory.open('left',{armory:true}));
+      await page.locator('[data-itab="gear"]').click();
+      const saved=await page.evaluate(()=>JSON.stringify(Profile.data.loadout));
+      await page.locator('.gear-presets input').fill('Основной');
+      await page.locator('[data-preset-act="save"]').click();
+      assert.equal(await page.locator('.preset-row').count(),1);
+      const oldMain=await page.evaluate(()=>{const u=Profile.data.loadout.main; Inventory.unequipSlot('main'); return u;});
+      assert.equal(await page.evaluate(u=>Profile.canSellItem(u),oldMain),false);
+      await page.locator('[data-preset-act="apply"]').click();
+      assert.equal(await page.evaluate(()=>JSON.stringify(Profile.data.loadout)),saved);
+      const atomic=await page.evaluate(()=>{
+        const before=JSON.stringify(Profile.data.loadout);
+        const p=Profile.data.equipmentPresets[0], old=p.slots.main;
+        p.slots.main='missing-item';
+        const err=Profile.applyPreset(0);
+        p.slots.main=old;
+        return !!err && before===JSON.stringify(Profile.data.loadout);
+      });
+      assert.equal(atomic,true);
+      await page.locator('[data-preset-act="delete"]').click();
+      assert.equal(await page.locator('.preset-row').count(),0);
       assert.deepEqual(errors, []);
       await context.close();
       console.log(`Оружейная ${width}px: проверка пройдена`);
