@@ -2081,7 +2081,24 @@ const MapView = (() => {
     if (!map || !st || !document.body.classList.contains('mode-map')) return false;
     const d = Profile.data, t = Unlocks.questTarget(d, q);
     if (!t) return false;
+    if (t.kind === 'island') {
+      if (map.kind !== 'island') {
+        if (!map.kind) return focusQuestGiver('wreck');
+        toast(_t("Вернитесь на материк, затем отправляйтесь к бригантине.")); return false;
+      }
+      if (t.quest==='isle-3') return focusQuestGiver('islandChest');
+      const missing=new Set(Quests.islandObjectives(d,t.quest).filter(g=>!g.done).map(g=>g.species));
+      const candidates=map.spawns.filter(sp=>missing.has(sp.species) && !sp.guard && (t.quest==='isle-1'||alive(sp)));
+      candidates.sort((a,b)=>Number(known(b.idx))-Number(known(a.idx)) || HexMap.dist(map.cells[st.pos],map.cells[a.idx])-HexMap.dist(map.cells[st.pos],map.cells[b.idx]));
+      const target=candidates[0];
+      if(!target){toast(_t("Подходящие существа пока не появились. Дождитесь их возвращения."));return false;}
+      closeCard();centerOn(target.idx);highlightMapTarget(target.idx);
+      if (known(target.idx)&&alive(target)) showMonster(target);
+      else toast(_t("Цель в неисследованной области — подойдите ближе"));
+      return true;
+    }
     if (t.kind === 'building') {
+      if (map.kind==='island' && t.id==='lighthouse') return focusQuestGiver('islandPier');
       if (!Unlocks.isOpen(d, t.id)) { toast(Unlocks.reason(d, t.id)); return false; }
       return focusQuestGiver(t.id);
     }
