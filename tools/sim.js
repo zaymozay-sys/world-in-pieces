@@ -1135,7 +1135,7 @@ const PLAYERS = {
 function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
-  const bySpell = {}, ammoUsed = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
+  const bySpell = {}, ammoUsed = {}, itemsUsed = {}, elixirsUsed = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
   let petBoardWins=0;
   let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
@@ -1160,6 +1160,8 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
     if (S.winner === 'draw') draws++;
     for (const [k, v] of Object.entries(S.stats.bySpell)) bySpell[k] = (bySpell[k] || 0) + v;
     for (const [k, v] of Object.entries(S.stats.ammoUsed)) ammoUsed[k] = (ammoUsed[k] || 0) + v;
+    for(const [key,n] of Object.entries(bag||{})){const used=n-(hero.bag[key]||0);if(used>0)itemsUsed[key]=(itemsUsed[key]||0)+used;}
+    for(const [kind,t] of Object.entries(elixirs||{}))if(kind!=='food'&&!Object.hasOwn(hero.elxPlan,kind)){const key=Elixirs.key(kind,t);elixirsUsed[key]=(elixirsUsed[key]||0)+1;}
     for(const [k,v] of Object.entries(S.stats.petBoardSpells||{}))petBoardSpells[k]=(petBoardSpells[k]||0)+v;
     if(S.stats.petBoardWin)petBoardWins++;
     for (const [kind, values] of Object.entries(S.stats.areaImpact)) {
@@ -1173,7 +1175,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
   }
   actWin.sort((a, b) => a - b);
   return {
-    bySpell, ammoUsed, petBoardSpells, petBoardWin:duo?petBoardWins/n:0, areaImpact, burst, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
+    bySpell, ammoUsed, itemsUsed, elixirsUsed, petBoardSpells, petBoardWin:duo?petBoardWins/n:0, areaImpact, burst, win: wins / n, strictWin: strictWins / n, killsPerBattle: duo ? duoKills / n : wins / n, draws: draws / n, actions: actions / n, rounds: rounds / n, spells: spells / n, abilities: abil / n,
     hpLeft: wins ? hpLeft / wins : 0, heroDmgPerAct: heroDmg / Math.max(1, actions), monDmgPerAct: monDmg / Math.max(1, monActs),
     medianActionsWin: actWin.length ? actWin[Math.floor(actWin.length / 2)] : 0,
   };

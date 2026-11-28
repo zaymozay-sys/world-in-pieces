@@ -116,6 +116,10 @@ assert.strictEqual(Medals.checkStrikeMedal(Medals.STRIKE_MILESTONES[2], []), Med
   const v0 = Object.values(b0).reduce((a, b) => a + b, 0), vLast = Object.values(bLast).reduce((a, b) => a + b, 0);
   assert.ok(v0 > 0 && v0 <= 3, 'бонус первой вехи Удара небольшой');
   assert.ok(vLast > v0, 'дальняя веха Удара весомее ближней');
+  const ids=Medals.STRIKE_MILESTONES.map(n=>({id:Medals.strikeMedalId(n)}));
+  const eight=Medals.bonusStats(ids.slice(0,8)),nine=Medals.bonusStats(ids.slice(0,9)),ten=Medals.bonusStats(ids);
+  assert.strictEqual(eight.fury,Gear.CAPS.fury);
+  assert.ok(nine.health>eight.health&&ten.health>nine.health,'дальние медали дают пользу после потолка Ярости');
 }
 assert.ok(Medals.nameFor(Medals.strikeMedalId(50)).includes('50'));
 

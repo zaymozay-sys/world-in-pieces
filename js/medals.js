@@ -143,7 +143,9 @@ const Medals = (() => {
     if (id.startsWith('strike:')) {
       const n = Number(id.slice(7)), idx = Math.max(0, STRIKE_MILESTONES.indexOf(n));
       const amt = 1 + idx;                        // та же логика, что у streak: дальше веха — весомее награда
-      return { fury: amt };
+      // 8 первых медалей уже упираются в потолок Ярости; дальние вехи должны
+      // давать ощутимую награду даже герою с полностью развитой экипировкой.
+      return idx >= 8 ? { fury: amt, health: 12 + (idx - 8) * 8 } : { fury: amt };
     }
     if (id.startsWith('spell:')) {                  // 2.0.4: ХП растёт с вехой, Сила — каждую вторую веху
       const idx = Math.max(0, SPELL_MILESTONES.indexOf(Number(id.slice(6))));
@@ -186,7 +188,7 @@ const Medals = (() => {
   const GROUPS = {
     kill:   { name: _t("Охотник"),         ids: () => ME_B.ORDER.map(killMedalId),            bonus: { power: P(3), defense: 3, health: 10, leech: 5, leechPower: 4 } },
     streak: { name: _t("Мастер линий"),    ids: () => STREAK_MILESTONES.map(streakMedalId),    bonus: { power: P(4), defense: 4 } },
-    strike: { name: _t("Мастер Удара"),    ids: () => STRIKE_MILESTONES.map(strikeMedalId),    bonus: { fury: 6 } },
+    strike: { name: _t("Мастер Удара"),    ids: () => STRIKE_MILESTONES.map(strikeMedalId),    bonus: { fury: 6, health: 10 } },
     style:  { name: _t("Мастер боя"),        ids: () => STYLE_ORDER.map(styleMedalId),        bonus: { power: P(8), ricochet: 3 } },
     world:  { name: _t("Путешественник"),    ids: () => WORLD_ORDER.map(worldMedalId),        bonus: { health: 20, block: 2 } },
     secret: { name: _t("Тайны"),             ids: () => SECRET_ORDER.map(secretMedalId),       bonus: { cunning: 4 } },

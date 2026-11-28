@@ -20,3 +20,14 @@ assert.deepStrictEqual(R.clean({ wave: 'x', pot: -5, best: 999, on: 1 }), { on: 
   assert.strictEqual(sum, R.DAILY_WAVES, 'монеты только за первые волны суток'); assert.strictEqual(R.left(q, '2026-10-18'), 0);
   assert.strictEqual(R.left(q, '2026-10-19'), R.DAILY_WAVES, 'новые сутки — счётчик сброшен'); }
 console.log('run: все тесты пройдены');
+{
+  assert.ok(!R.availableMod('master',70)&&R.availableMod('master',71));
+  const q=R.clean(null);R.start(q,'master');
+  const a=R.shadow(q,95,5,F);
+  assert.ok(a.master.hp>1&&a.master.dmg>1);
+  R.win(q,10,'2026-11-28');const b=R.shadow(q,95,5,F);
+  assert.notStrictEqual(a.rule,b.rule);assert.ok(b.master.hp>a.master.hp);
+  assert.strictEqual(R.clean(q).masterBest,1);
+  assert.strictEqual(R.modMult('master'),1.4);
+  R.cash(q);R.start(q,'');assert.ok(!R.shadow(q,95,5,F).master);
+}

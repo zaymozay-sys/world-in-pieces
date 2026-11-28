@@ -2887,7 +2887,20 @@ body:not(.phone) .map-menu button { min-width: 200px; min-height: 40px; padding:
 .beast-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .beast-ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .beast-q { flex: 1 1 140px; min-height: 38px; }
-.beast-ctl select { min-height: 38px; flex: 1 1 130px; }
+.beast-ctl select { min-height: 44px; flex: 1 1 130px; min-width: 0; max-width: 100%; }
+.beast-ctl .beast-sort { flex: 1 1 100%; min-width: 0; display: grid; grid-template-columns: minmax(75px, 1fr) minmax(0, 2fr); }
+.beast-ctl [data-bfindres] { flex: 1 1 100%; min-height: 44px; white-space: normal; }
+.beast-ctl .beast-q { min-width: 0; min-height: 44px; }
+.quest-progress { display: grid; gap: 5px; min-width: 68px; text-align: center; font-variant-numeric: tabular-nums; }
+.quest-progress i { display: block; height: 5px; border-radius: 5px; background: linear-gradient(90deg,#c69b55 var(--p),rgba(145,125,90,.25) var(--p)); }
+@media (max-width: 480px) {
+  .quest-card { flex-wrap: wrap; }
+  .quest-card .card-body { min-width: 0; flex: 1 1 100%; }
+  .quest-card .card-act { flex: 1 1 100%; }
+  .quest-card .card-act button { width: 100%; min-height: 44px; white-space: normal; }
+  .beast-chips { width: 100%; }
+  .beast-chips .bchip { flex: 1 1 auto; min-height: 44px; }
+}
 .beast-chips { display: flex; gap: 4px; flex-wrap: wrap; }
 .bchip { min-height: 38px; padding: 0 12px; border-radius: 999px; }
 .bchip.on { outline: 2px solid var(--gold, #e0b050); }
@@ -4317,6 +4330,7 @@ button:not(:disabled):active { transform: translateY(1px) scale(.98); }
 /* 2.0.9: карточки заданий компактнее, награда заметнее */
 .quest-card .quest-reward { color: #f1d98a; font-weight: 600; }
 .quest-card .card-act button { min-height: 40px; padding: 0 12px; white-space: nowrap; }
+@media (max-width: 480px) { .quest-card .card-act button { min-height: 44px; white-space: normal; } }
 .quest-card .quest-progress { font-variant-numeric: tabular-nums; font-weight: 600; }
 /* 2.0.9: эффекты наград — строки появляются по очереди, редкая добыча вспыхивает один раз */
 @keyframes rwIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
