@@ -1529,3 +1529,5 @@ body .fi-pop .fi-close { min-height:36px; min-width:36px; background:#412b1a; co
 body .fi-pop .fi-health { width:100%; height:8px; accent-color:#b95042; margin:3px 0 6px; }
 body .fi-pop .fi-more { min-height:44px; }
 body .fighter .avatar[role="button"]:focus-visible { outline:2px solid #e8c16c; outline-offset:2px; }
+
+.overlay.battle-result .result-panel:has(.result-earned-xp) .rw-base-xp { display:none; }
