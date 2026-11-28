@@ -19,6 +19,16 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       assert.equal(await page.locator('.craft-unit').count(), 0);
       await page.locator('[data-forge-ready]').click();
       assert.ok(await page.locator('.craft-unit').count() > 0);
+      const material = page.locator('.craft-unit [data-material-find]').first();
+      assert.ok(await material.count(), 'Не хватает материалов — доступен поиск');
+      const [kind,tier] = (await material.getAttribute('data-material-find')).split(':');
+      // Слишком слабые существа не дают ресурс: переход в лавку к нужному цвету.
+      await page.evaluate(() => { Profile.data.xp = Hero.totalFor(100); });
+      await material.click();
+      assert.equal(await page.evaluate(() => Screens.screen),'shop');
+      assert.equal(await page.locator('.material-target [data-buy-res="'+kind+'"]').count(),1);
+      assert.equal(await page.locator('[data-restier="'+tier+'"]').evaluate(e => e.classList.contains('on')),true);
+      await page.evaluate(() => { Profile.data.xp = Hero.totalFor(21); Screens.close(); });
       await page.evaluate(() => Screens.open('shop'));
       assert.equal(await page.locator('.shop-catalog.shop-grid-view').count(), 1);
       const art = await page.locator('.shop-grid-view > .card > .icon-wrap').first().evaluate(e => {
