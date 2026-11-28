@@ -1308,3 +1308,22 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
     grid-template-columns: repeat(auto-fit, minmax(min(145px,100%),1fr));
   }
 }
+
+/* Название новой области: атмосферное, краткое, не перехватывает нажатия. */
+.map-view .region-banner {
+  position: absolute; z-index: 12; left: 50%; top: 29%;
+  transform: translate(-50%, -6px); opacity: 0; pointer-events: none;
+  max-width: calc(100% - 32px); width: max-content; box-sizing: border-box;
+  padding: 10px clamp(18px, 5vw, 48px); text-align: center;
+  font-family: var(--ui-display, Georgia, serif); font-weight: 700;
+  font-size: clamp(17px, 3.2vw, 30px); line-height: 1.25;
+  color: #ffe8ad; text-shadow: 0 2px 4px #100a05;
+  background: linear-gradient(90deg, transparent, rgba(22,15,8,.9) 20%, rgba(22,15,8,.9) 80%, transparent);
+  border-block: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, #c6a369, transparent) 1;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.map-view .region-banner.show { opacity: 1; transform: translate(-50%,0); }
+@media (prefers-reduced-motion: reduce) {
+  .map-view .region-banner { transition: none; }
+}
