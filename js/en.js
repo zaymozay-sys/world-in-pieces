@@ -1,6 +1,15 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Затерянный остров": "Lost Island",
+  "Фильтры карты": "Map filters",
+  "Обычные существа": "Ordinary creatures",
+  "Элитные противники": "Elite enemies",
+  "Боссы и стражи": "Bosses and guardians",
+  "События карты": "Map events",
+  "Достопримечательности": "Landmarks",
+  "Подписи зданий": "Building labels",
+  "Показать всё": "Show all",
   "Выберите благословение; новое заменит прежнее.": "Choose a blessing; the new one replaces the previous one.",
   "Новый уровень: {0}": "New level: {0}",
   "Покоритель Забега": "Run Conqueror",
