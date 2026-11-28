@@ -96,6 +96,15 @@ function modalLayout() {
       }
       await p.goto(base + '?audit=result#dev-result-win');
       await p.locator('.battle-result.result-win').waitFor({ state: 'visible', timeout: 20000 });
+      const details = p.locator('.battle-result .rw-more');
+      if (await details.count()) {
+        assert.equal(await details.isVisible(), false);
+        await p.locator('.battle-result .rw-more-btn').click();
+        assert.equal(await details.isVisible(), true);
+        await p.locator('.battle-result .rw-more-btn').click();
+        assert.equal(await details.isVisible(), false);
+      }
+      assert.equal(await p.locator('.battle-result .to-map').evaluate(e => getComputedStyle(e).position), 'static');
       await p.locator('.battle-result .to-map').scrollIntoViewIfNeeded();
       const returnButton = await p.locator('.battle-result .to-map').boundingBox();
       if (!returnButton || returnButton.x < -2 || returnButton.y < -2 || returnButton.x + returnButton.width > width + 2 || returnButton.y + returnButton.height > height + 2) findings.push(`${width}x${height} result: кнопка возврата недоступна`);
