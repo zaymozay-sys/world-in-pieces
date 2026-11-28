@@ -21,6 +21,22 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       assert.ok(await page.locator('.craft-unit').count() > 0);
       await page.evaluate(() => Screens.open('shop'));
       assert.equal(await page.locator('.shop-catalog.shop-grid-view').count(), 1);
+      const art = await page.locator('.shop-grid-view > .card > .icon-wrap').first().evaluate(e => {
+        const card = e.parentElement.getBoundingClientRect(), a = e.getBoundingClientRect();
+        const icon = e.querySelector('.item-icon').getBoundingClientRect();
+        return {center: Math.abs((card.left+card.right-a.left-a.right)/2), size:a.width, icon:icon.width};
+      });
+      assert.ok(art.center <= 3, 'Изображение товара должно быть по центру: '+JSON.stringify(art));
+      assert.ok(art.size >= (width === 390 ? 100 : 135), 'Витрина должна показывать крупный предмет: '+JSON.stringify(art));
+      assert.ok(art.icon >= art.size-16, 'Предмет должен занимать почти всю рамку');
+      await page.evaluate(() => ItemInfo.open('base:sword-novice:1'));
+      const seal = await page.locator('.scroll[style*="--seal"] .ic-close').evaluate(e => {
+        const c=getComputedStyle(e); return [c.backgroundColor,c.backgroundImage,c.boxShadow,getComputedStyle(e,'::before').backgroundImage];
+      });
+      assert.deepEqual(seal.slice(0,3), ['rgba(0, 0, 0, 0)','none','none']);
+      assert.notEqual(seal[3],'none','Изображение печати сохранено');
+      await page.evaluate(() => ItemInfo.close());
+
       await page.locator('[data-shop-view="list"]').click();
       assert.equal(await page.locator('.shop-catalog.shop-grid-view').count(), 0);
       await page.locator('[data-shop-view="affordable"]').click();
