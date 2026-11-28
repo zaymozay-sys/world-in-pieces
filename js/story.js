@@ -58,7 +58,8 @@ const Story = (() => {
   // Награда за осколок (один раз): монеты по цвету стража и опыт. Финал — втрое больше.
   function shardReward(bossId, cyc = 0) {
     const ch = BY_ID[bossId], k = 1 + 0.5 * cyc;
-    const coins = Math.round(400 * CK_S * ST_T.PRICE_MULT[ch.tier - 1] * B_S_econ(ch.tier) * (ch.final ? 3 : 1) * k);
+    const loot = ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).economy.battleLoot[ch.tier - 1];
+    const coins = Math.round(Math.max(400 * CK_S * ST_T.PRICE_MULT[ch.tier - 1] * B_S_econ(ch.tier) * (ch.final ? 3 : 1), loot * (ch.final ? 6 : 3)) * k);
     return { coins, xp: Math.round((ch.final ? 600 : 120) * Math.ceil(ch.tier / 2) * k) };
   }
 

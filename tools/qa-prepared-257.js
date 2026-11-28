@@ -21,6 +21,16 @@ if(args.zone) {
   if(!z)throw Error('Unknown zone '+args.zone);
   targets=[{id:z.species,tier:z.tier,mlvl:H.itemLevel(z.tier),zone:args.zone}];
 }
+if(args.boss) {
+  const ch=require('../js/story').BY_ID[args.boss];
+  if(!ch)throw Error('Unknown story boss '+args.boss);
+  targets=[{id:ch.species,tier:ch.tier,mlvl:H.itemLevel(ch.tier),boss:ch.id}];
+}
+if(args.wave) {
+  const Run=require('../js/run'),r=Run.clean(null);Run.start(r,'master');r.wave=Number(args.wave);
+  const shadow=Run.shadow(r,level,seed,Factions.ORDER);
+  targets=[{id:'bandit',tier:H.tierFor(shadow.level),mlvl:shadow.level,shadow}];
+}
 // Реальные слоты героя; Удар не занимает слот. Временный unlockAll не
 // используется для сравнения законной прогрессии магии.
 const spellLoadout = mode => {
@@ -134,7 +144,7 @@ for(const faction of Object.keys(factions)) {
     for(const target of targets) {
       const monster=target.id;
       const familyPct=M.familyBonus(opts.earned||[],B.MONSTERS[monster].family);
-      const r=sim.simulate({faction,level,monster,tier:target.tier,mlvl:target.mlvl,depth:target.depth,trait:target.trait,zone:target.zone,n:N,seedBase:seed,pairedFactions:true,elite:target.elite,player:'avg',...opts,tune:{fullSpells:true,utility:true},boost:{...opts.boost,familyPct}});
+      const r=sim.simulate({faction,level,monster,tier:target.tier,mlvl:target.mlvl,depth:target.depth,trait:target.trait,zone:target.zone,boss:target.boss,cycle:Number(args.cycle||0),shadow:target.shadow,n:N,seedBase:seed,pairedFactions:true,elite:target.elite,player:'avg',...opts,tune:{fullSpells:true,utility:true},boost:{...opts.boost,familyPct}});
       win+=r.win;actions+=r.actions;ammo+=Object.values(r.ammoUsed).reduce((a,b)=>a+b,0)/N;
     }
     rows[name]={winPct:Math.round(100*win/targets.length),actions:Math.round(actions/targets.length*10)/10,ammoPerBattle:Math.round(ammo/targets.length*10)/10};

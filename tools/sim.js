@@ -86,6 +86,10 @@ function makeMonster(id, tier, o = {}) {
   if (o.depth > 1) sc = { ...sc, hp: Math.round(sc.hp * o.depth), dmg: sc.dmg * o.depth };
   // 1.7.3: хозяин зоны — крупнее и злее (World.scaleZone) и с добавочными приёмами; o.affixes — любые свойства для опытов
   let affixes = o.affixes || [];
+  if (o.boss) {
+    sc = require(J('story.js')).scaleBoss(sc, o.boss, o.cycle || 0);
+    affixes = (World.GUARDIANS[o.boss]?.affixes || []).filter(a => a !== m.ability);
+  }
   if (o.zone) {
     const World = require(J('world.js')), ZB = World.ZONE_BOSSES[o.zone];
     sc = World.scaleZone(sc, o.zone);
@@ -102,11 +106,22 @@ function makeMonster(id, tier, o = {}) {
   const level = o.aiLevel || sc.ai;
   const mon = { side: 'right', name: m.name, id, monsterId: id, tier, gear, stats, weaponPerk: Gear.weaponPerk(gear), base: sc.hp, max, hp: max, dmg: sc.dmg || 1, buffs: [], haste: false, magic: false,
     counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: o.trait || m.ability, level, bag: Combat.enemyBag(level), stoneMode: process.env.MOBSTONES !== '0', mobTypes: ['sapphire', 'ruby', 'emerald'],
-    turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null, ward: 0, stunned: false, affixes };
+    turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null, ward: 0, stunned: false, affixes, guardian: o.boss || null, enraged: false };
   Combat.startStones(mon);
   return mon;
 }
 function C_B_hp() { return global.Balance && global.Balance.mobHpMul; }
+// Тень забега: те же уровень, набор, условие и множители, что setupShadow.
+function makeShadow(a) {
+  const L=a.level,t=Hero.tierFor(L),rng=require(J('hexmap.js')).rng(a.seed||1);
+  const gear=Gear.randomLoadout(Hero.budget(L),rng,t);
+  const stats=Gear.combine(Gear.combine(Gear.stats(gear),Factions.statsAt(a.faction,Hero.tierFloat(L))),Runes.bonusForGear(gear));
+  const rule=World.ARENA_RULES.find(r=>r.id===a.rule)||{};
+  const base=Math.round(Math.round(Hero.baseHp(L)*(rule.hp||1))*(a.master?.hp||1));
+  const max=base+stats.health,level=Math.min(100,a.ai+(rule.ai||0));
+  const mon={side:'right',name:a.nick,id:'bandit',monsterId:'bandit',tier:t,gear,stats,weaponPerk:Gear.weaponPerk(gear),base,max,hp:max,dmg:Hero.dmgMult(L)*(rule.dmg||1)*(a.master?.dmg||1),buffs:[],haste:false,magic:false,counts:{sapphire:0,ruby:0,emerald:0,onyx:0},ability:rule.ability||null,level,bag:Combat.enemyBag(level),stoneMode:process.env.MOBSTONES!=='0',mobTypes:['sapphire','ruby','emerald'],turnNo:0,revived:false,charged:false,poison:null,spores:0,clonesMade:0,clone:null,ward:0,stunned:false,affixes:[]};
+  Combat.startStones(mon);return mon;
+}
 
 /* ---------- бой ---------- */
 function Battle(hero, mon, player) {
@@ -460,6 +475,14 @@ function Battle(hero, mon, player) {
       try { a2 = Combat.monsterTurnStart(f, h, MAGIC_NAMES, rand); } finally { f.ability = keep; }
       applyAct(a2);
       if (S.over) return;
+    }
+    const G = f.guardian && World.GUARDIANS[f.guardian];
+    if (G?.mech === 'pack' && f.hp > 0 && rand() * 100 < World.PACK.chance) {
+      hit('right', Math.max(1, Math.round(h.max * World.PACK.bite)), true);
+      if (checkEnd()) return;
+    }
+    if (G?.mech === 'enrage' && !f.enraged && f.hp > 0 && f.hp <= f.max * World.ENRAGE.at) {
+      f.enraged = true; f.dmg *= 1 + World.ENRAGE.power / 100;
     }
     for (let guard = 0; guard < 20; guard++) {
       for (const k of Combat.enemyItemPlan(f, anyAfford('right'), rand)) useItem('right', k);
@@ -1138,7 +1161,7 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, pairedFactions = false, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, depth, trait, affixes, boost, tune, pet, duo } = {}) {
+function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, pairedFactions = false, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, depth, trait, boss, cycle, shadow, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
   const bySpell = {}, ammoUsed = {}, itemsUsed = {}, elixirsUsed = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
@@ -1155,7 +1178,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
     const hero = makeHero({ faction, level, gear: g, baseHp, extra, bag, ammo, bless, elixirs, elxExtra, elxFx });
     if (pet) { hero.petF = Pets.petFighter(Pets.makePet(pet.species, pet.tier)); hero.petF.fedBonus = (pet.fed ? (Pets.FEED_BONUS || 1.25) : 1) * (pet.scale || 1); }
     if (BOOST) { if (BOOST.style) hero.shield = 1; if (BOOST.daily) hero.secondWind = true; if (BOOST.streak) hero.charge = Math.floor(B.faction.charge / 2); }
-    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, depth, trait, affixes, level, mlvl });
+    const mon = shadow ? makeShadow(shadow) : makeMonster(monster, tier, { aiLevel, swarm, elite, zone, depth, trait, boss, cycle, affixes, level, mlvl });
     const pl = typeof player === 'string' ? PLAYERS[player]() : typeof player === 'function' ? player() : player;
     let S;
     if (duo) {
@@ -1244,7 +1267,7 @@ function typicalGear(level, share = 0.8) {
 }
 const STARTER = { main: 'sword-novice', off: 'shield-wood', head: 'leather-head', chest: 'leather-chest', arms: 'leather-arms', legs: 'leather-legs', amulet: null };
 
-module.exports = { typicalGear, STARTER, simulate, Battle, makeHero, makeMonster, petAsHero, petPlayer, PLAYERS, humanPlayer, aiPlayer, seed, get rand() { return rand; } };
+module.exports = { typicalGear, STARTER, simulate, Battle, makeHero, makeMonster, makeShadow, petAsHero, petPlayer, PLAYERS, humanPlayer, aiPlayer, seed, get rand() { return rand; } };
 
 /* ---------- командная строка ---------- */
 if (require.main === module) {

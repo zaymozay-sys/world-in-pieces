@@ -31,3 +31,15 @@ console.log('run: все тесты пройдены');
   assert.strictEqual(R.modMult('master'),1.4);
   R.cash(q);R.start(q,'');assert.ok(!R.shadow(q,95,5,F).master);
 }
+{
+  const sim = require('../tools/sim'), Story = require('../js/story');
+  const q = R.clean(null); R.start(q,'master'); q.wave=30;
+  const a = R.shadow(q,95,5,F), m = sim.makeShadow(a);
+  assert.strictEqual(m.base, Math.round(Hero.baseHp(a.level)*a.master.hp));
+  assert.strictEqual(m.dmg, Hero.dmgMult(a.level)*a.master.dmg);
+  assert.strictEqual(m.ability, a.rule);
+  sim.seed(259);
+  const boss = sim.makeMonster('dragon',10,{level:95,mlvl:91,boss:'b5',cycle:2});
+  assert.strictEqual(boss.base, Story.scaleBoss(Bestiary.scaledAt('dragon',91,1,95),'b5',2).hp);
+  assert.strictEqual(boss.guardian,'b5');
+}

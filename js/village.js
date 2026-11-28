@@ -100,6 +100,7 @@ const Village = (() => {
     { id: 'tGrWorld',  name: _t("Бывалый путник"),    price: 0, earn: { group: 'world' },  how: _t("собрать все медали раздела «Путешественник»") },
     { id: 'tGrSecret', name: _t("Хранитель тайн"),    price: 0, earn: { group: 'secret' }, how: _t("собрать все медали раздела «Тайны»") },
     { id: 'tGrDaily',  name: _t("Верный испытанию"),  price: 0, earn: { group: 'daily' },  how: _t("собрать все медали раздела «Верный испытанию»") },
+    { id: 'tMasterRun', name: _t("Покоритель Забега"), price: 0, earn: { masterBest: 30 }, how: _t("пройти все 30 волн Забега мастера") },
     { id: 'tGrElixir', name: _t("Алхимик"),           price: 0, earn: { group: 'elixir' }, how: _t("пройти все 10 уровней медали «Выпито эликсиров»") },
     // — за мир
     { id: 'tWVisit',   name: _t("Свой человек"),      price: 0, earn: { medal: 'world:visit' },  how: _t("побывать в 12 разных зданиях") },
@@ -168,6 +169,7 @@ const Village = (() => {
       else if (e.decor) ok = (ctx.decor || 0) >= e.decor;
       else if (e.stones) ok = (ctx.stones || 0) >= e.stones;
       else if (e.decorOwn) ok = (ctx.decorOwn || 0) >= e.decorOwn;
+      else if (e.masterBest) ok = (ctx.masterBest || 0) >= e.masterBest;
       if (ok) out.push(t.id);
     }
     return out;
