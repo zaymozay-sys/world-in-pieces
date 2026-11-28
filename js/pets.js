@@ -149,7 +149,7 @@ const Pets = (() => {
   const EVO_TITLES = [_t("Матёрый"), _t("Вожак")];
   const evoStage = (pet) => (pet && EVOS[pet.evo] ? Math.min(2, Math.max(1, Math.floor(pet.evoStage || 1))) : 0);
   const canEvolve = (pet) => !!pet && ((evoStage(pet) === 0 && pet.tier >= EVO_TIERS[0]) || (evoStage(pet) === 1 && pet.tier >= EVO_TIERS[1]));
-  const evoCost = (pet) => Math.round(1200 * mult(pet.tier));
+  const evoCost = (pet) => progressionCost(1200, pet.tier, 30);
   function evolve(pet, path) {
     if (!canEvolve(pet)) return false;
     if (evoStage(pet) === 0) { if (!EVOS[path]) return false; pet.evo = path; pet.evoStage = 1; return true; }
@@ -164,7 +164,7 @@ const Pets = (() => {
   };
   const GEAR_IDS = Object.keys(GEAR);
   const gearTier = (pet, id) => Math.max(0, Math.min((pet && pet.tier) || 0, Math.floor(((pet && pet.gear) || {})[id] || 0)));
-  const gearUpCost = (pet, id) => (!pet || !GEAR[id] || gearTier(pet, id) >= Math.min(PT_T.MAX, pet.tier) ? null : Math.round(250 * mult(gearTier(pet, id) + 1)));
+  const gearUpCost = (pet, id) => (!pet || !GEAR[id] || gearTier(pet, id) >= Math.min(PT_T.MAX, pet.tier) ? null : progressionCost(250, gearTier(pet, id) + 1, 6));
   function gearUp(pet, id) { if (gearUpCost(pet, id) == null) return false; pet.gear = pet.gear || {}; pet.gear[id] = gearTier(pet, id) + 1; return true; }
   const gearMul = (pet, key) => GEAR_IDS.reduce((m, id) => m * (id === 'charm' && amuletId(pet) !== 'scholar' ? 1 : (1 + ((GEAR[id].per[key]) || 0) * gearTier(pet, id))), 1);
   /* Амулеты: слот амулета даёт один особый эффект на выбор; его сила растёт с цветом вещи. */
@@ -178,7 +178,7 @@ const Pets = (() => {
   function amuletValue(id, t) { return id === 'loyal' ? 0.2 + 0.03 * t : id === 'healer' ? 0.06 + 0.01 * t : id === 'fortune' ? 0.05 + 0.015 * t : 0; }
   const amuletId = (pet) => (gearTier(pet, 'charm') > 0 ? (AMULETS[pet.amulet] ? pet.amulet : 'scholar') : null);
   const amuletPower = (pet, id) => (amuletId(pet) === id ? amuletValue(id, gearTier(pet, 'charm')) : 0);
-  const amuletSwapCost = (pet) => Math.round(250 * mult(Math.max(1, gearTier(pet, 'charm'))));
+  const amuletSwapCost = (pet) => progressionCost(250, Math.max(1, gearTier(pet, 'charm')), 3);
   // выбрать вид амулета: первый раз вместе с изготовлением (цена как у улучшения), потом смена за монеты (цвет вещи сохраняется)
   function setAmulet(pet, id) { if (!pet || !AMULETS[id]) return false; pet.amulet = id; return true; }
 
@@ -245,10 +245,13 @@ const Pets = (() => {
   const FEED_BATTLES = 3, FEED_BONUS = 1.25;
   const mult = (t) => PT_T.PRICE_MULT[PT_T.clamp(t) - 1];
   const upkeep = () => typeof Balance!=='undefined'?Balance.economy:require('./balance.js').economy;
+  // Сохраняем дешёвые ранние улучшения, но ограничиваем поздние цены
+  // числом эталонных наград за бой соответствующего цвета.
+  const progressionCost = (base, tier, rewards) => Math.min(Math.round(base * mult(tier)), Math.round(rewards * upkeep().battleLoot[PT_T.clamp(tier)-1]));
   const repairCost = (pet) => Math.round(upkeep().battleLoot[PT_T.clamp(pet.tier)-1]*upkeep().petRepairLootShare*Math.max(0,pet.maxDurability-pet.durability));
   const feedCost = (pet) => Math.round(upkeep().battleLoot[PT_T.clamp(pet.tier)-1]*upkeep().petFeedLootShare*FEED_BATTLES);
   // Обучение: питомец переходит на следующий цвет (не выше цвета героя). null — дальше нельзя.
-  const trainCost = (pet, heroTier) => (pet.tier >= Math.min(PT_T.MAX, heroTier) ? null : Math.round(500 * mult(pet.tier + 1)));
+  const trainCost = (pet, heroTier) => (pet.tier >= Math.min(PT_T.MAX, heroTier) ? null : progressionCost(500, pet.tier + 1, 12));
   function feed(pet) { pet.fed = FEED_BATTLES; addTrust(pet, 1); return pet; }
   function train(pet) { pet.tier = PT_T.clamp(pet.tier + 1); return pet; }
   // Начало боя с питомцем: сытость тратит один бой. Возвращает множитель урона на этот бой.
@@ -260,7 +263,7 @@ const Pets = (() => {
     bone:    { name: _t("Сочная косточка"),   price: 45,  battles: 3, desc: _t("Удары питомца сильнее на 25%, ум +8") },
     biscuit: { name: _t("Хрустящий сухарик"), price: 55,  battles: 3, desc: _t("Броня питомца +15, ум +8") },
     honey:   { name: _t("Медовая лепёшка"),   price: 60,  battles: 3, desc: _t("ХП питомца больше на 30%, ум +8") },
-    apple:   { name: _t("Золотое яблоко"),    price: 200, battles: 2, desc: _t("Всё сразу: удар +25%, броня +15, ХП +30%, ум +25") },
+    apple:   { name: _t("Золотое яблоко"),    price: 120, battles: 2, desc: _t("Всё сразу: удар +25%, броня +15, ХП +30%, ум +25") },
   };
   const TREAT_ORDER = ['bone', 'biscuit', 'honey', 'apple'];
   const treatCost = (pet, kind) => Math.max(1,Math.round(TREATS[kind].price / TREATS.bone.price * feedCost(pet)));
