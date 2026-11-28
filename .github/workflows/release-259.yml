@@ -1,0 +1,53 @@
+name: Кандидат на выпуск 2.5.9
+
+on:
+  push:
+    branches: ['ui/revision-stage-1']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-259-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    name: Полная регрессия, сохранения и архив
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Сохранения, база знаний и окно обновления
+        run: |
+          node tests/release259.e2e.js
+          node tests/save.e2e.js
+          node tests/wiki-sync.e2e.js
+          node tests/whatsnew209.e2e.js
+      - name: Сборка и проверка архива
+        run: |
+          test "$(node -p "require('./package.json').version")" = "2.5.9"
+          python3 tools/dist.py
+          test -f dist/index.html
+          node -e "if(require('./dist/version.json').v !== '2.5.9') process.exit(1)"
+          WIP_URL="file://$GITHUB_WORKSPACE/dist/index.html" node tests/release259.e2e.js
+          cp world-in-pieces-site.zip world-in-pieces-2.5.9.zip
+          unzip -tq world-in-pieces-2.5.9.zip
+          sha256sum world-in-pieces-2.5.9.zip > world-in-pieces-2.5.9.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: world-in-pieces-2.5.9-candidate
+          path: |
+            world-in-pieces-2.5.9.zip
+            world-in-pieces-2.5.9.zip.sha256
+          if-no-files-found: error
+

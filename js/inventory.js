@@ -1003,6 +1003,8 @@ const ItemInfo = (() => {
     }
     if (mine && Profile.canUndoGear(uid)) runeBlock += `<div class="ic-undo"><button type="button" data-gem="undo">${_t("Отменить последнее изменение (1 мин)")}</button></div>`;
     pop.innerHTML = _t("<div class=\"modal icard-modal\" role=\"dialog\" aria-label=\"Карточка предмета: {0}\">\n      <div class=\"scroll\"{1}><i class=\"roll\" aria-hidden=\"true\"></i>\n      <article class=\"icard r-{2}\" data-tier=\"{3}\" style=\"--t:{4};--tc:{5};--s:{6}\">\n        <button type=\"button\" class=\"ic-close\" data-act=\"close\" aria-label=\"Закрыть\">✕</button>\n        <div class=\"ic-head\">\n          <div class=\"ic-art\"><span class=\"ic-rar\">{7}</span>{8}\n            <div class=\"ic-pic\">{9}</div>\n            {10}</div>\n          <div class=\"ic-title\"><h2>{11}</h2>\n            <p class=\"ic-type\">{12}{13}</p>\n            {14}\n            <ul class=\"ic-req\">{15}</ul>\n            <div class=\"ic-nums\"><span><small>Очки снаряжения</small><b>{16}</b></span><span><small>Цена в Лавке</small><b>{17}</b></span><span><small>Продать</small><b>{18}</b></span></div>\n          </div>\n        </div>\n        <div class=\"ic-body\">\n          <section class=\"ic-stats\"><h3>Характеристики</h3><ul>{19}</ul></section>\n          {20}{21}\n        </div>\n        {22}\n      </article><i class=\"roll\" aria-hidden=\"true\"></i></div></div>", [it.name, typeof Art !== 'undefined' && Art.has('ui/parchment') ? ` style="--paper:url('${new URL(Art.url('ui/parchment'), location.href).href}');${cardArtVars()}"` : '', it.rarity, it.tier, tierColor(it.tier), T.color, setInfo ? setInfo.color : Gear.NEUTRAL_COLOR, Gear.RARITY_NAMES[it.rarity], itemChip(it.tier), itemIcon(it.type, '', it.id), it.perk ? _t("<span class=\"ic-perk\">Особый приём</span>") : '', it.name, Gear.TYPE_NAMES[it.type], setInfo ? ` · <b style="color:${setInfo.color}">«${setInfo.name}»</b>` : _t(" · без набора"), status, reqs, it.cost, MonsterArt.moneyHtml(it.price), MonsterArt.moneyHtml(Gear.sellValue(Math.round(it.price * Gear.wearFactor(entry)), it.tier)), stats, setBlock, runeBlock, act ? `<footer class="ic-act">${act}</footer>` : '']);
+    // При выключенных очках оставляем в карточке только покупную и продажную цены.
+    if (!Hero.pointsOn()) { const points = pop.querySelector('.ic-nums > span:first-child'); if (points) points.remove(); }
     // Сравнение с надетой вещью — сразу под названием: что изменится, если надеть
     if (cur) {
       const diffs = STAT_ORDER.map((k) => [k, (it.stats[k] || 0) - (cur.stats[k] || 0)]).filter(([, d]) => d);
@@ -1418,6 +1420,10 @@ const Inventory = (() => {
               : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это сумка: эликсиры, расходники, боеприпасы и ресурсы. Вещи и руны хранятся в оружейной вашего дома — там же меняется снаряжение.</p>"), bagTab, bagTabsHtml, paneElix, paneRes, MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
     const fc = Village.frameColor(Profile.data.cosmetics), dfr = root.querySelector('.doll-frame');   // 1.5.1: рамка из гардероба
     if (fc && dfr) dfr.style.boxShadow = `0 0 0 3px ${fc}, 0 0 14px 4px ${fc}`;
+    if (!Hero.pointsOn()) {
+      const oldBudget = root.querySelector('.budget'); if (oldBudget) oldBudget.remove();
+      for (const cell of root.querySelectorAll('.stash-cell[data-stash]')) cell.title = Hero.noPts(cell.title);
+    }
     stashSearch(stash); bestBtn();
   }
   function bestBtn() {
