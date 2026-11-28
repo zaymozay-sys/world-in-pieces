@@ -1364,3 +1364,17 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 .preset-actions button { flex:1 1 100px; min-height:44px; white-space:normal; }
 .preset-actions input { flex:1 1 130px; min-width:0; max-width:100%; padding:8px; }
 .ic-preset-note { display:block; margin-top:6px; overflow-wrap:anywhere; }
+
+/* Лавка 2.6: отдельные отделы, компактные фильтры и крупная витрина. */
+.shop-workshop .shop-section[hidden], .shop-workshop .shop-catalog > .card[hidden] { display:none !important; }
+.shop-workshop .shop-sections { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:0 0 12px; padding:4px; background:rgba(30,19,11,.83); border:1px solid #725334; border-radius:8px; }
+.shop-workshop .shop-sections button { min-height:44px; min-width:0; white-space:normal; overflow-wrap:anywhere; padding:6px; }
+.shop-workshop .shop-sections button.on { color:#ffe1a1; border-color:#c6a367; background:linear-gradient(#674827,#3e2c19); }
+.shop-workshop .shop-sort { display:flex; flex-wrap:wrap; align-items:center; gap:5px; min-width:0; }
+.shop-workshop .shop-sort select { max-width:100%; min-height:44px; }
+.shop-workshop .shop-count { margin:6px 0; }
+.shop-workshop .shop-gear .cat-search { width:100%; box-sizing:border-box; min-height:44px; }
+.shop-workshop .shop-grid-view > .card > .icon-wrap { width:min(100%,210px); }
+.shop-workshop .shop-grid-view > .card > .card-act { margin-top:auto; }
+.shop-workshop .shop-grid-view > .card > .card-act button { min-height:44px; }
+@media (max-width:370px) { .modal.shop-workshop .shop-catalog.shop-grid-view { grid-template-columns:1fr; } }
