@@ -31,6 +31,29 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       await page.evaluate(() => { Profile.data.xp = Hero.totalFor(21); Screens.close(); });
       await page.evaluate(() => Screens.open('shop'));
       assert.equal(await page.locator('.shop-catalog.shop-grid-view').count(), 1);
+      assert.equal(await page.locator('.shop-section:not([hidden])').count(), 1);
+      assert.equal(await page.locator('.shop-gear').isVisible(), true);
+      await page.locator('[data-shop-section="resources"]').click();
+      assert.equal(await page.locator('.shop-resources').isVisible(), true);
+      assert.equal(await page.locator('.shop-gear').isVisible(), false);
+      await page.locator('[data-shop-section="cons"]').click();
+      assert.equal(await page.locator('.shop-cons [data-buy-ammo]').isVisible(), true);
+      await page.locator('[data-tab="sell"]').click();
+      assert.equal(await page.locator('.shop-cons').isVisible(), true);
+      await page.locator('[data-tab="buy"]').click();
+      await page.locator('[data-shop-section="gear"]').click();
+      await page.locator('[data-catsel="sort"]').selectOption('price');
+      const prices = await page.locator('.shop-catalog [data-buy-cat]').evaluateAll(bs => bs.map(b => {
+        const [id,tier] = b.dataset.buyCat.split(':');
+        return Math.round(Gear.item({id,tier:Number(tier)}).price * Factions.perk(Profile.data.faction,'shop'));
+      }));
+      assert.ok(prices.length > 0 && prices.every((p,i) => !i || prices[i-1] <= p), 'Сортировка по фактической цене');
+      await page.locator('[data-shq]').fill('zzzz-no-such-item');
+      assert.equal(await page.locator('.shop-catalog > .card:not([hidden]) [data-buy-cat]').count(),0);
+      await page.locator('[data-shop-view="reset"]').click();
+      assert.ok(await page.locator('.shop-catalog > .card:not([hidden]) [data-buy-cat]').count() > 0);
+      assert.equal(await page.locator('[data-shq]').inputValue(),'');
+      assert.equal(await page.locator('[data-catsel="sort"]').inputValue(),'order');
       const art = await page.locator('.shop-grid-view > .card > .icon-wrap').first().evaluate(e => {
         const card = e.parentElement.getBoundingClientRect(), a = e.getBoundingClientRect();
         const icon = e.querySelector('.item-icon').getBoundingClientRect();
