@@ -1329,12 +1329,23 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 }
 
 /* Фильтры не затрагивают героя, путь, осаду, метки, цели и источники отмеченных рецептов. */
-.map-view.hide-map-ordinary #l-mon .mon:not(.boss):not(.elite):not(.rare):not(.next-step):not(.want):not(.next-glow),
+.map-view.hide-map-ordinary #l-mon .mon:not(.boss):not(.elite):not(.rare):not(.next-step):not(.want):not(.next-glow):not(.map-focus),
 .map-view.hide-map-ordinary #l-mon .bones,
-.map-view.hide-map-elite #l-mon .mon.elite:not(.boss):not(.rare):not(.next-step):not(.want):not(.next-glow),
-.map-view.hide-map-boss #l-mon .mon.boss:not(.next-step):not(.want):not(.next-glow),
+.map-view.hide-map-elite #l-mon .mon.elite:not(.boss):not(.rare):not(.next-step):not(.want):not(.next-glow):not(.map-focus),
+.map-view.hide-map-boss #l-mon .mon.boss:not(.next-step):not(.want):not(.next-glow):not(.map-focus),
 .map-view.hide-map-events #l-ev .ev:not(.lm):not(.lair),
 .map-view.hide-map-landmarks #l-ev :is(.lm,.lair),
 .map-view.hide-map-labels #l-village .labels { display: none; }
 #mm-sub-map [data-map-filter][aria-pressed="true"] { color: #bde0a0; }
 #mm-sub-map [data-map-filter][aria-pressed="false"] { color: #b0a38d; }
+
+/* Недостающий материал: крупная кнопка перехода к источнику. */
+.forge-workshop .lack-material {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 6px 10px; margin-top: 6px; padding: 6px 8px;
+  border: 1px solid rgba(196,146,94,.4); border-radius: 7px;
+}
+.forge-workshop .lack-material > span { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.forge-workshop .lack-material .res-icon { width: 26px; height: 26px; }
+.forge-workshop .lack-material > button { min-height: 44px; white-space: normal; }
+.shop-workshop .card.material-target { outline: 2px solid #ebc575; outline-offset: -2px; }
