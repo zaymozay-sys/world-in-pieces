@@ -1349,3 +1349,9 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 .forge-workshop .lack-material .res-icon { width: 26px; height: 26px; }
 .forge-workshop .lack-material > button { min-height: 44px; white-space: normal; }
 .shop-workshop .card.material-target { outline: 2px solid #ebc575; outline-offset: -2px; }
+
+/* Избранное: звезда на вещи, отдельный переключатель в карточке. */
+.item-favorite-mark { position:absolute; top:3px; left:4px; z-index:2; color:#ffdc78; font-size:17px; line-height:1; text-shadow:0 1px 3px #160c04,0 0 4px #160c04; pointer-events:none; }
+.stash-cell { position:relative; }
+.icard .ic-title button.ic-favorite { display:block; margin:10px 0 0; padding:6px 12px; min-height:44px; max-width:100%; white-space:normal; color:#efd7a0; }
+.icard .ic-title button.ic-favorite[aria-pressed="true"] { color:#ffdb76; border-color:#b58a38; }
