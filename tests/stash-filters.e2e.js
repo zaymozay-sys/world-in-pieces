@@ -43,6 +43,38 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       await panel.locator('.stash-reset').click();
       assert.equal(await cells.count(), 3);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+      // Избранное сохраняется по uid, не по названию и цвету.
+      const favoriteUid = await page.evaluate(() => Profile.data.items.find(e => !Profile.equippedUid(e.uid)).uid);
+      await page.evaluate(uid => ItemInfo.open(uid), favoriteUid);
+      await page.locator('.ic-favorite').click();
+      assert.equal(await page.locator('.ic-favorite').getAttribute('aria-pressed'),'true');
+      await page.evaluate(() => ItemInfo.close());
+      await page.locator('.stash-controls select').nth(3).selectOption('yes');
+      assert.equal(await cells.count(),1);
+      assert.equal(await cells.locator('.item-favorite-mark').count(),1);
+      await page.evaluate(() => Inventory.close());
+      await page.evaluate(() => { Screens.open('shop'); });
+      await page.locator('[data-tab="sell"]').click();
+      assert.equal(await page.locator('[data-sell-item="'+favoriteUid+'"]').count(),0);
+      // Устаревшая кнопка продажи тоже не может снять защиту.
+      const snapshot = await page.evaluate(uid => {
+        const coins = Profile.data.coins;
+        const b = document.createElement('button'); b.dataset.sellItem=uid;
+        document.querySelector('.modal .screen-body').append(b); b.click(); b.remove();
+        return [!!Profile.item(uid), Profile.data.coins===coins, Profile.takeSaleItem(uid)];
+      },favoriteUid);
+      assert.deepEqual(snapshot,[true,true,false]);
+      await page.evaluate(() => Screens.open('junker'));
+      assert.equal(await page.locator('[data-junk-item="'+favoriteUid+'"]').count(),0);
+      await page.locator('[data-junk-all]').click();
+      assert.equal(await page.evaluate(uid => !!Profile.item(uid) && Profile.isFavorite(uid),favoriteUid),true);
+      assert.equal(await page.evaluate(() => Profile.data.items.filter(e=>!Profile.equippedUid(e.uid)).length),1);
+      await page.evaluate(() => Screens.close());
+      await page.evaluate(uid => ItemInfo.open(uid),favoriteUid);
+      await page.locator('.ic-favorite').click();
+      assert.equal(await page.locator('.ic-favorite').getAttribute('aria-pressed'),'false');
+      await page.evaluate(() => ItemInfo.close());
+      assert.equal(await page.evaluate(uid => Profile.canSellItem(uid),favoriteUid),true);
       assert.deepEqual(errors, []);
       await context.close();
       console.log(`Оружейная ${width}px: проверка пройдена`);
