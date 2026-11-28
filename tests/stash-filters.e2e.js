@@ -38,6 +38,14 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       const prices = await cells.evaluateAll((items) => items.map((c) => Gear.item(Profile.item(Profile.data.stash[Number(c.dataset.stash)])).price));
       assert.deepEqual(prices, [...prices].sort((a, b) => b - a));
       assert.equal(await page.evaluate(() => JSON.stringify(Profile.data.stash)), original);
+      await panel.locator('[data-stash-view="list"]').click();
+      assert.equal(await cells.locator('.stash-item-info:visible').count(),3);
+      await selects.nth(5).selectOption('protected');
+      assert.equal(await cells.count(),0);
+      await panel.locator('.stash-reset').click();
+      await panel.locator('[data-stash-view="grid"]').click();
+      assert.equal(await cells.locator('.stash-item-info:visible').count(),0);
+      assert.equal(await page.evaluate(() => JSON.stringify(Profile.data.stash)), original);
       await panel.locator('input').fill('несуществующая вещь');
       assert.equal(await cells.count(), 0);
       await panel.locator('.stash-reset').click();
