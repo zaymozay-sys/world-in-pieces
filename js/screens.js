@@ -483,7 +483,10 @@ const Screens = (() => {
       const [kind, tierText] = b.dataset.materialFind.split(':'), tier = Number(tierText);
       if (!Bestiary.RESOURCES[kind] || !Number.isInteger(tier) || tier < 1 || tier > Tiers.MAX || MapView.inBattle) return;
       if (Bestiary.resourcesWeak(tier, Hero.tierFor(Profile.level()))) {
-        st.shop.tab = 'res'; return open('shop');
+        st.shop.tab = 'buy'; st.shop.resTier = tier; open('shop');
+        const target = root.querySelector('[data-buy-res="' + kind + '"]')?.closest('.card');
+        if (target) { target.classList.add('material-target'); target.scrollIntoView({block:'center'}); }
+        return;
       }
       close(); MapView.focusResource(kind,tier); return;
     }
