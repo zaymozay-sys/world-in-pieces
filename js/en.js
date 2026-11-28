@@ -1,6 +1,19 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Комплект не найден": "Loadout not found",
+  "В комплекте отсутствует предмет": "An item in this loadout is missing",
+  "Комплекты экипировки": "Equipment loadouts",
+  "Вещи сохранённых комплектов защищены от продажи.": "Items in saved loadouts are protected from sale.",
+  "Вещей: {0}": "Items: {0}",
+  "Комплект надет": "Loadout equipped",
+  "Обновить комплект": "Update loadout",
+  "Комплект сохранён": "Loadout saved",
+  "Удалить комплект": "Delete loadout",
+  "Название комплекта": "Loadout name",
+  "Сохранить комплект": "Save loadout",
+  "Введите уникальное название комплекта": "Enter a unique loadout name",
+  "В сохранённых комплектах: {0}": "In saved loadouts: {0}",
   "Защищено от продажи": "Protected from sale",
   "В избранное": "Add to favorites",
   "Избранные предметы": "Favorite items",
