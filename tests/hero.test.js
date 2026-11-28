@@ -53,6 +53,19 @@ assert.ok(Hero.xpReward(M.bandit, 6, 21) > Hero.xpReward(M.bandit, 5, 21) * 1.3)
 assert.ok(Hero.xpReward(M.bandit, 1, 30) <= Hero.xpReward(M.bandit, 6, 30) / 20);
 assert.strictEqual(Hero.xpReward(M.bandit, 1, 1), Balance.hero.xp.perWin);
 
+// Плавность реальной прогрессии (существо уровня героя, множитель опыта 1).
+let previous = 0;
+for (let L = 1; L < Hero.MAX_LEVEL; L++) {
+  const wins = Hero.need(L) / Hero.xpReward(M.bandit, Hero.tierFor(L), L, L);
+  assert.ok(wins >= 20 && wins <= 180, 'ориентир побед: ' + L);
+  if (L > 1) assert.ok(wins / previous < 1.15, 'нет резкого скачка на уровне ' + L);
+  previous = wins;
+}
+for (let L = 1; L <= 100; L++) {
+  const first = Hero.itemLevel(Hero.tierFor(L));
+  assert.ok(Hero.xpReward(M.bandit, Hero.tierFor(L), L, L) >= Hero.xpReward(M.bandit, Hero.tierFor(L), L, first));
+}
+
 // цены расходников растут вместе с доходом
 assert.strictEqual(Hero.consumablePrice(50, 1), 50);
 assert.ok(Hero.consumablePrice(50, 91) === 50 * Tiers.PRICE_MULT[9]);
@@ -77,4 +90,15 @@ for (const [kind, lvl] of Object.entries(Balance.spellUnlock)) {
 // пороги валидны: позже 1-го уровня и не позже максимального
 for (const lvl of Object.values(Balance.spellUnlock)) assert.ok(lvl >= 1 && lvl <= Hero.MAX_LEVEL);
 
+// Модель карьеры использует только существ с реальными уровнями на общей карте.
+const { targetsAt } = require('../tools/career.js');
+for (let tier = 1; tier <= 10; tier++) {
+  const targets = targetsAt(tier);
+  assert.ok(targets.length > 0, 'существа доступны на цвете ' + tier);
+  for (const { id, t, mlvl } of targets) {
+    assert.strictEqual(t, tier);
+    assert.strictEqual(Tiers.tierOfLevel(mlvl), tier);
+    assert.ok(Bestiary.MONSTERS[id]);
+  }
+}
 console.log('hero: все тесты пройдены');
