@@ -3798,9 +3798,9 @@ const credits = {
       const groups = { active: all.filter(q => !q.done && !q.claimed), ready: all.filter(q => q.done && !q.claimed), done: all.filter(q => q.claimed) };
       const labels = { active: _t("В работе"), ready: _t("К сдаче"), done: _t("Завершены") };
       const rows = groups[s.tab].map(q => {
-        const giver = Unlocks.GIVERS[q.giver], building = giver && giver[0];
+        const giver = Unlocks.GIVERS[q.giver];
         const progress = q.claimed ? q.goal : Math.max(0, Math.min(q.goal, q.value));
-        const locate = !q.claimed && building ? `<button type="button" data-quest-locate="${q.id}">${_t("Показать на карте")}</button>` : '';
+        const locate = !q.claimed ? `<button type="button" data-quest-locate="${q.id}">${_t("Показать на карте")}</button>` : '';
         return `<article class="card quest-card journal-quest ${q.claimed ? 'is-done' : q.done ? 'quest-ready' : ''}">
           <div class="card-body"><span class="item-title">${q.title}</span><span class="item-foot">${giver ? giver[1] : ''}</span>
           <span class="item-foot">${q.desc}</span><span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div>
@@ -3816,8 +3816,7 @@ const credits = {
       if (b.dataset.journalDaily) return open('today');
       if (b.dataset.questLocate) {
         const q = questJournalRows().find(x => x.id === b.dataset.questLocate && !x.claimed);
-        const giver = q && Unlocks.GIVERS[q.giver];
-        if (giver) { close(); MapView.focusQuestGiver(giver[0]); }
+        if (q) { close(); MapView.focusQuest(q); }
       }
     },
   };
