@@ -399,7 +399,14 @@ const Screens = (() => {
     }
   }
   // 1.8.1: у окон без своего фона (деревня, справка, стена доблести) он подхватывается, как только картинка ui/bg-<имя> есть в игре
+  // Индивидуальные акценты зданий на существующих фонах и портретах.
+  const SCENE_THEMES = new Set(['tavern', 'mill', 'lighthouse', 'library', 'artistWorkshop', 'jeweler', 'junker', 'kennel', 'alchemist', 'market', 'village', 'arena', 'bank', 'valor', 'best']);
   function addScene() {
+    const modal = root.querySelector('.modal');
+    if (modal && SCENE_THEMES.has(cur)) {
+      modal.classList.add('scene-theme');
+      modal.dataset.scene = cur;
+    }
     const b = root.querySelector('.screen-body');
     if (!b || b.getAttribute('style') || typeof Art === 'undefined' || !Art.hasScene(cur)) return;
     b.style.cssText = `background-image:linear-gradient(180deg, rgba(20,16,10,.7), rgba(20,16,10,.88)), url('${Art.sceneUrl(cur)}');background-size:cover;background-position:center`;
@@ -3559,13 +3566,31 @@ const credits = {
     html() {
       const s = st.bank, b = bankState();
       const cap = bankCap(), gain = Bank.visit(b, Date.now(), cap);
-      if (gain > 0) { Profile.save(); s.msg = _t("Проценты за серию заходов: +{0}.", [gain]); } else if (!s.msg) Profile.save();
-      const btn = (act, n, label, can) => `<button type="button" data-bank="${act}" data-n="${n}"${can ? '' : ' disabled'}>${label}</button>`;
-      const coins = Profile.data.coins, dep = b.dep, room = cap - dep;
+      if (gain > 0) { Profile.save(); s.msg = _t("Проценты за серию заходов: +{0}.", [money(gain)]); } else if (!s.msg) Profile.save();
+      const btn = (act, n, label, can) => `<button type="button" data-bank="${act}" data-n="${n}"${can ? '' : ' disabled'}>${label}<small class="bank-amount">${money(n)}</small></button>`;
+      const coins = Profile.data.coins, dep = b.dep, room = Math.max(0, cap - dep);
       const pct = (x) => (Math.round(x * 1000) / 10).toString().replace('.', ',');
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Банк\">{0}\n        <div class=\"screen-body tavern-body\">\n          <p class=\"hint\">{1}</p>\n          <h3>Вклад</h3>\n          <p>На счёте: <b>{2}</b> · лимит {3}.</p>\n          <p>Серия заходов: <b>{4}</b> дн. · ставка сегодня: <b>{5}%</b> в сутки (потолок {6}%). Завтра, если зайдёте: +{7}.</p>\n          <div class=\"reset\">{8}</div><div class=\"reset\">{9}</div>\n        </div></div>", [head(_t("Банк")), s.msg || _t("Добро пожаловать. Если играете каждый день, ставка медленно растёт. Пропустили день — ставка снова 0."), money(dep), money(Bank.CAP), b.streak, pct(Bank.rate(b.streak)), pct(Bank.RATE_MAX), Bank.tomorrow(b, cap),
-        [10, 50].map((p) => { const n = Math.floor(Math.min(coins, room) * p / 100); return btn('dep', n, _t("Внести {0}%", [p]), n > 0); }).join('') + btn('dep', Math.min(coins, room), _t("Внести всё"), Math.min(coins, room) > 0),
-        [10, 50].map((p) => { const n = Math.floor(dep * p / 100); return btn('wd', n, _t("Снять {0}%", [p]), n > 0); }).join('') + btn('wd', dep, _t("Снять всё"), dep > 0)]);
+      const percent = Math.min(100, Math.round(100 * dep / Math.max(1, cap)));
+      const deposits = [10, 50].map((p) => { const n = Math.floor(Math.min(coins, room) * p / 100); return btn('dep', n, _t("Внести {0}%", [p]), n > 0); }).join('') + btn('dep', Math.min(coins, room), _t("Внести всё"), Math.min(coins, room) > 0);
+      const withdrawals = [10, 50].map((p) => { const n = Math.floor(dep * p / 100); return btn('wd', n, _t("Снять {0}%", [p]), n > 0); }).join('') + btn('wd', dep, _t("Снять всё"), dep > 0);
+      return `<div class="modal" role="dialog" aria-label="${_t("Банк")}">${head(_t("Банк"))}
+        <div class="screen-body tavern-body">
+          <p class="hint">${s.msg || _t("Добро пожаловать. Если играете каждый день, ставка медленно растёт. Пропустили день — ставка снова 0.")}</p>
+          <section class="bank-vault"><h3>${_t("Вклад")}</h3>
+            <div class="bank-balance"><span>${_t("На счёте")}</span><b>${money(dep)}</b></div>
+            <div class="bank-limit"><span>${_t("Лимит вклада")}: ${money(cap)}</span><span>${percent}%</span></div>
+            <progress max="100" value="${percent}" aria-label="${_t("Лимит вклада")}"></progress>
+            <div class="bank-metrics">
+              <div><span>${_t("Дней подряд")}</span><b>${b.streak}</b></div>
+              <div><span>${_t("Ставка сегодня")}</span><b>${pct(Bank.rate(b.streak))}%</b><small>${_t("Максимум")}: ${pct(Bank.RATE_MAX)}%</small></div>
+              <div><span>${_t("Проценты завтра")}</span><b>${money(Bank.tomorrow(b, cap))}</b></div>
+            </div>
+          </section>
+          <div class="bank-operations">
+            <section><h3>${_t("Пополнить вклад")}</h3><div class="bank-buttons">${deposits}</div></section>
+            <section><h3>${_t("Снять монеты")}</h3><div class="bank-buttons">${withdrawals}</div></section>
+          </div>
+        </div></div>`;
     },
     click(b) {
       const s = st.bank, bk = bankState(), d = b.dataset, n = Number(d.n) || 0;

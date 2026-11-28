@@ -1142,3 +1142,100 @@ body.bt-gold.mode-battle .fighter.right.active { filter: drop-shadow(0 0 6px rgb
 @media (prefers-reduced-motion: reduce) {
   .overlay.battle-result > .result-panel { animation: none; }
 }
+
+
+/* Интерьеры деревни: общая рама и кнопки, отдельная палитра каждого заведения.
+   Используются уже существующие иллюстрации, новые тяжёлые ресурсы не добавляются. */
+.modal.scene-theme {
+  --scene-accent: #e5c391;
+  --scene-dark: #33251a;
+  --scene-line: color-mix(in srgb,var(--scene-accent) 45%,transparent);
+}
+.modal.scene-theme[data-scene="tavern"] { --scene-accent: #edb878; --scene-dark: #4c2c1d; }
+.modal.scene-theme[data-scene="mill"] { --scene-accent: #d9c58b; --scene-dark: #3b3822; }
+.modal.scene-theme[data-scene="lighthouse"] { --scene-accent: #a9d4e1; --scene-dark: #253b43; }
+.modal.scene-theme[data-scene="library"] { --scene-accent: #e8d4a2; --scene-dark: #413524; }
+.modal.scene-theme[data-scene="artistWorkshop"] { --scene-accent: #cab7ec; --scene-dark: #392a49; }
+.modal.scene-theme[data-scene="jeweler"] { --scene-accent: #a7d4da; --scene-dark: #263743; }
+.modal.scene-theme[data-scene="junker"] { --scene-accent: #c5ae91; --scene-dark: #3e3028; }
+.modal.scene-theme[data-scene="kennel"] { --scene-accent: #c0d89a; --scene-dark: #2d402b; }
+.modal.scene-theme[data-scene="alchemist"] { --scene-accent: #a9dfc5; --scene-dark: #253c33; }
+.modal.scene-theme[data-scene="market"] { --scene-accent: #e7bd8c; --scene-dark: #483321; }
+.modal.scene-theme[data-scene="village"] { --scene-accent: #d4cda3; --scene-dark: #403b2c; }
+.modal.scene-theme[data-scene="arena"] { --scene-accent: #efb5a2; --scene-dark: #463036; }
+.modal.scene-theme[data-scene="bank"] { --scene-accent: #f4d28a; --scene-dark: #48341b; }
+.modal.scene-theme[data-scene="valor"] { --scene-accent: #f1d799; --scene-dark: #44352a; }
+.modal.scene-theme[data-scene="best"] { --scene-accent: #c9d6ac; --scene-dark: #333c29; }
+.modal.scene-theme > header {
+  background: linear-gradient(180deg,var(--scene-dark),#1b1512 95%);
+  box-shadow: inset 0 1px 0 var(--scene-line), 0 1px 0 var(--scene-line), 0 6px 14px rgba(0,0,0,.35);
+}
+.modal.scene-theme > .tabs:not(.sub) { border-bottom-color: color-mix(in srgb,var(--scene-accent) 50%,#3a2a14); }
+.modal.scene-theme .screen-body { background-color: #1d1814; }
+.modal.scene-theme .screen-body h3 { color: var(--scene-accent); }
+.modal.scene-theme .screen-body h3::before { background: linear-gradient(90deg,transparent,var(--scene-line)); }
+.modal.scene-theme .screen-body h3::after { background: linear-gradient(90deg,var(--scene-line),transparent); }
+.modal.scene-theme .npc-row {
+  border-color: var(--scene-line);
+  background: linear-gradient(145deg,color-mix(in srgb,var(--scene-dark) 92%,transparent),rgba(22,18,14,.94));
+}
+.modal.scene-theme .npc-portrait {
+  border-radius: 9px; box-shadow: 0 0 0 2px var(--scene-accent), 0 0 0 4px #18130f, 0 6px 14px #0009;
+}
+.modal.scene-theme .npc-say {
+  min-width: 0; border-color: var(--scene-line); background: rgba(0,0,0,.24);
+}
+.modal.scene-theme .npc-say::before {
+  background: color-mix(in srgb,var(--scene-dark) 68%,#171310); border-color: var(--scene-line);
+}
+.modal.scene-theme .npc-say b { color: var(--scene-accent); overflow-wrap: anywhere; }
+.modal.scene-theme .npc-say .hint { color: #eee6d2; overflow-wrap: anywhere; }
+.modal.scene-theme[data-scene="alchemist"] .sh-card {
+  background: radial-gradient(ellipse at 50% 0%,rgba(92,154,115,.18),transparent 75%),rgba(24,33,26,.93);
+}
+.modal.scene-theme[data-scene="arena"] .arena-rank {
+  border-color: var(--scene-line); background: linear-gradient(150deg,#493137,#211c20);
+}
+.modal.scene-theme[data-scene="kennel"] .npc-row {
+  background: radial-gradient(ellipse at 0% 100%,rgba(120,150,76,.15),transparent 65%),linear-gradient(140deg,#2d402b,#1c231b);
+}
+.modal.scene-theme[data-scene="library"] .npc-say {
+  background: linear-gradient(135deg,rgba(192,163,108,.15),rgba(36,28,19,.92));
+}
+.modal.scene-theme[data-scene="valor"] .shelf .plank { border-color: var(--scene-line); }
+.modal.scene-theme[data-scene="bank"] .bank-vault {
+  padding: 16px; margin: 10px 0 16px; border: 1px solid #a98243; border-radius: 10px;
+  background: linear-gradient(150deg,rgba(76,49,22,.97),rgba(24,19,13,.96));
+  box-shadow: inset 0 0 0 2px #2a1b10,inset 0 0 0 3px #b8996038,0 8px 18px #0005;
+}
+.modal.scene-theme .bank-vault > h3 { margin: 0 0 10px; }
+.modal.scene-theme .bank-balance { display: grid; gap: 3px; text-align: center; padding: 6px 0 12px; }
+.modal.scene-theme .bank-balance > span, .modal.scene-theme .bank-limit { color: var(--ui-muted); font-size: 14px; }
+.modal.scene-theme .bank-balance > b { font-size: clamp(22px,4vmin,32px); color: var(--scene-accent); }
+.modal.scene-theme .bank-limit { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; }
+.modal.scene-theme .bank-vault progress { width: 100%; height: 10px; accent-color: #d1a651; display: block; margin: 6px 0 14px; }
+.modal.scene-theme .bank-metrics {
+  display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px;
+}
+.modal.scene-theme .bank-metrics > div {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 5px; min-width: 0;
+  border: 1px solid var(--scene-line); border-radius: 7px; background: rgba(0,0,0,.26);
+}
+.modal.scene-theme .bank-metrics > div > span, .modal.scene-theme .bank-metrics small { color: var(--ui-muted); font-size: 13px; text-align: center; }
+.modal.scene-theme .bank-metrics > div > b { color: var(--scene-accent); font-size: 17px; font-variant-numeric: tabular-nums; text-align: center; }
+.modal.scene-theme .bank-operations { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.modal.scene-theme .bank-operations > section { min-width: 0; padding: 10px; border: 1px solid var(--scene-line); border-radius: 8px; background: rgba(20,15,10,.88); }
+.modal.scene-theme .bank-operations h3 { margin: 2px 0 10px; }
+.modal.scene-theme .bank-buttons { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+.modal.scene-theme .bank-buttons > button { min-width: 0; min-height: 52px; display: grid; align-content: center; justify-items: center; gap: 3px; white-space: normal; padding: 5px 3px; }
+.modal.scene-theme .bank-amount { font-size: 12px; color: var(--scene-accent); }
+.modal.scene-theme .bank-amount .money, .modal.scene-theme .bank-metrics .money { display: inline-flex; flex-wrap: wrap; justify-content: center; }
+@media (max-width: 700px) {
+  .modal.scene-theme .npc-row { gap: 9px; }
+  .modal.scene-theme .npc-say { padding: 8px; }
+  .modal.scene-theme .bank-vault { padding: 10px; }
+  .modal.scene-theme .bank-operations { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .modal.scene-theme .bank-metrics { gap: 4px; }
+  .modal.scene-theme .bank-metrics > div { padding: 6px 3px; }
+  .modal.scene-theme .bank-metrics > div > span { font-size: 12px; }
+}

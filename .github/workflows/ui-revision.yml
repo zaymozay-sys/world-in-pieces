@@ -38,6 +38,7 @@ jobs:
       - run: node tests/forge207.test.js
       - run: node tests/quests.test.js
       - run: node tests/combat.test.js
+      - run: node tests/bank.test.js
   browser:
     name: Браузерные сценарии интерфейсов
     runs-on: ubuntu-latest
@@ -53,9 +54,17 @@ jobs:
       - name: Проверка всех новых экранов
         run: |
           failed=0
-          for test in stash-filters workshop-ui quest-journal battle-effects-ui battle-result-ui; do
+          for test in stash-filters workshop-ui quest-journal battle-effects-ui battle-result-ui village-scenes-ui; do
             echo "::group::$test"
             timeout 180s node "tests/$test.e2e.js" || failed=1
             echo "::endgroup::"
           done
           exit "$failed"
+
+      - name: Снимки интерфейсов деревни
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: village-ui-screenshots
+          path: test-results/ui-scenes/
+          if-no-files-found: warn
