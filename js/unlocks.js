@@ -47,6 +47,7 @@ const Unlocks = (() => {
     if (q.done) return { kind: 'building', id: GIVERS[q.giver]?.[0] || q.giver };
     const wh = q.where ? (typeof q.where === 'function' ? q.where(d) : q.where) : null;
     if (wh) return { kind: 'building', id: wh };
+    if (q.id === 'isle-1' || q.id === 'isle-2' || q.id === 'isle-3') return {kind:'island',quest:q.id};
     if (q.id === 'lh-diary') return { kind: 'species', id: 'captain' };
     if (q.id === 'jk-keyshard') return { kind: 'building', id: 'junker' };
     if (q.id === 'fest-2') return { kind: 'building', id: 'hall' };
