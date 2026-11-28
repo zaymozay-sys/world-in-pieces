@@ -1298,3 +1298,13 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
     width: 100%; height: 100%;
   }
 }
+
+/* Не позволяем универсальной сетке карточек (148px) сжимать витрину. */
+.modal.shop-workshop .shop-catalog.shop-grid-view {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px,100%),1fr));
+}
+@media (max-width: 719px) {
+  .modal.shop-workshop .shop-catalog.shop-grid-view {
+    grid-template-columns: repeat(auto-fit, minmax(min(145px,100%),1fr));
+  }
+}
