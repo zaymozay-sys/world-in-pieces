@@ -2062,6 +2062,15 @@ const MapView = (() => {
     toast(_t("Вам сюда: {0}", [(HexMap.BUILDINGS[id] && HexMap.BUILDINGS[id].name) || id]));
     return true;
   }
+  let mapFocusTimer = 0;
+  function highlightMapTarget(idx) {
+    for (const n of el['l-mon'].querySelectorAll('.map-focus')) n.classList.remove('map-focus');
+    const token = el['l-mon'].querySelector('.mon[data-i="' + idx + '"]');
+    if (token) token.classList.add('map-focus');
+    clearTimeout(mapFocusTimer);
+    mapFocusTimer = setTimeout(() => { if (token) token.classList.remove('map-focus'); }, 6000);
+    flashCell(idx);
+  }
   function focusQuest(q) {
     if (!map || !st || !document.body.classList.contains('mode-map')) return false;
     const d = Profile.data, t = Unlocks.questTarget(d, q);
@@ -2077,7 +2086,7 @@ const MapView = (() => {
         (!t.resource || (!Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level())) &&
           Bestiary.MONSTERS[sp.species]?.drops.some(drop => drop[1] > 0 && drop[2] > 0))));
       cands.sort((a,b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
-      if (cands.length) { closeCard(); centerOn(cands[0].idx); showMonster(cands[0]); return true; }
+      if (cands.length) { closeCard(); centerOn(cands[0].idx); showMonster(cands[0]); highlightMapTarget(cands[0].idx); return true; }
       toast(_t("В этой локации подходящих целей не найдено")); return false;
     }
     toast(q.desc, 6500); return false;
@@ -2995,7 +3004,7 @@ const MapView = (() => {
     if (!known(sp.idx)) { toast(_t("Цель в неисследованной области — подойдите ближе")); return true; }
     if (!alive(sp)) { toast(_t("Цель побеждена — дождитесь возрождения")); return true; }
     showMonster(sp);
-    flashCell(sp.idx);
+    highlightMapTarget(sp.idx);
     return true;
   }
   const focusSpecies = (species, tier = 0) => focusMob(species, tier, null);
