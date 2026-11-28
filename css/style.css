@@ -4661,9 +4661,12 @@ body.bt-gold :is(#bagbar,[data-bid="bagbar"]) {
 body.bt-gold .bagbar .bagitem { min-height: 0; }
 body.bt-gold .bagbar .bagitem .item-icon { width: 22px; height: 22px; }
 @media (max-width: 700px) {
-  body.ui-columns.phone.bt-gold { --board: min(calc(100vw - 54px), calc(100dvh - 350px)); }
   body.bt-gold .board { margin: 18px auto 20px; }
   body.bt-gold :is(#bagbar,[data-bid="bagbar"]) { grid-template-columns: repeat(5, minmax(0, 52px)); }
+}
+/* Формула для вертикального телефона не должна обнулять поле на коротком экране лёжа. */
+@media (max-width: 700px) and (orientation: portrait) {
+  body.ui-columns.phone.bt-gold { --board: min(calc(100vw - 54px), calc(100dvh - 350px)); }
 }
 
 /* «золото»: столбец заклинаний вне рамки поля, слоты без двойных рамок; ранец по ширине поля */

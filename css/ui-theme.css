@@ -1239,3 +1239,32 @@ body.bt-gold.mode-battle .fighter.right.active { filter: drop-shadow(0 0 6px rgb
   .modal.scene-theme .bank-metrics > div { padding: 6px 3px; }
   .modal.scene-theme .bank-metrics > div > span { font-size: 12px; }
 }
+
+/* Узкий сенсорный экран: заголовок не конкурирует с кошельком и дополнительными действиями. */
+@media (max-width: 370px) and (orientation: portrait) {
+  .modal:not(.icard-modal) > header:has(.wallet-head) {
+    display: grid; grid-template-columns: minmax(0,1fr) auto auto;
+    gap: 5px 7px; align-items: center;
+  }
+  .modal:not(.icard-modal) > header:has(.wallet-head) h2 {
+    grid-column: 1; grid-row: 1; max-width: none; padding: 0;
+    overflow-wrap: anywhere; white-space: normal;
+  }
+  .modal:not(.icard-modal) > header:has(.wallet-head):not(:has(.wiki-context-help)) h2 { grid-column: 1 / 3; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .wiki-context-help { grid-column: 2; grid-row: 1; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .close { grid-column: 3; grid-row: 1; justify-self: end; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .wallet-head { grid-column: 1 / -1; grid-row: 2; justify-self: start; min-width: 0; max-width: 100%; padding: 3px 8px; }
+  .modal:not(.icard-modal) > header:has(.wallet-head):has(.valor-link) .wallet-head { grid-column: 1; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .valor-link { grid-column: 2 / 4; grid-row: 2; margin: 0; min-width: 0; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .money { flex-wrap: wrap; white-space: normal; }
+}
+@media (pointer: coarse) {
+  .modal header button.close[data-act="close"] { --ui-tap: 44px; }
+}
+/* Размытие создаёт собственную систему координат для position:fixed.
+   У открытого меню карта и окно браузера должны иметь один отсчёт. */
+body.mode-map .map-btns:has(#map-menu:not([hidden])) {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* Старая портретная раскладка на планшете тоже должна помещать заклинания по ширине. */
+body.bt-gold.ui-columns.phone.old-dock.mode-battle .spellbar { transform: none; }

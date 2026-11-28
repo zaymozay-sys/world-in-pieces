@@ -953,6 +953,7 @@
  "Домой": "Home",
  "Журнал боя": "Battle Log",
  "Раскладка боя: {0}": "Battle layout: {0}",
+ "Раскладка боя: компактная": "Battle layout: compact",
  "Меню боя": "Battle menu",
  "Боевая панель: магия и расходники": "Battle panel: magic and consumables",
  "прежняя": "classic",

@@ -54,7 +54,7 @@ jobs:
       - name: Проверка всех новых экранов
         run: |
           failed=0
-          for test in stash-filters workshop-ui quest-journal battle-effects-ui battle-result-ui village-scenes-ui; do
+          for test in stash-filters workshop-ui quest-journal battle-effects-ui battle-result-ui village-scenes-ui mobile-compact-ui; do
             echo "::group::$test"
             timeout 180s node "tests/$test.e2e.js" || failed=1
             echo "::endgroup::"

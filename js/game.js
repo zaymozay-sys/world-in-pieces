@@ -4623,17 +4623,30 @@ if (host.main) {
   phoneMq(); window.addEventListener('resize', phoneMq); window.addEventListener('orientationchange', phoneMq);
   // 2.2.9: выбор раскладки боя на телефоне — новая (одна панель) или прежняя; хранится в localStorage `wip-battle-dock`
   const dockOld = () => { try { return localStorage.getItem('wip-battle-dock') === 'old'; } catch (e) { return false; } };
+  // На очень коротком экране лёжа прежняя раскладка не вмещает панель команд.
+  // Временно включаем компактную, не меняя сохранённого выбора игрока.
+  const compactDock = () => window.innerWidth > window.innerHeight && (window.innerWidth <= 700 || window.innerHeight <= 430);
   const layoutBtn = moreMenu.querySelector('[data-do=layout]');
   const applyDock = () => {
-    const old = dockOld(), css = $('dock-css'), mb = $('dock-menu');
+    const compact = compactDock(), old = dockOld() && !compact, css = $('dock-css'), mb = $('dock-menu');
     if (css) css.disabled = old;
     if (mb) mb.hidden = old;
     document.body.classList.toggle('old-dock', old);
     document.body.classList.remove('dock-open');
-    if (layoutBtn) layoutBtn.textContent = _t("Раскладка боя: {0}", [old ? _t("прежняя") : _t("новая")]);
+    if (layoutBtn) {
+      layoutBtn.textContent = compact ? _t("Раскладка боя: компактная") : _t("Раскладка боя: {0}", [old ? _t("прежняя") : _t("новая")]);
+      layoutBtn.disabled = compact;
+    }
     if (typeof fitBattleHeight === 'function') requestAnimationFrame(fitBattleHeight);
   };
   applyDock();
+  let wasCompactDock = compactDock();
+  const checkCompactDock = () => {
+    const compact = compactDock();
+    if (compact !== wasCompactDock) { wasCompactDock = compact; applyDock(); }
+  };
+  window.addEventListener('resize', checkCompactDock);
+  window.addEventListener('orientationchange', checkCompactDock);
   const dockBtn = $('dock-menu');   // 2.2.9: портретный телефон — кнопки боя свёрнуты в одну в левом верхнем углу
   if (dockBtn) {
     dockBtn.addEventListener('click', (e) => { e.stopPropagation(); document.body.classList.toggle('dock-open'); });
@@ -4653,7 +4666,7 @@ if (host.main) {
     moreMenu.hidden = true;
     if (b.dataset.do === 'log') { const d = $('log-wrap'); d.open = !d.open; d.scrollIntoView({ block: 'nearest' }); }
     else if (b.dataset.do === 'anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); note(AnimSpeed.label()); }     // 1.6.4
-    else if (b.dataset.do === 'layout') { try { localStorage.setItem('wip-battle-dock', dockOld() ? 'new' : 'old'); } catch (e) { /* без хранилища выбор не запомнится */ } applyDock(); }
+    else if (b.dataset.do === 'layout') { if (!compactDock()) { try { localStorage.setItem('wip-battle-dock', dockOld() ? 'new' : 'old'); } catch (e) { /* без хранилища выбор не запомнится */ } applyDock(); } }
     else if (b.dataset.do === 'deskland') { toggleDeskLand(); }
     else if (b.dataset.do === 'timer') { TurnTimerSetting.toggle(); note(TurnTimerSetting.label()); }     // 1.6.5
     else $(b.dataset.do).click();
