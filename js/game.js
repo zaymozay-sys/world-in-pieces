@@ -2168,7 +2168,6 @@ function showOverlay(text, sub = '') {
   o.innerHTML = `<div class="result-panel">
     <header class="result-heading"><span class="result-emblem" aria-hidden="true">${boss ? '♛' : interrupted ? '—' : result === 'win' ? '✦' : '◆'}</span>
     <h2 class="rw-title"></h2><p class="result-foe"></p></header>
-    ${stats}
     ${sub ? `<section class="result-content ${advice ? 'result-advice' : ''}"><h3>${advice ? _t("Совет") : result === 'win' ? _t("Награды") : _t("Итог боя")}</h3><div class="result-body">${sub}</div><div class="loot-cap" aria-live="polite"></div></section>` : ''}
     <button type="button" class="primary to-map">${_t("На карту")}</button></div>`;
   o.querySelector('.rw-title').textContent = text;
@@ -2193,6 +2192,7 @@ function showOverlay(text, sub = '') {
   }
   // 2.0.9: технические кнопки (анализ, журнал, копирование) — под «Подробнее»; главная кнопка «На карту» остаётся одна на виду
   const more = document.createElement('div'); more.className = 'rw-more'; more.hidden = true;
+  if (stats) more.insertAdjacentHTML('beforeend', stats);
   const moreBtn = document.createElement('button'); moreBtn.type = 'button'; moreBtn.className = 'rw-more-btn'; moreBtn.textContent = _t("Подробнее"); moreBtn.setAttribute('aria-expanded', 'false');
   moreBtn.addEventListener('click', () => { more.hidden = !more.hidden; moreBtn.setAttribute('aria-expanded', String(!more.hidden)); });
   if (host.main && !TUT()) {                                    // 1.7.3: «Анализ боя»
@@ -2226,6 +2226,14 @@ function showOverlay(text, sub = '') {
     o.querySelector('.to-map').insertAdjacentElement('beforebegin', w);
   }
   (root.nodeType === 1 ? root : boardEl).appendChild(o);
+  // В итогах боя изображения заменяют повторяющиеся текстовые строки добычи.
+  for (const chip of o.querySelectorAll('.loot-chip:not(.medal-chip)')) {
+    const label = document.createElement('span'); label.className = 'result-loot-name';
+    label.textContent = chip.dataset.rkind ? (Bestiary.RESOURCES[chip.dataset.rkind]?.name || chip.title) + ' (' + Tiers.get(Number(chip.dataset.rtier)).name + ')' : chip.title;
+    if (!label.textContent) continue;
+    const entry = document.createElement('span'); entry.className = 'result-loot-entry';
+    chip.before(entry); entry.append(chip,label);
+  }
   countUpMoney(o);
   o.addEventListener('click', (e) => {                       // 1.5.0: добыча — картинки, по нажатию подробности
     const c = e.target.closest('.loot-chip'); if (!c) return;
@@ -2698,6 +2706,7 @@ function rewardFor(f, first = true, opts = {}) {
   const styleMedals = first && !opts.quick ? Profile.registerBattleStyle({ fullHp: fighters.left.hp >= fighters.left.max, moves, spells: battleStyle.spells, elixirs: battleStyle.elixirs }, Hero.tierFor(Profile.level())) : [];
   const secretMedals = first && !opts.quick ? Profile.noteSecret({ win: true, hpLeft: Math.round(fighters.left.hp), tier: f.tier, heroTier: Hero.tierFor(Profile.level()) }) : [];
   const chips = [];
+  const duplicateLoot = new Set();
   const lines = [_t("Опыт: +{0}", [xp]), _t("Монеты: {0}{1}", [MonsterArt.moneyHtml(drops.coins), luckPct ? _t(" (со Свитком удачи)") : ''])];
   const eggKind = opts.quick ? null : Profile.rollEgg(f.monsterId);
   if (eggKind) lines.push(_t("<b class=\"lvlup\">Находка!</b> {0} — высиживается в Питомнике", [Pets.EGGS[eggKind].name]));
@@ -2720,20 +2729,23 @@ function rewardFor(f, first = true, opts = {}) {
   for (const r of drops.resources) {
     if (Math.random() < Village.granaryChance(Profile.data.village)) r.n *= 2;      // 1.5.1: амбар Мельницы — находка удваивается
     Profile.addRes(r.kind, r.tier, r.n);
-    lines.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}`);
+    const lootLine = `${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}`;
+    lines.push(lootLine); duplicateLoot.add(lootLine);
     chips.push(`<button type="button" class="loot-chip" data-rkind="${r.kind}" data-rtier="${r.tier}" data-cap="${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}" title="${Bestiary.RESOURCES[r.kind].name}">${MonsterArt.resIcon(r.kind, r.tier)}<b>×${r.n}</b></button>`);
   }
   if (drops.item) {
     Profile.addItem(drops.item);
     const it = Gear.item(drops.item);
     if (it.rarity && it.rarity !== 'common') setTimeout(() => SND.rare(), 900);      // 1.5.1: звон редкой добычи
-    lines.push(_t("Вещь: {0} ({1})", [it.name, Tiers.get(it.tier).name]));
+    const lootLine = _t("Вещь: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
+    lines.push(lootLine); duplicateLoot.add(lootLine);
     chips.push(`<button type="button" class="loot-chip item r-${it.rarity}" data-uid="${drops.item.uid}" data-cap="${it.name}" title="${it.name}" style="--t:${Tiers.get(it.tier).color}">${itemIcon(it.type, '', it.id)}</button>`);
   }
   if (!opts.quick && Math.random() < R.consumableChance + (!isChallenge() && Profile.perk('secret') ? 0.1 : 0)) {
     const kinds = Object.keys(Gear.CONSUMABLES), k = kinds[rnd(kinds.length)];
     Profile.addConsumable(k);
-    lines.push(`+1 ${Gear.CONSUMABLES[k].name}`);
+    const lootLine = `+1 ${Gear.CONSUMABLES[k].name}`;
+    lines.push(lootLine); duplicateLoot.add(lootLine);
     chips.push(`<button type="button" class="loot-chip" data-cap="${Gear.CONSUMABLES[k].name}: ${Gear.CONSUMABLES[k].desc}" title="${Gear.CONSUMABLES[k].name}">${itemIcon(k)}<b>+1</b></button>`);
   }
   if (!opts.quick && Math.random() < 0.03) {   // 2.4.4: редкая щедрая находка — кошель монет (Силу не даёт)
@@ -2812,7 +2824,7 @@ function rewardFor(f, first = true, opts = {}) {
   const lv = Profile.levelInfo();
   const xpPct = lv.need === Infinity ? 100 : Math.max(0, Math.min(100, Math.round(100 * lv.into / Math.max(1, lv.need))));
   const xpProgress = `<div class="result-xp"><div><b>${_t("Уровень")} ${lv.level}</b><span>${lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need])}</span></div><progress max="100" value="${xpPct}" aria-label="${_t("Опыт")}"></progress></div>`;
-  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line">${l}</div>`).join('')}${xpProgress}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
+  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line${duplicateLoot.has(l) ? ' rw-duplicate-loot' : ''}">${l}</div>`).join('')}${xpProgress}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
 }
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
