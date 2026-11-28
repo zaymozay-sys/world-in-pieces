@@ -5,6 +5,7 @@ on:
     branches: [main, 'ui/revision-stage-1']
     paths:
       - '.github/workflows/release-259.yml'
+      - 'tests/release259.e2e.js'
   workflow_dispatch:
 
 permissions:

@@ -31,7 +31,9 @@ const base = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'inde
       p.on('pageerror', e => errors.push(e.message));
       await p.goto(base);
       await p.waitForFunction(() => typeof Profile !== 'undefined' && !!MapView.map);
-      await p.waitForFunction(() => Profile.data.seenVersion === GAME_VERSION);
+      await p.waitForFunction(() => Profile.data.seenVersion === GAME_VERSION && Screens.screen === 'whatsnew');
+      await p.locator('.modal-back .modal header button.close').click();
+      await p.waitForFunction(() => !Screens.isOpen);
       const actual = await p.evaluate(uid => ({ coins: Profile.data.coins, xp: Profile.data.xp, wins: Profile.data.wins, seed: Profile.data.map.seed, item: !!Profile.item(uid) }), fixture.uid);
       assert.deepEqual(actual, { coins: fixture.coins, xp: fixture.xp, wins: fixture.wins, seed: fixture.seed, item: true });
       await p.evaluate(() => { Screens.close(); Inventory.open('left', { armory: true }); });
