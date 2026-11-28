@@ -3,7 +3,8 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
 
    Пять зданий по 5 уровней: Кузница (закалка вещей до +N), Ратуша (Торговые ряды: больше лотов, меньше сбор),
    Мельница (амбар: находки ресурсов иногда удваиваются), Питомник (занятия быстрее), Алхимик (эликсиры действуют дольше).
-   Уровень k открывается с цвета героя 2k, цена растёт вместе с экономикой цвета (Tiers.PRICE_MULT).
+   Первые 5 уровней открываются с цвета 2k; 6–10 — с 10-го цвета. Кузница имеет 5 уровней.
+   Поздние цены ограничены относительно эталонной награды за бой.
    Косметика (титулы и рамки портрета) силу не меняет — это траты «для души». */
 
 const VG_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
@@ -15,7 +16,7 @@ const Village = (() => {
   // Первые пять уровней — прежние числа; 6–10 прибавляют понемногу (накопительные таблицы по уровню 0…10)
   const MILL = [0, 10, 20, 30, 40, 50, 52, 54, 56, 58, 60];
   const KENNEL = [0, 12, 24, 36, 48, 60, 63, 66, 69, 72, 75];
-  const ALCH = [0, 5, 10, 15, 20, 25, 30, 30, 30, 35, 35];
+  const ALCH = [0, 5, 10, 15, 20, 25, 30, 31, 32, 35, 37];
   const FEE = [5, 4.2, 3.4, 2.6, 1.8, 1, 0.9, 0.8, 0.7, 0.6, 0.5];
   const IDS = ['forge', 'hall', 'mill', 'kennel', 'alchemist'];
   const INFO = {
@@ -30,7 +31,14 @@ const Village = (() => {
   const lots = (n) => (n <= 5 ? 8 + n : 13 + Math.floor((n - 5) / 2));
   const feePct = (n) => FEE[Math.max(0, Math.min(10, n))];
   const reqTier = (k) => (k <= 5 ? 2 * k : 10);                                         // цвет героя, с которого открыт уровень k
-  const cost = (id, k) => Math.round(1200 * ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).rewards.coinBase * VG_T.PRICE_MULT[Math.min(9, 2 * Math.min(k, 5) - 1)] * (id === 'forge' ? 1.5 : 1) * (k > 5 ? Math.pow(1.5, k - 5) : 1));   // в медных монетах
+  function cost(id, k) {
+    const B = typeof Balance !== 'undefined' ? Balance : require('./balance.js');
+    const t = reqTier(k), factor = id === 'forge' ? 1.5 : 1;
+    const legacy = 1200 * B.rewards.coinBase * VG_T.PRICE_MULT[t - 1] * (k > 5 ? Math.pow(1.5, k - 5) : 1);
+    // Поздние вложения остаются дорогими, но не растут экспоненциально.
+    const capped = k > 5 ? Math.min(legacy, B.economy.battleLoot[t - 1] * (24 + 3 * (k - 6))) : legacy;
+    return Math.round(capped * factor);
+  }
   // Что можно купить сейчас: { level (следующий), cost, reqTier, ok: цвет героя достаточен }
   function next(v, id, heroTier) {
     const n = lvl(v, id);

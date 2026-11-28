@@ -17,6 +17,22 @@ assert.ok(Village.cost('forge', 3) > Village.cost('hall', 3));
 let total = 0; for (const id of Village.IDS) for (let k = 1; k <= 5; k++) total += Village.cost(id, k);
 assert.ok(total > 250 * G && total < 1200 * G, 'все улучшения — тысячи золотых, а не миллионы: ' + total / G);
 
+// Поздние улучшения доступны по экономике 10-го цвета; первые пять цен сохранены.
+const balance = require('../js/balance.js'), tiers = require('../js/tiers.js');
+for (const id of Village.IDS) for (let k = 1; k <= Village.maxOf(id); k++) {
+  const factor = id === 'forge' ? 1.5 : 1;
+  if (k <= 5) assert.strictEqual(Village.cost(id, k), Math.round(1200 * balance.rewards.coinBase * tiers.PRICE_MULT[2*k-1] * factor));
+  else assert.ok(Village.cost(id, k) <= balance.economy.battleLoot[9] * (24 + 3 * (k - 6)));
+}
+const oldAlch = [0,5,10,15,20,25,30,30,30,35,35];
+for (let k = 1; k <= 10; k++) {
+  assert.ok(Village.elixirExtra({ alchemist:k }) > Village.elixirExtra({ alchemist:k-1 }));
+  assert.ok(5 * Village.elixirExtra({ alchemist:k }) + 1e-9 >= oldAlch[k]);
+}
+const late = {};
+Elixirs.drink(late, 'power', 10, Village.elixirExtra({ alchemist:10 }));
+assert.strictEqual(late.power.pct, 37);
+
 // покупка
 const v = {};
 assert.strictEqual(Village.buy(v, 'hall', 1, 1e9), 0, 'цвет героя мал');
