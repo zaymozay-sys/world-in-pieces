@@ -630,11 +630,37 @@ const Screens = (() => {
         if (s.sort === 'price' || s.sort === 'price-desc') return (s.sort === 'price' ? 1 : -1) * (buyPrice(Gear.item({id:a.id,tier}).price) - buyPrice(Gear.item({id:b.id,tier}).price));
         return CAT_TYPE_ORDER.indexOf(a.type) - CAT_TYPE_ORDER.indexOf(b.type) || a.cost - b.cost;
       });
+    // Снимок текущего снаряжения: предварительное сравнение не изменяет профиль.
+    const gear = Profile.gear(), before = Profile.totalStats(gear), level = Profile.level();
+    const owned = new Map();
+    for (const entry of Profile.data.items) {
+      const key = entry.id + ':' + (entry.tier || 1);
+      const group = owned.get(key) || {count:0, worn:0};
+      group.count++;
+      if (Profile.equippedUid(entry.uid)) group.worn++;
+      owned.set(key, group);
+    }
     const list = bases.map((b) => {
       const it = Gear.item({ id: b.id, tier }), price = buyPrice(it.price);
       // 2.3.6: надеваемая вещь — одна штука на слот, счётчик количества тут не нужен (убран; кнопка «Купить» берёт сразу 1 шт.)
-      const act = `<button type="button" data-tryon="shop:${b.id}:${tier}">${_t("Примерить")}</button><button type="button" class="primary" data-buy-cat="${b.id}:${tier}" ${Profile.data.coins >= price ? '' : 'disabled'}>${_t("Купить")}</button>`;
-      return itemCard(it, _t("Цена: {0}{1}", [money(price), levelNote(it)]), act);
+      const afford = Profile.data.coins >= price, have = owned.get(b.id + ':' + tier);
+      const entry = {id:b.id, tier, uid:'tryon-probe'};
+      const slot = tryOnSlot(gear, it), check = Gear.canEquip(gear, entry, slot, faction, level);
+      const after = Profile.totalStats(Gear.equip(gear, entry, slot));
+      const keys = [...new Set([...TRY_STATS.map(([k]) => k), ...Object.keys(before), ...Object.keys(after)])];
+      const changes = keys.filter(k => Gear.STAT_NAMES[k] && (after[k] || 0) !== (before[k] || 0)).map(k => {
+        const d = (after[k] || 0) - (before[k] || 0);
+        const unit = (TRY_STATS.find(([key]) => key === k) || [k,''])[1];
+        return `<span class="shop-delta ${d > 0 ? 'up' : 'down'}" data-stat="${k}" data-delta="${d}">${Gear.STAT_NAMES[k]} ${d > 0 ? '+' : '−'}${Math.abs(d)}${unit}</span>`;
+      });
+      const comparison = check.ok
+        ? `<span class="shop-compare-label">${_t("Изменение характеристик героя")}</span><span class="shop-deltas">${changes.slice(0,3).join('') || _t("Характеристики не изменятся")}${changes.length > 3 ? '<span>…</span>' : ''}</span>`
+        : `<span class="shop-unavailable">${escText(check.reason)}</span>`;
+      const collection = it.set ? `<span class="shop-set-progress">${_t("В комплекте надето {0}/{1}", [worn[it.set] || 0, Gear.setMaxPieces(it.set)])}</span>` : '';
+      const possession = have ? `<span class="shop-owned">${_t("Уже есть: {0}", [have.count])}${have.worn ? ' · ' + _t("Надето") : ''}</span>` : '';
+      const foot = `<span class="shop-meta">${possession}${collection}</span><span class="shop-comparison">${comparison}</span><span class="shop-price">${money(price)}</span>${afford ? '' : '<span class="shop-unavailable">' + _t("Не хватает монет") + '</span>'}`;
+      const act = `<button type="button" data-tryon="shop:${b.id}:${tier}">${_t("Сравнить")}</button><button type="button" class="primary" data-buy-cat="${b.id}:${tier}" ${afford ? '' : 'disabled'}>${_t("Купить")}</button>`;
+      return itemCard(it, foot, act, 'shop-product');
     }).join('');
     const searchHtml = `<input type="search" class="cat-search" data-shq="1" value="${escText(s.q || '')}" placeholder="${_t("Поиск по названию")}" aria-label="${_t("Поиск по названию")}">`;
     return { head: searchHtml + dropHtml + setsHtml + kindsHtml + tierHtml + info + '<p class="hint shop-count" role="status"></p>', list };
