@@ -17,16 +17,16 @@ for (let t = 1; t <= 10; t++) SPECIES_AT[t] = Bestiary.ORDER.filter((id) => HexM
 
 function heroView(P) {
   const gear = P.loadout, L = P.level;
-  const stats = Gear.combine(Gear.stats(gear), Factions.statsAt(P.faction, Hero.tierFloat(L)));
+  const stats = sim.makeHero({ faction: P.faction, level: L, gear }).stats;
   return { max: Hero.baseHp(L) + stats.health, dmg: Hero.dmgMult(L), stats };
 }
-function monView(id, t) {
-  const sc = Bestiary.scaled(id, t);
+function monView(id, t, level) {
+  const sc = Bestiary.scaled(id, t, 1, level);
   return { max: sc.hp, dmg: sc.dmg, stats: sc.stats, ai: sc.ai };
 }
 const refChance = (P, gear) => {                   // насколько хороша экипировка: шанс против орка своего цвета
   const save = P.loadout; P.loadout = gear;
-  const p = Combat.winChance(heroView(P), monView('orc', Hero.tierFor(P.level)), 'orc');
+  const p = Combat.winChance(heroView(P), monView('orc', Hero.tierFor(P.level), P.level), 'orc');
   P.loadout = save;
   return p;
 };
@@ -45,9 +45,9 @@ function bestPlacement(P, entry) {
   const base = refChance(P, P.loadout);
   let best = null;
   for (const slot of slotsFor(it)) {
-    if (!Gear.canEquip(P.loadout, entry, slot, P.faction).ok) continue;
+    if (!Gear.canEquip(P.loadout, entry, slot, P.faction, P.level).ok) continue;
     const g = Gear.equip(P.loadout, entry, slot);
-    if (Gear.totalCost(g) > Hero.budget(P.level)) continue;
+    if (Hero.pointsOn() && Gear.totalCost(g) > Hero.budget(P.level)) continue;
     const gain = refChance(P, g) - base;
     if (gain > 0.004 && (!best || gain > best.gain)) best = { slot, gain, gear: g };
   }
@@ -74,7 +74,7 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
     // выбор противника
     const cand = [];
     for (let t = Math.max(1, tf - 1); t <= Math.min(10, tf + 1); t++) for (const id of SPECIES_AT[t]) {
-      const p = Combat.winChance(hv, monView(id, t), id), xp = Hero.xpReward(Bestiary.MONSTERS[id], t, L);
+      const p = Combat.winChance(hv, monView(id, t, L), id), xp = Hero.xpReward(Bestiary.MONSTERS[id], t, L);
       cand.push({ id, t, p, xp, v: p * xp });
     }
     let pool = cand.filter((c) => c.p >= Balance.danger.bands.even).sort((a, c) => c.v - a.v);
@@ -89,7 +89,7 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
       P.coins -= elxPrice; lv.spent += elxPrice; global.__elxCoins = (global.__elxCoins || 0) + elxPrice; plan[kind] = tf;
     }
     const hero = sim.makeHero({ faction, level: L, gear: P.loadout, bag: P.bag, elixirs: plan });
-    const mon = sim.makeMonster(pick.id, pick.t);
+    const mon = sim.makeMonster(pick.id, pick.t, { level: L });
     const S = sim.Battle(hero, mon, sim.humanPlayer({ items: pick.p < 0.62 })).run();
     P.bag = hero.bag;
     lv.battles++; lv.chance += pick.p; lv.budgetUse += Gear.totalCost(P.loadout) / Hero.budget(L);
@@ -97,10 +97,10 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
     if (S.winner === 'left') {
       lv.wins++;
       P.xp += Hero.xpReward(Bestiary.MONSTERS[pick.id], pick.t, L);
-      const d = Bestiary.rollDrops(pick.id, pick.t, rnd, faction);
+      const d = Bestiary.rollDrops(pick.id, pick.t, rnd, faction, tf);
       P.coins += Math.round(d.coins * coinPerk * Number((process.argv.find((x) => x.startsWith('--coinK=')) || '--coinK=1').split('=')[1]));
       for (const r of d.resources) P.res[r.kind + ':' + r.tier] = R(r.kind, r.tier) + r.n;
-      if (d.item) { const pl = bestPlacement(P, d.item); if (pl) P.loadout = pl.gear; else P.coins += Gear.sellValue(Gear.item(d.item).price); }
+      if (d.item) { const pl = bestPlacement(P, d.item); if (pl) P.loadout = pl.gear; else { const item = Gear.item(d.item); P.coins += Gear.sellValue(item.price, item.tier); } }
       if (rnd() < Balance.rewards.consumableChance) { const k = Object.keys(Gear.CONSUMABLES)[ri(4)]; P.bag[k] = (P.bag[k] || 0) + 1; }
       const lvl = Hero.levelOf(P.xp).level;
       if (lvl > P.level) P.level = lvl;
@@ -135,7 +135,7 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
       const coins = Math.round(c.coins * forgePerk);
       if (P.coins - coins < reserve || !c.res.every((r) => R(r.kind, r.tier) >= r.n)) continue;
       const g = { ...P.loadout, [slot]: { ...e, tier: it.tier + 1 } };
-      if (Gear.totalCost(g) > Hero.budget(P.level)) continue;
+      if (Hero.pointsOn() && Gear.totalCost(g) > Hero.budget(P.level)) continue;
       P.coins -= coins; lv.forges++; lv.spent += coins;
       for (const r of c.res) P.res[r.kind + ':' + r.tier] -= r.n;
       P.loadout = g;
@@ -170,7 +170,7 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
     // старые ресурсы (цвет ниже на 2 и больше) продаём
     for (const k of Object.keys(P.res)) {
       const [kind, t] = k.split(':');
-      if (Number(t) <= Hero.tierFor(P.level) - 2 && P.res[k] > 0) { P.coins += Math.round(Bestiary.resPrice(kind, Number(t)) * 0.5) * P.res[k]; P.res[k] = 0; }
+      if (Number(t) <= Hero.tierFor(P.level) - 2 && P.res[k] > 0) { P.coins += Bestiary.resSellPrice(kind, Number(t)) * P.res[k]; P.res[k] = 0; }
     }
   }
   return { P, perLevel, battles: b, guard };
@@ -182,7 +182,7 @@ function guardCheck(P, chapter, N = 12) {
   let wins = 0;
   for (let k = 0; k < N; k++) {
     const hero = sim.makeHero({ faction: P.faction, level: P.level, gear: P.loadout, bag: { ...P.bag } });
-    const mon = sim.makeMonster(chapter.species, chapter.tier);
+    const mon = sim.makeMonster(chapter.species, chapter.tier, { level: P.level });
     if (!chapter.existing) { mon.max = mon.hp = Math.round(mon.max * (+process.env.STORY_HP || Story.HP_MULT)); mon.stats = { ...mon.stats, power: (mon.stats.power || 0) + (process.env.STORY_PW ? +process.env.STORY_PW : Story.POWER) }; }
     if (sim.Battle(hero, mon, sim.humanPlayer({ items: true })).run().winner === 'left') wins++;
   }

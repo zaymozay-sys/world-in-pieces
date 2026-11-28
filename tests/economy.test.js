@@ -31,6 +31,14 @@ assert.ok(hi.stats.block > lo.stats.block && hi.stats.defense > lo.stats.defense
 assert.ok(hi.cost > lo.cost && hi.price > lo.price);
 assert.strictEqual(Gear.item('guard-shield').tier, 1);           // строка = первый уровень (Красный)
 assert.ok(Gear.sellValue(hi.price) < hi.price);                  // продавать невыгодно
+for(let t=1;t<=10;t++)for(const base of Gear.ITEMS){
+  const e=Gear.makeEntry(base.id,t),price=Gear.item(e).price;
+  for(const w of [0,.5,1]){
+    const v=Math.round(price*w);
+    assert.ok(Gear.sellValue(v,t)>=Gear.junkValue(v),'лавка не хуже старьёвщика');
+    assert.ok(Gear.sellValue(v,t)<=v);
+  }
+}
 
 // экземпляры: одинаковые вещи допустимы, но один экземпляр нельзя надеть дважды
 const a = Gear.makeEntry('wand-dagger', 1), b = Gear.makeEntry('wand-dagger', 1);

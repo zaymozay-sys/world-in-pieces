@@ -302,9 +302,11 @@ const Gear = (() => {
   const ITEM_K = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.7, 1.7, 1.7];   // 2.0.5: хвост 2,6…2,9 убран — боёв на вещь ≈26 на цветах 7–10
   const priceAt = (cost1, tier) => Math.round(cost1 * 10 * T.PRICE_MULT[tier - 1] * ITEM_K[tier - 1]);
   // 2.3.8: вторым аргументом — цвет вещи: выручка с продажи на высоких цветах снижается кривой Balance.economy.sellTier
-  const sellValue = (price, tier) => Math.round(price * 0.4 * (tier ? sellTierK(tier) : 1));
+  // Лавка не должна платить меньше старьёвщика: сохраняем прежнюю выгодную
+  // цену скупки дорогих вещей, но убираем необходимость обходить два здания.
+  const sellValue = (price, tier) => Math.max(junkValue(price), Math.round(price * 0.4 * (tier ? sellTierK(tier) : 1)));
   const sellTierK = (t) => ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).economy.sellTier[Math.max(1, Math.min(10, Math.round(t))) - 1];
-  // Старьёвщик платит меньше Лавки — зато скупает всё разом, одной кнопкой (см. Screens.openJunker).
+  // Старьёвщик платит не больше Лавки — зато скупает всё разом, одной кнопкой.
   const junkValue = (price) => Math.round(price * 0.25);
 
   /* ---------- 1.6.6: прочность ----------
