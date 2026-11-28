@@ -8,6 +8,7 @@ const Screens = (() => {
   const QTY_STEPS = [1, 5, 10, 25];
   const st = {
     wiki:  { q: '', art: null, filter: 'all' },
+    questJournal: { tab: 'active' },
     shop:  { tab: 'buy', resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
     forge: { tab: 'upgrade', view: 'list', sel: null, filter: 'weapon', msg: '', craftTier: 0, choice: {} },
     best:  { sel: null, tier: 1, q: '', f: 'all', fam: '', view: 'list' },
@@ -231,6 +232,7 @@ const Screens = (() => {
     ModalFocus.open(root);
   }
   function close() {
+    rememberPosition();
     if (root) { ModalFocus.close(root); root.remove(); root = null; }
     document.removeEventListener('keydown', onKey);
     cur = null;
@@ -242,6 +244,7 @@ const Screens = (() => {
   const wikiHelpTopics = { shop: 'gear', forge: 'forge', best: 'bestiary', kennel: 'pets', alchemist: 'elixirs', village: 'village', arena: 'arena', library: 'runes', jeweler: 'gems', lighthouse: 'lighthouse', market: 'resources' };
   function openWikiHelp(from) {
     if (!wikiHelpTopics[from] || !Wiki.find(wikiHelpTopics[from])) return;
+    rememberPosition();
     wikiReturnScreen = from;
     st.wiki.art = wikiHelpTopics[from];
     st.wiki.hist = [];
@@ -259,9 +262,34 @@ const Screens = (() => {
     st.wiki.positions = [];
     cur = previous;
     render();
+    restorePosition();
     return true;
   }
-  function open(id) { mount(); if (id !== 'wiki') wikiReturnScreen = null; cur = id; render(); }
+  // Позиция списков хранится только на время игровой сессии, отдельно для каждого раздела.
+  // Не вмешиваемся в мини-игры, регистрацию и собственную историю навигации базы знаний.
+  const scrollScreens = new Set(['shop', 'forge', 'library', 'market', 'kennel', 'alchemist', 'village', 'valor', 'best', 'jeweler']);
+  const scrollPositions = new Map();
+  function positionKey() {
+    if (!scrollScreens.has(cur)) return null;
+    const s = st[cur] || {};
+    return [cur, s.tab || '', s.view || '', s.sel || ''].join(':');
+  }
+  function rememberPosition() {
+    const key = positionKey(), body = root && root.querySelector('.screen-body');
+    if (key && body) scrollPositions.set(key, body.scrollTop);
+  }
+  function restorePosition() {
+    const key = positionKey(), body = root && root.querySelector('.screen-body');
+    if (key && body && scrollPositions.has(key)) body.scrollTop = scrollPositions.get(key);
+  }
+  function open(id) {
+    if (root && id !== cur) rememberPosition();
+    mount();
+    if (id !== 'wiki') wikiReturnScreen = null;
+    cur = id;
+    render();
+    restorePosition();
+  }
   const titleOpen = {};      // 1.8.4: какие группы титулов развёрнуты (запоминается, пока открыта страница)
   let keepScroll = false;
   // 2.1.2: рядом с «Купить» в Лавке появляется «за ✦N» (расходники и ресурсы)
@@ -318,12 +346,67 @@ const Screens = (() => {
       const html = SCREENS[cur].html();
       if (html.includes('lh-board') && root.querySelector('.lh-board') && !root.querySelector('.ch-board')) patchRender(html);   // 2.4.3: мини-игры не пересоздаются целиком после каждого хода — иначе мигают
       else { root.innerHTML = html; addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab(); if (cur === 'valor') valorDecorate(); }
+      decorateWorkshop();
       root.querySelectorAll('.tabs:not(.sub)').forEach((t) => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth + 2) t.scrollLeft = Math.max(0, on.offsetLeft - 24); });   // 2.0.9: активная вкладка видна
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
     }
   }
+  // Однократное подтверждение фактически совершённой покупки или работы.
+  let workshopSuccess = null;
+  function decorateWorkshop() {
+    if (cur !== 'forge' && cur !== 'shop') return;
+    const modal = root.querySelector('.modal');
+    if (!modal) return;
+    modal.classList.add(cur === 'forge' ? 'forge-workshop' : 'shop-workshop');
+    if (workshopSuccess === cur) {
+      const notice = modal.querySelector('.gear-toast');
+      workshopSuccess = null;
+      if (notice) {
+        notice.classList.add('workshop-success', cur === 'forge' ? 'forge-spark' : 'shop-seal');
+        notice.setAttribute('role', 'status');
+      }
+    }
+    if (cur === 'forge') {
+      const split = modal.querySelector('.forge-split'), detail = split && split.querySelector('.forge-detail');
+      if (!detail) return;
+      const costs = detail.querySelector('.costs');
+      if (!costs) return;
+      const materials = document.createElement('section'); materials.className = 'forge-materials forge-upgrade-materials';
+      const entry = Profile.item(st.forge.sel);
+      const ref = { mode: 'upgrade', entry };
+      const cost = entry && (Forge.hasPlan(ref) ? forgeCost(planOfRef(ref)) : forgeCost(Gear.upgradeCost(entry)));
+      if (cost) materials.insertAdjacentHTML('beforeend', forgeSummary(cost));
+      const heading = costs.previousElementSibling;
+      if (heading && heading.tagName === 'H3') materials.append(heading);
+      for (const node of [...detail.children].slice([...detail.children].indexOf(costs))) materials.append(node);
+      detail.append(materials);
+      detail.classList.add('forge-detail-workbench');
+      const cards = detail.querySelectorAll(':scope > .card');
+      if (cards.length === 2) cards[1].classList.add('forge-result');
+    } else if (st.shop.tab === 'buy') {
+      const list = modal.querySelector('.cat-search');
+      const catalog = list && modal.querySelector('.cat-search ~ .card-list');
+      if (!catalog) return;
+      catalog.classList.add('shop-catalog');
+      catalog.classList.toggle('shop-grid-view', st.shop.catalogView !== 'list');
+      const bar = document.createElement('div'); bar.className = 'shop-view-controls';
+      for (const [key, label] of [['grid', _t("Витрина")], ['list', _t("Список")], ['affordable', _t("По карману")]]) {
+        const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.shopView = key; btn.textContent = label;
+        const active = key === 'affordable' ? !!st.shop.affordable : (st.shop.catalogView || 'grid') === key;
+        btn.classList.toggle('on', active); btn.setAttribute('aria-pressed', String(active)); bar.append(btn);
+      }
+      list.before(bar); applyShopQuery();
+    }
+  }
   // 1.8.1: у окон без своего фона (деревня, справка, стена доблести) он подхватывается, как только картинка ui/bg-<имя> есть в игре
+  // Индивидуальные акценты зданий на существующих фонах и портретах.
+  const SCENE_THEMES = new Set(['tavern', 'mill', 'lighthouse', 'library', 'artistWorkshop', 'jeweler', 'junker', 'kennel', 'alchemist', 'market', 'village', 'arena', 'bank', 'valor', 'best']);
   function addScene() {
+    const modal = root.querySelector('.modal');
+    if (modal && SCENE_THEMES.has(cur)) {
+      modal.classList.add('scene-theme');
+      modal.dataset.scene = cur;
+    }
     const b = root.querySelector('.screen-body');
     if (!b || b.getAttribute('style') || typeof Art === 'undefined' || !Art.hasScene(cur)) return;
     b.style.cssText = `background-image:linear-gradient(180deg, rgba(20,16,10,.7), rgba(20,16,10,.88)), url('${Art.sceneUrl(cur)}');background-size:cover;background-position:center`;
@@ -338,9 +421,9 @@ const Screens = (() => {
     const nb = [...root.querySelectorAll('[' + attr + ']')].find((x) => x.getAttribute(attr) === val);
     if (!nb) return;
     const row = nb.closest('.card, .shop-row, li, .row') || nb.parentNode;
+    if (nb === b) return;
     row.classList.add('just-bought');
-    const old = nb.textContent;
-    if (nb === b) return;                                 // кнопка не перерисовалась — покупка не прошла
+    const old = nb.textContent;                                 // кнопка не перерисовалась — покупка не прошла
     nb.dataset.was = old; nb.classList.add('bought-flash'); nb.textContent = _t("✓ Куплено");
     setTimeout(() => { if (nb.isConnected) { nb.classList.remove('bought-flash'); nb.textContent = old; } row.classList.remove('just-bought'); }, 1600);
   }
@@ -422,7 +505,7 @@ const Screens = (() => {
   }
   function applyShopQuery() {
     const q = (cur === 'shop' && st.shop.q || '').trim().toLowerCase();
-    root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; c.hidden = !!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q)); });
+    root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; const buy = c.querySelector('[data-buy-cat]'); c.hidden = (!!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q))) || !!(cur === 'shop' && st.shop.affordable && buy && buy.disabled); });
   }
   function onInput(e) {
     if (cur === 'valor' && e.target.dataset.vq !== undefined) { st.valor.q = e.target.value; valorFilter(); return; }
@@ -654,6 +737,11 @@ const Screens = (() => {
     },
     click(b) {
       const s = st.shop, d = b.dataset;
+      if (d.shopView) {
+        if (d.shopView === 'affordable') s.affordable = !s.affordable;
+        else s.catalogView = d.shopView;
+        return render();
+      }
       if (shelfClick(d)) return;
       if (d.sh === 'pay' && d.shId === 'shop') {
         const top = Hero.shopGearTier(Profile.level()), bk = basketOf('shop'); let total = 0; const picks = [];
@@ -665,7 +753,7 @@ const Screens = (() => {
         if (!picks.length || !Profile.spend(total)) return;
         let n = 0; for (const [id, tier, q] of picks) for (let i = 0; i < q; i++) { Profile.addItem(Gear.makeEntry(id, tier)); n++; }
         s.basket = {};
-        s.msg = _t("Куплено вещей: {0}", [n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено вещей: {0}", [n]);
         return changed();
       }
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
@@ -679,7 +767,7 @@ const Screens = (() => {
         const it = Gear.item({ id, tier });
         if (!Profile.spend(buyPrice(it.price))) return;
         Profile.addItem(Gear.makeEntry(id, tier));
-        s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
         { const lo = Profile.data.loadout || {}; if (it.type in lo && !lo[it.type]) s.msg += ' ' + _t("Слот пуст — наденьте покупку дома, в оружейной.") }   // 2.2.7: новичок не знал, что вещь надо ещё надеть
         return changed();
       }
@@ -693,7 +781,7 @@ const Screens = (() => {
         if (!e || !it) return;
         if (!Profile.spend(buyPrice(it.price))) return;
         Profile.removeFromShop(e.uid); Profile.addItem(e);
-        s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
         return changed();
       }
       if (d.ammoQty) { s.ammoQty = Number(d.ammoQty); return render(); }
@@ -701,7 +789,7 @@ const Screens = (() => {
         const n = Math.max(1, Number(d.n) || 1), total = buyPrice(Gear.bulkPrice(ammoPrice(d.buyAmmo), n));
         if (!Profile.spend(total)) return;
         Profile.addAmmo(d.buyAmmo, n);
-        s.msg = _t("Куплено: {0} × {1}", [Ammo.CATALOG[d.buyAmmo].name, n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} × {1}", [Ammo.CATALOG[d.buyAmmo].name, n]);
         return changed();
       }
       if (d.spCons || d.spRes) {          // покупка за искры: сначала списание на сервере, потом выдача товара
@@ -717,7 +805,7 @@ const Screens = (() => {
         const c = Gear.CONSUMABLES[d.buyCons], n = Math.max(1, Number(d.n) || 1), total = buyPrice(Gear.bulkPrice(consPrice(d.buyCons), n));
         if (!Profile.spend(total)) return;
         Profile.addConsumable(d.buyCons, n);
-        s.msg = _t("Куплено: {0} × {1}", [c.name, n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} × {1}", [c.name, n]);
         return changed();
       }
       if (d.buyRes) {
@@ -725,7 +813,7 @@ const Screens = (() => {
         const total = Gear.bulkPrice(buyPrice(Bestiary.resPrice(d.buyRes, rt) * RES_BUY_MARKUP), n);
         if (!Profile.spend(total)) return;
         Profile.addRes(d.buyRes, rt, n);
-        s.msg = _t("Куплено: {0} × {1}", [resLabel(d.buyRes, rt), n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} × {1}", [resLabel(d.buyRes, rt), n]);
         return changed();
       }
       if (d.sellItem) {
@@ -775,6 +863,11 @@ const Screens = (() => {
     return miss.length ? `<div class="lack">${_t("Не хватает")}: ${miss.join(', ')}</div>` : '';
   };
   const costHtml = (c, key) => costBase(c, key) + lackHtml(c);
+  const forgeSummary = (c) => {
+    const total = c.res.length + 1;
+    const ready = c.res.filter((r) => Profile.res(r.kind, r.tier) >= r.n).length + Number(Profile.data.coins >= c.coins);
+    return `<div class="forge-readiness ${canPay(c) ? 'ready' : ''}"><b>${_t("Материалы и монеты")}</b><span>${ready} / ${total}</span><progress max="${total}" value="${ready}" aria-label="${_t("Материалы и монеты")}"></progress></div>`;
+  };
   // 2.4.5: закладки рецептов («id:цвет»): звёздочка в Кузнице, существа-источники недостающих ресурсов подсвечиваются на карте
   const marks = () => (Profile.data.marks = Array.isArray(Profile.data.marks) ? Profile.data.marks : []);
   const markBtn = (id, tier) => { const k = id + ':' + tier, on = marks().includes(k); return `<button type="button" class="mark-btn${on ? ' on' : ''}" data-mark="${k}" aria-pressed="${on}" title="${_t("Следить за рецептом: существа с нужными ресурсами подсветятся на карте")}">${on ? '★' : '☆'}</button>`; };
@@ -1026,13 +1119,19 @@ const Screens = (() => {
         if (!s.craftTier || s.craftTier > top) s.craftTier = top;
         const ct = s.craftTier;
         const bases = early ? Gear.craftFor(Profile.data.faction, ct).sort((a, b) => a.cost - b.cost).slice(0, 1) : Gear.craftFor(Profile.data.faction, ct).filter((b) => f[2](b.type)).sort((a, b) => a.cost - b.cost);
-        const list = bases.map((b) => {
-          const it = Gear.item({ id: b.id, tier: ct }), cost = craftPlan(b.id, ct), ckey = planKey({ mode: 'craft', itemId: b.id, tier: ct });
-          return `<div class="craft-unit">${itemCard(it, _t("{0} · из ресурсов цвета «{1}»", [Gear.RARITY_NAMES[b.rarity], Tiers.get(ct).name]), _t("<button type=\"button\" data-craft=\"{0}\" {1}>Создать</button>", [b.id, canPay(cost) ? '' : 'disabled']) + tryBtn('craft', b.id) + markBtn(b.id, ct))}${costHtml(cost, ckey)}</div>`;
+        const recipes = bases.map((b) => ({ b, cost: craftPlan(b.id, ct) }));
+        const visible = recipes.filter(({ cost }) => !s.readyOnly || early || canPay(cost));
+        const list = visible.map(({ b, cost }) => {
+          const it = Gear.item({ id: b.id, tier: ct }), ckey = planKey({ mode: 'craft', itemId: b.id, tier: ct });
+          return `<div class="craft-unit">${itemCard(it, _t("{0} · из ресурсов цвета «{1}»", [Gear.RARITY_NAMES[b.rarity], Tiers.get(ct).name]), _t("<button type=\"button\" data-craft=\"{0}\" {1}>Создать</button>", [b.id, canPay(cost) ? '' : 'disabled']) + tryBtn('craft', b.id) + markBtn(b.id, ct))}<div class="forge-materials">${forgeSummary(cost)}${costHtml(cost, ckey)}</div></div>`;
         }).join('');
         body = early ? `<p class="hint">${_t("Для начала — одна простая вещь. Остальные вещи и вкладки Кузницы откроются после первых боёв.")}</p><div class="card-list">${list}</div>` : _t("<div class=\"tabs sub\">{0}</div>\n          <p class=\"hint\">Цвет новой вещи (до цвета вашего уровня):</p>{1}<div class=\"card-list\">{2}</div>", [FILTERS.map(([k, label]) => `<button type="button" class="${k === s.filter ? 'on' : ''}" data-filter="${k}">${label}</button>`).join(''), tierPicker(top, ct, 'crafttier'), list]);
       }
       // 2.4.7: список ресурсов свёрнут (одна строка «N ▾»), чтобы сразу были видны предметы, а не длинный перечень ресурсов
+      if (s.tab === 'craft' && !early) {
+        body = `<div class="forge-filter"><button type="button" data-forge-ready="1" aria-pressed="${!!s.readyOnly}" class="${s.readyOnly ? 'on' : ''}">${_t("Можно изготовить сейчас")}</button></div>` + body;
+        if (!body.includes('craft-unit')) body += `<p class="hint">${_t("Нет подходящих рецептов")}</p>`;
+      }
       const resList = Profile.resList(), resChips = resList.map((r) => `<span class="need ok">${MonsterArt.resIcon(r.kind, r.tier)}${resLabel(r.kind, r.tier)} × ${r.n}</span>`).join('');
       const res = resChips ? `<details class="res-fold"${st.forgeResOpen ? ' open' : ''}><summary>${resList.length} ▾</summary><div class="res-chips">${resChips}</div></details>` : _t("<span class=\"hint\">Ресурсов нет</span>");
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs((early ? [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")]] : [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], null, ['ammo', _t("Варка")], ['compass', _t("Стрелки")], ['swap', _t("Обмен")], null, ['repair', _t("Починка")]].filter((x) => !x || forgeOpen(x[0]))), s.tab), sceneStyle('forge'), (s.msg ? `<div class="gear-toast">${s.msg}</div>` : '') + (learned ? `<div class="gear-toast">${_t("В кузнице научились: {0}", [learned])}</div>` : ''), res, forgeTip(s.tab) + body]);
@@ -1042,6 +1141,7 @@ const Screens = (() => {
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
       if (d.cpMake) { s.msg = compassMake(d.cpMake) ? _t("Стрелка в поясе.") : _t("Не получилось: нужен пояс со свободным местом, монеты и ресурсы."); return changed(); }
       if (d.filter) { s.filter = d.filter; return render(); }
+      if (d.forgeReady) { s.readyOnly = !s.readyOnly; return render(); }
       if (d.crafttier) { s.craftTier = Number(d.crafttier); return render(); }
       if (d.fback) { s.view = 'list'; return render(); }
       if (d.pick) { s.sel = d.pick; s.msg = ''; s.view = 'detail'; return render(); }
@@ -1050,7 +1150,7 @@ const Screens = (() => {
         if (!fc || !Profile.spend(fc.coins)) return;
         e.fit = true;
         Profile.save();
-        s.msg = _t("Перекована: {0} — теперь можно надеть с {1}-го уровня", [Gear.item(e).name, Hero.itemLevel(Gear.item(e).wt)]);
+        workshopSuccess = 'forge'; s.msg = _t("Перекована: {0} — теперь можно надеть с {1}-го уровня", [Gear.item(e).name, Hero.itemLevel(Gear.item(e).wt)]);
         onGearChanged();
         return changed();
       }
@@ -1058,7 +1158,7 @@ const Screens = (() => {
         const e = Profile.item(s.sel); if (!e) return;
         const n = Math.max(1, Math.floor(Number(d.doRepair)) || 1), price = repairPrice(e, n);
         if (!price || !Profile.repairItem(e.uid, n, price)) return;
-        s.msg = _t("Починено: {0}", [Gear.item(e).name]);
+        workshopSuccess = 'forge'; s.msg = _t("Починено: {0}", [Gear.item(e).name]);
         onGearChanged();
         return changed();
       }
@@ -1067,7 +1167,7 @@ const Screens = (() => {
         const total = worn.reduce((sum, e) => sum + repairPrice(e), 0);
         if (!worn.length || Profile.data.coins < total) return;
         for (const e of worn) Profile.repairItem(e.uid, undefined, repairPrice(e));
-        s.msg = _t("Починено вещей: {0}", [worn.length]);
+        workshopSuccess = 'forge'; s.msg = _t("Починено вещей: {0}", [worn.length]);
         onGearChanged();
         return changed();
       }
@@ -1076,7 +1176,7 @@ const Screens = (() => {
         if (!tc || tc.plus > cap || (tc.coins > 0 && !Profile.spend(tc.coins))) return;
         e.plus = tc.plus;
         Profile.save(); if (tc.coins > 0) Profile.noteMaster('craft', 1);
-        s.msg = _t("Закалено: {0}", [Gear.item(e).name]);
+        workshopSuccess = 'forge'; s.msg = _t("Закалено: {0}", [Gear.item(e).name]);
         onGearChanged();
         return changed();
       }
@@ -1095,7 +1195,7 @@ const Screens = (() => {
         Gear.setTier(e, e.tier + 1);          // 1.6.6: прочность сохраняет долю
         Profile.save();
         const it = Gear.item(e);
-        s.msg = _t("Улучшено: {0} — теперь {1}", [it.name, Tiers.get(it.tier).name]) + (e.fit ? ' ' + _t("Перековка сохранена.") : '');
+        workshopSuccess = 'forge'; s.msg = _t("Улучшено: {0} — теперь {1}", [it.name, Tiers.get(it.tier).name]) + (e.fit ? ' ' + _t("Перековка сохранена.") : '');
         // если вещь надета и очки превышены — снимаем её
         const worn = Profile.equippedUid(e.uid);
         if (worn && !Hero.canWear(Gear.item(e).wt, Profile.level())) {
@@ -1141,7 +1241,7 @@ const Screens = (() => {
         Profile.spend(fee);
         const key = Ammo.keyOf(ak, g);
         Profile.addAmmo(key, out); Profile.noteBrew(out);
-        s.msg = _t("Изготовлено: {0} × {1}", [Ammo.stockName(key), out]);
+        workshopSuccess = 'forge'; s.msg = _t("Изготовлено: {0} × {1}", [Ammo.stockName(key), out]);
         return changed();
       }
       if (d.mark) {
@@ -1155,7 +1255,7 @@ const Screens = (() => {
         pay(cost);
         const e = Gear.makeEntry(d.craft, s.craftTier || 1);
         Profile.addItem(e); Profile.noteMaster('craft', 1);
-        s.msg = _t("Создано: {0}", [Gear.item(e).name]);
+        workshopSuccess = 'forge'; s.msg = _t("Создано: {0}", [Gear.item(e).name]);
         return changed();
       }
     },
@@ -3466,13 +3566,31 @@ const credits = {
     html() {
       const s = st.bank, b = bankState();
       const cap = bankCap(), gain = Bank.visit(b, Date.now(), cap);
-      if (gain > 0) { Profile.save(); s.msg = _t("Проценты за серию заходов: +{0}.", [gain]); } else if (!s.msg) Profile.save();
-      const btn = (act, n, label, can) => `<button type="button" data-bank="${act}" data-n="${n}"${can ? '' : ' disabled'}>${label}</button>`;
-      const coins = Profile.data.coins, dep = b.dep, room = cap - dep;
+      if (gain > 0) { Profile.save(); s.msg = _t("Проценты за серию заходов: +{0}.", [money(gain)]); } else if (!s.msg) Profile.save();
+      const btn = (act, n, label, can) => `<button type="button" data-bank="${act}" data-n="${n}"${can ? '' : ' disabled'}>${label}<small class="bank-amount">${money(n)}</small></button>`;
+      const coins = Profile.data.coins, dep = b.dep, room = Math.max(0, cap - dep);
       const pct = (x) => (Math.round(x * 1000) / 10).toString().replace('.', ',');
-      return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Банк\">{0}\n        <div class=\"screen-body tavern-body\">\n          <p class=\"hint\">{1}</p>\n          <h3>Вклад</h3>\n          <p>На счёте: <b>{2}</b> · лимит {3}.</p>\n          <p>Серия заходов: <b>{4}</b> дн. · ставка сегодня: <b>{5}%</b> в сутки (потолок {6}%). Завтра, если зайдёте: +{7}.</p>\n          <div class=\"reset\">{8}</div><div class=\"reset\">{9}</div>\n        </div></div>", [head(_t("Банк")), s.msg || _t("Добро пожаловать. Если играете каждый день, ставка медленно растёт. Пропустили день — ставка снова 0."), money(dep), money(Bank.CAP), b.streak, pct(Bank.rate(b.streak)), pct(Bank.RATE_MAX), Bank.tomorrow(b, cap),
-        [10, 50].map((p) => { const n = Math.floor(Math.min(coins, room) * p / 100); return btn('dep', n, _t("Внести {0}%", [p]), n > 0); }).join('') + btn('dep', Math.min(coins, room), _t("Внести всё"), Math.min(coins, room) > 0),
-        [10, 50].map((p) => { const n = Math.floor(dep * p / 100); return btn('wd', n, _t("Снять {0}%", [p]), n > 0); }).join('') + btn('wd', dep, _t("Снять всё"), dep > 0)]);
+      const percent = Math.min(100, Math.round(100 * dep / Math.max(1, cap)));
+      const deposits = [10, 50].map((p) => { const n = Math.floor(Math.min(coins, room) * p / 100); return btn('dep', n, _t("Внести {0}%", [p]), n > 0); }).join('') + btn('dep', Math.min(coins, room), _t("Внести всё"), Math.min(coins, room) > 0);
+      const withdrawals = [10, 50].map((p) => { const n = Math.floor(dep * p / 100); return btn('wd', n, _t("Снять {0}%", [p]), n > 0); }).join('') + btn('wd', dep, _t("Снять всё"), dep > 0);
+      return `<div class="modal" role="dialog" aria-label="${_t("Банк")}">${head(_t("Банк"))}
+        <div class="screen-body tavern-body">
+          <p class="hint">${s.msg || _t("Добро пожаловать. Если играете каждый день, ставка медленно растёт. Пропустили день — ставка снова 0.")}</p>
+          <section class="bank-vault"><h3>${_t("Вклад")}</h3>
+            <div class="bank-balance"><span>${_t("На счёте")}</span><b>${money(dep)}</b></div>
+            <div class="bank-limit"><span>${_t("Лимит вклада")}: ${money(cap)}</span><span>${percent}%</span></div>
+            <progress max="100" value="${percent}" aria-label="${_t("Лимит вклада")}"></progress>
+            <div class="bank-metrics">
+              <div><span>${_t("Дней подряд")}</span><b>${b.streak}</b></div>
+              <div><span>${_t("Ставка сегодня")}</span><b>${pct(Bank.rate(b.streak))}%</b><small>${_t("Максимум")}: ${pct(Bank.RATE_MAX)}%</small></div>
+              <div><span>${_t("Проценты завтра")}</span><b>${money(Bank.tomorrow(b, cap))}</b></div>
+            </div>
+          </section>
+          <div class="bank-operations">
+            <section><h3>${_t("Пополнить вклад")}</h3><div class="bank-buttons">${deposits}</div></section>
+            <section><h3>${_t("Снять монеты")}</h3><div class="bank-buttons">${withdrawals}</div></section>
+          </div>
+        </div></div>`;
     },
     click(b) {
       const s = st.bank, bk = bankState(), d = b.dataset, n = Number(d.n) || 0;
@@ -3659,10 +3777,11 @@ const credits = {
           q.claimed ? '' : q.done ? `<button type="button" class="primary" data-today="claim">${_t("Забрать награду")}</button>` : `<button type="button" data-today="map">${_t("На карту")}</button>`, q.claimed));
       }
       if (!rows.length) rows.push(`<p class="hint">${_t("Ежедневные задания откроются позже: победите первых существ.")}</p>`);
-      return `<div class="modal" role="dialog" aria-label="${_t("Задания дня")}">${head(_t("Задания дня"))}<div class="screen-body"><p class="hint">${_t("Всё на сегодня в одном месте: десять минут, и день засчитан.")}</p><div class="card-list">${rows.join('')}</div></div></div>`;
+      return `<div class="modal" role="dialog" aria-label="${_t("Задания дня")}">${head(_t("Задания дня"))}<div class="screen-body"><p class="hint">${_t("Всё на сегодня в одном месте: десять минут, и день засчитан.")}</p><div class="journal-intro"><button type="button" data-today="journal">${_t("Журнал заданий")}</button></div><div class="card-list">${rows.join('')}</div></div></div>`;
     },
     click(b) {
       const k = b.dataset.today;
+      if (k === 'journal') return open('questJournal');
       if (k === 'puzzle') { st.arena.tab = 'puzzle'; return open('arena'); }
       if (k === 'daily') { st.arena.tab = 'daily'; return open('arena'); }
       if (k === 'claim') { const r = Daily.claimLibrary(); if (r) changed(); return render(); }
@@ -3670,7 +3789,39 @@ const credits = {
     },
   };
 
-  const SCREENS = { today, sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
+  // Общий журнал взятых поручений. Он не выдаёт награды удалённо: герой идёт к собеседнику.
+  const questJournalRows = () => Quests.list(Profile.data).filter((q) => q.accepted || q.claimed);
+  const questPending = () => { try { return questJournalRows().filter((q) => q.done && !q.claimed).length; } catch (e) { return 0; } };
+  const questJournal = {
+    html() {
+      const all = questJournalRows(), s = st.questJournal;
+      const groups = { active: all.filter(q => !q.done && !q.claimed), ready: all.filter(q => q.done && !q.claimed), done: all.filter(q => q.claimed) };
+      const labels = { active: _t("В работе"), ready: _t("К сдаче"), done: _t("Завершены") };
+      const rows = groups[s.tab].map(q => {
+        const giver = Unlocks.GIVERS[q.giver], building = giver && giver[0];
+        const progress = q.claimed ? q.goal : Math.max(0, Math.min(q.goal, q.value));
+        const locate = !q.claimed && building ? `<button type="button" data-quest-locate="${q.id}">${_t("Показать на карте")}</button>` : '';
+        return `<article class="card quest-card journal-quest ${q.claimed ? 'is-done' : q.done ? 'quest-ready' : ''}">
+          <div class="card-body"><span class="item-title">${q.title}</span><span class="item-foot">${giver ? giver[1] : ''}</span>
+          <span class="item-foot">${q.desc}</span><span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div>
+          <div class="journal-quest-progress"><span>${progress} / ${q.goal}</span><progress max="${q.goal}" value="${progress}" aria-label="${q.title}"></progress>${locate}</div></article>`;
+      }).join('');
+      const nav = Object.keys(groups).map(k => [k, labels[k] + ' · ' + groups[k].length]);
+      return `<div class="modal quest-journal" role="dialog" aria-label="${_t("Журнал заданий")}">${head(_t("Журнал заданий"))}${tabs(nav, s.tab)}
+        <div class="screen-body"><div class="journal-intro"><span class="hint">${_t("Взятые задания и награды в одном месте.")}</span><button type="button" data-journal-daily="1">${_t("Задания дня")}</button></div>
+        <div class="card-list">${rows || `<p class="hint">${_t("В этом разделе нет заданий.")}</p>`}</div></div></div>`;
+    },
+    click(b) {
+      if (b.dataset.tab && ['active', 'ready', 'done'].includes(b.dataset.tab)) { st.questJournal.tab = b.dataset.tab; return render(); }
+      if (b.dataset.journalDaily) return open('today');
+      if (b.dataset.questLocate) {
+        const q = questJournalRows().find(x => x.id === b.dataset.questLocate && !x.claimed);
+        const giver = q && Unlocks.GIVERS[q.giver];
+        if (giver) { close(); MapView.focusQuestGiver(giver[0]); }
+      }
+    },
+  };
+  const SCREENS = { questJournal, today, sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
   return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, get screen() { return cur; }, arenaTab: () => (st.arena && st.arena.tab), openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: (id, tier) => { if (id && Bestiary.MONSTERS[id]) { st.best.sel = id; st.best.tier = Math.max(1, tier || 1); st.best.view = 'detail'; } return open('best'); },
     openTavern: () => { st.tavern.msg = ''; open('tavern'); },
     openJunker: () => { st.junker.msg = ''; open('junker'); },
@@ -3688,7 +3839,8 @@ const credits = {
     openArtistWorkshop: () => { st.artistWorkshop.msg = ''; open('artistWorkshop'); },
     openValor: () => open('valor'),
     openToday: () => open('today'),
-    todayPending,
+    todayPending, questPending,
+    openQuestJournal: () => { st.questJournal.tab = questPending() ? 'ready' : 'active'; open('questJournal'); },
     markedSpecies,
     openCredits: () => open('credits'),
     openFactions: (first = false) => {

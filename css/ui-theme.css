@@ -833,3 +833,438 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
 }
 /* Раскрытая панель не должна перекрывать свою кнопку ☰: повторный клик закрывает меню. */
 .map-btns > #m-more[aria-expanded="true"] { position: relative; z-index: 81; }
+
+
+/* Ревизия интерфейсов: доступность обычных окон без изменения боевого поля. */
+.forge-workshop { --work-accent: #d99b53; }
+.shop-workshop { --work-accent: #c6a367; }
+.modal.forge-workshop > header { background: linear-gradient(180deg,#513321,#211b18); }
+.modal.shop-workshop > header { background: linear-gradient(180deg,#47301b,#20150c); }
+.forge-workshop .forge-materials {
+  min-width: 0; padding: 12px; border: 1px solid #805632; border-radius: 8px;
+  background: linear-gradient(150deg,rgba(68,42,29,.96),rgba(23,21,20,.96));
+  box-shadow: inset 0 0 18px rgba(0,0,0,.42);
+}
+.forge-workshop .forge-materials h3 { margin-top: 0; }
+.forge-workshop .forge-materials .costs { display: flex; flex-wrap: wrap; gap: 5px; }
+.forge-workshop .forge-materials .lack { overflow-wrap: anywhere; line-height: 1.5; }
+.forge-workshop .forge-readiness { display: grid; grid-template-columns: 1fr auto; gap: 5px; color: #f0b18a; font-size: 13px; }
+.forge-workshop .forge-readiness.ready { color: #a5dfa0; }
+.forge-workshop .forge-readiness progress { grid-column: 1 / -1; width: 100%; height: 8px; accent-color: #d99b53; }
+.forge-workshop .forge-readiness.ready progress { accent-color: #8fd08a; }
+.forge-workshop .craft-unit { display: grid; gap: 6px; padding: 8px; border: 1px solid #65492f; }
+.forge-workshop .forge-result { border-color: #a7c77f; box-shadow: inset 0 0 14px rgba(141,198,104,.12); }
+.forge-workshop .forge-filter, .shop-workshop .shop-view-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.forge-workshop .forge-filter button.on, .shop-workshop .shop-view-controls button.on { outline: 2px solid var(--work-accent); outline-offset: -2px; color: var(--ui-gold-hi); }
+.forge-workshop .forge-filter button, .shop-workshop .shop-view-controls button { min-height: 44px; padding: 6px 12px; }
+.shop-workshop .shop-grid-view { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(215px,100%),1fr)); gap: 10px; align-items: stretch; }
+.shop-workshop .shop-grid-view > .card { display: flex; flex-direction: column; align-items: stretch; text-align: center; min-width: 0; padding: 12px; background: linear-gradient(165deg,rgba(66,43,24,.95),rgba(25,17,11,.96)); }
+.shop-workshop .shop-grid-view > .card > .icon-wrap { align-self: center; width: 82px; height: 82px; margin: 0; }
+.shop-workshop .shop-grid-view > .card > .card-body { width: 100%; flex: 1 1 auto; min-width: 0; }
+.shop-workshop .shop-grid-view > .card > .card-act { width: 100%; flex: none; flex-direction: row; flex-wrap: wrap; justify-content: center; margin: 0; }
+.shop-workshop .shop-grid-view > .card > .card-act button { flex: 1 1 80px; white-space: normal; }
+.shop-workshop .shop-grid-view > .card > .card-info { top: 10px; right: 10px; margin: 0; }
+.shop-workshop .shop-grid-view > :not(.card) { grid-column: 1 / -1; }
+@media (min-width: 900px) {
+  .forge-workshop .forge-split { grid-template-columns: minmax(180px, .8fr) minmax(0, 2fr); }
+  .forge-workshop .forge-detail-workbench { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; align-items: start; }
+  .forge-workshop .forge-detail-workbench > :not(.forge-upgrade-materials) { grid-column: 1; }
+  .forge-workshop .forge-upgrade-materials { grid-column: 2; grid-row: 1 / span 4; }
+  .forge-workshop .craft-unit { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; }
+}
+@media (max-width: 700px) {
+  .forge-workshop .forge-materials { padding: 8px; }
+  .forge-workshop .forge-upgrade-materials .reset button { width: 100%; min-height: 44px; }
+  .shop-workshop .shop-grid-view { grid-template-columns: repeat(auto-fit,minmax(min(145px,100%),1fr)); gap: 7px; }
+  .shop-workshop .shop-grid-view > .card { padding: 8px; }
+  .shop-workshop .shop-grid-view > .card > .icon-wrap { width: 60px; height: 60px; }
+}
+.home-modal .stash-controls {
+  display: grid; gap: 7px; margin: 8px 0 12px; padding: 9px;
+  border: 1px solid var(--ui-line); border-radius: 8px; background: rgba(0,0,0,.24);
+}
+.home-modal .stash-controls .stash-search { margin: 0; min-width: 0; }
+.home-modal .stash-filter-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.home-modal .stash-filter-row select { width: 100%; min-width: 0; min-height: 40px; }
+.home-modal .stash-filter-row select:last-child { grid-column: 1 / -1; }
+.home-modal .stash-summary { color: var(--ui-muted); font-size: 13px; }
+.home-modal .stash-reset { width: 100%; min-height: 36px; }
+.home-modal .stash-reset[hidden] { display: none; }
+@media (pointer: coarse) {
+  .home-modal .stash-controls .stash-search, .home-modal .stash-filter-row select, .home-modal .stash-reset { min-height: 44px; font-size: 16px; }
+}
+.modal:not(.icard-modal) .screen-body {
+  overscroll-behavior-y: contain;
+}
+.modal:not(.icard-modal) :is(input, select, textarea, a[href], [role="button"]):focus-visible,
+#map-menu button:focus-visible {
+  outline: 2px solid var(--ui-gold-hi);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .modal:not(.icard-modal) .screen-body :is(input[type="search"], select),
+  .modal:not(.icard-modal) > .tabs button,
+  .modal:not(.icard-modal) .bag-tabs button,
+  .modal:not(.icard-modal) .equip-best {
+    min-height: 44px;
+  }
+  .modal:not(.icard-modal) .screen-body input[type="search"],
+  .modal:not(.icard-modal) .stash-search {
+    font-size: 16px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #map-menu .mm-head::after,
+  .modal:not(.icard-modal) .tabs button {
+    transition: none;
+  }
+}
+
+
+/* Художественная полировка ремесленных заведений: металл и угли / дерево и латунь. */
+.forge-workshop .forge-detail > .card,
+.forge-workshop .craft-unit {
+  border: 1px solid #a06d43;
+  border-radius: 10px;
+  background: linear-gradient(155deg, #3d2c24, #201b19 65%);
+  box-shadow: inset 0 0 0 2px #241c17, inset 0 0 0 3px rgba(218,150,80,.25), 0 4px 12px rgba(0,0,0,.35);
+}
+.forge-workshop .forge-materials {
+  background: radial-gradient(ellipse at 50% 100%, rgba(183,68,24,.26), transparent 70%),
+    linear-gradient(150deg,#412c21,#171514);
+  border-color: #a16c3d;
+}
+.forge-workshop .forge-result { border-color: #8ca573; }
+.forge-workshop .forge-detail > .card .icon-wrap,
+.forge-workshop .craft-unit > .card .icon-wrap {
+  border: 1px solid #9f754e; border-radius: 10px;
+  background: radial-gradient(circle, rgba(225,122,52,.19), #231b17 75%);
+}
+.shop-workshop .shop-grid-view > .card {
+  border: 1px solid color-mix(in srgb,var(--t,#b99760) 65%, #5b3b21);
+  background: repeating-linear-gradient(87deg,rgba(242,184,110,.025) 0 2px,transparent 2px 11px),
+    linear-gradient(155deg,#50341e,#24190f 70%);
+  box-shadow: inset 0 0 0 2px #25180e, inset 0 0 0 3px rgba(213,171,102,.25), 0 5px 12px rgba(0,0,0,.36);
+}
+.shop-workshop .shop-grid-view > .card > .icon-wrap {
+  border: 1px solid #b28a50; border-radius: 12px;
+  background: radial-gradient(ellipse,rgba(213,170,94,.26),#21170e 73%);
+  box-shadow: inset 0 0 12px #1a1009;
+}
+.shop-workshop .shop-catalog > .card .item-foot .money,
+.forge-workshop .forge-materials .money {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 3px 7px; border: 1px solid #987442; border-radius: 5px;
+  background: linear-gradient(180deg,#352818,#21190d);
+  color: #ffe5a4; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.forge-workshop .forge-detail .arrow-down {
+  color: #edc08a; text-align: center; letter-spacing: .04em;
+}
+.modal .workshop-success {
+  position: relative; overflow: hidden; isolation: isolate;
+  padding: 11px 12px 11px 48px;
+  margin-bottom: 10px; min-height: 44px;
+  border: 1px solid #adbf78; border-radius: 8px;
+  color: #eef2d6; background: linear-gradient(100deg,#36502d,#1e2c1b);
+  box-shadow: inset 0 0 0 2px rgba(224,229,165,.1),0 3px 8px rgba(0,0,0,.32);
+}
+.modal .workshop-success::before {
+  content: "✓"; position: absolute; inset-inline-start: 10px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 2px solid #d8c184; border-radius: 50%; color: #fae6ad;
+  background: radial-gradient(circle,#956d33,#4c351b);
+  font-weight: 700; box-shadow: 0 0 0 2px rgba(33,23,12,.3);
+}
+.modal .workshop-success.forge-spark::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1;
+  background: radial-gradient(circle at 15% 75%,#ffd186 0 2px,transparent 3px),
+    radial-gradient(circle at 35% 32%,#f9a655 0 1px,transparent 3px),
+    radial-gradient(circle at 68% 70%,#f9a655 0 2px,transparent 3px),
+    radial-gradient(circle at 85% 25%,#ffdc94 0 1px,transparent 3px);
+  animation: forge-embers .85s ease-out both;
+}
+@keyframes forge-embers {
+  0% { opacity: .9; transform: translateY(10px); }
+  100% { opacity: 0; transform: translateY(-28px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal .workshop-success.forge-spark::after { animation: none; opacity: 0; }
+}
+@media (max-width: 700px) {
+  .shop-workshop .shop-grid-view > .card { min-width: 0; }
+  .shop-workshop .shop-grid-view > .card .item-title { overflow-wrap: anywhere; }
+  .modal .workshop-success { font-size: 14px; line-height: 1.45; }
+}
+
+
+/* Журнал поручений: пергаментные акценты, явные статусы и шкалы прогресса. */
+.modal.quest-journal .journal-intro, .modal .journal-intro {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 14px;
+}
+.modal .journal-intro button { min-height: 44px; }
+.modal.quest-journal .journal-quest {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(125px, .33fr);
+  gap: 12px; padding: 12px; border-left: 3px solid var(--ui-gold-mid);
+  background: linear-gradient(150deg,rgba(58,41,24,.97),rgba(28,21,14,.98));
+}
+.modal.quest-journal .journal-quest.quest-ready { border-left-color: #a8d183; }
+.modal.quest-journal .journal-quest.is-done { border-left-color: #857c66; opacity: .83; }
+.modal.quest-journal .journal-quest-progress { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; }
+.modal.quest-journal .journal-quest-progress > span { font-size: 14px; color: var(--ui-gold-hi); font-variant-numeric: tabular-nums; }
+.modal.quest-journal .journal-quest-progress progress { width: 100%; height: 8px; accent-color: #c8963a; }
+.modal.quest-journal .quest-ready progress { accent-color: #a8d183; }
+.modal.quest-journal .journal-quest-progress button { min-height: 44px; white-space: normal; }
+@media (max-width: 700px) {
+  .modal.quest-journal .journal-quest { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .modal.quest-journal .journal-quest-progress button { width: 100%; }
+  .modal.quest-journal .journal-intro button { width: 100%; }
+}
+
+
+/* Боевая обратная связь: цвета усиливающих, ослабляющих и магических эффектов.
+   Без смены размеров существующих панелей и поля. */
+body.mode-battle .fighter .st-chip.fx-good {
+  color: #dcf2c7; background: #263c26; border-color: #7fa35c;
+}
+body.mode-battle .fighter .st-chip.fx-bad {
+  color: #ffd9d1; background: #502a2a; border-color: #ce796b;
+}
+body.mode-battle .fighter .st-chip.fx-magic {
+  color: #e8dcff; background: #392751; border-color: #a483d1;
+}
+body.mode-battle .fighter .st-chip.fx-neutral {
+  color: #e8dac1; background: #463924; border-color: #af915e;
+}
+body.mode-battle .fighter .st-chip .fx-duration {
+  font-weight: 700; color: inherit; opacity: .9; font-variant-numeric: tabular-nums;
+}
+body .fi-pop .fi-effects {
+  margin: 8px 0; padding: 8px; border: 1px solid var(--ui-line);
+  border-radius: 7px; background: rgba(0,0,0,.24);
+}
+body .fi-pop .fi-effects h3 {
+  margin: 0 0 5px; font-family: var(--ui-display); color: var(--ui-gold-hi); font-size: 14px;
+}
+body .fi-pop .fi-effect {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline;
+  gap: 6px; padding: 4px 4px 4px 8px; margin-top: 3px; border-left: 3px solid #af915e;
+}
+body .fi-pop .fi-effect.good { border-color: #8fca73; }
+body .fi-pop .fi-effect.bad { border-color: #de796b; }
+body .fi-pop .fi-effect.magic { border-color: #b896ed; }
+body .fi-pop .fi-effect > span { color: #efe3c4; overflow-wrap: anywhere; }
+body .fi-pop .fi-effect > b { color: var(--ui-gold-hi); font-variant-numeric: tabular-nums; white-space: nowrap; }
+body.mode-battle .fighter .dmg.crit {
+  color: #ffcc7c; text-shadow: 0 1px 2px #290b05, 0 0 5px #ff521f, 0 0 12px #ff7137;
+  font-weight: 900;
+}
+body.mode-battle .fighter .dmg.extra-turn {
+  color: #fff2ae; font-weight: 800; font-size: clamp(13px, 2vmin, 20px);
+  text-shadow: 0 1px 2px #231500, 0 0 8px #c99b30;
+}
+body.mode-battle .log li.log-critical { color: #ffb279; font-weight: 700; }
+body.mode-battle .log li.log-extra { color: #ffe5a0; font-weight: 700; }
+body.bt-gold.mode-battle .fighter.left.active { filter: drop-shadow(0 0 6px rgba(255,207,99,.75)); }
+body.bt-gold.mode-battle .fighter.right.active { filter: drop-shadow(0 0 6px rgba(238,118,91,.75)); }
+
+
+/* Экраны результатов: сохраняем общую раму, меняем иерархию и акцент по исходу. */
+.overlay.battle-result { --result-accent: #e2bd70; }
+.overlay.battle-result.result-loss { --result-accent: #d89583; background: radial-gradient(ellipse at 50% 35%,rgba(64,25,21,.84),rgba(4,3,2,.95)); }
+.overlay.battle-result.result-neutral { --result-accent: #b8b9ad; }
+.overlay.battle-result.result-boss { --result-accent: #ffe8a2; background: radial-gradient(ellipse at 50% 25%,rgba(97,67,19,.7),rgba(6,4,2,.94)); }
+.overlay.battle-result > .result-panel {
+  width: min(560px,100%); max-width: min(560px,calc(100vw - 24px));
+  padding: 12px 16px 16px; text-shadow: none; letter-spacing: 0;
+  color: var(--ui-text); box-sizing: border-box;
+}
+.overlay.battle-result .result-heading {
+  padding: 4px 0 10px; margin: 0 0 10px; border-bottom: 1px solid var(--ui-line);
+  text-align: center;
+}
+.overlay.battle-result .result-emblem {
+  display: inline-grid; place-items: center; width: 42px; height: 42px;
+  margin: 0 auto 4px; border: 2px solid var(--result-accent); border-radius: 50%;
+  color: var(--result-accent); background: radial-gradient(circle,#54351c,#231810);
+  box-shadow: 0 0 0 3px #211710, 0 0 15px color-mix(in srgb,var(--result-accent) 32%, transparent);
+  font-size: 25px; line-height: 1;
+}
+.overlay.battle-result .rw-title { margin: 2px 0; color: var(--result-accent); font-size: clamp(24px,5vmin,34px); line-height: 1.15; }
+.overlay.battle-result .result-foe { margin: 4px 0 0; color: var(--ui-muted); font: 500 15px/1.25 var(--ui-serif); overflow-wrap: anywhere; }
+.overlay.battle-result .result-summary {
+  display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px;
+  margin: 8px 0 12px;
+}
+.overlay.battle-result .result-metric {
+  display: grid; gap: 3px; padding: 7px 5px; text-align: center;
+  border: 1px solid var(--ui-line); border-radius: 7px;
+  background: linear-gradient(150deg,rgba(76,51,27,.65),rgba(25,17,11,.85));
+}
+.overlay.battle-result .result-metric > span {
+  font: 500 13px/1.2 var(--ui-serif); color: var(--ui-muted);
+}
+.overlay.battle-result .result-metric > b { font-size: clamp(15px,3vmin,20px); line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--result-accent); }
+.overlay.battle-result .result-content { text-align: left; margin: 8px 0; }
+.overlay.battle-result .result-content h3 {
+  font: 700 15px/1.3 var(--ui-display); color: var(--result-accent); text-align: center; margin: 8px 0;
+}
+.overlay.battle-result .result-body {
+  font: 500 15px/1.45 var(--ui-serif); color: var(--ui-text);
+  overflow-wrap: anywhere; letter-spacing: 0;
+}
+.overlay.battle-result .rw-block { max-width: none; margin-left: 0; margin-right: 0; }
+.overlay.battle-result .rw-line { text-align: left; }
+.overlay.battle-result .result-advice {
+  padding: 10px; border: 1px solid #946454; border-radius: 8px; background: rgba(95,42,33,.32);
+}
+.overlay.battle-result .loot-cap:empty { display: none; }
+.overlay.battle-result .result-xp { margin: 10px 0 5px; padding: 8px; border-radius: 6px; background: rgba(0,0,0,.25); border: 1px solid var(--ui-line-soft); }
+.overlay.battle-result .result-xp > div { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; font-size: 13px; }
+.overlay.battle-result .result-xp > div > b { color: var(--ui-gold-hi); }
+.overlay.battle-result .result-xp > div > span { color: var(--ui-muted); }
+.overlay.battle-result .result-xp progress { display: block; width: 100%; height: 9px; margin: 5px 0 0; accent-color: #d2a751; }
+.overlay.battle-result .to-map { width: 100%; min-width: 0; }
+.overlay.battle-result .rw-more-btn { min-height: 44px; margin-bottom: 6px; }
+.overlay.battle-result .rw-more .an-btn { min-height: 44px; }
+.overlay.battle-result .rw-more .analysis { max-width: 100%; box-sizing: border-box; }
+.overlay.battle-result .wear-note { display: block; color: #f3b19d; font: 500 13px/1.35 var(--ui-serif); margin: 8px 0; }
+@media (max-width: 700px) {
+  .overlay.battle-result > .result-panel { padding: 8px 8px 12px; }
+  .overlay.battle-result .result-summary { gap: 4px; }
+  .overlay.battle-result .result-metric { padding: 6px 3px; }
+  .overlay.battle-result .result-heading { padding-bottom: 6px; margin-bottom: 6px; }
+  .overlay.battle-result .result-emblem { width: 36px; height: 36px; font-size: 21px; }
+  .overlay.battle-result .result-body { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .overlay.battle-result > .result-panel { animation: none; }
+}
+
+
+/* Интерьеры деревни: общая рама и кнопки, отдельная палитра каждого заведения.
+   Используются уже существующие иллюстрации, новые тяжёлые ресурсы не добавляются. */
+.modal.scene-theme {
+  --scene-accent: #e5c391;
+  --scene-dark: #33251a;
+  --scene-line: color-mix(in srgb,var(--scene-accent) 45%,transparent);
+}
+.modal.scene-theme[data-scene="tavern"] { --scene-accent: #edb878; --scene-dark: #4c2c1d; }
+.modal.scene-theme[data-scene="mill"] { --scene-accent: #d9c58b; --scene-dark: #3b3822; }
+.modal.scene-theme[data-scene="lighthouse"] { --scene-accent: #a9d4e1; --scene-dark: #253b43; }
+.modal.scene-theme[data-scene="library"] { --scene-accent: #e8d4a2; --scene-dark: #413524; }
+.modal.scene-theme[data-scene="artistWorkshop"] { --scene-accent: #cab7ec; --scene-dark: #392a49; }
+.modal.scene-theme[data-scene="jeweler"] { --scene-accent: #a7d4da; --scene-dark: #263743; }
+.modal.scene-theme[data-scene="junker"] { --scene-accent: #c5ae91; --scene-dark: #3e3028; }
+.modal.scene-theme[data-scene="kennel"] { --scene-accent: #c0d89a; --scene-dark: #2d402b; }
+.modal.scene-theme[data-scene="alchemist"] { --scene-accent: #a9dfc5; --scene-dark: #253c33; }
+.modal.scene-theme[data-scene="market"] { --scene-accent: #e7bd8c; --scene-dark: #483321; }
+.modal.scene-theme[data-scene="village"] { --scene-accent: #d4cda3; --scene-dark: #403b2c; }
+.modal.scene-theme[data-scene="arena"] { --scene-accent: #efb5a2; --scene-dark: #463036; }
+.modal.scene-theme[data-scene="bank"] { --scene-accent: #f4d28a; --scene-dark: #48341b; }
+.modal.scene-theme[data-scene="valor"] { --scene-accent: #f1d799; --scene-dark: #44352a; }
+.modal.scene-theme[data-scene="best"] { --scene-accent: #c9d6ac; --scene-dark: #333c29; }
+.modal.scene-theme > header {
+  background: linear-gradient(180deg,var(--scene-dark),#1b1512 95%);
+  box-shadow: inset 0 1px 0 var(--scene-line), 0 1px 0 var(--scene-line), 0 6px 14px rgba(0,0,0,.35);
+}
+.modal.scene-theme > .tabs:not(.sub) { border-bottom-color: color-mix(in srgb,var(--scene-accent) 50%,#3a2a14); }
+.modal.scene-theme .screen-body { background-color: #1d1814; }
+.modal.scene-theme .screen-body h3 { color: var(--scene-accent); }
+.modal.scene-theme .screen-body h3::before { background: linear-gradient(90deg,transparent,var(--scene-line)); }
+.modal.scene-theme .screen-body h3::after { background: linear-gradient(90deg,var(--scene-line),transparent); }
+.modal.scene-theme .npc-row {
+  border-color: var(--scene-line);
+  background: linear-gradient(145deg,color-mix(in srgb,var(--scene-dark) 92%,transparent),rgba(22,18,14,.94));
+}
+.modal.scene-theme .npc-portrait {
+  border-radius: 9px; box-shadow: 0 0 0 2px var(--scene-accent), 0 0 0 4px #18130f, 0 6px 14px #0009;
+}
+.modal.scene-theme .npc-say {
+  min-width: 0; border-color: var(--scene-line); background: rgba(0,0,0,.24);
+}
+.modal.scene-theme .npc-say::before {
+  background: color-mix(in srgb,var(--scene-dark) 68%,#171310); border-color: var(--scene-line);
+}
+.modal.scene-theme .npc-say b { color: var(--scene-accent); overflow-wrap: anywhere; }
+.modal.scene-theme .npc-say .hint { color: #eee6d2; overflow-wrap: anywhere; }
+.modal.scene-theme[data-scene="alchemist"] .sh-card {
+  background: radial-gradient(ellipse at 50% 0%,rgba(92,154,115,.18),transparent 75%),rgba(24,33,26,.93);
+}
+.modal.scene-theme[data-scene="arena"] .arena-rank {
+  border-color: var(--scene-line); background: linear-gradient(150deg,#493137,#211c20);
+}
+.modal.scene-theme[data-scene="kennel"] .npc-row {
+  background: radial-gradient(ellipse at 0% 100%,rgba(120,150,76,.15),transparent 65%),linear-gradient(140deg,#2d402b,#1c231b);
+}
+.modal.scene-theme[data-scene="library"] .npc-say {
+  background: linear-gradient(135deg,rgba(192,163,108,.15),rgba(36,28,19,.92));
+}
+.modal.scene-theme[data-scene="valor"] .shelf .plank { border-color: var(--scene-line); }
+.modal.scene-theme[data-scene="bank"] .bank-vault {
+  padding: 16px; margin: 10px 0 16px; border: 1px solid #a98243; border-radius: 10px;
+  background: linear-gradient(150deg,rgba(76,49,22,.97),rgba(24,19,13,.96));
+  box-shadow: inset 0 0 0 2px #2a1b10,inset 0 0 0 3px #b8996038,0 8px 18px #0005;
+}
+.modal.scene-theme .bank-vault > h3 { margin: 0 0 10px; }
+.modal.scene-theme .bank-balance { display: grid; gap: 3px; text-align: center; padding: 6px 0 12px; }
+.modal.scene-theme .bank-balance > span, .modal.scene-theme .bank-limit { color: var(--ui-muted); font-size: 14px; }
+.modal.scene-theme .bank-balance > b { font-size: clamp(22px,4vmin,32px); color: var(--scene-accent); }
+.modal.scene-theme .bank-limit { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; }
+.modal.scene-theme .bank-vault progress { width: 100%; height: 10px; accent-color: #d1a651; display: block; margin: 6px 0 14px; }
+.modal.scene-theme .bank-metrics {
+  display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px;
+}
+.modal.scene-theme .bank-metrics > div {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 5px; min-width: 0;
+  border: 1px solid var(--scene-line); border-radius: 7px; background: rgba(0,0,0,.26);
+}
+.modal.scene-theme .bank-metrics > div > span, .modal.scene-theme .bank-metrics small { color: var(--ui-muted); font-size: 13px; text-align: center; }
+.modal.scene-theme .bank-metrics > div > b { color: var(--scene-accent); font-size: 17px; font-variant-numeric: tabular-nums; text-align: center; }
+.modal.scene-theme .bank-operations { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.modal.scene-theme .bank-operations > section { min-width: 0; padding: 10px; border: 1px solid var(--scene-line); border-radius: 8px; background: rgba(20,15,10,.88); }
+.modal.scene-theme .bank-operations h3 { margin: 2px 0 10px; }
+.modal.scene-theme .bank-buttons { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+.modal.scene-theme .bank-buttons > button { min-width: 0; min-height: 52px; display: grid; align-content: center; justify-items: center; gap: 3px; white-space: normal; padding: 5px 3px; }
+.modal.scene-theme .bank-amount { font-size: 12px; color: var(--scene-accent); }
+.modal.scene-theme .bank-amount .money, .modal.scene-theme .bank-metrics .money { display: inline-flex; flex-wrap: wrap; justify-content: center; }
+@media (max-width: 700px) {
+  .modal.scene-theme .npc-row { gap: 9px; }
+  .modal.scene-theme .npc-say { padding: 8px; }
+  .modal.scene-theme .bank-vault { padding: 10px; }
+  .modal.scene-theme .bank-operations { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .modal.scene-theme .bank-metrics { gap: 4px; }
+  .modal.scene-theme .bank-metrics > div { padding: 6px 3px; }
+  .modal.scene-theme .bank-metrics > div > span { font-size: 12px; }
+}
+
+/* Узкий сенсорный экран: заголовок не конкурирует с кошельком и дополнительными действиями. */
+@media (max-width: 370px) and (orientation: portrait) {
+  .modal:not(.icard-modal) > header:has(.wallet-head) {
+    display: grid; grid-template-columns: minmax(0,1fr) auto auto;
+    gap: 5px 7px; align-items: center;
+  }
+  .modal:not(.icard-modal) > header:has(.wallet-head) h2 {
+    grid-column: 1; grid-row: 1; max-width: none; padding: 0;
+    overflow-wrap: anywhere; white-space: normal;
+  }
+  .modal:not(.icard-modal) > header:has(.wallet-head):not(:has(.wiki-context-help)) h2 { grid-column: 1 / 3; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .wiki-context-help { grid-column: 2; grid-row: 1; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .close { grid-column: 3; grid-row: 1; justify-self: end; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .wallet-head { grid-column: 1 / -1; grid-row: 2; justify-self: start; min-width: 0; max-width: 100%; padding: 3px 8px; }
+  .modal:not(.icard-modal) > header:has(.wallet-head):has(.valor-link) .wallet-head { grid-column: 1; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .valor-link { grid-column: 2 / 4; grid-row: 2; margin: 0; min-width: 0; }
+  .modal:not(.icard-modal) > header:has(.wallet-head) .money { flex-wrap: wrap; white-space: normal; }
+}
+@media (pointer: coarse) {
+  .modal header button.close[data-act="close"] { --ui-tap: 44px; }
+}
+/* Размытие создаёт собственную систему координат для position:fixed.
+   У открытого меню карта и окно браузера должны иметь один отсчёт. */
+body.mode-map .map-btns:has(#map-menu:not([hidden])) {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* Старая портретная раскладка на планшете тоже должна помещать заклинания по ширине. */
+body.bt-gold.ui-columns.phone.old-dock.mode-battle .spellbar { transform: none; }

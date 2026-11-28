@@ -1985,6 +1985,17 @@ const MapView = (() => {
 
   // «Что дальше?»: нажатие на строку цели — камера и кольцо на нужном здании либо ближайший живой зверь.
   let nextTimer = 0;
+  function focusQuestGiver(id) {
+    if (!map || battleSpawn) return false;
+    if (!map.buildings.some(b => b.id === id)) {
+      toast(_t("Собеседник находится в другой локации."));
+      return false;
+    }
+    closeCard(); clearTimeout(nextTimer);
+    coachRing(id); nextTimer = setTimeout(() => coachRing(null), 6000);
+    toast(_t("Вам сюда: {0}", [(HexMap.BUILDINGS[id] && HexMap.BUILDINGS[id].name) || id]));
+    return true;
+  }
   function whatNext() {
     if (!map || battleSpawn) return;
     const d = Profile.data, t = Unlocks.target(d, Quests.list(d));
@@ -2104,6 +2115,11 @@ const MapView = (() => {
   // 2.4.8: точка на кнопке «Задания дня», пока есть незакрытые задания (обновляется с HUD и раз в несколько секунд)
   function updateTodayDot() {
     const pend = Screens.todayPending ? Screens.todayPending() : 0;
+    const pendingQuests = Screens.questPending ? Screens.questPending() : 0;
+    for (const b of [document.getElementById('m-quests'), document.querySelector('[data-mdo="m-quests"]')]) if (b) {
+      b.classList.toggle('has-dot', pendingQuests > 0);
+      b.textContent = _t("Журнал заданий") + (pendingQuests ? ' · ' + pendingQuests : '');
+    }
     for (const b of [document.getElementById('m-today'), document.querySelector('[data-mdo="m-today"]')]) if (b) b.classList.toggle('has-dot', pend > 0);
   }
   { const tmr = setInterval(updateTodayDot, 4000); if (tmr && tmr.unref) tmr.unref(); }
@@ -2166,6 +2182,7 @@ const MapView = (() => {
     on('m-mute', () => { Sound.setMuted(!Sound.muted); renderMute(); muteLabel(); });
     on('m-fs', () => toggleFullscreen());
     on('m-today', () => Screens.openToday());
+    on('m-quests', () => Screens.openQuestJournal());
     on('m-help', () => Screens.open('help'));
     on('m-wiki', () => Screens.open('wiki'));
     on('m-whatsnew', () => Screens.open('whatsnew'));
@@ -2893,7 +2910,7 @@ const MapView = (() => {
 
   return {
     refreshMonsters() { if (map) renderMonsters(); },
-    init, reset, returnFromBattle, focusSpecies, focusResource, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
+    init, reset, returnFromBattle, focusSpecies, focusResource, focusQuestGiver, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
     devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = HexMap.sharedSeed('tower'); t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
     devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland, devShowMonster: showMonster, get oakCell() { return oakSpot(); },

@@ -1,0 +1,70 @@
+name: Проверка интерфейсов
+
+on:
+  push:
+    branches: ['ui/revision-stage-1']
+  pull_request:
+    branches: [main]
+    paths:
+      - 'css/**'
+      - 'js/**'
+      - 'index.html'
+      - 'tests/**'
+      - '.github/workflows/ui-revision.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-revision-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Синтаксис, переводы и механика
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node tests/syntax.test.js
+      - run: node tests/i18n.test.js
+      - run: npm run lint -- --quiet
+      - run: node tests/gear.test.js
+      - run: node tests/forge207.test.js
+      - run: node tests/quests.test.js
+      - run: node tests/combat.test.js
+      - run: node tests/bank.test.js
+  browser:
+    name: Браузерные сценарии интерфейсов
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Проверка всех новых экранов
+        run: |
+          failed=0
+          for test in stash-filters workshop-ui quest-journal battle-effects-ui battle-result-ui village-scenes-ui mobile-compact-ui; do
+            echo "::group::$test"
+            timeout 180s node "tests/$test.e2e.js" || failed=1
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+      - name: Снимки интерфейсов деревни
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: village-ui-screenshots
+          path: test-results/ui-scenes/
+          if-no-files-found: warn

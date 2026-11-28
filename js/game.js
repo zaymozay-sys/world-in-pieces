@@ -1074,8 +1074,11 @@ function toggleFighterInfo(side) {
   } else {
     try { const lv = Profile.levelInfo(); row(_t("Уровень"), lv.level); row(_t("Опыт"), lv.need === Infinity ? _t("максимум") : `${lv.into} / ${lv.need}`); } catch (e) { /* без опыта */ }
   }
-  const ef = [...el.querySelectorAll('.badge .st-chip')].map((n) => n.textContent);
-  if (ef.length) rows.push(`<p>${_t("Сейчас действует")}: ${ef.join(', ')}</p>`);
+  const effects = battleEffects(f, side);
+  for (const [kind, a] of Object.entries(f.elx || {})) {
+    if (a && a.left > 0 && Elixirs.KINDS[kind]) effects.push({ label: Elixirs.KINDS[kind].name, duration: a.left > 100 ? _t("До конца боя") : _nn(a.left, 'ход', 'хода', 'ходов'), tone: 'good' });
+  }
+  if (effects.length) rows.push(`<section class="fi-effects"><h3>${_t("Сейчас действует")}</h3>${effects.map(effect => `<div class="fi-effect ${effect.tone}"><span>${effectEscape(effect.label)}</span><b>${effectEscape(effect.duration || '—')}</b></div>`).join('')}</section>`);
   rows.push(`<button type="button" class="fi-more">${side === 'right' ? _t("Карточка существа") : _t("Ранец и экипировка")}</button>`);
   pop = document.createElement('div'); pop.className = 'fi-pop at-card'; pop.innerHTML = rows.join('');
   pop.addEventListener('click', (e) => {
@@ -1097,19 +1100,30 @@ function toggleFighterInfo(side) {
   setTimeout(() => document.addEventListener('click', () => pop.remove(), { once: true }), 0);
 }
 
+const effectEscape = (text) => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+function battleEffects(f, side) {
+  const effects = [], add = (label, duration, tone) => effects.push({ label, duration, tone });
+  if (f.magic) add(_t("Шаровая молния"), _t("до конца хода"), 'magic');
+  for (const b of f.buffs) {
+    const spec = EC_BUFFS[b.kind], label = (spec && spec[1]) || BUFF_NAMES[b.kind] || _t("Усиление");
+    add(label, b.untilTurnEnd ? _t("до конца хода") : _nn(b.turns || 0, 'ход', 'хода', 'ходов'), spec && spec[0] === 'down' ? 'bad' : 'good');
+  }
+  if (f.poison && f.poison.turns > 0) {
+    const n = f.poison.layers && f.poison.layers.length;
+    add(n > 1 ? _t("Яд") + ' ×' + n : _t("Яд"), _nn(f.poison.turns, 'ход', 'хода', 'ходов'), 'bad');
+  }
+  if (f.ward > 0) add(_t("Щит {0}", [f.ward]), '', 'good');
+  if (f.haste) add(_t("Спешка"), '', 'magic');
+  if (side === 'right' && f.ability === 'clone' && (f.clonesMade || 0) < Balance.abilities.clone.max) add(_t("Споры {0}/{1}", [f.spores || 0, Balance.abilities.clone.charge]), '', 'neutral');
+  return effects;
+}
 function renderBadge(side) {
   const f = fighters[side];
   const badge = fEl(side).querySelector('.badge');
   if (!badge) return;
-  const parts = [];
-  if (f.magic) parts.push(_t("Шаровая молния"));
-  for (const b of f.buffs) parts.push(b.untilTurnEnd ? _t("{0} (до конца хода)", [BUFF_NAMES[b.kind] || _t("Усиление")]) : `${BUFF_NAMES[b.kind] || _t("Усиление")} (${b.turns})`);
-  if (f.poison && f.poison.turns > 0) parts.push(f.poison.layers && f.poison.layers.length > 1 ? _t("Яд ×{0} ({1})", [f.poison.layers.length, f.poison.turns]) : _t("Яд ({0})", [f.poison.turns]));
-  if (f.ward > 0) parts.push(_t("Щит {0}", [f.ward]));
-  if (f.haste) parts.push(_t("Спешка"));
-  // Спороносец: счётчик спор до следующего двойника (пока лимит двойников за бой не исчерпан).
-  if (side === 'right' && f.ability === 'clone' && (f.clonesMade || 0) < Balance.abilities.clone.max) parts.push(_t("Споры {0}/{1}", [f.spores || 0, Balance.abilities.clone.charge]));
-  badge.innerHTML = parts.map((t) => `<span class="st-chip">${String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</span>`).join('');
+  const parts = battleEffects(f, side);
+  const html = parts.map(e => `<span class="st-chip fx-${e.tone}" title="${effectEscape(e.label + (e.duration ? ': ' + e.duration : ''))}">${effectEscape(e.label)}${e.duration ? ` <b class="fx-duration">${effectEscape(e.duration)}</b>` : ''}</span>`).join('');
+  if (badge.innerHTML !== html) badge.innerHTML = html;
   renderGear(side);
   if (side === 'right') { renderEnemyColumn(); renderAbilityLine(); }
 }
@@ -1756,7 +1770,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.leech > 0 && attackerSide === 'left') tipOnce('leech');
   if (r.leech > 0) { SND.heal(); showFloat(attackerSide, '+' + r.leech, 'heal'); logEvent(attackerSide, _t("{0}: Регенерация — восстанавливает {1} здоровья", [attacker.name, r.leech])); }
   if (r.crit && attackerSide === 'left') tipOnce('fury');
-  if (r.crit) { SND.crit(); showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
+  if (r.crit) { SND.crit(); showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name]), 'critical'); }
   if (r.kind === 'reflect') {
     tipOnce('ricochet');
     showFloat(target, _t("Рикошет!"), 'ricochet');
@@ -1830,14 +1844,14 @@ function shake() {
 
 // 2.0.0: полный журнал боя для кнопки «Журнал боя» на экране итога (на экране хранится только последние 40 строк)
 let battleLog = [], battleNo = 0;
-function logEvent(side, text) {
+function logEvent(side, text, kind = '') {
   // 2.5.1: в журнале герой назван именем игрока, а не званием народа («Ящер-следопыт»)
   try { const hn = Profile.data && Profile.data.name && Profile.heroName(); const ft = fighters.left && fighters.left.name; if (hn && ft && !LIVE && fighters.left.name !== hn) text = String(text).split(ft).join(hn); } catch (e) { /* журнал не должен падать */ }
   battleLog.push({ side, text }); if (battleLog.length > 600) battleLog.shift();
   const list = $('log');
   if (!list) return;
   const li = document.createElement('li');
-  li.className = side;
+  li.className = side + (kind ? ' log-' + kind : '');
   li.textContent = text;
   list.prepend(li);
   // Свёрнутый журнал (см. .log-wrap) можно раскрыть и прокрутить, поэтому храним куда больше 6 строк.
@@ -2136,10 +2150,29 @@ function showOverlay(text, sub = '') {
   if (LIVE && !LIVE.reported) { LIVE.reported = true; LIVE.net.result(text === _t("Победа!") ? LIVE.role : (LIVE.role === 'A' ? 'B' : 'A')); }
   hideOverlay();
   const o = document.createElement('div');
-  o.className = 'overlay';
-  o.id = 'overlay';
-  o.innerHTML = _t("<div>{0}{1}<button type=\"button\" class=\"primary to-map\">На карту</button></div>", [text, sub ? `<small>${sub}</small><div class="loot-cap"></div>` : '']);
   const result = text === _t("Победа!") ? 'win' : 'loss';
+  const interrupted = text !== _t("Победа!") && text !== _t("Поражение");
+  const sel = selNow(), boss = result === 'win' && (fighters.right.guardian || sel.boss || sel.zone || sel.lord);
+  o.className = 'overlay battle-result ' + (interrupted ? 'result-neutral' : result === 'win' ? 'result-win' : 'result-loss') + (boss ? ' result-boss' : '');
+  o.id = 'overlay';
+  o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', text);
+  const H = fighters.left, E = fighters.right;
+  const metric = (label, value) => `<div class="result-metric"><span>${label}</span><b>${value}</b></div>`;
+  const stats = !interrupted && host.main && !TUT() ? `<section class="result-summary" aria-label="${_t("Статистика героя")}">
+    ${metric(_t("Ходы"), Math.max(rec.turns, moves))}
+    ${metric(_t("Нанесено урона"), Math.round(rec.dealt))}
+    ${metric(_t("Получено урона"), Math.round(rec.taken + rec.pen + rec.poison + rec.pack))}
+    ${metric(_t("Здоровье героя"), Math.max(0, Math.round(H.hp)) + ' / ' + H.max)}
+  </section>` : '';
+  const advice = !interrupted && result === 'loss' && !isArena() && !isChallenge() && !LIVE;
+  o.innerHTML = `<div class="result-panel">
+    <header class="result-heading"><span class="result-emblem" aria-hidden="true">${boss ? '♛' : interrupted ? '—' : result === 'win' ? '✦' : '◆'}</span>
+    <h2 class="rw-title"></h2><p class="result-foe"></p></header>
+    ${stats}
+    ${sub ? `<section class="result-content ${advice ? 'result-advice' : ''}"><h3>${advice ? _t("Совет") : result === 'win' ? _t("Награды") : _t("Итог боя")}</h3><div class="result-body">${sub}</div><div class="loot-cap" aria-live="polite"></div></section>` : ''}
+    <button type="button" class="primary to-map">${_t("На карту")}</button></div>`;
+  o.querySelector('.rw-title').textContent = text;
+  o.querySelector('.result-foe').textContent = E.name || '';
   if (host.main && battleNo) {                                   // 2.0.7: номер боя на экране итога + сохранение журнала
     BattleLog.save({ n: battleNo, foe: fighters.right.name, tier: fighters.right.tier, result, hero: fighters.left.name, lines: battleLog, loot: result === 'win' ? String(sub || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '' });
     try {                                                         // 2.0.9: отчёт тестировщиков (js/telemetry.js)
@@ -2776,7 +2809,10 @@ function rewardFor(f, first = true, opts = {}) {
   Profile.save();
   onEconomyChanged();
   // 2.0.9: награда одним блоком: строки с отдельными рядами, у каждого противника (бой вдвоём) — своя подпись
-  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line">${l}</div>`).join('')}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
+  const lv = Profile.levelInfo();
+  const xpPct = lv.need === Infinity ? 100 : Math.max(0, Math.min(100, Math.round(100 * lv.into / Math.max(1, lv.need))));
+  const xpProgress = `<div class="result-xp"><div><b>${_t("Уровень")} ${lv.level}</b><span>${lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need])}</span></div><progress max="100" value="${xpPct}" aria-label="${_t("Опыт")}"></progress></div>`;
+  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line">${l}</div>`).join('')}${xpProgress}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
 }
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
@@ -3334,8 +3370,14 @@ function finishAction(side, extra) {
   const f = fighters[side];
   const r = Combat.finishAction(f, extra);
   if (r.haste) {
-    logEvent(side, _t("{0}: Свиток спешки — дополнительный ход", [f.name]));
+    logEvent(side, _t("{0}: Свиток спешки — дополнительный ход", [f.name]), 'extra');
     note(_t("Свиток спешки: дополнительный ход!"));
+    if (!extra) showFloat(side, _t("Свиток спешки"), 'extra-turn');
+  }
+  if (r.extra && extra) {
+    const label = _t("Бонус x{0}! Дополнительный ход", [turnStats.bonus]);
+    logEvent(side, f.name + ': ' + label, 'extra');
+    showFloat(side, _t("Дополнительный ход!"), 'extra-turn');
   }
   renderMagic();
   return r.extra ? 2 : 1;
@@ -4581,17 +4623,30 @@ if (host.main) {
   phoneMq(); window.addEventListener('resize', phoneMq); window.addEventListener('orientationchange', phoneMq);
   // 2.2.9: выбор раскладки боя на телефоне — новая (одна панель) или прежняя; хранится в localStorage `wip-battle-dock`
   const dockOld = () => { try { return localStorage.getItem('wip-battle-dock') === 'old'; } catch (e) { return false; } };
+  // На очень коротком экране лёжа прежняя раскладка не вмещает панель команд.
+  // Временно включаем компактную, не меняя сохранённого выбора игрока.
+  const compactDock = () => window.innerWidth > window.innerHeight && (window.innerWidth <= 700 || window.innerHeight <= 430);
   const layoutBtn = moreMenu.querySelector('[data-do=layout]');
   const applyDock = () => {
-    const old = dockOld(), css = $('dock-css'), mb = $('dock-menu');
+    const compact = compactDock(), old = dockOld() && !compact, css = $('dock-css'), mb = $('dock-menu');
     if (css) css.disabled = old;
     if (mb) mb.hidden = old;
     document.body.classList.toggle('old-dock', old);
     document.body.classList.remove('dock-open');
-    if (layoutBtn) layoutBtn.textContent = _t("Раскладка боя: {0}", [old ? _t("прежняя") : _t("новая")]);
+    if (layoutBtn) {
+      layoutBtn.textContent = compact ? _t("Раскладка боя: компактная") : _t("Раскладка боя: {0}", [old ? _t("прежняя") : _t("новая")]);
+      layoutBtn.disabled = compact;
+    }
     if (typeof fitBattleHeight === 'function') requestAnimationFrame(fitBattleHeight);
   };
   applyDock();
+  let wasCompactDock = compactDock();
+  const checkCompactDock = () => {
+    const compact = compactDock();
+    if (compact !== wasCompactDock) { wasCompactDock = compact; applyDock(); }
+  };
+  window.addEventListener('resize', checkCompactDock);
+  window.addEventListener('orientationchange', checkCompactDock);
   const dockBtn = $('dock-menu');   // 2.2.9: портретный телефон — кнопки боя свёрнуты в одну в левом верхнем углу
   if (dockBtn) {
     dockBtn.addEventListener('click', (e) => { e.stopPropagation(); document.body.classList.toggle('dock-open'); });
@@ -4611,7 +4666,7 @@ if (host.main) {
     moreMenu.hidden = true;
     if (b.dataset.do === 'log') { const d = $('log-wrap'); d.open = !d.open; d.scrollIntoView({ block: 'nearest' }); }
     else if (b.dataset.do === 'anim') { AnimSpeed.cycle(); b.textContent = AnimSpeed.label(); note(AnimSpeed.label()); }     // 1.6.4
-    else if (b.dataset.do === 'layout') { try { localStorage.setItem('wip-battle-dock', dockOld() ? 'new' : 'old'); } catch (e) { /* без хранилища выбор не запомнится */ } applyDock(); }
+    else if (b.dataset.do === 'layout') { if (!compactDock()) { try { localStorage.setItem('wip-battle-dock', dockOld() ? 'new' : 'old'); } catch (e) { /* без хранилища выбор не запомнится */ } applyDock(); } }
     else if (b.dataset.do === 'deskland') { toggleDeskLand(); }
     else if (b.dataset.do === 'timer') { TurnTimerSetting.toggle(); note(TurnTimerSetting.label()); }     // 1.6.5
     else $(b.dataset.do).click();

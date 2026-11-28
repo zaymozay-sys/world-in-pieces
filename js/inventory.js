@@ -1003,6 +1003,8 @@ const ItemInfo = (() => {
     }
     if (mine && Profile.canUndoGear(uid)) runeBlock += `<div class="ic-undo"><button type="button" data-gem="undo">${_t("Отменить последнее изменение (1 мин)")}</button></div>`;
     pop.innerHTML = _t("<div class=\"modal icard-modal\" role=\"dialog\" aria-label=\"Карточка предмета: {0}\">\n      <div class=\"scroll\"{1}><i class=\"roll\" aria-hidden=\"true\"></i>\n      <article class=\"icard r-{2}\" data-tier=\"{3}\" style=\"--t:{4};--tc:{5};--s:{6}\">\n        <button type=\"button\" class=\"ic-close\" data-act=\"close\" aria-label=\"Закрыть\">✕</button>\n        <div class=\"ic-head\">\n          <div class=\"ic-art\"><span class=\"ic-rar\">{7}</span>{8}\n            <div class=\"ic-pic\">{9}</div>\n            {10}</div>\n          <div class=\"ic-title\"><h2>{11}</h2>\n            <p class=\"ic-type\">{12}{13}</p>\n            {14}\n            <ul class=\"ic-req\">{15}</ul>\n            <div class=\"ic-nums\"><span><small>Очки снаряжения</small><b>{16}</b></span><span><small>Цена в Лавке</small><b>{17}</b></span><span><small>Продать</small><b>{18}</b></span></div>\n          </div>\n        </div>\n        <div class=\"ic-body\">\n          <section class=\"ic-stats\"><h3>Характеристики</h3><ul>{19}</ul></section>\n          {20}{21}\n        </div>\n        {22}\n      </article><i class=\"roll\" aria-hidden=\"true\"></i></div></div>", [it.name, typeof Art !== 'undefined' && Art.has('ui/parchment') ? ` style="--paper:url('${new URL(Art.url('ui/parchment'), location.href).href}');${cardArtVars()}"` : '', it.rarity, it.tier, tierColor(it.tier), T.color, setInfo ? setInfo.color : Gear.NEUTRAL_COLOR, Gear.RARITY_NAMES[it.rarity], itemChip(it.tier), itemIcon(it.type, '', it.id), it.perk ? _t("<span class=\"ic-perk\">Особый приём</span>") : '', it.name, Gear.TYPE_NAMES[it.type], setInfo ? ` · <b style="color:${setInfo.color}">«${setInfo.name}»</b>` : _t(" · без набора"), status, reqs, it.cost, MonsterArt.moneyHtml(it.price), MonsterArt.moneyHtml(Gear.sellValue(Math.round(it.price * Gear.wearFactor(entry)), it.tier)), stats, setBlock, runeBlock, act ? `<footer class="ic-act">${act}</footer>` : '']);
+    // При выключенных очках оставляем в карточке только покупную и продажную цены.
+    if (!Hero.pointsOn()) { const points = pop.querySelector('.ic-nums > span:first-child'); if (points) points.remove(); }
     // Сравнение с надетой вещью — сразу под названием: что изменится, если надеть
     if (cur) {
       const diffs = STAT_ORDER.map((k) => [k, (it.stats[k] || 0) - (cur.stats[k] || 0)]).filter(([, d]) => d);
@@ -1418,7 +1420,11 @@ const Inventory = (() => {
               : _t("<span class=\"hint\">Куплены все ряды ячеек.</span>")]) : _t("<p class=\"hint\">Это сумка: эликсиры, расходники, боеприпасы и ресурсы. Вещи и руны хранятся в оружейной вашего дома — там же меняется снаряжение.</p>"), bagTab, bagTabsHtml, paneElix, paneRes, MonsterArt.moneyHtml(Profile.data.coins), armory ? `<div class="reset"><button type="button" data-act="reset">${resetArmed ? _t("Точно сбросить? Нажмите ещё раз") : _t("Сбросить весь прогресс")}</button></div>` : '']);
     const fc = Village.frameColor(Profile.data.cosmetics), dfr = root.querySelector('.doll-frame');   // 1.5.1: рамка из гардероба
     if (fc && dfr) dfr.style.boxShadow = `0 0 0 3px ${fc}, 0 0 14px 4px ${fc}`;
-    stashSearch(); bestBtn();
+    if (!Hero.pointsOn()) {
+      const oldBudget = root.querySelector('.budget'); if (oldBudget) oldBudget.remove();
+      for (const cell of root.querySelectorAll('.stash-cell[data-stash]')) cell.title = Hero.noPts(cell.title);
+    }
+    stashSearch(stash); bestBtn();
   }
   function bestBtn() {
     if (!armory || !canEditGear()) return;
@@ -1427,20 +1433,58 @@ const Inventory = (() => {
     b.addEventListener('click', () => { equipBest(); });
     grid.insertAdjacentElement('beforebegin', b);
   }
-  // 2.4.1: поиск вещей в ранце по названию и характеристике («Отрава»): прячет ячейки, чьё описание не содержит запроса
-  let stashQ = '';
-  function stashSearch() {
-    const cells = [...root.querySelectorAll('.stash-cell[data-stash]')];
-    if (cells.length < 6 && !stashQ) return;
-    const grid = cells[0] && cells[0].closest('.stash-grid');
+  // Фильтры и сортировка меняют только представление: data-stash всегда указывает на исходную ячейку.
+  const stashFilters = { q: '', type: '', tier: '', sort: '' };
+  function stashSearch(stash) {
+    const grid = root.querySelector('.bag-gear .stash-grid');
     if (!grid) return;
-    const apply = () => { const q = stashQ.trim().toLowerCase(); for (const c of cells) c.hidden = !!q && !((c.title || '') + ' ' + c.textContent).toLowerCase().includes(q); };
+    const original = [...grid.children];
+    const rows = original.filter((c) => c.dataset.stash !== undefined).map((c) => ({
+      cell: c, item: Gear.item(Profile.item(stash[Number(c.dataset.stash)])),
+    })).filter((r) => r.item);
+    const empty = original.filter((c) => c.dataset.stash === undefined);
+    const panel = document.createElement('div');
+    panel.className = 'stash-controls';
     const inp = document.createElement('input');
-    inp.type = 'search'; inp.className = 'stash-search'; inp.value = stashQ; inp.placeholder = _t("Поиск вещей");
+    inp.type = 'search'; inp.className = 'stash-search'; inp.value = stashFilters.q; inp.placeholder = _t("Поиск вещей");
     inp.setAttribute('aria-label', _t("Поиск вещей"));
-    inp.addEventListener('input', () => { stashQ = inp.value; apply(); });
-    grid.insertAdjacentElement('beforebegin', inp);
-    apply();
+    panel.append(inp);
+    const filters = document.createElement('div'); filters.className = 'stash-filter-row';
+    const select = (key, label, options) => {
+      const el = document.createElement('select'); el.setAttribute('aria-label', label);
+      for (const [value, name] of options) { const o = document.createElement('option'); o.value = value; o.textContent = name; el.append(o); }
+      el.value = stashFilters[key];
+      el.addEventListener('change', () => { stashFilters[key] = el.value; apply(); });
+      filters.append(el); return el;
+    };
+    const type = select('type', _t("Тип"), [['', _t("Все виды")], ...Object.entries(Gear.TYPE_NAMES)]);
+    const tier = select('tier', _t("Цвет вещей"), [['', _t("Все цвета")], ...Array.from({ length: 10 }, (_, i) => [String(i + 1), Tiers.get(i + 1).name])]);
+    const sort = select('sort', _t("Сортировка"), [['', _t("В порядке хранения")], ['name', _t("По названию")], ['tier', _t("По цвету")], ['price', _t("По стоимости")]]);
+    panel.append(filters);
+    const summary = document.createElement('div'); summary.className = 'stash-summary'; summary.setAttribute('role', 'status');
+    const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'stash-reset'; reset.textContent = _t("Сбросить фильтры");
+    panel.append(summary, reset);
+    function apply() {
+      const { q, type, tier, sort } = stashFilters, query = q.trim().toLowerCase();
+      const filtering = !!(query || type || tier);
+      let found = 0;
+      for (const { cell, item } of rows) {
+        const search = [item.name, Gear.TYPE_NAMES[item.type], Tiers.get(item.tier).name, fmtBonus(item.stats), cell.title].join(' ').toLowerCase();
+        const match = (!query || search.includes(query)) && (!type || item.type === type) && (!tier || String(item.tier) === tier);
+        cell.hidden = !match; if (match) found++;
+      }
+      for (const cell of empty) cell.hidden = filtering;
+      const sorted = [...rows];
+      if (sort === 'name') sorted.sort((a, b) => a.item.name.localeCompare(b.item.name));
+      if (sort === 'tier') sorted.sort((a, b) => b.item.tier - a.item.tier);
+      if (sort === 'price') sorted.sort((a, b) => b.item.price - a.item.price);
+      for (const cell of sort ? [...sorted.map((r) => r.cell), ...empty] : original) grid.append(cell);
+      summary.textContent = found ? _t("Найдено вещей: {0} из {1}", [found, rows.length]) : rows.length ? _t("Нет подходящих вещей") : _t("Оружейная пуста");
+      reset.hidden = !(filtering || sort);
+    }
+    inp.addEventListener('input', () => { stashFilters.q = inp.value; apply(); });
+    reset.addEventListener('click', () => { Object.assign(stashFilters, { q: '', type: '', tier: '', sort: '' }); inp.value = type.value = tier.value = sort.value = ''; apply(); });
+    grid.before(panel); apply();
   }
 
   // Особые предметы квестов: ключи к сундукам побережья, «Морской дневник», зелье подводного дыхания
