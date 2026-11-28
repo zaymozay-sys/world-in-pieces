@@ -94,6 +94,9 @@ for (const it of Gear.ITEMS) {
 }
 
 console.log('runes: все тесты пройдены');
+for (const id of Runes.ORDER) for (let from = 1; from <= 10; from++) for (let to = from; to <= 10; to++) {
+  assert.strictEqual(Runes.improves(id, from, to), Runes.valueOf(id, to) > Runes.valueOf(id, from));
+}
 
 // 2.0.8: руна мощи — только в оружие (одно- и двуручное); в остальные вещи не вставляется и не считается
 {

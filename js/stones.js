@@ -61,7 +61,11 @@ const Stones = (() => {
   const maxHoles = (extra) => MAX_HOLES + (extra ? 1 : 0);
   const drillCost = (tier) => ({ punch: DRILL.punch });
   const fixCost = (tier) => ({ resin: DRILL.resinBase + Math.max(1, num(tier)), resinTier: Math.min(DRILL.resinMaxTier, Math.max(1, num(tier))) });   // смола цвета вещи (но не выше 6-го: выше смола не выпадает)
-  const punchPrice = (heroTier) => Math.round(2000 * S_T.PRICE_MULT[S_T.clamp(heroTier) - 1]);
+  const punchPrice = (heroTier) => {
+    const t = S_T.clamp(heroTier) - 1;
+    const B = typeof Balance !== 'undefined' ? Balance : require('./balance.js');
+    return Math.min(Math.round(2000 * S_T.PRICE_MULT[t]), 18 * B.economy.battleLoot[t]);
+  };
   // Скорпионы подземелья: на этаже с шансом HexMap.TOWER_SCORP_SPAWN стоит один; цвет скорпиона = цвет самоцвета, который он может уронить (шанс очень малый, с глубиной растёт, от уровня героя не зависит)
   const SCORP = { base: 0.015, perFloor: 0.0005, cap: 0.05 };
   const scorpChance = (floor) => Math.min(SCORP.cap, SCORP.base + SCORP.perFloor * (Math.max(1, num(floor)) - 1));

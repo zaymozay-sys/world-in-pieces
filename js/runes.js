@@ -89,6 +89,7 @@ const Runes = (() => {
   const STAT_LABEL = { power: () => _t("Сила"), health: () => _t("Здоровье"), defense: () => _t("Броня"), initiative: () => _t("Проворство"), ricochet: () => _t("Рикошет"), block: () => _t("Блок"), fury: () => _t("Ярость") };
   const PCT = new Set(['defense', 'initiative', 'ricochet', 'block', 'fury']);
   const valueOf = (id, rank) => (CATALOG[id] ? valueAt(CATALOG[id], rank) : 0);
+  const improves = (id, from, to) => clampRank(to) > clampRank(from) && valueOf(id, to) > valueOf(id, from);
   const descAt = (id, rank) => { const r = CATALOG[id]; return r ? `+${valueAt(r, rank)}${PCT.has(r.stat) ? '%' : ''} ${STAT_LABEL[r.stat]()}` : ''; };
   const rankOf = (entry, slot) => clampRank(entry && entry.rr && entry.rr[slot]);
   function statsOf(entry) {
@@ -119,7 +120,7 @@ const Runes = (() => {
     return `<span class="${cls}" style="--rc:${r.color}" title="${r.name}"></span>`;
   }
 
-  return { CATALOG, ORDER, SHOP, valueOf, descAt, rankOf, clampRank, upgrade, socketsFor, allows, insert, remove, statsOf, bonusForGear, icon };
+  return { CATALOG, ORDER, SHOP, valueOf, improves, descAt, rankOf, clampRank, upgrade, socketsFor, allows, insert, remove, statsOf, bonusForGear, icon };
 })();
 
 // Для тестов в Node.js (в браузере не используется).
