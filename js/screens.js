@@ -9,7 +9,7 @@ const Screens = (() => {
   const st = {
     wiki:  { q: '', art: null, filter: 'all' },
     questJournal: { tab: 'active' },
-    shop:  { tab: 'buy', resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
+    shop:  { tab: 'buy', section: 'gear', sort: 'order', saleQ: '', saleKind: 'all', saleTier: 'all', saleSort: 'tier', saleSelected: new Set(), saleConfirm: null, resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
     forge: { tab: 'upgrade', view: 'list', sel: null, filter: 'weapon', msg: '', craftTier: 0, choice: {} },
     best:  { sel: null, tier: 1, q: '', f: 'all', fam: '', view: 'list' },
     // fac: при первом запуске (first) — черновик регистрации (ник, пол, выбранная фракция) до нажатия «Начать игру»,
@@ -225,7 +225,13 @@ const Screens = (() => {
     let sw = null;
     root.addEventListener('touchstart', (e) => { const h = e.target.closest && e.target.closest('.modal > header'); sw = h && e.touches.length === 1 ? { y: e.touches[0].clientY, x: e.touches[0].clientX } : null; }, { passive: true });
     root.addEventListener('touchend', (e) => { if (!sw) return; const t = e.changedTouches[0]; const dy = t.clientY - sw.y, dx = Math.abs(t.clientX - sw.x); sw = null; if (dy > 90 && dx < 60 && !mustChoose()) close(); }, { passive: true });
-    root.addEventListener('change', (e) => { const sel = e.target.dataset && e.target.dataset.catsel; if (!sel) return; if (sel === 'set') st.shop.set = e.target.value; else st.shop.kind = e.target.value; render(); });
+    root.addEventListener('change', (e) => { const sel = e.target.dataset && e.target.dataset.catsel; if (!sel) return; if (cur !== 'shop') return; if (sel === 'set') st.shop.set = e.target.value; else if (sel === 'kind') st.shop.kind = e.target.value; else if (sel === 'sort') st.shop.sort = e.target.value; else return; render(); });
+    root.addEventListener('change', (e) => {
+      if (cur !== 'shop' || st.shop.tab !== 'sell') return;
+      const key = e.target.dataset && e.target.dataset.saleFilter;
+      if (!['saleKind','saleTier','saleSort'].includes(key)) return;
+      st.shop[key] = e.target.value; clearSale(st.shop); render();
+    });
     root.addEventListener('change', (e) => { const id = e.target.dataset && e.target.dataset.gfNote; if (!id) return; const gg = giftsState(); if (Gifts.setNote(gg, id, e.target.value)) Profile.save(); });
     document.body.appendChild(root);
     document.addEventListener('keydown', onKey);
@@ -272,7 +278,7 @@ const Screens = (() => {
   function positionKey() {
     if (!scrollScreens.has(cur)) return null;
     const s = st[cur] || {};
-    return [cur, s.tab || '', s.view || '', s.sel || ''].join(':');
+    return [cur, s.tab || '', s.view || '', s.sel || '', s.section || ''].join(':');
   }
   function rememberPosition() {
     const key = positionKey(), body = root && root.querySelector('.screen-body');
@@ -282,8 +288,9 @@ const Screens = (() => {
     const key = positionKey(), body = root && root.querySelector('.screen-body');
     if (key && body && scrollPositions.has(key)) body.scrollTop = scrollPositions.get(key);
   }
-  function open(id) {
+  function open(id, shopSection) {
     if (root && id !== cur) rememberPosition();
+    if (id === 'shop' && (id !== cur || shopSection)) { st.shop.section = shopSection || 'gear'; clearSale(st.shop); }
     mount();
     if (id !== 'wiki') wikiReturnScreen = null;
     cur = id;
@@ -347,6 +354,7 @@ const Screens = (() => {
       if (html.includes('lh-board') && root.querySelector('.lh-board') && !root.querySelector('.ch-board')) patchRender(html);   // 2.4.3: мини-игры не пересоздаются целиком после каждого хода — иначе мигают
       else { root.innerHTML = html; addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab(); if (cur === 'valor') valorDecorate(); }
       decorateWorkshop();
+      if (cur === 'shop' && st.shop.tab === 'sell') applySaleQuery();
       root.querySelectorAll('.tabs:not(.sub)').forEach((t) => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth + 2) t.scrollLeft = Math.max(0, on.offsetLeft - 24); });   // 2.0.9: активная вкладка видна
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
     }
@@ -395,7 +403,12 @@ const Screens = (() => {
         const active = key === 'affordable' ? !!st.shop.affordable : (st.shop.catalogView || 'grid') === key;
         btn.classList.toggle('on', active); btn.setAttribute('aria-pressed', String(active)); bar.append(btn);
       }
-      list.before(bar); applyShopQuery();
+      const sort = document.createElement('label'); sort.className = 'shop-sort'; sort.textContent = _t("Сортировка") + ' ';
+      const select = document.createElement('select'); select.dataset.catsel = 'sort';
+      for (const [value, name] of [['order', _t("По порядку")], ['name', _t("По названию")], ['price', _t("По стоимости") + ' ↑'], ['price-desc', _t("По стоимости") + ' ↓']]) { const opt = document.createElement('option'); opt.value = value; opt.textContent = name; select.append(opt); }
+      select.value = st.shop.sort || 'order'; sort.append(select); bar.append(sort);
+      const reset = document.createElement('button'); reset.type = 'button'; reset.dataset.shopView = 'reset'; reset.textContent = _t("Сбросить фильтры"); bar.append(reset);
+      list.after(bar); applyShopQuery();
     }
   }
   // 1.8.1: у окон без своего фона (деревня, справка, стена доблести) он подхватывается, как только картинка ui/bg-<имя> есть в игре
@@ -479,6 +492,17 @@ const Screens = (() => {
     if (!b || b.disabled) return;
     if (b.dataset.act === 'wiki-context') return openWikiHelp(cur);
     if (b.dataset.act === 'close') { if (cur === 'wiki' && returnWikiHelp()) return; return close(); }
+    if (b.dataset.materialFind && cur === 'forge') {
+      const [kind, tierText] = b.dataset.materialFind.split(':'), tier = Number(tierText);
+      if (!Bestiary.RESOURCES[kind] || !Number.isInteger(tier) || tier < 1 || tier > Tiers.MAX || MapView.inBattle) return;
+      if (Bestiary.resourcesWeak(tier, Hero.tierFor(Profile.level()))) {
+        st.shop.tab = 'buy'; st.shop.resTier = tier; open('shop', 'resources');
+        const target = root.querySelector('[data-buy-res="' + kind + '"]')?.closest('.card');
+        if (target) { target.classList.add('material-target'); target.scrollIntoView({block:'center'}); }
+        return;
+      }
+      close(); MapView.focusResource(kind,tier); return;
+    }
     if (b.dataset.tryon && cur) return openTryOn(b.dataset.tryon);
     if (b.dataset.tipShow) { if (Profile.data.tips) delete Profile.data.tips[b.dataset.tipShow]; Profile.save(); return render(); }
     if (b.dataset.tip) { Profile.data.tips = Profile.data.tips || {}; Profile.data.tips[b.dataset.tip] = true; Profile.save(); return render(); }
@@ -505,10 +529,22 @@ const Screens = (() => {
   }
   function applyShopQuery() {
     const q = (cur === 'shop' && st.shop.q || '').trim().toLowerCase();
-    root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; const buy = c.querySelector('[data-buy-cat]'); c.hidden = (!!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q))) || !!(cur === 'shop' && st.shop.affordable && buy && buy.disabled); });
+    if (cur !== 'shop' || st.shop.tab !== 'buy') return;
+    const catalog = root.querySelector('.shop-gear .cat-search ~ .card-list'); if (!catalog) return;
+    const cards = [...catalog.querySelectorAll(':scope > .card')].filter(c => c.querySelector('[data-buy-cat]'));
+    for (const c of cards) {
+      const buy = c.querySelector('[data-buy-cat]');
+      c.hidden = (!!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q))) || !!(st.shop.affordable && buy.disabled);
+    }
+    const summary = root.querySelector('.shop-count');
+    const found = cards.filter(c => !c.hidden).length;
+    if (summary) summary.textContent = found ? _t("Найдено вещей: {0} из {1}", [found, cards.length]) : _t("Нет подходящих вещей");
   }
   function onInput(e) {
     if (cur === 'valor' && e.target.dataset.vq !== undefined) { st.valor.q = e.target.value; valorFilter(); return; }
+    if (cur === 'shop' && e.target.dataset.saleSearch !== undefined) {
+      st.shop.saleQ = e.target.value; clearSale(st.shop); applySaleQuery(); return;
+    }
     if (cur === 'shop' && e.target.dataset.shq !== undefined) {
       st.shop.q = e.target.value;
       if (st.shop.q.trim() && st.shop.set !== 'all') {   // 2.2.7: поиск ищет по всем комплектам, а не только по выбранному
@@ -575,7 +611,7 @@ const Screens = (() => {
     const faction = Profile.data.faction, all = Gear.itemsFor(faction).filter((i) => i.rarity !== 'epic');      // 1.6.6: эпические вещи в Лавке не продаются (Кузница, добыча, события)
     const setIds = Object.keys(Gear.SETS).filter((id) => all.some((i) => i.set === id));
     const hasNone = all.some((i) => !i.set);
-    const own = setIds.find((id) => Gear.SETS[id].faction === faction) || setIds[0] || 'all';
+    const own = 'all';
     if (!(s.set === 'all' || (s.set === 'none' && hasNone) || setIds.includes(s.set))) s.set = own;
     if (!CAT_KINDS.some((k) => k[0] === s.kind)) s.kind = 'all';
     const tier = (s.tier >= 1 && s.tier <= top) ? s.tier : Profile.shopTop();
@@ -595,19 +631,49 @@ const Screens = (() => {
       const rows = Object.entries(S.bonuses).map(([need, b]) => `<span class="${n >= Number(need) ? 'on' : ''}">${_t("{0} шт.: {1}", [need, fmtBonus(b)])}</span>`).join('');
       const styleKeys = [...new Set(Object.values(S.bonuses).flatMap((b) => Object.keys(b)))].filter((k) => Gear.STAT_NAMES[k] && k !== 'power' && k !== 'health'), styleTxt = styleKeys.length ? `<div class="set-style">${_t("Стиль")}: ${styleKeys.slice(0, 4).map((k) => Gear.STAT_NAMES[k]).join(', ')}</div>` : '';   // 2.4.1: фишка комплекта одной строкой
       const win = Gear.SET_WINDOWS && Gear.SET_WINDOWS[s.set], winTxt = styleTxt + (win ? `<div class="set-window">${_t("Сильнее всего на цветах {0}–{1}", [win[0], win[1]])}</div>` : '');
-      info = `<div class="set-info" style="--c:${S.color}"><b>${S.name}</b> · ${_t("надето {0} из {1}", [n, total])}${winTxt}<details class="set-more"${(typeof matchMedia === 'function' && matchMedia('(max-width: 700px)').matches) ? '' : ' open'}><summary>${_t("Бонусы комплекта")}</summary><div class="set-bonuses">${rows}</div></details></div>`;
+      info = `<div class="set-info" style="--c:${S.color}"><b>${S.name}</b> · ${_t("надето {0} из {1}", [n, total])}${winTxt}<details class="set-more"><summary>${_t("Бонусы комплекта")}</summary><div class="set-bonuses">${rows}</div></details></div>`;
     }
     const kindFn = CAT_KINDS.find((k) => k[0] === s.kind)[2];
     const bases = all.filter((i) => (s.set === 'all' || (s.set === 'none' ? !i.set : i.set === s.set)) && kindFn(i.type))
-      .sort((a, b) => CAT_TYPE_ORDER.indexOf(a.type) - CAT_TYPE_ORDER.indexOf(b.type) || a.cost - b.cost);
+      .sort((a, b) => {
+        if (s.sort === 'name') return Gear.item({id:a.id,tier}).name.localeCompare(Gear.item({id:b.id,tier}).name);
+        if (s.sort === 'price' || s.sort === 'price-desc') return (s.sort === 'price' ? 1 : -1) * (buyPrice(Gear.item({id:a.id,tier}).price) - buyPrice(Gear.item({id:b.id,tier}).price));
+        return CAT_TYPE_ORDER.indexOf(a.type) - CAT_TYPE_ORDER.indexOf(b.type) || a.cost - b.cost;
+      });
+    // Снимок текущего снаряжения: предварительное сравнение не изменяет профиль.
+    const gear = Profile.gear(), before = Profile.totalStats(gear), level = Profile.level();
+    const owned = new Map();
+    for (const entry of Profile.data.items) {
+      const key = entry.id + ':' + (entry.tier || 1);
+      const group = owned.get(key) || {count:0, worn:0};
+      group.count++;
+      if (Profile.equippedUid(entry.uid)) group.worn++;
+      owned.set(key, group);
+    }
     const list = bases.map((b) => {
       const it = Gear.item({ id: b.id, tier }), price = buyPrice(it.price);
       // 2.3.6: надеваемая вещь — одна штука на слот, счётчик количества тут не нужен (убран; кнопка «Купить» берёт сразу 1 шт.)
-      const act = `<button type="button" data-tryon="shop:${b.id}:${tier}">${_t("Примерить")}</button><button type="button" class="primary" data-buy-cat="${b.id}:${tier}" ${Profile.data.coins >= price ? '' : 'disabled'}>${_t("Купить")}</button>`;
-      return itemCard(it, _t("Цена: {0}{1}", [money(price), levelNote(it)]), act);
+      const afford = Profile.data.coins >= price, have = owned.get(b.id + ':' + tier);
+      const entry = {id:b.id, tier, uid:'tryon-probe'};
+      const slot = tryOnSlot(gear, it), check = Gear.canEquip(gear, entry, slot, faction, level);
+      const after = Profile.totalStats(Gear.equip(gear, entry, slot));
+      const keys = [...new Set([...TRY_STATS.map(([k]) => k), ...Object.keys(before), ...Object.keys(after)])];
+      const changes = keys.filter(k => Gear.STAT_NAMES[k] && (after[k] || 0) !== (before[k] || 0)).map(k => {
+        const d = (after[k] || 0) - (before[k] || 0);
+        const unit = (TRY_STATS.find(([key]) => key === k) || [k,''])[1];
+        return `<span class="shop-delta ${d > 0 ? 'up' : 'down'}" data-stat="${k}" data-delta="${d}">${Gear.STAT_NAMES[k]} ${d > 0 ? '+' : '−'}${Math.abs(d)}${unit}</span>`;
+      });
+      const comparison = check.ok
+        ? `<span class="shop-compare-label">${_t("Изменение характеристик героя")}</span><span class="shop-deltas">${changes.slice(0,3).join('') || _t("Характеристики не изменятся")}${changes.length > 3 ? '<span>…</span>' : ''}</span>`
+        : `<span class="shop-unavailable">${escText(check.reason)}</span>`;
+      const collection = it.set ? `<span class="shop-set-progress">${_t("В комплекте надето {0}/{1}", [worn[it.set] || 0, Gear.setMaxPieces(it.set)])}</span>` : '';
+      const possession = have ? `<span class="shop-owned">${_t("Уже есть: {0}", [have.count])}${have.worn ? ' · ' + _t("Надето") : ''}</span>` : '';
+      const foot = `<span class="shop-meta">${possession}${collection}</span><span class="shop-comparison">${comparison}</span><span class="shop-price">${money(price)}</span>${afford ? '' : '<span class="shop-unavailable">' + _t("Не хватает монет") + '</span>'}`;
+      const act = `<button type="button" data-tryon="shop:${b.id}:${tier}">${_t("Сравнить")}</button><button type="button" class="primary" data-buy-cat="${b.id}:${tier}" ${afford ? '' : 'disabled'}>${_t("Купить")}</button>`;
+      return itemCard(it, foot, act, 'shop-product');
     }).join('');
     const searchHtml = `<input type="search" class="cat-search" data-shq="1" value="${escText(s.q || '')}" placeholder="${_t("Поиск по названию")}" aria-label="${_t("Поиск по названию")}">`;
-    return { head: searchHtml + dropHtml + setsHtml + kindsHtml + tierHtml + info, list };
+    return { head: searchHtml + dropHtml + setsHtml + kindsHtml + tierHtml + info + '<p class="hint shop-count" role="status"></p>', list };
   }
 
   // Примерка: портрет героя в обновке и «было → станет» по итоговым характеристикам (так же, как на экране персонажа), смена бонусов комплектов
@@ -700,6 +766,53 @@ const Screens = (() => {
         <span class="sh-lockline">${lockSvg}${LOCKED_HOW[id] || _t("Выдаётся за заслуги.")}</span></div></div>`;
     }).join('')}</div>`;
   }
+  const shopSections = () => [['gear', _t("Вещи")], ['cons', _t("Расходники")], ['resources', _t("Ресурсы")]];
+  const shopSectionTabs = (s) => '<nav class="shop-sections" aria-label="' + _t("Лавка") + '">' + shopSections().map(([id, label]) => `<button type="button" data-shop-section="${id}" aria-pressed="${s.section === id}" class="${s.section === id ? 'on' : ''}">${label}</button>`).join('') + '</nav>';
+  const shopSection = (s, id, html) => `<section class="shop-section shop-${id}" ${s.section === id ? '' : 'hidden'}>${html}</section>`;
+  function clearSale(s) { s.saleSelected.clear(); s.saleConfirm = null; }
+  const saleValue = (entry, it) => Gear.sellValue(Math.round(it.price * Gear.wearFactor(entry)), it.tier);
+  function saleRows(s) {
+    const kind = (CAT_KINDS.find(([id]) => id === s.saleKind) || CAT_KINDS[0])[2];
+    return Profile.data.items.filter(e => Profile.canSellItem(e.uid)).map(entry => ({entry,it:Gear.item(entry)}))
+      .filter(({it}) => it && kind(it.type) && (s.saleTier === 'all' || String(it.tier) === s.saleTier))
+      .sort((a,b) => s.saleSort === 'name' ? a.it.name.localeCompare(b.it.name) :
+        s.saleSort === 'price' ? saleValue(a.entry,a.it)-saleValue(b.entry,b.it) :
+        s.saleSort === 'price-desc' ? saleValue(b.entry,b.it)-saleValue(a.entry,a.it) : b.it.tier-a.it.tier);
+  }
+  function salePanel(s) {
+    const select = (key,label,options) => `<label>${label}<select data-sale-filter="${key}">${options.map(([id,name]) => `<option value="${id}"${String(s[key])===String(id)?' selected':''}>${name}</option>`).join('')}</select></label>`;
+    const rows = saleRows(s);
+    const protectedCount = Profile.data.items.filter(e => !Profile.canSellItem(e.uid)).length;
+    const controls = `<div class="sale-filters"><input type="search" data-sale-search="1" aria-label="${_t("Поиск по названию")}" placeholder="${_t("Поиск по названию")}" value="${escText(s.saleQ)}">${select('saleKind',_t("Тип"),CAT_KINDS.map(([id,name])=>[id,name]))}${select('saleTier',_t("Цвет"),[['all',_t("Все")],...Tiers.LIST.map(x=>[x.id,x.name])])}${select('saleSort',_t("Сортировка"),[['tier',_t("По цвету")],['name',_t("По названию")],['price',_t("По стоимости")+' ↑'],['price-desc',_t("По стоимости")+' ↓']])}</div>`;
+    const list = rows.map(({entry,it}) => {
+      const uid = escText(it.uid), selected = s.saleSelected.has(it.uid);
+      const actions = `<button type="button" data-sale-pick="${uid}" aria-pressed="${selected}">${selected?'✓ ':''}${_t("Выбрать")}</button><button type="button" data-sell-item="${uid}">${_t("Продать")}</button>`;
+      return itemCard(it, _t("Продать за: {0}",[money(saleValue(entry,it))]), actions, 'sale-product');
+    }).join('');
+    return controls + `<p class="hint">${_t("Защищено от продажи: {0}",[protectedCount])}</p><p class="hint sale-count" role="status"></p><div class="sale-summary"></div><div class="card-list sale-catalog">${list}</div>`;
+  }
+  function saleVisible() {
+    return [...root.querySelectorAll('.sale-catalog > .sale-product:not([hidden]) [data-sale-pick]')].map(b=>b.dataset.salePick);
+  }
+  function refreshSaleSummary() {
+    const s=st.shop, summary=root.querySelector('.sale-summary'); if (!summary) return;
+    const quote=Profile.saleQuote([...s.saleSelected]), count=quote?quote.uids.length:0;
+    if (!quote) clearSale(s);
+    const confirming = s.saleConfirm && quote;
+    summary.innerHTML = `<div class="sale-totals" aria-live="polite"><b>${_t("Выбрано вещей: {0}",[count])}</b><span>${_t("Вы получите: {0}",[money(quote?quote.total:0)])}</span></div><div class="sale-actions">${confirming ? `<strong class="sale-warning">${_t("Продать выбранные вещи? Отменить продажу нельзя.")}</strong><button type="button" class="primary" data-sale-act="confirm">${_t("Подтвердить продажу")}</button><button type="button" data-sale-act="cancel">${_t("Отмена")}</button>` : `<button type="button" data-sale-act="all" ${saleVisible().length?'':'disabled'}>${_t("Выбрать найденные")}</button><button type="button" data-sale-act="clear" ${count?'':'disabled'}>${_t("Снять выбор")}</button><button type="button" class="primary" data-sale-act="review" ${count?'':'disabled'}>${_t("Продать выбранные")}</button>`}</div>`;
+    for (const b of root.querySelectorAll('[data-sale-pick]')) {
+      const on=s.saleSelected.has(b.dataset.salePick);
+      b.setAttribute('aria-pressed',String(on)); b.textContent=(on?'✓ ':'')+_t("Выбрать");
+      b.closest('.sale-product').classList.toggle('selected',on);
+    }
+  }
+  function applySaleQuery() {
+    const s=st.shop, q=s.saleQ.trim().toLowerCase(), cards=[...root.querySelectorAll('.sale-catalog > .sale-product')];
+    for (const card of cards) card.hidden=!!q && !card.textContent.toLowerCase().includes(q);
+    const n=cards.filter(c=>!c.hidden).length, label=root.querySelector('.sale-count');
+    if(label) label.textContent=n?_t("Найдено вещей: {0} из {1}",[n,cards.length]):_t("Нет подходящих вещей");
+    refreshSaleSummary();
+  }
   const shop = {
     html() {
       const s = st.shop;
@@ -708,7 +821,7 @@ const Screens = (() => {
         // 2.3.6: надеваемые вещи покупаются по одной кнопкой «Купить» — корзина заказа (была нужна для счётчика ×N) здесь больше не нужна
         const top = Profile.shopTop(), gearTop = Hero.shopGearTier(Profile.level()), cat = catalogView(s, gearTop);
         if (gearTop > top) cat.head = '<p class="hint">' + _t("Вещи следующего цвета уже доступны для подготовки. Надеть их можно с {0}-го уровня или после перековки в Кузнице.", [Hero.itemLevel(gearTop)]) + '</p>' + cat.head;
-        const items = (cat.list || _t("<p class=\"hint\">В этой вкладке нет вещей.</p>")) + lockedShelf();
+        const items = cat.list || _t("<p class=\"hint\">В этой вкладке нет вещей.</p>");
         const qtyPicker = (kind, key, active) => `<div class="qty-picker">${QTY_STEPS.map((n) => `<button type="button" class="qs ${n === active ? 'on' : ''}" data-qty="${kind}" data-qty-key="${key}" data-qty-n="${n}">×${n}</button>`).join('')}</div>`;
         const cons = Object.entries(Gear.CONSUMABLES).filter(([, c]) => !c.alchemy).map(([k, c]) => {
           const qty = s.consQty[k] || 1, total = buyPrice(Gear.bulkPrice(consPrice(k), qty));
@@ -721,25 +834,50 @@ const Screens = (() => {
           const unit = buyPrice(Bestiary.resPrice(k, rt) * RES_BUY_MARKUP), qty = s.resQty[k] || 1, total = Gear.bulkPrice(unit, qty);
           return _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2}</span><span class=\"item-foot\">Цена: {3} за шт. · у вас: {4}</span></div>\n            <div class=\"card-act\">{5}<button type=\"button\" data-buy-res=\"{6}\" data-n=\"{7}\" {8}>Купить ×{9} за {10}</button></div></div>", [tierColor(rt), MonsterArt.resIcon(k, rt), resLabel(k, rt), money(unit), Profile.res(k, rt), qtyPicker('res', k, qty), k, qty, Profile.data.coins >= total ? '' : 'disabled', qty, money(total)]);
         }).join('');
-        body = _t("<h3>Вещи: постоянный каталог</h3>{0}<div class=\"card-list\">{1}</div>\n          <h3>Боеприпасы вашего народа</h3><div class=\"card-list\">{2}</div>\n          <h3>Расходники</h3><div class=\"card-list\">{3}</div>\n          <h3>Ресурсы</h3>{4}<div class=\"card-list\">{5}</div>\n          <p class=\"hint\">Руны теперь продаёт Журавль-художник в Мастерской художника.</p>", [cat.head, items, ammoCard, cons, tierPicker(top, rt, 'restier'), res]);
+        body = shopSectionTabs(s) + shopSection(s, 'gear', cat.head + '<div class="card-list">' + items + '</div>' + lockedShelf())
+          + shopSection(s, 'cons', '<h3>' + _t("Боеприпасы вашего народа") + '</h3><div class="card-list">' + ammoCard + '</div><h3>' + _t("Расходники") + '</h3><div class="card-list">' + cons + '</div>')
+          + shopSection(s, 'resources', tierPicker(top, rt, 'restier') + '<div class="card-list">' + res + '</div>');
       } else {
-        const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e))
-          .sort((a, b) => b.tier - a.tier).map((it) =>
-            itemCard(it, _t("Продать за: {0}", [money(Gear.sellValue(Math.round(it.price * Gear.wearFactor(Profile.item(it.uid))), it.tier))]), _t("<button type=\"button\" data-sell-item=\"{0}\">Продать</button>", [it.uid]))).join('') || _t("<p class=\"hint\">Нет вещей на продажу (надетые не продаются).</p>");
+        const items = salePanel(s);
         const cons = Gear.heldCons(Profile.data.backpack).map(([k, c]) => _t("\n          <div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}</span><span class=\"item-foot\">За штуку: {3}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-sell-cons=\"{4}\">Продать 1</button></div></div>", [itemIcon(k), c.name, Profile.data.backpack[k], money(Gear.sellValue(consPrice(Gear.parseCons(k).base))), k])).join('') || EmptyArt.html('flask', _t("Расходников нет"));
         const res = Profile.resList().map((r) => {
           const p = Bestiary.resSellPrice(r.kind, r.tier);
           return _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2} × {3}</span><span class=\"item-foot\">За штуку: {4}</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-sell-res=\"{5}:{6}\" data-n=\"1\">×1</button><button type=\"button\" data-sell-res=\"{7}:{8}\" data-n=\"all\">Все</button></div></div>", [tierColor(r.tier), MonsterArt.resIcon(r.kind, r.tier), resLabel(r.kind, r.tier), r.n, money(p), r.kind, r.tier, r.kind, r.tier]);
         }).join('') || _t("<p class=\"hint\">Ресурсов нет. Они выпадают из монстров.</p>");
-        body = _t("<h3>Вещи</h3><div class=\"card-list\">{0}</div><h3>Расходники</h3><div class=\"card-list\">{1}</div><h3>Ресурсы</h3><div class=\"card-list\">{2}</div>", [items, cons, res]);
+        body = shopSectionTabs(s) + shopSection(s, 'gear', items)
+          + shopSection(s, 'cons', '<div class="card-list">' + cons + '</div>')
+          + shopSection(s, 'resources', '<div class="card-list">' + res + '</div>');
       }
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Лавка\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}{4}</div></div>", [head(_t("Лавка")), tabs([['buy', _t("Купить")], ['sell', _t("Продать")]], s.tab), sceneStyle('shop'), s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', body]);
     },
     click(b) {
       const s = st.shop, d = b.dataset;
+      if (d.shopSection && shopSections().some(([id]) => id === d.shopSection)) {
+        clearSale(s); s.section = d.shopSection; s.msg = ''; return render();
+      }
+      if (s.tab === 'sell' && s.section === 'gear' && (d.salePick || d.saleAct)) {
+        if (d.salePick) {
+          s.saleConfirm=null;
+          if (Profile.canSellItem(d.salePick) && saleVisible().includes(d.salePick)) {
+            if(s.saleSelected.has(d.salePick)) s.saleSelected.delete(d.salePick); else s.saleSelected.add(d.salePick);
+          }
+        } else if (d.saleAct==='all') { s.saleConfirm=null; s.saleSelected=new Set(saleVisible().filter(uid=>Profile.canSellItem(uid))); }
+        else if(d.saleAct==='clear') clearSale(s);
+        else if(d.saleAct==='review') s.saleConfirm=Profile.saleQuote([...s.saleSelected]);
+        else if(d.saleAct==='cancel') s.saleConfirm=null;
+        else if(d.saleAct==='confirm' && s.saleConfirm) {
+          const quote=s.saleConfirm;
+          clearSale(s);
+          const sold=Profile.sellItems(quote.uids,quote.total);
+          s.msg=sold?_t("Продано вещей: {0}. Получено: {1}",[sold.uids.length,money(sold.total)]):_t("Продажа отменена: состав или стоимость вещей изменились.");
+          return changed();
+        }
+        return refreshSaleSummary();
+      }
       if (d.shopView) {
         if (d.shopView === 'affordable') s.affordable = !s.affordable;
-        else s.catalogView = d.shopView;
+        else if (d.shopView === 'reset') Object.assign(s, {q:'', set:'all', kind:'all', tier:0, sort:'order', affordable:false});
+        else if (d.shopView === 'grid' || d.shopView === 'list') s.catalogView = d.shopView;
         return render();
       }
       if (shelfClick(d)) return;
@@ -756,7 +894,7 @@ const Screens = (() => {
         workshopSuccess = 'shop'; s.msg = _t("Куплено вещей: {0}", [n]);
         return changed();
       }
-      if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.tab) { clearSale(s); s.tab = d.tab; s.msg = ''; return render(); }
       if (d.restier) { s.resTier = Number(d.restier); return render(); }
       if (d.catset) { s.set = d.catset; return render(); }
       if (d.catkind) { s.kind = d.catkind; return render(); }
@@ -817,9 +955,10 @@ const Screens = (() => {
         return changed();
       }
       if (d.sellItem) {
-        if (!Profile.item(d.sellItem)) return;   // 1.6.4: повторный (устаревший) клик по уже проданной вещи не платит второй раз
+        clearSale(s);
+        if (!Profile.canSellItem(d.sellItem)) return;   // 1.6.4: повторный (устаревший) клик по уже проданной вещи не платит второй раз
         const ent = Profile.item(d.sellItem), it = Gear.item(ent), wf = Gear.wearFactor(ent);     // 1.6.6: изношенная вещь дешевле
-        Profile.removeItem(d.sellItem);
+        if (!Profile.takeSaleItem(d.sellItem)) return;
         Profile.addCoins(Gear.sellValue(Math.round(it.price * wf), it.tier));
         s.msg = _t("Продано: {0}", [it.name]);
         return changed();
@@ -859,8 +998,16 @@ const Screens = (() => {
     const miss = [];
     const coinsLack = Math.max(0, (c.coins || 0) - Profile.data.coins);
     if (coinsLack > 0) miss.push(_t("монет: {0}", [money(coinsLack)]));
-    for (const r of (c.res || [])) { const lack = r.n - Profile.res(r.kind, r.tier); if (lack > 0) { const kn = Profile.species(), src = Bestiary.sourcesOf(r.kind).filter((id) => kn.includes(id)).slice(0, 3).map((id) => Bestiary.MONSTERS[id].name).join(', '); miss.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${lack}` + (src ? ` — ${_t("падает с")}: ${src}` : '')); } }
-    return miss.length ? `<div class="lack">${_t("Не хватает")}: ${miss.join(', ')}</div>` : '';
+    for (const r of (c.res || [])) {
+      const lack = r.n - Profile.res(r.kind, r.tier);
+      if (lack <= 0) continue;
+      const weak = Bestiary.resourcesWeak(r.tier, Hero.tierFor(Profile.level()));
+      const label = Bestiary.RESOURCES[r.kind].name + ' (' + Tiers.get(r.tier).name + ') ×' + lack;
+      const kn = Profile.species(), src = weak ? '' : Bestiary.sourcesOf(r.kind).filter(id => kn.includes(id)).slice(0,3).map(id => Bestiary.MONSTERS[id].name).join(', ');
+      miss.push('<div class="lack-material"><span>' + MonsterArt.resIcon(r.kind,r.tier) + ' ' + label + (src ? ' — ' + _t("падает с") + ': ' + src : '') + '</span>' +
+        '<button type="button" data-material-find="' + r.kind + ':' + r.tier + '">' + (weak ? _t("Найти в лавке") : _t("Найти источник на карте")) + '</button></div>');
+    }
+    return miss.length ? '<div class="lack"><b>' + _t("Не хватает") + ':</b> ' + miss.join(' ') + '</div>' : '';
   };
   const costHtml = (c, key) => costBase(c, key) + lackHtml(c);
   const forgeSummary = (c) => {
@@ -875,7 +1022,7 @@ const Screens = (() => {
     const out = new Set();
     for (const k of marks()) {
       const [id, t] = k.split(':'); let cost; try { cost = craftPlan(id, +t); } catch (e) { continue; }
-      for (const r of ((cost && cost.res) || [])) if (r.n > Profile.res(r.kind, r.tier)) for (const sp of Bestiary.sourcesOf(r.kind)) out.add(sp);
+      for (const r of ((cost && cost.res) || [])) if (r.n > Profile.res(r.kind, r.tier) && !Bestiary.resourcesWeak(r.tier, Hero.tierFor(Profile.level()))) for (const sp of Bestiary.sourcesOf(r.kind)) out.add(sp + ':' + r.tier);
     }
     return out;
   }
@@ -1480,6 +1627,21 @@ const Screens = (() => {
     if (reward.cons) Object.keys(reward.cons).forEach((k) => out.push(`<span class="qr-ico">${itemIcon(k)}</span>`));
     return out.length ? `<span class="quest-reward-icons">${out.join('')}</span>` : '';
   }
+  // Остров: список конкретных целей и состояние всей цепочки.
+  function islandQuestDetails(q) {
+    if (!q.accepted || q.claimed) return '';
+    const goals=Quests.islandObjectives(Profile.data,q.id);
+    if (!goals.length) return '';
+    return '<ul class="isle-objectives">'+goals.map(g=>{
+      const label=g.species?Bestiary.MONSTERS[g.species].name:HexMap.BUILDINGS[g.building].name;
+      return `<li class="${g.done?'done':''}"><span aria-label="${g.done?_t("Выполнено"):_t("Не выполнено")}">${g.done?'✓':'○'}</span> ${label}</li>`;
+    }).join('')+'</ul>';
+  }
+  function islandChainPanel() {
+    const chain=Quests.islandChain(Profile.data);
+    if (!chain.some(q=>q.ready||q.accepted)) return '';
+    return `<section class="isle-chain"><b>${_t("История Затерянного острова")}</b><div class="isle-chain-steps">${chain.map((q,i)=>`<div class="${q.claimed?'done':q.ready?'current':'locked'}"><span>${i+1}. ${q.title.replace(/^.*?: /,'')}</span><small>${q.claimed?_t("Завершено"):q.done&&q.accepted?_t("К сдаче"):q.accepted?_t("В работе"):q.ready?_t("Доступно"):_t("Закрыто")}</small></div>`).join('')}</div></section>`;
+  }
   // Общий рендер карточек заданий одного собеседника (giver — 'tavern' | 'mill').
   function questCards(giver) {
     // 2.2.7: у трактирщика новичку показываем не больше двух ещё не взятых заданий; остальные открываются по мере выполнения
@@ -1490,24 +1652,30 @@ const Screens = (() => {
       if (free > 0) { free--; return true; }
       hidden++; return false;
     });
-    return all.map((q) => {
+    return (giver==='lighthouse'?islandChainPanel():'') + all.map((q) => {
       let act;
       if (q.claimed) act = _t("<span class=\"badge done\">Получено</span>");
       else if (!q.accepted) act = _t("<button type=\"button\" class=\"primary\" data-accept=\"{0}\">Взять задание</button>", [q.id]);
       else if (q.done) act = _t("<button type=\"button\" class=\"primary\" data-claim=\"{0}\">Забрать награду</button>", [q.id]);
       else act = `<span class="quest-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${q.goal}" aria-valuenow="${q.value}">${q.value} / ${q.goal}<i style="--p:${Math.round(100*q.value/q.goal)}%"></i></span>`;
-      return _t("<div class=\"card quest-card {0}\">\n        <div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2}</span>\n          <span class=\"item-foot quest-reward\">{5}Награда: {3}</span></div>\n        <div class=\"card-act\">{4}</div></div>", [q.claimed ? 'is-done' : '', q.title, q.desc, q.rewardText, act, questRewardIcons(q.reward)]);
+      return `<div class="card quest-card ${q.claimed?'is-done':''}"><div class="card-body"><span class="item-title">${q.title}</span><span class="item-foot">${q.desc}</span>${islandQuestDetails(q)}<span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div><div class="card-act">${act}</div></div>`;
     }).join('') + (hidden ? `<p class="hint">${_t("Остальные задания трактирщик покажет, когда справитесь с этими.")}</p>` : '');
   }
   // Общий обработчик клика «Взять задание» / «Забрать награду» для экранов с заданиями. giver задаёт текст ответа.
   // Особые реплики отдельных поручений (иначе — общие по персонажу)
   const QUEST_SAY = {
     accept: {
+      'isle-1': _t("Когда-то за горизонт ушла экспедиция. Капитан отметил остров в дневнике, но команда не вернулась. Для начала выясни, кто теперь живёт на острове."),
+      'isle-2': _t("Ты видел всех пятерых. В старых записях они не упоминались. Проверь, насколько опасны эти существа, прежде чем искать следы экспедиции."),
+      'isle-3': _t("Капитан писал о сундуке на острове. Возможно, там остался след пропавшей команды. Отыщи сундук и возвращайся ко мне."),
       'jk-keyshard': _t("Ключ, говоришь? Дело нехитрое: тащи десяток ненужного хлама, я из железок скую. Рубины на камнях ждать не любят."),
       'lh-three': _t("Три сундука на берегу — сапфировый, рубиновый и изумрудный. Открой все, и я расскажу про четвёртый."),
       'lh-diary': _t("Капитан сам расскажет, где что лежит — если его как следует попросить. Дневник всегда при нём."),
     },
     claim: {
+      'isle-1': _t("Так вот кто поселился на острове. Твои наблюдения подтверждают: с тех пор, как капитан покинул эти воды, там многое изменилось."),
+      'isle-2': _t("Теперь путь к сундуку будет не таким опасным. Не золото меня интересует — я хочу понять, почему экспедиция не вернулась."),
+      'isle-3': _t("Сундук найден. Значит, капитан действительно побывал здесь. Но судьба команды всё ещё неизвестна. Дневник может подсказать, где искать дальше."),
       'jk-keyshard': _t("Ха! Десяток — как договаривались. Вот ключ: ржавый, зато крепкий. Рубиновый сундук на восточных камнях — твой."),
       'lh-three': _t("Все три открыты! Теперь слушай: под бригантиной, на дне, лежит серебряный сундук с обсидианом. Но без дневника Капитана туда не нырнуть."),
       'lh-diary': _t("Дневник! Тётушка Жабка по его записям сварит зелье подводного дыхания. А там уж и щуку навестишь."),
@@ -2066,7 +2234,7 @@ const Screens = (() => {
             <path d="M38 56 Q50 62 62 56" stroke="#6b4a2b" stroke-width="2.4" fill="none" stroke-linecap="round"/>
             <path d="M26 30 Q50 14 74 30 L70 36 Q50 24 30 36Z" fill="#8a7f6e"/>
             <circle cx="76" cy="66" r="12" fill="#7a6a4a" stroke="#3a332b" stroke-width="1.6"/></svg>`;
-      const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e)).sort((a, b) => b.tier - a.tier);
+      const items = Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => Gear.item(e)).sort((a, b) => b.tier - a.tier);
       const rows = items.map((it) =>
         itemCard(it, _t("Скупит за: {0}", [money(junkOf(it))]), _t("<button type=\"button\" data-junk-item=\"{0}\">Продать</button>", [it.uid]))).join('')
         || _t("<p class=\"hint\">Продавать нечего (надетые вещи старьёвщик не берёт).</p>");
@@ -2081,20 +2249,22 @@ const Screens = (() => {
       if (d.junkItem) {
         const it = Gear.item(Profile.item(d.junkItem));
         if (!it) return;
-        Profile.removeItem(d.junkItem);
+        if (!Profile.takeSaleItem(d.junkItem)) return;
         Profile.data.junkSold = (Profile.data.junkSold || 0) + 1;
         Profile.addCoins(junkOf(it));
         s.msg = (() => { const n = (Profile.data.junkSold || 0), q = Quests.list(Profile.data, 'junker')[0], tail = q && q.accepted && !q.claimed && !q.done ? _t(" Для ключа уже {0} из {1}.", [q.value, q.goal]) : ''; return JUNKER_SALE[n % JUNKER_SALE.length].replace('%n', it.name) + tail; })();
         return changed();
       }
       if (d.junkAll) {
-        const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e));
+        const items = Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => Gear.item(e));
         if (!items.length) return;
         let total = 0;
-        for (const it of items) { Profile.removeItem(it.uid); total += junkOf(it); }
-        Profile.data.junkSold = (Profile.data.junkSold || 0) + items.length;
+        let sold = 0;
+        for (const it of items) { if (Profile.takeSaleItem(it.uid)) { total += junkOf(it); sold++; } }
+        if (!sold) return;
+        Profile.data.junkSold = (Profile.data.junkSold || 0) + sold;
         Profile.addCoins(total);
-        s.msg = _t("Забрал всё разом, {0} шт. — вот {1}. {2}", [items.length, money(total), JUNKER_LINES[2]]);
+        s.msg = _t("Забрал всё разом, {0} шт. — вот {1}. {2}", [sold, money(total), JUNKER_LINES[2]]);
         return changed();
       }
     },
@@ -2878,14 +3048,14 @@ const credits = {
   /* =============== ТОРГОВЫЕ РЯДЫ (1.3.0): объявления о продаже =============== */
   const MK_KINDS = [['item', _t("Вещи")], ['res', _t("Ресурсы")], ['cons', _t("Расходники")], ['ammo', _t("Боеприпасы")]];
   function mkAssets(kind) {
-    if (kind === 'item') return Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => ({ key: e.uid, have: 1, name: Gear.item(e).name, icon: itemIcon('', '', e.id), tier: e.tier, entry: e }));
+    if (kind === 'item') return Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => ({ key: e.uid, have: 1, name: Gear.item(e).name, icon: itemIcon('', '', e.id), tier: e.tier, entry: e }));
     if (kind === 'res') return Profile.resList().map((r) => ({ key: r.kind + ':' + r.tier, have: r.n, name: resLabel(r.kind, r.tier), icon: MonsterArt.resIcon(r.kind, r.tier), tier: r.tier }));
     if (kind === 'cons') return Gear.heldCons(Profile.data.backpack).map(([k, c]) => ({ key: k, have: Profile.data.backpack[k], name: c.name, icon: itemIcon(k), unit: consPrice(Gear.parseCons(k).base) }));
     return Ammo.stocks((k) => Profile.ammo(k)).map((k) => ({ key: k, have: Profile.ammo(k), name: Ammo.stockName(k), icon: Ammo.icon(k), unit: ammoPrice(Ammo.parse(k).kind) }));
   }
   const lotIcon = (lot) => lot.kind === 'item' ? itemIcon('', '', lot.entry.id) : lot.kind === 'res' ? MonsterArt.resIcon(lot.key.split(':')[0], Number(lot.key.split(':')[1])) : lot.kind === 'cons' ? itemIcon(lot.key) : Ammo.icon(lot.key);
   function mkTake(kind, a, n) {
-    if (kind === 'item') { Profile.data.items = Profile.data.items.filter((e) => e.uid !== a.key); Profile.save(); return true; }
+    if (kind === 'item') return Profile.takeSaleItem(a.key);
     if (kind === 'res') { const [k, t] = a.key.split(':'); return Profile.takeRes(k, Number(t), n); }
     if (kind === 'cons') { if ((Profile.data.backpack[a.key] || 0) < n) return false; Profile.data.backpack[a.key] -= n; Profile.save(); return true; }
     if (Profile.ammo(a.key) < n) return false; Profile.data.ammo[a.key] -= n; Profile.save(); return true;
@@ -3798,12 +3968,12 @@ const credits = {
       const groups = { active: all.filter(q => !q.done && !q.claimed), ready: all.filter(q => q.done && !q.claimed), done: all.filter(q => q.claimed) };
       const labels = { active: _t("В работе"), ready: _t("К сдаче"), done: _t("Завершены") };
       const rows = groups[s.tab].map(q => {
-        const giver = Unlocks.GIVERS[q.giver], building = giver && giver[0];
+        const giver = Unlocks.GIVERS[q.giver];
         const progress = q.claimed ? q.goal : Math.max(0, Math.min(q.goal, q.value));
-        const locate = !q.claimed && building ? `<button type="button" data-quest-locate="${q.id}">${_t("Показать на карте")}</button>` : '';
+        const locate = !q.claimed ? `<button type="button" data-quest-locate="${q.id}">${_t("Показать на карте")}</button>` : '';
         return `<article class="card quest-card journal-quest ${q.claimed ? 'is-done' : q.done ? 'quest-ready' : ''}">
           <div class="card-body"><span class="item-title">${q.title}</span><span class="item-foot">${giver ? giver[1] : ''}</span>
-          <span class="item-foot">${q.desc}</span><span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div>
+          <span class="item-foot">${q.desc}</span>${islandQuestDetails(q)}<span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div>
           <div class="journal-quest-progress"><span>${progress} / ${q.goal}</span><progress max="${q.goal}" value="${progress}" aria-label="${q.title}"></progress>${locate}</div></article>`;
       }).join('');
       const nav = Object.keys(groups).map(k => [k, labels[k] + ' · ' + groups[k].length]);
@@ -3816,8 +3986,7 @@ const credits = {
       if (b.dataset.journalDaily) return open('today');
       if (b.dataset.questLocate) {
         const q = questJournalRows().find(x => x.id === b.dataset.questLocate && !x.claimed);
-        const giver = q && Unlocks.GIVERS[q.giver];
-        if (giver) { close(); MapView.focusQuestGiver(giver[0]); }
+        if (q) { close(); MapView.focusQuest(q); }
       }
     },
   };

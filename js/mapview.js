@@ -148,6 +148,7 @@ const MapView = (() => {
     bindInput();
     bindHud();
     initMini();
+    bindMapFilters();
     load();
     setMode('map');
     syncDefs();                                            // рисунки местностей, открытых сейчас; остальные подгружаются по мере открытия земель
@@ -156,6 +157,37 @@ const MapView = (() => {
     if (Profile.data.faction && typeof Whatsnew !== 'undefined' && Whatsnew.check(Profile.data, GAME_VERSION)) { Profile.save(); setTimeout(() => Screens.open('whatsnew'), 900); }   // 2.0.9: «Что нового» один раз после обновления
     siegeReadyAt = Date.now() + 20000;                 // 1.7.0: осада не начинается в первые секунды после запуска
     setInterval(tick, 5000);
+  }
+
+  // Название области — отдельное, не перекрывающее управление уведомление.
+  let regionKey = '', regionCandidate = '', regionTimer = 0;
+  function regionAt() {
+    const c = map && st && map.cells[st.pos];
+    if (!c) return null;
+    if (map.kind === 'island') return ['island', _t("Затерянный остров")];
+    if (map.kind === 'castle') return ['castle', _t("Замок")];
+    if (map.kind === 'tower') return ['tower:' + (map.floor || 1), _t("Подземелье") + ' · ' + (map.floor || 1)];
+    const key = c.d <= HexMap.VILLAGE_R ? 'village' : c.terrain;
+    return HexMap.TERRAIN[key] ? [key, HexMap.TERRAIN[key].name] : null;
+  }
+  function updateRegion(settled = false, initial = false) {
+    const r = regionAt();
+    if (!r) return;
+    if (initial && !regionKey) { regionKey = r[0]; return; }
+    if (r[0] === regionKey) { regionCandidate = ''; return; }
+    // На границе двух местностей не мигаем на каждой соте.
+    if (!settled && regionCandidate !== r[0]) { regionCandidate = r[0]; return; }
+    regionKey = r[0]; regionCandidate = '';
+    const parent = el['map-view'];
+    if (!parent) return;
+    let banner = parent.querySelector('.region-banner');
+    if (!banner) {
+      banner = document.createElement('div'); banner.className = 'region-banner';
+      banner.setAttribute('role', 'status'); parent.append(banner);
+    }
+    banner.textContent = r[1]; banner.classList.add('show');
+    clearTimeout(regionTimer);
+    regionTimer = setTimeout(() => banner.classList.remove('show'), 2200);
   }
 
   function load() {
@@ -209,6 +241,7 @@ const MapView = (() => {
     renderFog();
     renderMonsters();
     placePlayer(false);
+    updateRegion(true, true);
     renderHud();
     requestAnimationFrame(() => { if (view().width < 500) cam.s = 0.8; centerOn(st.pos, false); applyMiniVisible(); });
     siegeOnLoad();
@@ -544,6 +577,37 @@ const MapView = (() => {
   }
 
   let fitOn = false; try { fitOn = localStorage.getItem('wip-map-fit') === '1'; } catch (e) {}   // 2.4.0: фильтр «по силам» (±3 уровня), запоминается
+  // Фильтры — только визуальные предпочтения; состояние мира и сохранение героя не меняются.
+  const mapFilters = { ordinary: _t("Обычные существа"), elite: _t("Элитные противники"), boss: _t("Боссы и стражи"), events: _t("События карты"), landmarks: _t("Достопримечательности"), labels: _t("Подписи зданий") };
+  let mapHidden = {};
+  try { const p = JSON.parse(localStorage.getItem('wip-map-filters') || '{}'); for (const k of Object.keys(mapFilters)) if (p?.[k] === true) mapHidden[k] = true; } catch (e) { /* defaults */ }
+  function paintMapFilters() {
+    const panel = document.getElementById('mm-sub-map');
+    for (const [k, label] of Object.entries(mapFilters)) {
+      el['map-view'].classList.toggle('hide-map-' + k, !!mapHidden[k]);
+      const b = panel?.querySelector('[data-map-filter="' + k + '"]');
+      if (b) { b.setAttribute('aria-pressed', String(!mapHidden[k])); b.textContent = label + ': ' + (mapHidden[k] ? _t("выкл") : _t("вкл")); }
+    }
+    const head = document.getElementById('mm-map-filters');
+    if (head) head.textContent = _t("Фильтры карты") + (Object.values(mapHidden).some(Boolean) ? ' · ' + Object.values(mapHidden).filter(Boolean).length : '');
+    mini.dirty = true; drawMini();
+  }
+  function bindMapFilters() {
+    const panel = document.getElementById('mm-sub-map');
+    if (!panel) return;
+    for (const k of Object.keys(mapFilters)) {
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.mapFilter = k; panel.append(b);
+    }
+    const reset = document.createElement('button'); reset.type = 'button'; reset.dataset.mapFilter = 'all'; reset.textContent = _t("Показать всё"); panel.append(reset);
+    panel.addEventListener('click', e => {
+      const k = e.target.closest('[data-map-filter]')?.dataset.mapFilter;
+      if (!k) return;
+      if (k === 'all') mapHidden = {}; else if (Object.hasOwn(mapFilters,k)) mapHidden[k] = !mapHidden[k]; else return;
+      try { localStorage.setItem('wip-map-filters', JSON.stringify(mapHidden)); } catch (err) { /* без хранилища */ }
+      paintMapFilters();
+    });
+    paintMapFilters();
+  }
   const FIT_BAND = 3;
   function renderMonsters() {
     syncDeco();
@@ -560,7 +624,7 @@ const MapView = (() => {
         continue;
       }
       const elite = eliteOf(sp), fig = bossFigure(sp);
-      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}${want && want.has(sp.species) ? ' want' : ''}${fitOn && Math.abs(HexMap.lvlOf(sp) - Profile.level()) > FIT_BAND ? ' far' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
+      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}${want && want.has(sp.species + ':' + sp.tier) ? ' want' : ''}${fitOn && Math.abs(HexMap.lvlOf(sp) - Profile.level()) > FIT_BAND ? ' far' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
           ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>${castleArmour(sp)}
@@ -1059,10 +1123,12 @@ const MapView = (() => {
       const reveal = revealAround(next);
       if (reveal) monstersDirty = true;   // 2.2.10: зверей перерисуем один раз по окончании пути — перерисовка слоя на каждом шаге рвала движение
       await glide(from, px(next), ms);
+      updateRegion();
     }
     flushMonsters();
     stepping = false; walkView = null;
     setMoving(false); applyCam();
+    updateRegion(true);
     renderHud();
     save();
   }
@@ -1150,7 +1216,7 @@ const MapView = (() => {
     if (!arrowsOk() || !Compass.use(compassS(), kind, Profile.beltTier())) return toast(_t("Стрелки работают только на материке и только с Поясом"));
     closeCard(); walking = null; st.pos = idx;
     for (const n of HexMap.area(map, idx, 3)) revealed.add(n);
-    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); save(); renderHud();
+    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); updateRegion(true); save(); renderHud();
     toast(kind === 'home' ? _t("Стрелка перенесла вас в деревню") : _t("Стрелка перенесла вас к метке"));
   }
   function goHome() {
@@ -1281,10 +1347,10 @@ const MapView = (() => {
     }
     {                                                                // 2.4.0: словами — по силам ли существо; при первом показе объяснение точки
       const D = Balance.mobLevels.dot, dl = HexMap.lvlOf(sp) - Profile.level();
-      const word = dl <= D.weak ? _t("Слабее вас") : dl >= D.deadly ? _t("Смертельно опасно") : dl >= D.hard ? _t("Опасный противник") : _t("Ровня вам");
+      const word = dl <= D.weak ? _t("Слабее вас") : dl >= D.deadly ? _t("Смертельно опасно") : dl >= D.hard ? _t("Опасный противник") : _t("Равный вам");
       const lp = document.createElement('p'); lp.className = 'hint level-note'; lp.dataset.cmp = dl <= D.weak ? 'weak' : dl >= D.deadly ? 'deadly' : dl >= D.hard ? 'hard' : 'even';
       lp.textContent = _t("{0} (уровень существа {1}, ваш {2}).", [word, HexMap.lvlOf(sp), Profile.level()]);
-      if (!Profile.data.dotHintSeen) { lp.textContent += ' ' + _t("Точка у значка уровня: серая — слабее вас, зелёная — ровня, жёлтая — сильнее, красная — смертельно опасно."); Profile.data.dotHintSeen = 1; Profile.save(); }
+      if (!Profile.data.dotHintSeen) { lp.textContent += ' ' + _t("Точка у значка уровня: серая — слабее вас, зелёная — равный вам, жёлтая — сильнее, красная — смертельно опасно."); Profile.data.dotHintSeen = 1; Profile.save(); }
       const nb = el['map-card'].querySelector('.mc-body'); if (nb) nb.insertBefore(lp, el['map-card'].querySelector('.mc-act'));
     }
     // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
@@ -1412,9 +1478,16 @@ const MapView = (() => {
     if (st.pos === i || HexMap.dist(map.cells[st.pos], map.cells[i]) <= 1) return fn();
     walkTo(i, fn, true);
   }
-  const resultCard = (title, html, extra = '') => {
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${title}</b><div class="mc-result">${html}</div>${extra}<div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
+  const resultCard = (title, html, extra = '', compact = false) => {
+    el['map-card'].innerHTML = `<div class="map-card${compact ? ' mc-compact-loot' : ''}"><div class="mc-body"><b class="mc-title">${title}</b><div class="mc-result">${html}</div>${extra}<div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
   };
+  // Добыча из тайника: настоящие игровые значки, цвет и количество; название доступно и без распознавания рисунка.
+  function cacheLootHtml(coins, drops) {
+    return `<div class="mc-loot-coins">${_t("Монеты: {0}", [MonsterArt.moneyHtml(coins)])}</div>${drops.length ? '<div class="mc-loot-res">' + drops.map(r => {
+      const name = Bestiary.RESOURCES[r.kind].name + ' (' + Tiers.get(r.tier).name + ')';
+      return `<span class="mc-loot-item" style="--loot-tier:${Tiers.get(r.tier).color}" title="${escText(name)}"><span class="mc-loot-icon">${MonsterArt.resIcon(r.kind,r.tier)}</span><span class="mc-loot-label">${escText(name)}<strong> ×${r.n}</strong></span></span>`;
+    }).join('') + '</div>' : ''}`;
+  }
   // Быстрый бой: подходит к существу и сразу побеждает (награда — quickReward в game.js).
   function quickFight(sp) {
     if (!World.QUICK.enabled) return;
@@ -1497,10 +1570,9 @@ const MapView = (() => {
       const coins = Math.round(World.cacheCoins(T) * (fast ? 1.5 : 1));
       Profile.addCoins(coins);
       const drops = Bestiary.rollDrops(speciesFor(T), T, Math.random, d.faction, Hero.tierFor(Profile.level())).resources;
-      const lines = [_t("Монеты: {0}", [MonsterArt.moneyHtml(coins)])];
-      for (const r of drops) { Profile.addRes(r.kind, r.tier, r.n); lines.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}`); }
+      for (const r of drops) Profile.addRes(r.kind, r.tier, r.n);
       useEvent(e); renderHud(); if (typeof onEconomyChanged === 'function') onEconomyChanged();
-      return resultCard(_t("Тайник"), lines.join('<br>'));
+      return resultCard(_t("Тайник"), cacheLootHtml(coins, drops), '', true);
     }
     if (k === 'bless') {
       worldMedal('altar');
@@ -1722,8 +1794,8 @@ const MapView = (() => {
     ctx.clearRect(0, 0, MINI, MINI);
     ctx.drawImage(mini.base, 0, 0);
     const dot = (i, col, r) => { const p = px(i); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(half + p.x * k, half + p.y * k, r, 0, 6.2832); ctx.fill(); };
-    for (const m of world.landmarks || []) if (known(m.idx)) dot(m.idx, st.found[m.id] ? '#6f8a7a' : '#7fd0ff', 2.2);
-    for (const l of world.lairs) if (known(l.idx)) dot(l.idx, '#e0652f', 2.4);
+    for (const m of world.landmarks || []) if (!mapHidden.landmarks && known(m.idx)) dot(m.idx, st.found[m.id] ? '#6f8a7a' : '#7fd0ff', 2.2);
+    for (const l of world.lairs) if (!mapHidden.landmarks && known(l.idx)) dot(l.idx, '#e0652f', 2.4);
     for (const t of siegeTargets()) dot(t.r.idx, t.looter ? '#ffb347' : '#ff3b2f', 3.2);
     for (const i of st.pins) dot(i, '#ff4a36', 3);
     dot(st.pos, '#fff', 3.4); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
@@ -1996,9 +2068,57 @@ const MapView = (() => {
     toast(_t("Вам сюда: {0}", [(HexMap.BUILDINGS[id] && HexMap.BUILDINGS[id].name) || id]));
     return true;
   }
+  let mapFocusTimer = 0;
+  function highlightMapTarget(idx) {
+    for (const n of el['l-mon'].querySelectorAll('.map-focus')) n.classList.remove('map-focus');
+    const token = el['l-mon'].querySelector('.mon[data-i="' + idx + '"]');
+    if (token) token.classList.add('map-focus');
+    clearTimeout(mapFocusTimer);
+    mapFocusTimer = setTimeout(() => { if (token) token.classList.remove('map-focus'); }, 6000);
+    flashCell(idx);
+  }
+  function focusQuest(q) {
+    if (!map || !st || !document.body.classList.contains('mode-map')) return false;
+    const d = Profile.data, t = Unlocks.questTarget(d, q);
+    if (!t) return false;
+    if (t.kind === 'island') {
+      if (map.kind !== 'island') {
+        if (!map.kind) return focusQuestGiver('wreck');
+        toast(_t("Вернитесь на материк, затем отправляйтесь к бригантине.")); return false;
+      }
+      if (t.quest==='isle-3') return focusQuestGiver('islandChest');
+      const missing=new Set(Quests.islandObjectives(d,t.quest).filter(g=>!g.done).map(g=>g.species));
+      const candidates=map.spawns.filter(sp=>missing.has(sp.species) && !sp.guard && (t.quest==='isle-1'||alive(sp)));
+      candidates.sort((a,b)=>Number(known(b.idx))-Number(known(a.idx)) || HexMap.dist(map.cells[st.pos],map.cells[a.idx])-HexMap.dist(map.cells[st.pos],map.cells[b.idx]));
+      const target=candidates[0];
+      if(!target){toast(_t("Подходящие существа пока не появились. Дождитесь их возвращения."));return false;}
+      closeCard();centerOn(target.idx);highlightMapTarget(target.idx);
+      if (known(target.idx)&&alive(target)) showMonster(target);
+      else toast(_t("Цель в неисследованной области — подойдите ближе"));
+      return true;
+    }
+    if (t.kind === 'building') {
+      if (map.kind==='island' && t.id==='lighthouse') return focusQuestGiver('islandPier');
+      if (!Unlocks.isOpen(d, t.id)) { toast(Unlocks.reason(d, t.id)); return false; }
+      return focusQuestGiver(t.id);
+    }
+    if (t.kind === 'species') return focusSpecies(t.id);
+    if (t.kind === 'hunt') {
+      const cands = map.spawns.filter(sp => known(sp.idx) && alive(sp) && !sp.boss && !sp.zone &&
+        (!t.distinct || !(d.bestiary?.[sp.species]?.wins)) &&
+        (!t.resource || (!Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level())) &&
+          Bestiary.MONSTERS[sp.species]?.drops.some(drop => drop[1] > 0 && drop[2] > 0))));
+      cands.sort((a,b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
+      if (cands.length) { closeCard(); centerOn(cands[0].idx); showMonster(cands[0]); highlightMapTarget(cands[0].idx); return true; }
+      toast(_t("В этой локации подходящих целей не найдено")); return false;
+    }
+    toast(q.desc, 6500); return false;
+  }
   function whatNext() {
     if (!map || battleSpawn) return;
-    const d = Profile.data, t = Unlocks.target(d, Quests.list(d));
+    const d = Profile.data, list = Quests.list(d), t = Unlocks.target(d, list);
+    const q = list.find(x => x.accepted && x.done && !x.claimed) || list.find(x => x.accepted && !x.done && !x.claimed);
+    if ((d.wins || 0) > 0 && q) return focusQuest(q);
     clearTimeout(nextTimer);
     if (t.kind === 'building' && map.buildings.find((b) => b.id === t.id)) {
       coachRing(t.id); nextTimer = setTimeout(() => coachRing(null), 6000);
@@ -2029,7 +2149,7 @@ const MapView = (() => {
     closeCard(); walking = null;
     st.pos = idx;
     for (const n of HexMap.area(map, idx, radius)) revealed.add(n);
-    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); save();
+    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); updateRegion(true); save();
   }
   // Открывает всю карту (проверки и снимки для рекламки): туман снимается, мини-карта перерисовывается.
   function devRevealAll() { for (const c of map.cells) revealed.add(c.idx); renderFog(); renderMonsters(); mini.dirty = true; drawMini(); save(); }
@@ -2889,10 +3009,14 @@ const MapView = (() => {
   // Поиск добычи и существ в текущей локации без раскрытия тумана.
   function focusMob(species, tier, resource) {
     if (!map || !st) return false;
+    if (resource && tier && Bestiary.resourcesWeak(tier, Hero.tierFor(Profile.level()))) {
+      toast(_t("Слишком низкий цвет: в бою этот ресурс не выпадет. Ищите его в лавке или на рынке."), 5500);
+      return false;
+    }
     const candidates = [...map.spawns, ...guestList, ...(rareSp ? [rareSp] : [])].filter(sp =>
       (!sp.rare && !sp.guest || known(sp.idx)) &&
       (!species || sp.species === species) && (!tier || sp.tier === tier) &&
-      (!resource || Bestiary.MONSTERS[sp.species].drops.some(d => d[0] === resource && d[1] > 0 && d[2] > 0)));
+      (!resource || (!Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level())) && Bestiary.MONSTERS[sp.species]?.drops.some(d => d[0] === resource && d[1] > 0 && d[3] > 0))));
     candidates.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
     const sp = candidates.find(s => known(s.idx) && alive(s)) || candidates.find(s => alive(s)) || candidates.find(s => known(s.idx));
     if (!sp) {
@@ -2903,6 +3027,7 @@ const MapView = (() => {
     if (!known(sp.idx)) { toast(_t("Цель в неисследованной области — подойдите ближе")); return true; }
     if (!alive(sp)) { toast(_t("Цель побеждена — дождитесь возрождения")); return true; }
     showMonster(sp);
+    highlightMapTarget(sp.idx);
     return true;
   }
   const focusSpecies = (species, tier = 0) => focusMob(species, tier, null);
@@ -2910,7 +3035,7 @@ const MapView = (() => {
 
   return {
     refreshMonsters() { if (map) renderMonsters(); },
-    init, reset, returnFromBattle, focusSpecies, focusResource, focusQuestGiver, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
+    init, reset, returnFromBattle, focusSpecies, focusResource, focusQuestGiver, focusQuest, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
     devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = HexMap.sharedSeed('tower'); t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
     devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland, devShowMonster: showMonster, get oakCell() { return oakSpot(); },

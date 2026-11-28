@@ -35,12 +35,16 @@ assert.ok(list.every((q) => !q.done && !q.claimed && !q.accepted && q.value === 
   assert.ok(!Quests.canAccept(p,'isle-1')&&!Quests.canAccept(p,'bob-2'));
   p.ship={fixed:true};assert.ok(Quests.canAccept(p,'isle-1'));
   p.seen=Object.fromEntries(ids.map(id=>[id,1]));
+  assert.strictEqual(Quests.islandObjectives(p,'isle-1').filter(g=>g.done).length,5);
+  assert.strictEqual(Quests.islandObjectives(p,'isle-2').filter(g=>g.done).length,0);
+  assert.deepStrictEqual(Quests.islandChain(p).map(q=>q.ready),[true,false,false]);
   assert.strictEqual(Quests.list(p).find(q=>q.id==='isle-1').value,5);
   assert.ok(!Quests.canAccept(p,'isle-2'));
   p.quests['isle-1']=true;p.accepted['isle-2']=true;
   assert.ok(!Quests.canClaim(p,'isle-2'));
   p.bestiary=Object.fromEntries(ids.map(id=>[id,{wins:1}]));
   assert.ok(Quests.canClaim(p,'isle-2'));
+  assert.strictEqual(Quests.islandObjectives(p,'isle-2').filter(g=>g.done).length,5);
   p.quests['isle-2']=true;p.accepted['isle-3']=true;
   assert.ok(!Quests.canClaim(p,'isle-3'));p.island={chestTaken:true};assert.ok(Quests.canClaim(p,'isle-3'));
 }

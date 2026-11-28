@@ -23,6 +23,19 @@ const Quests = (() => {
   const ISLAND = ['glowmaw','coralhulk','stormray','tidecaller','thornback'];
   const islandSeen = d => ISLAND.filter(id => d.seen?.[id] || d.bestiary?.[id]?.wins > 0).length;
   const islandWins = d => ISLAND.filter(id => d.bestiary?.[id]?.wins > 0).length;
+  const ISLAND_CHAIN = ['isle-1','isle-2','isle-3'];
+  // Отмечаем фактические достижения, включая уже существующие сохранения.
+  function islandObjectives(data,id) {
+    if (id==='isle-1' || id==='isle-2') return ISLAND.map(species=>({species, done:id==='isle-1'?!!(data.seen?.[species] || data.bestiary?.[species]?.wins>0):!!(data.bestiary?.[species]?.wins>0)}));
+    if (id==='isle-3') return [{building:'islandChest',done:!!data.island?.chestTaken}];
+    return [];
+  }
+  function islandChain(data) {
+    return ISLAND_CHAIN.map(id=>{
+      const q=find(id), claimed=!!data.quests?.[id], accepted=isAccepted(data,id), unlocked=ready(data,id);
+      return {id,title:q.title,claimed,accepted,ready:unlocked,done:claimed || (unlocked && q.need(data)>=q.goal)};
+    });
+  }
   // Сложность острова определяется его существами, а не уровнем сдающего героя.
   const ISLAND_CHEST_COINS = Q_B.economy.battleLoot[9];
   const islandScoutCoins = Q_B.economy.battleLoot[6];
@@ -256,7 +269,7 @@ const Quests = (() => {
     return true;
   }
 
-  return { LIST, ISLAND_CHEST_COINS, list, find, canAccept, accept, canClaim, claim };
+  return { LIST, ISLAND_CHEST_COINS, islandObjectives, islandChain, list, find, canAccept, accept, canClaim, claim };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

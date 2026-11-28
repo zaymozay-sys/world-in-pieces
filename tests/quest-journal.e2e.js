@@ -12,6 +12,33 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       p.on('pageerror', e => errors.push(e.message));
       await p.goto(URL);
       await p.waitForFunction(() => typeof Profile !== 'undefined' && Profile.data.testX10 === true && typeof MapView !== 'undefined' && !!MapView.map && document.body.classList.contains('mode-map'));
+      // Фильтры не меняют мир, а выбранные настройки остаются в браузере.
+      await p.locator('#m-more').click();
+      await p.locator('#mm-map-filters').click();
+      const ordinary = p.locator('#mm-sub-map [data-map-filter="ordinary"]');
+      assert.equal(await ordinary.getAttribute('aria-pressed'),'true');
+      const before = await p.evaluate(() => MapView.map.spawns.length);
+      await ordinary.click();
+      assert.equal(await ordinary.getAttribute('aria-pressed'),'false');
+      assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('wip-map-filters')).ordinary),true);
+      assert.equal(await p.evaluate(() => MapView.map.spawns.length),before);
+      assert.equal(await p.locator('#map-view.hide-map-ordinary').count(),1);
+      const icons = p.locator('#l-mon .mon:not(.boss):not(.elite):not(.rare):not(.next-step):not(.want):not(.next-glow)');
+      if (await icons.count()) assert.equal(await icons.first().evaluate(e => getComputedStyle(e).display),'none');
+      await p.locator('#mm-sub-map [data-map-filter="all"]').click();
+      assert.equal(await ordinary.getAttribute('aria-pressed'),'true');
+      assert.equal(await p.locator('#map-view.hide-map-ordinary').count(),0);
+      await p.locator('#m-more').click();
+      // Вход в другую местность показывает название, не перекрывая управление.
+      await p.evaluate(() => {
+        const c = MapView.map.cells.find(c => c.d > HexMap.VILLAGE_R && c.terrain === 'forest' && HexMap.passable(MapView.map,c.idx));
+        if (!c) throw Error('Нет леса для проверки');
+        MapView.devTeleport(c.idx);
+      });
+      await p.locator('.region-banner.show').waitFor();
+      assert.equal(await p.locator('.region-banner').innerText(),await p.evaluate(() => HexMap.TERRAIN.forest.name));
+      assert.equal(await p.locator('.region-banner').evaluate(e => getComputedStyle(e).pointerEvents),'none');
+      await p.evaluate(() => MapView.devTeleport(HexMap.center(MapView.map)));
       await p.evaluate(() => {
         Profile.data.accepted = { 'first-blood': true }; Profile.data.quests = {}; Profile.data.wins = 0;
         Screens.openQuestJournal();

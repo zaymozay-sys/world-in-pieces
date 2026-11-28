@@ -38,3 +38,18 @@ console.log('unlocks: «Что дальше?» ок');
   assert.ok(/достигните уровня 5/.test(Unlocks.goal({ wins: 50, xp: xpFor(5) }, [])) || true);
   console.log('unlocks 2.1.7: питомцы с 5-го уровня ок');
 }
+
+/* 2.6.0: accepted quests point at objectives, finished quests at their giver. */
+{
+  const q = (id, extra = {}) => ({id, accepted:true, done:false, claimed:false, giver:'tavern', ...extra});
+  assert.deepStrictEqual(Unlocks.questTarget({},q('first-blood')), {kind:'hunt'});
+  assert.deepStrictEqual(Unlocks.questTarget({},q('bestiary-3')), {kind:'hunt',distinct:true});
+  assert.deepStrictEqual(Unlocks.questTarget({},q('resources-10')), {kind:'hunt',resource:true});
+  assert.deepStrictEqual(Unlocks.questTarget({},q('amulet',{where:()=> 'shop'})), {kind:'building',id:'shop'});
+  assert.deepStrictEqual(Unlocks.questTarget({},q('lh-diary',{giver:'lighthouse'})), {kind:'species',id:'captain'});
+  assert.deepStrictEqual(Unlocks.questTarget({},q('hn-belt',{giver:'hunter',done:true})), {kind:'building',id:'hunter'});
+  assert.deepStrictEqual(Unlocks.questTarget({},q('isle-1')), {kind:'hint'});
+  assert.equal(Unlocks.questTarget({},q('first-blood',{claimed:true})),null);
+  assert.equal(Unlocks.questTarget({},q('first-blood',{accepted:false})),null);
+  console.log('quest navigation: targets ok');
+}

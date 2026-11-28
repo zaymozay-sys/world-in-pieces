@@ -37,6 +37,7 @@ jobs:
       - run: node tests/gear.test.js
       - run: node tests/forge207.test.js
       - run: node tests/quests.test.js
+      - run: node tests/unlocks.test.js
       - run: node tests/combat.test.js
       - run: node tests/bank.test.js
   browser:

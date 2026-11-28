@@ -87,6 +87,8 @@ const SaveGuard = (() => {
       seen.add(c.uid); items.push(c);
     }
     d.items = items;
+    // Избранное привязано к экземплярам, отсутствующие uid не сохраняем.
+    if (d.favoriteItems !== undefined) d.favoriteItems = [...new Set(Array.isArray(d.favoriteItems) ? d.favoriteItems.filter(uid => typeof uid === 'string' && seen.has(uid)) : [])];
 
     // --- надетое: существующая вещь, подходящая ячейке, одна вещь — одна ячейка ---
     const lo = SG_G.emptyLoadout(), used = new Set(), src = isObj(d.loadout) ? d.loadout : {};
@@ -98,6 +100,10 @@ const SaveGuard = (() => {
       if (e && !used.has(u) && SG_G.fits(s, SG_G.item(e).type)) { lo[s] = u; used.add(u); } else fix('надето: ячейка ' + s + ' снята');
     }
     d.loadout = lo;
+    if (d.equipmentPresets !== undefined) {
+      const names = new Set();
+      d.equipmentPresets = (Array.isArray(d.equipmentPresets) ? d.equipmentPresets : []).filter(p => p && typeof p.name === 'string' && p.name.trim() && isObj(p.slots)).slice(0,5).map(p => ({name:p.name.trim().slice(0,32),slots:Object.fromEntries(SG_G.SLOTS.map(k=>[k,typeof p.slots[k]==='string'?p.slots[k]:null]))})).filter(p=>{const key=p.name.toLowerCase();if(names.has(key))return false;names.add(key);return true;});
+    }
 
     // --- ресурсы, расходники, эликсиры, боеприпасы, руны, яйца ---
     d.resources = counters(d.resources, resKeyOk, 'ресурсы');
