@@ -1478,9 +1478,16 @@ const MapView = (() => {
     if (st.pos === i || HexMap.dist(map.cells[st.pos], map.cells[i]) <= 1) return fn();
     walkTo(i, fn, true);
   }
-  const resultCard = (title, html, extra = '') => {
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${title}</b><div class="mc-result">${html}</div>${extra}<div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
+  const resultCard = (title, html, extra = '', compact = false) => {
+    el['map-card'].innerHTML = `<div class="map-card${compact ? ' mc-compact-loot' : ''}"><div class="mc-body"><b class="mc-title">${title}</b><div class="mc-result">${html}</div>${extra}<div class="mc-act"><button type="button" data-act="close">${_t("Закрыть")}</button></div></div></div>`;
   };
+  // Добыча из тайника: настоящие игровые значки, цвет и количество; название доступно и без распознавания рисунка.
+  function cacheLootHtml(coins, drops) {
+    return `<div class="mc-loot-coins">${_t("Монеты: {0}", [MonsterArt.moneyHtml(coins)])}</div>${drops.length ? '<div class="mc-loot-res">' + drops.map(r => {
+      const name = Bestiary.RESOURCES[r.kind].name + ' (' + Tiers.get(r.tier).name + ')';
+      return `<span class="mc-loot-item" style="--loot-tier:${Tiers.get(r.tier).color}" title="${escText(name)}"><span class="mc-loot-icon">${MonsterArt.resIcon(r.kind,r.tier)}</span><span class="mc-loot-label">${escText(name)}<strong> ×${r.n}</strong></span></span>`;
+    }).join('') + '</div>' : ''}`;
+  }
   // Быстрый бой: подходит к существу и сразу побеждает (награда — quickReward в game.js).
   function quickFight(sp) {
     if (!World.QUICK.enabled) return;
@@ -1563,10 +1570,9 @@ const MapView = (() => {
       const coins = Math.round(World.cacheCoins(T) * (fast ? 1.5 : 1));
       Profile.addCoins(coins);
       const drops = Bestiary.rollDrops(speciesFor(T), T, Math.random, d.faction, Hero.tierFor(Profile.level())).resources;
-      const lines = [_t("Монеты: {0}", [MonsterArt.moneyHtml(coins)])];
-      for (const r of drops) { Profile.addRes(r.kind, r.tier, r.n); lines.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${r.n}`); }
+      for (const r of drops) Profile.addRes(r.kind, r.tier, r.n);
       useEvent(e); renderHud(); if (typeof onEconomyChanged === 'function') onEconomyChanged();
-      return resultCard(_t("Тайник"), lines.join('<br>'));
+      return resultCard(_t("Тайник"), cacheLootHtml(coins, drops), '', true);
     }
     if (k === 'bless') {
       worldMedal('altar');
