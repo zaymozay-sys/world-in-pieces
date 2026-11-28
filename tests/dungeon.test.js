@@ -3,8 +3,15 @@ global._t = (s, a) => (a ? s.replace(/\{(\d+)\}/g, (_, i) => a[i]) : s);
 const D = require('../js/dungeon.js');
 const HexMap = require('../js/hexmap.js');
 assert.ok(D.eliteShare(1) > 0.15 && D.eliteShare(1) < D.eliteShare(5) && D.eliteShare(500) === 0.6, 'доля элитных растёт до потолка');
-assert.deepStrictEqual(D.reward(1), { coins: 150, res: [], cons: {}, egg: false, chest: false });
-const r5 = D.reward(5); assert.ok(r5.chest && r5.coins === 750 && r5.res.length === 2 && r5.cons.elixir === 1 && !r5.cons.scroll && !r5.egg);
+const loot = require('../js/balance.js').economy.battleLoot;
+assert.deepStrictEqual(D.reward(1), { coins: Math.round(loot[7] / 2), res: [], cons: {}, egg: false, chest: false });
+const r5 = D.reward(5); assert.ok(r5.chest && r5.coins === 2 * loot[9] && r5.res.length === 2 && r5.cons.elixir === 1 && !r5.cons.scroll && !r5.egg);
+for (let f = 1; f <= 100; f++) {
+  assert.ok(D.reward(f).coins >= 150 * f);
+  assert.strictEqual(HexMap.towerTier(f), Math.min(10, 8 + Math.floor(f / 4)));
+  const t = f % 5 === 0 ? 10 : HexMap.towerTier(f);
+  assert.ok(D.reward(f).coins <= Math.max(150*f, 6*loot[t-1]), 'дополнительная награда ограничена');
+}
 const r10 = D.reward(10); assert.ok(r10.cons.scroll === 1 && r10.cons.elixir === 2 && r10.res[0][1] === 4);
 assert.ok(D.reward(25).egg && !D.reward(20).egg && !D.reward(5).egg, 'яйцо — каждый 25-й');
 assert.ok(D.reward(30).coins > D.reward(29).coins, 'награда растёт');
@@ -22,4 +29,16 @@ for (const f of [10, 20, 30, 40, 50]) { const g = HexMap.generate(7, 'tower', f)
 assert.ok(seen.size >= 4, 'хранители разные');
 const d1 = D.deepReward(10), d2 = D.deepReward(30);
 assert.ok(d2.coins > d1.coins && d2.res[0][1] > d1.res[0][1] && d1.cons.scroll === 0 && d2.cons.scroll === 1, 'награда хранителя растёт');
+const sim = require('../tools/sim');
+sim.seed(259);
+const basic = sim.makeMonster('golem', 10, { level:95, mlvl:91 });
+sim.seed(259);
+const elite = sim.makeMonster('golem', 10, { level:95, mlvl:91, elite:'veil' });
+assert.strictEqual(elite.base, Math.round(basic.base * World.ELITE.hp));
+assert.strictEqual(elite.dmg, basic.dmg * World.ELITE.dmg);
+assert.deepStrictEqual(elite.affixes, ['veil']);
+sim.seed(259);
+const deep = sim.makeMonster('golem', 10, { level:95, mlvl:91, depth:HexMap.towerDepth(20), trait:'stun' });
+assert.strictEqual(deep.base, Math.round(basic.base * HexMap.towerDepth(20)));
+assert.strictEqual(deep.ability, 'stun');
 console.log('dungeon: все тесты пройдены');

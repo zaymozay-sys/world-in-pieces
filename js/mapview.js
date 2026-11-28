@@ -2621,7 +2621,7 @@ const MapView = (() => {
     for (const [k, n] of r.res) Profile.addRes(k, T, n);
     for (const k of Object.keys(r.cons)) Profile.addConsumable(k, r.cons[k]);
     if (r.egg) Profile.addEgg('dragon');
-    toast(r.chest ? _t("Новый уровень подземелья! Награда: {0 монета|монеты|монет} и сундук стража — ресурсы и расходники{1}.", [r.coins, r.egg ? _t(" (и драконье яйцо)") : '']) : _t("Новый уровень подземелья! Награда: {0 монета|монеты|монет}", [r.coins]), 3800);
+    toast(r.chest ? _t("Новый уровень подземелья! Награда: {0} и сундук стража — ресурсы и расходники{1}.", [Tiers.moneyText(r.coins), r.egg ? _t(" (и драконье яйцо)") : '']) : _t("Новый уровень подземелья! Награда: {0}", [Tiers.moneyText(r.coins)]), 3800);
   }
   function towerStairs() {
     const g = map.spawns.find((x) => x.guard);

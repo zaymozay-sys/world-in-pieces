@@ -354,6 +354,7 @@ const HexMap = (() => {
     ['selenebat', 1, 1], ['nuggetmole', 1, 1], ['fluoritefly', 2, 1], ['micabeetle', 2, 1], ['malachitelizard', 3, 1], ['quartzspider', 4, 1], ['granitespirit', 5, 1], ['graphitegolem', 6, 1]];
   // 2.0.7: цвета кончаются на 10-м (с 8-го этажа), глубже растут ХП и урон существ: +30% за каждый этаж после 8-го
   const towerDepth = (f) => 1 + 0.3 * Math.max(0, Math.floor(f) - 8);
+  const towerTier = (f) => Math.min(10, 8 + Math.floor(Math.max(1, f) / 4));
   const TOWER_SCORP_SPAWN = 0.7;          // 2.0.7: шанс, что на этаже стоит скорпион (один; цвет случайный, 1…10)
   const towerPool = (f) => TOWER_POOL.filter((e) => f >= e[1]);
   const pickTower = (pool, r) => { let x = r * pool.reduce((a, e) => a + e[2], 0); for (const e of pool) { x -= e[2]; if (x < 0) return e[0]; } return pool[pool.length - 1][0]; };
@@ -415,7 +416,7 @@ const HexMap = (() => {
     while (st.length) { const c = st.pop(); for (const n of neighbors(map, c)) if (!reach.has(n) && passable(map, n) && !cells[n].building) { reach.add(n); st.push(n); } }
     map.reachable = reach; map.start = start;
     const rand = rng((fs ^ 0x70e3) >>> 0 || 9), taken = new Set([start, stairs]);
-    const pool = towerPool(f), tier = Math.min(10, 8 + Math.floor(f / 4)), dens = Math.min(0.45, 0.25 + f * 0.01);
+    const pool = towerPool(f), tier = towerTier(f), dens = Math.min(0.45, 0.25 + f * 0.01);
     const guard = f % 5 === 0 ? neighbors(map, stairs).filter((n) => reach.has(n)).sort((a, b) => a - b)[0] : undefined;
     for (const c of cells) {
       if (c.d >= R || !reach.has(c.idx) || taken.has(c.idx) || c.idx === guard) continue;
@@ -940,7 +941,7 @@ const HexMap = (() => {
   };
 
   return {
-    TOWER_POOL, towerPool, towerDepth, TOWER_SCORP_SPAWN, RADIUS, VILLAGE_R, CASTLE_R, ISLAND_R, TOWER_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
+    TOWER_POOL, towerPool, towerDepth, towerTier, TOWER_SCORP_SPAWN, RADIUS, VILLAGE_R, CASTLE_R, ISLAND_R, TOWER_R, DIRS, TERRAIN, BUILDINGS, SPAWN, ZONES, GATE_DIRS,
     sharedSeed, ensureCoverage, key, lvlOf, assignLevels, dist, toPixel, fromPixel, tierAt, rng, generate, decorate, FORD_COST, neighbors, passable, moveCost, findPath, area, center, terrainName, fenceBlocks,
   };
 })();

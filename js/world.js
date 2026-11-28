@@ -88,7 +88,8 @@ const World = (() => {
   // Трофей за первую победу: монеты и опыт (вещь выдаёт игра, см. game.js rewardFor).
   const zoneReward = (zoneId) => {
     const Z = ZONE_BOSSES[zoneId];
-    return { coins: Math.round(180 * CK_W * W_T.PRICE_MULT[Z.tier - 1] * CT_W(Z.tier)), xp: 60 * Math.ceil(Z.tier / 2) };
+    const loot = ((typeof Balance !== 'undefined') ? Balance : require('./balance.js')).economy.battleLoot[Z.tier - 1];
+    return { coins: Math.max(2 * loot, Math.round(180 * CK_W * W_T.PRICE_MULT[Z.tier - 1] * CT_W(Z.tier))), xp: 60 * Math.ceil(Z.tier / 2) };
   };
 
   /* ---------- события ---------- */
