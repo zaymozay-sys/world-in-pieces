@@ -11,6 +11,23 @@ const assert = require('assert');
     await page.waitForFunction(()=>typeof MapView!=='undefined'&&typeof MAIN_BATTLE!=='undefined'&&Profile.data);
     await page.evaluate(()=>{
       if(Tutorial.active)Tutorial.finish(false);
+      Object.assign(Profile.data,{faction:'dwarf',xp:Hero.totalFor(19),coins:200000});
+      Profile.save();Screens.close();document.getElementById('splash')?.remove();Screens.openShop();
+    });
+    await page.waitForSelector('[data-cattier="3"]');
+    assert.strictEqual(await page.locator('[data-cattier].on').getAttribute('data-cattier'),'2');
+    await page.locator('[data-cattier="3"]').click();
+    const prep=await page.evaluate(()=>{
+      const button=document.querySelector('[data-buy-cat]:not([disabled])');
+      const count=Profile.data.items.length;
+      button.click();
+      const entry=Profile.data.items[Profile.data.items.length-1];
+      return {bought:Profile.data.items.length===count+1,tier:entry.tier,wear:Hero.canWear(entry.tier,Profile.level()),resourceDisabled:document.querySelector('[data-restier="3"]').disabled};
+    });
+    assert.deepStrictEqual(prep,{bought:true,tier:3,wear:false,resourceDisabled:true});
+    console.log('PASS preparation: next-tier gear can be purchased two levels early, wear and resources stay gated');
+    await page.evaluate(()=>{
+      if(Tutorial.active)Tutorial.finish(false);
       const d=Profile.data;
       Object.assign(d,{faction:'dwarf',gender:'m',name:'Тест',wins:20,xp:Hero.totalFor(95),tutorial:{done:true},petChoice:'tamed',petStay:false});
       d.pet=Object.assign(Pets.makePet('wolf',10),{xp:300});

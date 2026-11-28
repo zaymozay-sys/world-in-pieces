@@ -495,7 +495,7 @@ const Screens = (() => {
     const own = setIds.find((id) => Gear.SETS[id].faction === faction) || setIds[0] || 'all';
     if (!(s.set === 'all' || (s.set === 'none' && hasNone) || setIds.includes(s.set))) s.set = own;
     if (!CAT_KINDS.some((k) => k[0] === s.kind)) s.kind = 'all';
-    const tier = (s.tier >= 1 && s.tier <= top) ? s.tier : top;      // 1.6.6: каталог показывает все цвета до вашего
+    const tier = (s.tier >= 1 && s.tier <= top) ? s.tier : Profile.shopTop();
     s.tier = tier;
     const worn = Object.fromEntries(Gear.setProgress(Profile.gear()).map((p) => [p.id, p.count]));
     const setBtn = (id, label, color, extra) => `<button type="button" class="${id === s.set ? 'on' : ''}" data-catset="${id}" ${color ? `style="--c:${color}"` : ''}>${label}${extra}</button>`;
@@ -563,7 +563,7 @@ const Screens = (() => {
     const lostSets = Object.values(sets0).filter((p) => !sets1.some((q) => q.id === p.id)).map((p) => `<li style="--c:${p.color}"><b>${p.name}</b>: ${_t("{0} → 0", [p.count])}</li>`).join('');
     const warn = [];
     if (!check.ok) warn.push(check.reason);
-    if (used1 > budget) warn.push(_t("Не хватает очков снаряжения: нужно {0}, лимит {1}", [used1, budget]));
+    if (Hero.pointsOn() && used1 > budget) warn.push(_t("Не хватает очков снаряжения: нужно {0}, лимит {1}", [used1, budget]));
     const kind = Factions.heroKind(Profile.data.faction || 'dwarf', Profile.data.gender);
     return `<div class="tryon-back"><div class="tryon" role="dialog" aria-label="${_t("Примерка")}">
       <h3>${_t("Примерка: {0}", [it.name])} ${itemChip(it.tier)}</h3>
@@ -623,7 +623,8 @@ const Screens = (() => {
       let body = '';
       if (s.tab === 'buy') {
         // 2.3.6: надеваемые вещи покупаются по одной кнопкой «Купить» — корзина заказа (была нужна для счётчика ×N) здесь больше не нужна
-        const top = Profile.shopTop(), cat = catalogView(s, top);
+        const top = Profile.shopTop(), gearTop = Hero.shopGearTier(Profile.level()), cat = catalogView(s, gearTop);
+        if (gearTop > top) cat.head = '<p class="hint">' + _t("Вещи следующего цвета уже доступны для подготовки. Надеть их можно с {0}-го уровня или после перековки в Кузнице.", [Hero.itemLevel(gearTop)]) + '</p>' + cat.head;
         const items = (cat.list || _t("<p class=\"hint\">В этой вкладке нет вещей.</p>")) + lockedShelf();
         const qtyPicker = (kind, key, active) => `<div class="qty-picker">${QTY_STEPS.map((n) => `<button type="button" class="qs ${n === active ? 'on' : ''}" data-qty="${kind}" data-qty-key="${key}" data-qty-n="${n}">×${n}</button>`).join('')}</div>`;
         const cons = Object.entries(Gear.CONSUMABLES).filter(([, c]) => !c.alchemy).map(([k, c]) => {
@@ -655,7 +656,7 @@ const Screens = (() => {
       const s = st.shop, d = b.dataset;
       if (shelfClick(d)) return;
       if (d.sh === 'pay' && d.shId === 'shop') {
-        const top = Profile.shopTop(), bk = basketOf('shop'); let total = 0; const picks = [];
+        const top = Hero.shopGearTier(Profile.level()), bk = basketOf('shop'); let total = 0; const picks = [];
         for (const [key, q] of Object.entries(bk)) {
           const [id, tr] = key.split(':'), tier = Number(tr);
           if (!Gear.itemsFor(Profile.data.faction).some((x) => x.id === id && x.rarity !== 'epic') || !(tier >= 1 && tier <= top)) return;
@@ -673,7 +674,7 @@ const Screens = (() => {
       if (d.catkind) { s.kind = d.catkind; return render(); }
       if (d.cattier) { s.tier = Number(d.cattier); return render(); }
       if (d.buyCat) {                                 // 1.6.5: покупка из постоянного каталога (вещь создаётся в момент покупки)
-        const [id, tr] = d.buyCat.split(':'), tier = Number(tr), top = Profile.shopTop();
+        const [id, tr] = d.buyCat.split(':'), tier = Number(tr), top = Hero.shopGearTier(Profile.level());
         if (!Gear.itemsFor(Profile.data.faction).some((x) => x.id === id && x.rarity !== 'epic') || !(tier >= 1 && tier <= top)) return;
         const it = Gear.item({ id, tier });
         if (!Profile.spend(buyPrice(it.price))) return;

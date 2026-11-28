@@ -29,6 +29,11 @@ assert.strictEqual(Hero.tierFor(91), 10);
 assert.strictEqual(Hero.tierFor(100), 10);
 assert.deepStrictEqual([1, 2, 3, 10].map(Hero.itemLevel), [1, 11, 21, 91]);
 assert.ok(Hero.canWear(2, 11) && !Hero.canWear(2, 10) && Hero.canWear(1, 1));
+for (let L = 1; L <= Hero.MAX_LEVEL; L++) {
+  const tier = Hero.tierFor(L), shop = Hero.shopGearTier(L);
+  assert.strictEqual(shop, tier < 10 && Hero.itemLevel(tier + 1) - L <= 2 ? tier + 1 : tier);
+  if (shop > tier) assert.ok(!Hero.canWear(shop, L), 'ранняя покупка не отменяет порог экипировки');
+}
 
 // ХП и урон героя растут тем же темпом, что ХП и урон существ его цвета (до множителей Balance.monsters.hpBoost и dmgScale)
 assert.strictEqual(Hero.baseHp(1), Balance.hero.baseHp);

@@ -36,6 +36,9 @@ const Hero = (() => {
   const clothBonus = (L) => 0.01 * (tierFloat(L) % 1);
   const itemLevel = (tier) => (H_T.clamp(tier) - 1) * C.levelsPerTier + 1;
   const canWear = (tier, L) => clampL(L) >= itemLevel(tier);
+  // За два уровня до смены цвета можно заранее купить экипировку.
+  // Носить её без перековки по-прежнему разрешено только с нужного уровня.
+  const shopGearTier = (L) => tierFor(clampL(L) + 2);
 
   // Красивое округление: 23 → 25, 287 → 290, 1234 → 1250.
   function nice(x) {
@@ -90,7 +93,7 @@ const Hero = (() => {
   // Сколько магий (без Удара) можно взять в бой: 5 на старте, +1 на 4-м, 7-м и 10-м цвете.
   const spellSlots = (L) => { const t = tierFor(clampL(L)); return 5 + (t >= 4 ? 1 : 0) + (t >= 7 ? 1 : 0) + (t >= 10 ? 1 : 0); };
 
-  return { spellSlots, clothBonus, priceScale, consumablePrice, battleConsumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, pointsOn, noPts, itemLevel, canWear, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
+  return { spellSlots, clothBonus, priceScale, consumablePrice, battleConsumablePrice, MAX_LEVEL, tierFloat, tierFor, growth, baseHp, levelPower, dmgMult, budget, pointsOn, noPts, itemLevel, canWear, shopGearTier, need, totalFor, levelOf, xpReward, nice, isSpellUnlocked };
 })();
 
 // Для тестов и симулятора в Node.js (в браузере не используется).

@@ -4053,6 +4053,8 @@
  "В сумке остались эликсиры — выпейте их в бою: они не тратят ход.": "You still have elixirs in your bag — drink them in battle: they cost no turn.",
  "Эликсир жизни остался в сумке — выпейте его, когда ХП на исходе.": "A Life Elixir is still in your bag — drink it when HP runs low.",
  "Победа была близко. Проверьте вещи в сумке: Сила и Броня решают исход, а слабое существо рядом даст опыт.": "Victory was close. Check your gear: Power and Armor decide the outcome, and a weaker creature nearby gives XP.",
+ "Вещи следующего цвета уже доступны для подготовки. Надеть их можно с {0}-го уровня или после перековки в Кузнице.": "Gear of the next tier is available for preparation. Equip it from level {0}, or after refitting at the Forge.",
+ "Часть снаряжения отстаёт от вашего цвета. Существа предыдущего цвета всё ещё дают ресурсы для улучшения вещей в Кузнице.": "Some of your gear is below your tier. Creatures of the previous tier still yield resources for upgrading equipment at the Forge.",
  "Этот предмет уже использован в этот ход": "This item was already used this turn",
 "Уровень существа": "Creature level",
  "· Вожак": "· Leader",

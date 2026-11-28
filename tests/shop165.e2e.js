@@ -64,6 +64,29 @@ const ok = (name, cond, extra) => { if (cond) console.log('  ok   ' + name); els
   console.log('покупка из каталога');
   {
     const { p, ctx } = await open(1280, 800);
+    await p.evaluate(() => { Profile.data.xp = Hero.totalFor(19); Profile.save(); });
+    await openShop(p);
+    const r = await p.evaluate(async () => {
+      const w = (ms) => new Promise((x) => setTimeout(x, ms));
+      const out = { normal: Profile.shopTop(), defaultTier: document.querySelector('[data-cattier].on')?.dataset.cattier };
+      const next = document.querySelector('[data-cattier="3"]');
+      if (!next) return out;
+      next.click(); await w(150);
+      const buy = document.querySelector('[data-buy-cat]:not([disabled])');
+      if (!buy) return out;
+      const count = Profile.data.items.length;
+      buy.click(); await w(200);
+      const entry = Profile.data.items[Profile.data.items.length - 1];
+      out.bought = Profile.data.items.length === count + 1 && entry.tier === 3;
+      out.locked = !Hero.canWear(entry.tier, Profile.level());
+      out.resourceTier = Math.max(...[...document.querySelectorAll('[data-restier]:not([disabled])')].map(x => Number(x.dataset.restier)));
+      return out;
+    });
+    ok('за два уровня можно купить вещи следующего цвета, но ресурсы и ношение не открываются заранее', r.normal === 2 && r.defaultTier === '2' && r.bought && r.locked && r.resourceTier === 2, JSON.stringify(r));
+    await ctx.close();
+  }
+  {
+    const { p, ctx } = await open(1280, 800);
     await openShop(p);
     const r = await p.evaluate(async () => {
       const w = (ms) => new Promise((x) => setTimeout(x, ms)); const o = {};
