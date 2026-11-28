@@ -99,3 +99,11 @@ for (const base of Gear.ITEMS) for (let tier = 1; tier <= 10; tier++) for (let p
   Village.buyCosmetic(c, 'frames', 'gold', 1e9, false); Village.equip(c, 'frames', 'gold'); assert.strictEqual(Village.frameColor(c), '#f0c23c');
 }
 console.log('village 1.5.1: все тесты пройдены');
+{
+  const c = Village.fresh();
+  assert.ok(!Village.earnedTitleIds({ masterBest: 29 }).includes('tMasterRun'));
+  assert.ok(Village.earnedTitleIds({ masterBest: 30 }).includes('tMasterRun'));
+  Village.syncTitles(c, { masterBest: 30 });
+  assert.ok(Village.owns(c, 'titles', 'tMasterRun'));
+  assert.strictEqual(Village.syncTitles(c, { masterBest: 30 }).length, 0);
+}

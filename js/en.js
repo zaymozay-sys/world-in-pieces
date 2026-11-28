@@ -1,6 +1,8 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Покоритель Забега": "Run Conqueror",
+  "пройти все 30 волн Забега мастера": "Complete all 30 waves of Master Run",
   "Экономика снаряжения: честная цена продажи, подготовка к следующему цвету за два уровня, бесплатная закалка без прироста характеристик.": "Equipment economy: fair resale, preparation for the next tier two levels early, and free tempering steps without stat gains.",
   "Доступнее пробойники, развитие питомцев и золотое яблоко. Руны обновляются за монеты только при увеличении бонуса.": "Socket punches, pet progression and golden apples are more affordable. Rune upgrades cost coins only when the bonus increases.",
   "Новые задания Затерянного острова, награды по сложности и Забег мастера с 71-го уровня.": "New Lost Island quests, difficulty-based rewards and Master Run from level 71.",

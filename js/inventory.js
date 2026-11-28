@@ -187,7 +187,7 @@ const Profile = (() => {
     syncing = true;
     try {
       data.cosmetics = data.cosmetics || { titles: [], frames: [], title: null, frame: null };
-      const fresh = Village.syncTitles(data.cosmetics, { earned: data.medals ? data.medals.earned : [], tier: Hero.tierFor(Hero.levelOf(data.xp).level), bestiary: data.bestiary, explored: data.explored100, decor: (typeof Decor !== 'undefined' && data.decor) ? Decor.filled(Decor.clean(data.decor)) : 0, decorOwn: (typeof Decor !== 'undefined' && data.decor) ? Decor.ownCount(Decor.clean(data.decor)) : 0, stones: (typeof Stones !== 'undefined' && data.stones) ? Stones.seenCount(Stones.clean(data.stones)) : 0 });
+      const fresh = Village.syncTitles(data.cosmetics, { earned: data.medals ? data.medals.earned : [], tier: Hero.tierFor(Hero.levelOf(data.xp).level), bestiary: data.bestiary, explored: data.explored100, masterBest: data.run?.masterBest || 0, decor: (typeof Decor !== 'undefined' && data.decor) ? Decor.filled(Decor.clean(data.decor)) : 0, decorOwn: (typeof Decor !== 'undefined' && data.decor) ? Decor.ownCount(Decor.clean(data.decor)) : 0, stones: (typeof Stones !== 'undefined' && data.stones) ? Stones.seenCount(Stones.clean(data.stones)) : 0 });
       if (fresh.length && typeof MapView !== 'undefined' && MapView.toast) MapView.toast(_t("Новый титул: {0} — наденьте в Гардеробе Ратуши", [fresh.length > 3 ? fresh.slice(0, 3).join(', ') + _t(" и ещё {0}", [fresh.length - 3]) : fresh.join(', ')]));
     } catch (e) { /* титулы не критичны */ }
     syncing = false;

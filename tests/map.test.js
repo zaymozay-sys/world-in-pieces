@@ -212,6 +212,10 @@ for (const seed of [1, 42, 777, 2024]) {
   assert.ok(c1.hp > base.hp && c1.stats.power > base.stats.power, 'в новом походе страж крепче');
   assert.ok(Story.scaleBoss({ hp: 100, stats: {} }, 'b4', 1).hp > 100, 'Капитан в новом походе тоже крепче');
   assert.ok(Story.shardReward('b1', 1).coins > Story.shardReward('b1', 0).coins);
+  for (const ch of Story.CHAPTERS) {
+    const loot = require('../js/balance.js').economy.battleLoot[ch.tier-1];
+    assert.ok(Story.shardReward(ch.id).coins >= loot*(ch.final?6:3));
+  }
   console.log('story 1.5.1 ok');
 }
 // 1.3.0: торговые ряды — продажа по цене
