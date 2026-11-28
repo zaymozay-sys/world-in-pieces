@@ -18,4 +18,10 @@ for (const k of Medals.MASTER_ORDER) {
   assert.ok(Object.keys(full).some((s) => full[s] > base[s]), k + ': бонус растёт');
 }
 assert.strictEqual(Medals.masterOf('m:craft:999'), null); assert.strictEqual(Medals.masterOf('drunk:50'), null);
+for (const [n, hp] of [[130,12],[170,20]]) {
+  const base = Gear.combine(Gear.blankStats(), { initiative: Gear.CAPS.initiative });
+  const result = Gear.combine(base, Medals.bonusFor(Medals.masterMedalId('rune', n)));
+  assert.strictEqual(result.initiative, base.initiative);
+  assert.strictEqual(result.health, hp, 'поздняя медаль полезна даже герою с максимальным Проворством');
+}
 console.log('mastermedals207: все тесты пройдены');

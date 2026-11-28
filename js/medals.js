@@ -303,7 +303,7 @@ const Medals = (() => {
     craft: { name: _t("Кузнец"),      ms: [3, 8, 15, 25, 40, 60, 85, 115, 150, 200], bonus: (i) => ({ power: 1 + Math.floor(i / 2) }),                          group: { health: 20 } },
     depth: { name: _t("Глубина"),     ms: [2, 4, 6, 8, 10, 13, 16, 20, 25, 30],            bonus: (i) => ({ health: 4 * (1 + i) }),                                  group: { defense: 4, block: 2 } },
     cut:   { name: _t("Огранщик"),    ms: [1, 3, 6, 10, 16, 24, 34, 46, 60, 80],           bonus: (i) => ({ cunning: 1 + Math.floor(i / 3), health: 2 * (1 + i) }),  group: { cunning: 4 } },
-    rune:  { name: _t("Рунописец"),   ms: [2, 6, 12, 22, 36, 54, 76, 100, 130, 170],       bonus: (i) => ({ initiative: 1 + Math.floor(i / 2) }),                   group: { power: P(4) } },
+    rune:  { name: _t("Рунописец"),   ms: [2, 6, 12, 22, 36, 54, 76, 100, 130, 170],       bonus: (i) => ({ initiative: 1 + Math.floor(i / 2), ...(i >= 8 ? { health: 12 + (i - 8) * 8 } : {}) }), group: { power: P(4) } },
     // 2.3.8: новые лесенки — простые ступени дают здоровье и броню, Сила только на последней
     elite: { name: _t("Охотник на элиту"), ms: [3, 10, 25, 50, 90, 150, 250, 400, 650, 1000], bonus: (i) => (i === 9 ? { health: 40, defense: 3, power: 1 } : { health: 4 * (1 + i), ...(i >= 3 ? { defense: Math.floor(i / 3) } : {}) }), group: { health: 30, defense: 3 } },
     hatch: { name: _t("Зверовод"),         ms: [1, 2, 4, 7, 11, 16, 23, 32, 45, 60],     bonus: (i) => ({ health: 3 * (1 + i), ...(i >= 4 ? { defense: Math.floor(i / 4) } : {}) }),                                group: { health: 25, defense: 4 } },

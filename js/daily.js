@@ -62,10 +62,11 @@ const Daily = (() => {
     return q.done && !q.claimed;
   }
 
-  // Награда скромная и фиксированная — поручение приучает заглядывать в библиотеку каждый день, не более того.
+  // Награда растёт с уровнем; экран и выдача используют одну формулу.
+  const libraryCoins = (level) => D_H.consumablePrice(90, level);
   function claimLibrary() {
     if (typeof Profile === 'undefined' || !canClaimLibrary(Profile.data)) return null;
-    const coins = D_H.consumablePrice(90, Profile.level());
+    const coins = libraryCoins(Profile.level());
     Profile.addCoins(coins);
     Profile.addConsumable('dust', 1);
     Profile.data.daily.questClaimed = true;
@@ -126,7 +127,7 @@ const Daily = (() => {
     return { ok: true, kind: row.kind, price, text, prize };
   }
 
-  return { today, ensure, libraryQuest, registerWin, canClaimLibrary, claimLibrary, ticketPrice, canBuyTicket, buyTicket, pick, TABLE, LIB_GOAL };
+  return { today, ensure, libraryQuest, registerWin, canClaimLibrary, claimLibrary, libraryCoins, ticketPrice, canBuyTicket, buyTicket, pick, TABLE, LIB_GOAL };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

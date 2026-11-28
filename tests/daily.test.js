@@ -82,6 +82,10 @@ assert.strictEqual(Daily.canClaimLibrary(data), true);
 const before = data.coins || 0;
 const reward = Daily.claimLibrary();
 assert.ok(reward && reward.coins > 0 && reward.cons === 'dust', 'награда — монеты и каменная пыль');
+assert.strictEqual(reward.coins, Daily.libraryCoins(Profile.level()));
+for (let level = 1; level <= 100; level++) {
+  assert.strictEqual(Daily.libraryCoins(level), require('../js/hero.js').consumablePrice(90, level));
+}
 assert.strictEqual(data.coins, before + reward.coins);
 assert.strictEqual(data.backpack.dust, 1);
 assert.strictEqual(data.daily.questClaimed, true);
