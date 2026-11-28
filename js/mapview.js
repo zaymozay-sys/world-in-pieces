@@ -1347,10 +1347,10 @@ const MapView = (() => {
     }
     {                                                                // 2.4.0: словами — по силам ли существо; при первом показе объяснение точки
       const D = Balance.mobLevels.dot, dl = HexMap.lvlOf(sp) - Profile.level();
-      const word = dl <= D.weak ? _t("Слабее вас") : dl >= D.deadly ? _t("Смертельно опасно") : dl >= D.hard ? _t("Опасный противник") : _t("Ровня вам");
+      const word = dl <= D.weak ? _t("Слабее вас") : dl >= D.deadly ? _t("Смертельно опасно") : dl >= D.hard ? _t("Опасный противник") : _t("Равный вам");
       const lp = document.createElement('p'); lp.className = 'hint level-note'; lp.dataset.cmp = dl <= D.weak ? 'weak' : dl >= D.deadly ? 'deadly' : dl >= D.hard ? 'hard' : 'even';
       lp.textContent = _t("{0} (уровень существа {1}, ваш {2}).", [word, HexMap.lvlOf(sp), Profile.level()]);
-      if (!Profile.data.dotHintSeen) { lp.textContent += ' ' + _t("Точка у значка уровня: серая — слабее вас, зелёная — ровня, жёлтая — сильнее, красная — смертельно опасно."); Profile.data.dotHintSeen = 1; Profile.save(); }
+      if (!Profile.data.dotHintSeen) { lp.textContent += ' ' + _t("Точка у значка уровня: серая — слабее вас, зелёная — равный вам, жёлтая — сильнее, красная — смертельно опасно."); Profile.data.dotHintSeen = 1; Profile.save(); }
       const nb = el['map-card'].querySelector('.mc-body'); if (nb) nb.insertBefore(lp, el['map-card'].querySelector('.mc-act'));
     }
     // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
