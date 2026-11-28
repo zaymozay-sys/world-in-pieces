@@ -11,7 +11,7 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       const page = await context.newPage(), errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(URL);
-      await page.waitForFunction(() => typeof Screens !== 'undefined' && typeof Profile !== 'undefined');
+      await page.waitForFunction(() => typeof Profile !== 'undefined' && Profile.data.testX10 === true && typeof MapView !== 'undefined' && !!MapView.map && document.body.classList.contains('mode-map'));
       await page.evaluate(() => { Profile.data.wins = 25; Profile.data.xp = Hero.totalFor(21); Profile.data.coins = 0; Screens.open('forge'); });
       await page.locator('[data-tab="craft"]').click();
       assert.ok(await page.locator('.craft-unit .forge-readiness progress').count() > 0);

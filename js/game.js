@@ -2150,10 +2150,29 @@ function showOverlay(text, sub = '') {
   if (LIVE && !LIVE.reported) { LIVE.reported = true; LIVE.net.result(text === _t("Победа!") ? LIVE.role : (LIVE.role === 'A' ? 'B' : 'A')); }
   hideOverlay();
   const o = document.createElement('div');
-  o.className = 'overlay';
-  o.id = 'overlay';
-  o.innerHTML = _t("<div>{0}{1}<button type=\"button\" class=\"primary to-map\">На карту</button></div>", [text, sub ? `<small>${sub}</small><div class="loot-cap"></div>` : '']);
   const result = text === _t("Победа!") ? 'win' : 'loss';
+  const interrupted = text !== _t("Победа!") && text !== _t("Поражение");
+  const sel = selNow(), boss = result === 'win' && (fighters.right.guardian || sel.boss || sel.zone || sel.lord);
+  o.className = 'overlay battle-result ' + (interrupted ? 'result-neutral' : result === 'win' ? 'result-win' : 'result-loss') + (boss ? ' result-boss' : '');
+  o.id = 'overlay';
+  o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', text);
+  const H = fighters.left, E = fighters.right;
+  const metric = (label, value) => `<div class="result-metric"><span>${label}</span><b>${value}</b></div>`;
+  const stats = !interrupted && host.main && !TUT() ? `<section class="result-summary" aria-label="${_t("Статистика героя")}">
+    ${metric(_t("Ходы"), Math.max(rec.turns, moves))}
+    ${metric(_t("Нанесено урона"), Math.round(rec.dealt))}
+    ${metric(_t("Получено урона"), Math.round(rec.taken + rec.pen + rec.poison + rec.pack))}
+    ${metric(_t("Здоровье героя"), Math.max(0, Math.round(H.hp)) + ' / ' + H.max)}
+  </section>` : '';
+  const advice = !interrupted && result === 'loss' && !isArena() && !isChallenge() && !LIVE;
+  o.innerHTML = `<div class="result-panel">
+    <header class="result-heading"><span class="result-emblem" aria-hidden="true">${boss ? '♛' : interrupted ? '—' : result === 'win' ? '✦' : '◆'}</span>
+    <h2 class="rw-title"></h2><p class="result-foe"></p></header>
+    ${stats}
+    ${sub ? `<section class="result-content ${advice ? 'result-advice' : ''}"><h3>${advice ? _t("Совет") : result === 'win' ? _t("Награды") : _t("Итог боя")}</h3><div class="result-body">${sub}</div><div class="loot-cap" aria-live="polite"></div></section>` : ''}
+    <button type="button" class="primary to-map">${_t("На карту")}</button></div>`;
+  o.querySelector('.rw-title').textContent = text;
+  o.querySelector('.result-foe').textContent = E.name || '';
   if (host.main && battleNo) {                                   // 2.0.7: номер боя на экране итога + сохранение журнала
     BattleLog.save({ n: battleNo, foe: fighters.right.name, tier: fighters.right.tier, result, hero: fighters.left.name, lines: battleLog, loot: result === 'win' ? String(sub || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '' });
     try {                                                         // 2.0.9: отчёт тестировщиков (js/telemetry.js)
@@ -2790,7 +2809,10 @@ function rewardFor(f, first = true, opts = {}) {
   Profile.save();
   onEconomyChanged();
   // 2.0.9: награда одним блоком: строки с отдельными рядами, у каждого противника (бой вдвоём) — своя подпись
-  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line">${l}</div>`).join('')}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
+  const lv = Profile.levelInfo();
+  const xpPct = lv.need === Infinity ? 100 : Math.max(0, Math.min(100, Math.round(100 * lv.into / Math.max(1, lv.need))));
+  const xpProgress = `<div class="result-xp"><div><b>${_t("Уровень")} ${lv.level}</b><span>${lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need])}</span></div><progress max="100" value="${xpPct}" aria-label="${_t("Опыт")}"></progress></div>`;
+  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line">${l}</div>`).join('')}${xpProgress}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
 }
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».

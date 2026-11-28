@@ -11,7 +11,7 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       const p = await ctx.newPage(), errors = [];
       p.on('pageerror', e => errors.push(e.message));
       await p.goto(URL);
-      await p.waitForFunction(() => typeof Screens !== 'undefined' && typeof MapView !== 'undefined' && !!MapView.map);
+      await p.waitForFunction(() => typeof Profile !== 'undefined' && Profile.data.testX10 === true && typeof MapView !== 'undefined' && !!MapView.map && document.body.classList.contains('mode-map'));
       await p.evaluate(() => {
         Profile.data.accepted = { 'first-blood': true }; Profile.data.quests = {}; Profile.data.wins = 0;
         Screens.openQuestJournal();

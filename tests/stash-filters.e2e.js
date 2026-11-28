@@ -12,7 +12,7 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       const page = await context.newPage(), errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(URL);
-      await page.waitForFunction(() => typeof Inventory !== 'undefined' && typeof Profile !== 'undefined');
+      await page.waitForFunction(() => typeof Profile !== 'undefined' && Profile.data.testX10 === true && typeof MapView !== 'undefined' && !!MapView.map && document.body.classList.contains('mode-map'));
       await page.evaluate(() => {
         Profile.data.items = Profile.data.items.filter((e) => Profile.equippedUid(e.uid));
         for (const [id, tier] of [['sword-novice', 1], ['shield-wood', 3], ['sword-novice', 2]]) Profile.addItem(Gear.makeEntry(id, tier));
