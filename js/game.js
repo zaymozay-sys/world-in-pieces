@@ -2804,6 +2804,7 @@ function defeat() {
 
 // 1.5.4: быстрый бой с картой (MapView.quickFight) — награда за слабое, уже побеждённое существо без боя.
 function quickReward(monsterId, tier, lvl, selection = {}) {
+  if (!World.QUICK.enabled) return '';
   const keep = { luck: fighters.left.luck, shot: shotKilledMonster, strike: strikeKilledMonster };
   fighters.left.luck = 0; shotKilledMonster = false; strikeKilledMonster = false;
   try { return rewardFor({ monsterId, tier, lvl }, false, { quick: true, selection }); } finally { fighters.left.luck = keep.luck; shotKilledMonster = keep.shot; strikeKilledMonster = keep.strike; }

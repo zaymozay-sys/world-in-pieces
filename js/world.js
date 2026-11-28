@@ -209,9 +209,8 @@ const World = (() => {
   const affixFor = (affix, ownAbility) => (affix !== ownAbility ? affix : AFFIX_IDS[(AFFIX_IDS.indexOf(affix) + 1) % AFFIX_IDS.length]);
 
   /* ---------- быстрый бой ---------- */
-  // Слабое (на 2+ цвета ниже героя) и уже побеждённое существо можно одолеть сразу: половина опыта и монет, ресурсы
-  // как обычно, без вещей и находок. Стражи, элитные и засады — только настоящим боем.
-  const QUICK = { below: 2, share: 0.5 };
+  // Быстрые бои отключены. Старые параметры оставлены для совместимости.
+  const QUICK = { enabled: false, below: 2, share: 0.5 };
   // Платное воскрешение на месте гибели: цена растёт вместе с цветом героя (плавно между цветами), ≈ 1–2 победы на его цвете.
   const REVIVE_ON = false;            // выключено до появления сервера (платежи и проверка покупок); код и цены готовы
   const REVIVE_BASE = 40;
@@ -219,7 +218,7 @@ const World = (() => {
     const pm = Tiers.PRICE_MULT, f = Math.max(1, Math.min(pm.length, tierFloat)), i = Math.min(pm.length - 2, Math.floor(f) - 1);
     return Math.max(1, Math.round(REVIVE_BASE * pm[i] * Math.pow(pm[i + 1] / pm[i], Math.min(1, f - 1 - i))));
   }
-  const quickAllowed = (sp, heroTier, beaten, elite) => !sp.boss && !sp.zone && !elite && sp.tier <= heroTier - QUICK.below && !!beaten;
+  const quickAllowed = () => false;
 
   /* ---------- логова ---------- */
   const lairLength = (tier) => 3 + (tier >= 6 ? 1 : 0) + (tier >= 9 ? 1 : 0);

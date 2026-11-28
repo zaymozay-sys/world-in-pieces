@@ -1280,12 +1280,6 @@ const MapView = (() => {
       const nb = el['map-card'].querySelector('.mc-body'); if (nb) nb.insertBefore(lp, el['map-card'].querySelector('.mc-act'));
     }
     // 1.4.8: перед боем можно оставить питомца дома (он остаётся выбранным, просто не идёт в этот бой и следующие, пока галочка снята).
-    // 1.5.4: быстрый бой — слабое (на 2+ цвета ниже) и уже побеждённое существо
-    const beaten = Profile.data.bestiary && Profile.data.bestiary[sp.species] && Profile.data.bestiary[sp.species].wins > 0;
-    if (World.quickAllowed(sp, Hero.tierFor(Profile.level()), beaten, elite)) {
-      const act = el['map-card'].querySelector('.mc-act');
-      if (act) act.insertAdjacentHTML('afterbegin', `<button type="button" data-act="quick" data-sp="${sp.id}" title="${_t("Победа сразу: половина опыта и монет, ресурсы как обычно, без вещей")}">${_t("Быстрый бой")}</button>`);
-    }
     if (Profile.hasUsablePet()) {
       const act = el['map-card'].querySelector('.mc-act');
       if (act) act.insertAdjacentHTML('beforebegin', `<label class="pet-toggle"><input type="checkbox" id="mc-pet"${Profile.petStay() ? '' : ' checked'}> ${_t("Взять питомца в бой: {0}", [Pets.petDisplayName(Profile.pet().speciesId)])}</label>`);
@@ -1415,6 +1409,7 @@ const MapView = (() => {
   };
   // Быстрый бой: подходит к существу и сразу побеждает (награда — quickReward в game.js).
   function quickFight(sp) {
+    if (!World.QUICK.enabled) return;
     closeCard();
     if (sp.rare) return toast(_t("Редкого зверя быстрым боем не взять: сразитесь с ним сами."), 3500);
     if (!alive(sp)) return;

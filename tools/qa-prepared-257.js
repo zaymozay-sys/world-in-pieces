@@ -1,5 +1,5 @@
 // Screening of endgame preparation, not a browser battle run.
-// node tools/qa-prepared-257.js [--n=8] [--seed=257] [--level=95] [--ablation=1] [--elite=1]
+// node tools/qa-prepared-257.js [--n=8] [--seed=257] [--level=95] [--ablation=1] [--elite=1] [--tactics=1]
 const sim = require('./sim.js');
 const G = global.Gear, H = global.Hero, M = global.Medals, B = global.Bestiary;
 const R = require('../js/runes.js'), P = require('../js/pets.js'), T = require('../js/talents.js');
@@ -9,6 +9,16 @@ const args = Object.fromEntries(process.argv.slice(2).map(s=>s.replace(/^--/,'')
 const N = Math.max(1,Number(args.n||8)), seed = Number(args.seed||257), level = Math.max(5,Math.min(100,Number(args.level||95))), tier = H.tierFor(level);
 const factions = { human:'crown', dwarf:'rune', elf:'grove', lizard:'scale' };
 const targets = tier===10?['golem','wraith','eagle','treant']:[...new Map(Object.entries(HexMap.SPAWN).filter(([id,s])=>!s.rare&&!s.fixed&&s.tiers[0]<=tier&&s.tiers[1]>=tier).map(([id])=>[B.MONSTERS[id].family,id])).values()].slice(0,4);
+// Реальные слоты героя; Удар не занимает слот. Временный unlockAll не
+// используется для сравнения законной прогрессии магии.
+const spellLoadout = mode => {
+  const priority = {
+    mixed: ['lightning','heal','square','temper','fire','mirror','fury','pierce','transmute','tide','sacrifice','chaos'],
+    attack: ['fire','square','fury','sacrifice','lightning','pierce','temper','transmute','heal','chaos','tide','mirror'],
+    defense: ['heal','mirror','temper','tide','transmute','lightning','square','fire','pierce','fury','chaos','sacrifice']
+  }[mode];
+  return ['strike', ...priority.filter(k => level >= (Balance.spellUnlock[k] || 1)).slice(0,H.spellSlots(level))];
+};
 
 function equipment(faction, set) {
   let gear = G.emptyLoadout();
@@ -64,7 +74,7 @@ function pet() {
   for(const kind of P.TREAT_ORDER)P.giveTreat(p,kind);
   return p;
 }
-function prepared(gear,faction,max) {
+function prepared(gear,faction,max,mode='mixed') {
   const shot=G.shotKind(gear)||Ammo.forFaction(faction);
   const m=medals(max),perk=k=>M.hasPerk(m.earned,k);
   return {
@@ -75,7 +85,7 @@ function prepared(gear,faction,max) {
     ammo:{[shot+':light']:1,[shot+':hard']:4,[shot]:5},
     boost:{shot:perk('shot'),style:perk('style'),daily:perk('daily'),streak:perk('streak')},
     player:()=>{
-      const p=sim.humanPlayer();
+      const p=sim.humanPlayer({onlySpells:spellLoadout(mode)});
       p.items=(S,h,use)=>{
         for(const key of Object.keys(h.bag)) {
           const k=G.parseCons(key).base;
@@ -91,8 +101,12 @@ function prepared(gear,faction,max) {
 // and does not yet simulate live cross-board help; it cannot be compared as a simple damage buff.
 for(const faction of Object.keys(factions)) {
   const gear=equipment(faction,factions[faction]);
-  const profiles={plain:{gear,player:()=>sim.humanPlayer()},prepared:prepared(gear,faction,false),stress:prepared(gear,faction,true)};
+  const profiles={plain:{gear,player:()=>sim.humanPlayer({onlySpells:spellLoadout('mixed')})},prepared:prepared(gear,faction,false),stress:prepared(gear,faction,true)};
   profiles.duo={...profiles.stress,duo:{entry:pet(),foodTier:tier}};
+  if(args.tactics==='1') {
+    profiles.attack=prepared(gear,faction,false,'attack');
+    profiles.defense=prepared(gear,faction,false,'defense');
+  }
   if(args.ablation) {
     const p=profiles.prepared,base=profiles.plain;
     profiles.gearOnly={...base,gear:p.gear};
@@ -107,10 +121,10 @@ for(const faction of Object.keys(factions)) {
     let win=0,actions=0,ammo=0;
     for(const monster of targets) {
       const familyPct=M.familyBonus(opts.earned||[],B.MONSTERS[monster].family);
-      const r=sim.simulate({faction,level,monster,tier,mlvl:level,n:N,seedBase:seed,elite:args.elite==='1',player:'avg',...opts,boost:{...opts.boost,familyPct}});
+      const r=sim.simulate({faction,level,monster,tier,mlvl:level,n:N,seedBase:seed,pairedFactions:true,elite:args.elite==='1',player:'avg',...opts,tune:{fullSpells:true,utility:true},boost:{...opts.boost,familyPct}});
       win+=r.win;actions+=r.actions;ammo+=Object.values(r.ammoUsed).reduce((a,b)=>a+b,0)/N;
     }
     rows[name]={winPct:Math.round(100*win/targets.length),actions:Math.round(actions/targets.length*10)/10,ammoPerBattle:Math.round(ammo/targets.length*10)/10};
   }
-  console.log(JSON.stringify({faction,level,tier,targets,perTarget:N,rows}));
+  console.log(JSON.stringify({faction,level,tier,targets,perTarget:N,spells:Object.fromEntries(['mixed','attack','defense'].map(k=>[k,spellLoadout(k)])),rows}));
 }

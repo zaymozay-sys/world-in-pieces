@@ -35,6 +35,16 @@ const { chromium } = require('playwright');
         d.accepted={...(d.accepted||{}),'isle-1':true};
         Screens.open('best');
       });
+      const normalOnly = await page.evaluate(() => {
+        Screens.close();
+        const sp = MapView.map.spawns.find(s => s.tier === 1 && !s.boss && !s.zone && MapView.alive(s));
+        if (!sp) return false;
+        Profile.data.bestiary[sp.species] = { wins: 1, tier: 1 };
+        MapView.devShowMonster(sp);
+        return !!document.querySelector('#map-card [data-act="attack"]') && !document.querySelector('#map-card [data-act="quick"]');
+      });
+      if (!normalOnly) throw new Error('Quick battle must remain disabled');
+      await page.evaluate(() => Screens.open('best'));
       await page.locator('.beast-ctl').waitFor();
       await page.locator('[data-bres]').selectOption('graphite');
       if (await page.evaluate(()=>{const e=document.querySelector('.beast-ctl');return e.scrollWidth>e.clientWidth+2;})) throw new Error('Bestiary controls overflow');
