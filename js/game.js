@@ -2834,7 +2834,7 @@ function rewardFor(f, first = true, opts = {}) {
   const lv = Profile.levelInfo();
   const xpPct = lv.need === Infinity ? 100 : Math.max(0, Math.min(100, Math.round(100 * lv.into / Math.max(1, lv.need))));
   const xpProgress = `<div class="result-xp"><div><b>${_t("Уровень")} ${lv.level}</b><span>${lv.need === Infinity ? _t("максимальный") : _t("опыт {0} / {1}", [lv.into, lv.need])}</span></div><progress max="100" value="${xpPct}" aria-label="${_t("Опыт")}"></progress></div>`;
-  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line${duplicateLoot.has(l) ? ' rw-duplicate-loot' : ''}">${l}</div>`).join('')}${xpProgress}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
+  return `<div class="rw-block">${opts.label ? `<b class="rw-head">${opts.label}</b>` : ''}${lines.map((l) => `<div class="rw-line${duplicateLoot.has(l) ? ' rw-duplicate-loot' : ''}${l===_t("Опыт: +{0}",[xp])?' rw-base-xp':''}">${l}</div>`).join('')}${xpProgress}${chips.length ? `<div class="loot">${chips.join('')}</div>` : ''}</div>`;
 }
 
 // Поражение нашей стороны на этом поле: в бою вдвоём итог подводит Duo, иначе — экран «Поражение».
