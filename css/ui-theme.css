@@ -1378,3 +1378,23 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 .shop-workshop .shop-grid-view > .card > .card-act { margin-top:auto; }
 .shop-workshop .shop-grid-view > .card > .card-act button { min-height:44px; }
 @media (max-width:370px) { .modal.shop-workshop .shop-catalog.shop-grid-view { grid-template-columns:1fr; } }
+
+/* Карточка витрины: изображение, свойства, сравнение, цена и покупка. */
+.shop-workshop .shop-product .item-foot { display:grid; gap:6px; width:100%; min-width:0; margin-top:8px; }
+.shop-workshop .shop-product .shop-meta { display:flex; flex-wrap:wrap; gap:4px; }
+.shop-workshop .shop-grid-view .shop-product .shop-meta { justify-content:center; }
+.shop-workshop .shop-product .shop-meta:empty { display:none; }
+.shop-workshop .shop-owned,.shop-workshop .shop-set-progress { font-size:.83em; padding:3px 6px; border:1px solid #796344; border-radius:4px; color:#e8d2a6; }
+.shop-workshop .shop-owned { color:#c8e6ad; border-color:#617744; }
+.shop-workshop .shop-comparison { display:grid; gap:4px; padding:6px; background:rgba(14,10,6,.42); border-radius:6px; min-width:0; }
+.shop-workshop .shop-compare-label { font-size:.8em; color:#c0aa89; }
+.shop-workshop .shop-deltas { display:flex; flex-wrap:wrap; gap:3px 8px; font-size:.88em; }
+.shop-workshop .shop-grid-view .shop-deltas { justify-content:center; }
+.shop-workshop .shop-delta.up { color:#b7e899; }
+.shop-workshop .shop-delta.down { color:#ffa69a; }
+.shop-workshop .shop-price { display:flex; flex-wrap:wrap; align-items:center; gap:4px; font-size:1.25em; font-weight:700; color:#f5d18b; }
+.shop-workshop .shop-grid-view .shop-price { justify-content:center; }
+.shop-workshop .shop-unavailable { color:#ebbd8c; font-size:.85em; overflow-wrap:anywhere; }
+.shop-workshop .shop-grid-view .shop-product .card-act { display:grid; grid-template-columns:1fr; gap:5px; }
+.shop-workshop .shop-product .card-act .primary:not(:disabled) { background:linear-gradient(#876133,#59401f); color:#fff0cb; border-color:#bd9758; }
+.shop-workshop .shop-product .card-act button { white-space:normal; }
