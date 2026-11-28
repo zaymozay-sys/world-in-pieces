@@ -836,6 +836,20 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
 
 
 /* Ревизия интерфейсов: доступность обычных окон без изменения боевого поля. */
+.home-modal .stash-controls {
+  display: grid; gap: 7px; margin: 8px 0 12px; padding: 9px;
+  border: 1px solid var(--ui-line); border-radius: 8px; background: rgba(0,0,0,.24);
+}
+.home-modal .stash-controls .stash-search { margin: 0; min-width: 0; }
+.home-modal .stash-filter-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.home-modal .stash-filter-row select { width: 100%; min-width: 0; min-height: 40px; }
+.home-modal .stash-filter-row select:last-child { grid-column: 1 / -1; }
+.home-modal .stash-summary { color: var(--ui-muted); font-size: 13px; }
+.home-modal .stash-reset { width: 100%; min-height: 36px; }
+.home-modal .stash-reset[hidden] { display: none; }
+@media (pointer: coarse) {
+  .home-modal .stash-controls .stash-search, .home-modal .stash-filter-row select, .home-modal .stash-reset { min-height: 44px; font-size: 16px; }
+}
 .modal:not(.icard-modal) .screen-body {
   overscroll-behavior-y: contain;
 }
