@@ -833,3 +833,34 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
 }
 /* Раскрытая панель не должна перекрывать свою кнопку ☰: повторный клик закрывает меню. */
 .map-btns > #m-more[aria-expanded="true"] { position: relative; z-index: 81; }
+
+
+/* Ревизия интерфейсов: доступность обычных окон без изменения боевого поля. */
+.modal:not(.icard-modal) .screen-body {
+  overscroll-behavior-y: contain;
+}
+.modal:not(.icard-modal) :is(input, select, textarea, a[href], [role="button"]):focus-visible,
+#map-menu button:focus-visible {
+  outline: 2px solid var(--ui-gold-hi);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .modal:not(.icard-modal) .screen-body :is(input[type="search"], select),
+  .modal:not(.icard-modal) > .tabs button,
+  .modal:not(.icard-modal) .bag-tabs button,
+  .modal:not(.icard-modal) .equip-best {
+    min-height: 44px;
+  }
+  .modal:not(.icard-modal) .screen-body input[type="search"],
+  .modal:not(.icard-modal) .stash-search {
+    font-size: 16px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #map-menu .mm-head::after,
+  .modal:not(.icard-modal) .tabs button {
+    transition: none;
+  }
+}
