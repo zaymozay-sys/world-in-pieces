@@ -155,6 +155,30 @@ console.log('pets: все тесты пройдены');
   assert.ok(t2.power > 1 && t2.defense >= 15);
 }
 
+// Экономика ухода: цены ограничены наградами соответствующего цвета,
+// при этом потолки развития питомца и расход угощений остаются прежними.
+for (let t = 1; t <= 10; t++) {
+  const p = Pets.makePet('wolf', t), loot = B.economy.battleLoot[t - 1];
+  assert.strictEqual(Pets.repairCost(p), 0);
+  p.durability--;
+  assert.strictEqual(Pets.repairCost(p), Math.round(loot * B.economy.petRepairLootShare));
+  assert.strictEqual(Pets.feedCost(p), Math.round(loot * B.economy.petFeedLootShare * 3));
+  assert.ok(Pets.evoCost(p) <= 30 * loot);
+  for (const id of Pets.GEAR_IDS) {
+    p.gear = { [id]: t - 1 };
+    const cost = Pets.gearUpCost(p, id);
+    assert.ok(cost > 0 && cost <= 6 * loot);
+    assert.ok(Pets.gearUp(p, id));
+    assert.strictEqual(Pets.gearUpCost(p, id), null);
+  }
+  assert.ok(Pets.amuletSwapCost(p) <= 3 * loot);
+  assert.strictEqual(Pets.trainCost(p, t), null);
+  if (t > 1) assert.ok(Pets.trainCost(Pets.makePet('wolf', t - 1), t) <= 12 * loot);
+  const separate = ['bone', 'biscuit', 'honey'].reduce((sum, k) => sum + Pets.treatCost(p, k), 0) / 3;
+  const apple = Pets.treatCost(p, 'apple') / 2;
+  assert.ok(apple >= separate && apple <= 1.2 * separate);
+}
+
 // 1.3.9: домашние питомцы фракций и яйца
 {
   assert.strictEqual(Pets.homeFor('human'), 'dog'); assert.strictEqual(Pets.homeFor('elf'), 'cat');
