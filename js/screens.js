@@ -631,7 +631,7 @@ const Screens = (() => {
       const rows = Object.entries(S.bonuses).map(([need, b]) => `<span class="${n >= Number(need) ? 'on' : ''}">${_t("{0} шт.: {1}", [need, fmtBonus(b)])}</span>`).join('');
       const styleKeys = [...new Set(Object.values(S.bonuses).flatMap((b) => Object.keys(b)))].filter((k) => Gear.STAT_NAMES[k] && k !== 'power' && k !== 'health'), styleTxt = styleKeys.length ? `<div class="set-style">${_t("Стиль")}: ${styleKeys.slice(0, 4).map((k) => Gear.STAT_NAMES[k]).join(', ')}</div>` : '';   // 2.4.1: фишка комплекта одной строкой
       const win = Gear.SET_WINDOWS && Gear.SET_WINDOWS[s.set], winTxt = styleTxt + (win ? `<div class="set-window">${_t("Сильнее всего на цветах {0}–{1}", [win[0], win[1]])}</div>` : '');
-      info = `<div class="set-info" style="--c:${S.color}"><b>${S.name}</b> · ${_t("надето {0} из {1}", [n, total])}${winTxt}<details class="set-more"${(typeof matchMedia === 'function' && matchMedia('(max-width: 700px)').matches) ? '' : ' open'}><summary>${_t("Бонусы комплекта")}</summary><div class="set-bonuses">${rows}</div></details></div>`;
+      info = `<div class="set-info" style="--c:${S.color}"><b>${S.name}</b> · ${_t("надето {0} из {1}", [n, total])}${winTxt}<details class="set-more"><summary>${_t("Бонусы комплекта")}</summary><div class="set-bonuses">${rows}</div></details></div>`;
     }
     const kindFn = CAT_KINDS.find((k) => k[0] === s.kind)[2];
     const bases = all.filter((i) => (s.set === 'all' || (s.set === 'none' ? !i.set : i.set === s.set)) && kindFn(i.type))
