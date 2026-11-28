@@ -1396,7 +1396,7 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 .shop-workshop .shop-grid-view .shop-price { justify-content:center; }
 .shop-workshop .shop-unavailable { color:#ebbd8c; font-size:.85em; overflow-wrap:anywhere; }
 .shop-workshop .shop-grid-view .shop-product .card-act { display:grid; grid-template-columns:1fr; gap:5px; }
-.shop-workshop .shop-product .card-act .primary:not(:disabled) { background:linear-gradient(#876133,#59401f); color:#fff0cb; border-color:#bd9758; }
+.shop-workshop .shop-product .card-act .primary:not(:disabled) { color:#2a1704; background:none; border-color:transparent; }
 .shop-workshop .shop-product .card-act button { white-space:normal; }
 
 /* Лавка: выбор вещей и подтверждение массовой продажи. */
@@ -1467,3 +1467,11 @@ body.mode-map .map-card.mc-compact-loot .mc-act button { min-height:44px; margin
 .overlay.battle-result .rw-more-btn { margin:4px 0 0; min-height:44px; }
 .overlay.battle-result .to-map { position:static; margin:5px 0 0; min-height:44px; box-shadow:none; }
 @media(max-width:370px) { .overlay.battle-result > .result-panel { padding:7px 8px 9px; } .overlay.battle-result .result-loot-entry { width:64px; } }
+
+/* Контраст: тёмные чернила на светлой бумаге и золотой кнопке. */
+.icard .ic-title button.ic-favorite { color:#37220e; background:#eddbb3; border:1px solid #896636; border-image:none; text-shadow:none; }
+.icard .ic-title button.ic-favorite[aria-pressed="true"] { color:#3a240b; background:#e5c878; border-color:#8a6326; }
+.icard .ic-title .ic-preset-note { color:#49321c; text-shadow:none; }
+.modal .tip-box :is(p,b,strong,em) { color:#392713; text-shadow:none; }
+.overlay.battle-result button.to-map { color:#241506; text-shadow:none; }
+.shop-workshop .shop-product .card-act .primary:not(:disabled) { color:#241506; text-shadow:none; }
