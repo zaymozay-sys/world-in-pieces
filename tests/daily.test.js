@@ -99,6 +99,19 @@ global.Profile = mockProfile(data);
 assert.strictEqual(Daily.canClaimLibrary(data), false);
 assert.strictEqual(Daily.claimLibrary(), null);
 
+// Мирное поручение не накручивает победы и не выдаёт вторую награду.
+{
+  const p=fresh(); global.Profile=mockProfile(p);
+  Daily.registerPeaceful();
+  assert.strictEqual(p.daily.wins,0);
+  assert.ok(Daily.canClaimLibrary(p));
+  assert.ok(Daily.claimLibrary());
+  Daily.registerPeaceful(); Daily.registerWin();
+  assert.strictEqual(Daily.claimLibrary(),null);
+  p.daily.date='вчера';
+  assert.ok(!Daily.canClaimLibrary(p));
+}
+
 /* ---------- цена билета растёт с уровнем героя (та же шкала, что у расходников) ---------- */
 data = fresh();
 global.Profile = mockProfile(data, 1);

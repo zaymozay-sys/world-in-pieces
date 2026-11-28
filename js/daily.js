@@ -16,7 +16,7 @@ const D_B = (typeof Bestiary !== 'undefined') ? Bestiary : require('./bestiary.j
 const D_H = (typeof Hero !== 'undefined') ? Hero : require('./hero.js');
 
 const Daily = (() => {
-  const LIB_GOAL = 1;                 // поручение библиотеки: победить в стольких боях сегодня
+  const LIB_GOAL = 1;                 // победа либо мирное занятие
   const TICKET_BASE = 120;            // цена билета на 1-м уровне; растёт вместе с ценами расходников (Hero.consumablePrice)
 
   // kind — что даёт исход, chance — вероятность, mult — ценность исхода как доля цены билета.
@@ -38,14 +38,14 @@ const Daily = (() => {
 
   // Возвращает Profile.data.daily, сбрасывая счётчики, если на календаре уже другой день.
   function ensure(data) {
-    if (!data.daily || data.daily.date !== today()) data.daily = { date: today(), wins: 0, questClaimed: false, lottery: false };
+    if (!data.daily || data.daily.date !== today()) data.daily = { date: today(), wins: 0, peaceful: false, questClaimed: false, lottery: false };
     return data.daily;
   }
 
   // Прогресс сегодняшнего поручения библиотеки: { value, goal, done, claimed }.
   function libraryQuest(data) {
     const d = ensure(data);
-    const value = Math.min(d.wins, LIB_GOAL);
+    const value = Math.min((Number(d.wins) || 0) + (d.peaceful ? 1 : 0), LIB_GOAL);
     return { value, goal: LIB_GOAL, done: value >= LIB_GOAL, claimed: d.questClaimed };
   }
 
@@ -55,6 +55,13 @@ const Daily = (() => {
     const d = ensure(Profile.data);
     d.wins++;
     Profile.save();
+  }
+
+  // Первый осмотр места или завершённое занятие питомца — альтернатива бою.
+  function registerPeaceful() {
+    if (typeof Profile === 'undefined') return;
+    const d = ensure(Profile.data);
+    if (!d.peaceful) { d.peaceful = true; Profile.save(); }
   }
 
   function canClaimLibrary(data) {
@@ -127,7 +134,7 @@ const Daily = (() => {
     return { ok: true, kind: row.kind, price, text, prize };
   }
 
-  return { today, ensure, libraryQuest, registerWin, canClaimLibrary, claimLibrary, libraryCoins, ticketPrice, canBuyTicket, buyTicket, pick, TABLE, LIB_GOAL };
+  return { today, ensure, libraryQuest, registerWin, registerPeaceful, canClaimLibrary, claimLibrary, libraryCoins, ticketPrice, canBuyTicket, buyTicket, pick, TABLE, LIB_GOAL };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

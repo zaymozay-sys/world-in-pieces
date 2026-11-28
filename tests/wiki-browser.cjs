@@ -44,6 +44,25 @@ const { chromium } = require('playwright');
         return !!document.querySelector('#map-card [data-act="attack"]') && !document.querySelector('#map-card [data-act="quick"]');
       });
       if (!normalOnly) throw new Error('Quick battle must remain disabled');
+      // Небоевое исследование: одноразовый опыт и ежедневное поручение.
+      const expedition = await page.evaluate(() => {
+        const lm = MapView.world.landmarks.find(m => m.kind === 'spring') || MapView.world.landmarks[0];
+        if (!lm) return null;
+        const before = Profile.data.xp, wins = Profile.data.wins, expected = World.landmarkXp(lm.kind, lm.tier, Profile.level());
+        MapView.devTeleport(lm.idx); MapView.tap(lm.idx);
+        return { id:lm.id, idx:lm.idx, kind:lm.kind, before,wins,expected };
+      });
+      if (!expedition) throw new Error('No landmark for exploration check');
+      const choice = expedition.kind === 'spring' ? '[data-lm="look"][data-k="stone"]' : '[data-lm="look"]';
+      await page.locator(choice).click();
+      const explored = await page.evaluate(e => ({
+        xp:Profile.data.xp-e.before,wins:Profile.data.wins-e.wins,
+        peaceful:Daily.libraryQuest(Profile.data).done,
+        found:!!MapView.state.found[e.id], blessing:Profile.data.blessing?.kind
+      }), expedition);
+      if(explored.xp!==expedition.expected||explored.wins!==0||!explored.peaceful||!explored.found||(expedition.kind==='spring'&&explored.blessing!=='stone'))throw new Error('Landmark reward mismatch: '+JSON.stringify(explored));
+      await page.evaluate(e => MapView.tap(e.idx), expedition);
+      if(await page.locator('[data-lm="look"]').count())throw new Error('Landmark cannot be collected again');
       await page.evaluate(() => Screens.open('best'));
       await page.locator('.beast-ctl').waitFor();
       await page.locator('[data-bres]').selectOption('graphite');
