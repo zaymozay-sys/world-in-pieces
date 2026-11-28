@@ -350,11 +350,21 @@ const Screens = (() => {
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
     }
   }
+  // Однократное подтверждение фактически совершённой покупки или работы.
+  let workshopSuccess = null;
   function decorateWorkshop() {
     if (cur !== 'forge' && cur !== 'shop') return;
     const modal = root.querySelector('.modal');
     if (!modal) return;
     modal.classList.add(cur === 'forge' ? 'forge-workshop' : 'shop-workshop');
+    if (workshopSuccess === cur) {
+      const notice = modal.querySelector('.gear-toast');
+      workshopSuccess = null;
+      if (notice) {
+        notice.classList.add('workshop-success', cur === 'forge' ? 'forge-spark' : 'shop-seal');
+        notice.setAttribute('role', 'status');
+      }
+    }
     if (cur === 'forge') {
       const split = modal.querySelector('.forge-split'), detail = split && split.querySelector('.forge-detail');
       if (!detail) return;
@@ -403,9 +413,9 @@ const Screens = (() => {
     const nb = [...root.querySelectorAll('[' + attr + ']')].find((x) => x.getAttribute(attr) === val);
     if (!nb) return;
     const row = nb.closest('.card, .shop-row, li, .row') || nb.parentNode;
+    if (nb === b) return;
     row.classList.add('just-bought');
-    const old = nb.textContent;
-    if (nb === b) return;                                 // кнопка не перерисовалась — покупка не прошла
+    const old = nb.textContent;                                 // кнопка не перерисовалась — покупка не прошла
     nb.dataset.was = old; nb.classList.add('bought-flash'); nb.textContent = _t("✓ Куплено");
     setTimeout(() => { if (nb.isConnected) { nb.classList.remove('bought-flash'); nb.textContent = old; } row.classList.remove('just-bought'); }, 1600);
   }
@@ -735,7 +745,7 @@ const Screens = (() => {
         if (!picks.length || !Profile.spend(total)) return;
         let n = 0; for (const [id, tier, q] of picks) for (let i = 0; i < q; i++) { Profile.addItem(Gear.makeEntry(id, tier)); n++; }
         s.basket = {};
-        s.msg = _t("Куплено вещей: {0}", [n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено вещей: {0}", [n]);
         return changed();
       }
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
@@ -749,7 +759,7 @@ const Screens = (() => {
         const it = Gear.item({ id, tier });
         if (!Profile.spend(buyPrice(it.price))) return;
         Profile.addItem(Gear.makeEntry(id, tier));
-        s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
         { const lo = Profile.data.loadout || {}; if (it.type in lo && !lo[it.type]) s.msg += ' ' + _t("Слот пуст — наденьте покупку дома, в оружейной.") }   // 2.2.7: новичок не знал, что вещь надо ещё надеть
         return changed();
       }
@@ -763,7 +773,7 @@ const Screens = (() => {
         if (!e || !it) return;
         if (!Profile.spend(buyPrice(it.price))) return;
         Profile.removeFromShop(e.uid); Profile.addItem(e);
-        s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} ({1})", [it.name, Tiers.get(it.tier).name]);
         return changed();
       }
       if (d.ammoQty) { s.ammoQty = Number(d.ammoQty); return render(); }
@@ -771,7 +781,7 @@ const Screens = (() => {
         const n = Math.max(1, Number(d.n) || 1), total = buyPrice(Gear.bulkPrice(ammoPrice(d.buyAmmo), n));
         if (!Profile.spend(total)) return;
         Profile.addAmmo(d.buyAmmo, n);
-        s.msg = _t("Куплено: {0} × {1}", [Ammo.CATALOG[d.buyAmmo].name, n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} × {1}", [Ammo.CATALOG[d.buyAmmo].name, n]);
         return changed();
       }
       if (d.spCons || d.spRes) {          // покупка за искры: сначала списание на сервере, потом выдача товара
@@ -787,7 +797,7 @@ const Screens = (() => {
         const c = Gear.CONSUMABLES[d.buyCons], n = Math.max(1, Number(d.n) || 1), total = buyPrice(Gear.bulkPrice(consPrice(d.buyCons), n));
         if (!Profile.spend(total)) return;
         Profile.addConsumable(d.buyCons, n);
-        s.msg = _t("Куплено: {0} × {1}", [c.name, n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} × {1}", [c.name, n]);
         return changed();
       }
       if (d.buyRes) {
@@ -795,7 +805,7 @@ const Screens = (() => {
         const total = Gear.bulkPrice(buyPrice(Bestiary.resPrice(d.buyRes, rt) * RES_BUY_MARKUP), n);
         if (!Profile.spend(total)) return;
         Profile.addRes(d.buyRes, rt, n);
-        s.msg = _t("Куплено: {0} × {1}", [resLabel(d.buyRes, rt), n]);
+        workshopSuccess = 'shop'; s.msg = _t("Куплено: {0} × {1}", [resLabel(d.buyRes, rt), n]);
         return changed();
       }
       if (d.sellItem) {
@@ -1132,7 +1142,7 @@ const Screens = (() => {
         if (!fc || !Profile.spend(fc.coins)) return;
         e.fit = true;
         Profile.save();
-        s.msg = _t("Перекована: {0} — теперь можно надеть с {1}-го уровня", [Gear.item(e).name, Hero.itemLevel(Gear.item(e).wt)]);
+        workshopSuccess = 'forge'; s.msg = _t("Перекована: {0} — теперь можно надеть с {1}-го уровня", [Gear.item(e).name, Hero.itemLevel(Gear.item(e).wt)]);
         onGearChanged();
         return changed();
       }
@@ -1140,7 +1150,7 @@ const Screens = (() => {
         const e = Profile.item(s.sel); if (!e) return;
         const n = Math.max(1, Math.floor(Number(d.doRepair)) || 1), price = repairPrice(e, n);
         if (!price || !Profile.repairItem(e.uid, n, price)) return;
-        s.msg = _t("Починено: {0}", [Gear.item(e).name]);
+        workshopSuccess = 'forge'; s.msg = _t("Починено: {0}", [Gear.item(e).name]);
         onGearChanged();
         return changed();
       }
@@ -1149,7 +1159,7 @@ const Screens = (() => {
         const total = worn.reduce((sum, e) => sum + repairPrice(e), 0);
         if (!worn.length || Profile.data.coins < total) return;
         for (const e of worn) Profile.repairItem(e.uid, undefined, repairPrice(e));
-        s.msg = _t("Починено вещей: {0}", [worn.length]);
+        workshopSuccess = 'forge'; s.msg = _t("Починено вещей: {0}", [worn.length]);
         onGearChanged();
         return changed();
       }
@@ -1158,7 +1168,7 @@ const Screens = (() => {
         if (!tc || tc.plus > cap || (tc.coins > 0 && !Profile.spend(tc.coins))) return;
         e.plus = tc.plus;
         Profile.save(); if (tc.coins > 0) Profile.noteMaster('craft', 1);
-        s.msg = _t("Закалено: {0}", [Gear.item(e).name]);
+        workshopSuccess = 'forge'; s.msg = _t("Закалено: {0}", [Gear.item(e).name]);
         onGearChanged();
         return changed();
       }
@@ -1177,7 +1187,7 @@ const Screens = (() => {
         Gear.setTier(e, e.tier + 1);          // 1.6.6: прочность сохраняет долю
         Profile.save();
         const it = Gear.item(e);
-        s.msg = _t("Улучшено: {0} — теперь {1}", [it.name, Tiers.get(it.tier).name]) + (e.fit ? ' ' + _t("Перековка сохранена.") : '');
+        workshopSuccess = 'forge'; s.msg = _t("Улучшено: {0} — теперь {1}", [it.name, Tiers.get(it.tier).name]) + (e.fit ? ' ' + _t("Перековка сохранена.") : '');
         // если вещь надета и очки превышены — снимаем её
         const worn = Profile.equippedUid(e.uid);
         if (worn && !Hero.canWear(Gear.item(e).wt, Profile.level())) {
@@ -1223,7 +1233,7 @@ const Screens = (() => {
         Profile.spend(fee);
         const key = Ammo.keyOf(ak, g);
         Profile.addAmmo(key, out); Profile.noteBrew(out);
-        s.msg = _t("Изготовлено: {0} × {1}", [Ammo.stockName(key), out]);
+        workshopSuccess = 'forge'; s.msg = _t("Изготовлено: {0} × {1}", [Ammo.stockName(key), out]);
         return changed();
       }
       if (d.mark) {
@@ -1237,7 +1247,7 @@ const Screens = (() => {
         pay(cost);
         const e = Gear.makeEntry(d.craft, s.craftTier || 1);
         Profile.addItem(e); Profile.noteMaster('craft', 1);
-        s.msg = _t("Создано: {0}", [Gear.item(e).name]);
+        workshopSuccess = 'forge'; s.msg = _t("Создано: {0}", [Gear.item(e).name]);
         return changed();
       }
     },
