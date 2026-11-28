@@ -30,6 +30,7 @@ jobs:
           FORCE: temper,mirror,square,fire
         run: node tools/live-e2e.js 1
       - name: Two-client PvP (ordinary tactical play)
+        # Проверка ожидает завершения асинхронного получения квитанции.
         run: node tools/live-e2e.js 1
       - name: Browser checks
         run: |

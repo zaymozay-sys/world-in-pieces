@@ -108,6 +108,15 @@ const DRIVER = require('./e2e-driver');
     await A.page.waitForTimeout(800);
     // серверные награды: квитанция гасится один раз и меняет счёт арены у обоих
     for (const P of [A, B]) {
+      // Сервер записывает рейтинг асинхронно, а клиент может уже получать
+      // квитанцию по уведомлению. Дожидаемся реального начисления с лимитом.
+      await P.page.waitForFunction(async expected => {
+        const a = claimLiveRewards(), b = claimLiveRewards();
+        if (a !== b) throw new Error('Одновременные запросы квитанций не объединены');
+        await Promise.all([a, b]);
+        const p = Profile.data.pvp || {};
+        return (p.wins || 0) + (p.losses || 0) >= expected;
+      }, n, { timeout: 15000, polling: 250 });
       const r = await P.page.evaluate(async () => { const b = (Profile.data.arena || {}); const n0 = (b.wins || 0) + (b.losses || 0); await claimLiveRewards(); const a = Profile.data.arena || {}; const n1 = (a.wins || 0) + (a.losses || 0); await claimLiveRewards(); const a2 = Profile.data.arena || {}; return { n0, n1, n2: (a2.wins || 0) + (a2.losses || 0), pvp: Profile.data.pvp || null, titles: ((Profile.data.cosmetics || {}).titles || []).filter((t) => /^pvp/.test(t)) }; });
       console.log('  квитанция', P.name, JSON.stringify(r));
       if (!r.pvp || r.pvp.wins + r.pvp.losses !== 1 || (r.pvp.wins === 1) !== (r.titles.length === 1)) { okAll = false; console.log('РАНГ ЖИВЫХ БОЁВ: счётчик не сошёлся'); }

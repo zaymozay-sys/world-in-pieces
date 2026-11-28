@@ -221,9 +221,12 @@ MapView.marketNews();           // Торговые ряды: что купил�
         w.TourneyClient = T;
         // награды сезона: спрашиваем у сервера, берём каждую один раз (локально помним только, что уже брали)
         // квитанции за живые бои: каждая гасится на сервере один раз; монеты — только если сервер счёл бой оплачиваемым
-        w.claimLiveRewards = async () => {
-          const rem = Net.current && Net.current.remote; if (!rem || !rem.rewardsClaim || w.__voucherBusy) return;
-          w.__voucherBusy = true;
+        w.claimLiveRewards = () => {
+          // Одновременное уведомление рейтинга и открытие арены ждут одну
+          // операцию получения квитанций, а не возвращаются до её завершения.
+          if (w.__voucherBusy) return w.__voucherBusy;
+          const rem = Net.current && Net.current.remote; if (!rem || !rem.rewardsClaim) return Promise.resolve();
+          w.__voucherBusy = (async () => {
           try {
             const list = (await rem.rewardsClaim()) || [];
             for (const v of list) {
@@ -250,7 +253,9 @@ MapView.marketNews();           // Торговые ряды: что купил�
               if (pvpUp) { try { MapView.toast(_t("Новый ранг живых боёв: {0}! Титул — в Гардеробе Ратуши", [_t(pvpUp.name)]), 6000); } catch (e) { /* карта закрыта */ } }
               try { MapView.toast(v.win ? (coins ? _t("Живой бой: победа! Монеты: {0}", [Tiers.moneyText(coins)]) : _t("Живой бой: победа засчитана (монеты за сегодня выданы)")) : _t("Живой бой: поражение засчитано"), 4500); } catch (e) { /* карта закрыта */ }
             }
-          } catch (e) { /* нет связи — заберём позже */ } finally { w.__voucherBusy = false; }
+          } catch (e) { /* нет связи — заберём позже */ }
+          })().finally(() => { w.__voucherBusy = null; });
+          return w.__voucherBusy;
         };
         w.claimSeasonRewards = async () => {
           const rem = Net.current && Net.current.remote; if (!rem || !rem.seasonList || w.__seasonBusy) return;
