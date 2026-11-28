@@ -836,6 +836,49 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
 
 
 /* Ревизия интерфейсов: доступность обычных окон без изменения боевого поля. */
+.forge-workshop { --work-accent: #d99b53; }
+.shop-workshop { --work-accent: #c6a367; }
+.modal.forge-workshop > header { background: linear-gradient(180deg,#513321,#211b18); }
+.modal.shop-workshop > header { background: linear-gradient(180deg,#47301b,#20150c); }
+.forge-workshop .forge-materials {
+  min-width: 0; padding: 12px; border: 1px solid #805632; border-radius: 8px;
+  background: linear-gradient(150deg,rgba(68,42,29,.96),rgba(23,21,20,.96));
+  box-shadow: inset 0 0 18px rgba(0,0,0,.42);
+}
+.forge-workshop .forge-materials h3 { margin-top: 0; }
+.forge-workshop .forge-materials .costs { display: flex; flex-wrap: wrap; gap: 5px; }
+.forge-workshop .forge-materials .lack { overflow-wrap: anywhere; line-height: 1.5; }
+.forge-workshop .forge-readiness { display: grid; grid-template-columns: 1fr auto; gap: 5px; color: #f0b18a; font-size: 13px; }
+.forge-workshop .forge-readiness.ready { color: #a5dfa0; }
+.forge-workshop .forge-readiness progress { grid-column: 1 / -1; width: 100%; height: 8px; accent-color: #d99b53; }
+.forge-workshop .forge-readiness.ready progress { accent-color: #8fd08a; }
+.forge-workshop .craft-unit { display: grid; gap: 6px; padding: 8px; border: 1px solid #65492f; }
+.forge-workshop .forge-result { border-color: #a7c77f; box-shadow: inset 0 0 14px rgba(141,198,104,.12); }
+.forge-workshop .forge-filter, .shop-workshop .shop-view-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.forge-workshop .forge-filter button.on, .shop-workshop .shop-view-controls button.on { outline: 2px solid var(--work-accent); outline-offset: -2px; color: var(--ui-gold-hi); }
+.forge-workshop .forge-filter button, .shop-workshop .shop-view-controls button { min-height: 44px; padding: 6px 12px; }
+.shop-workshop .shop-grid-view { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(215px,100%),1fr)); gap: 10px; align-items: stretch; }
+.shop-workshop .shop-grid-view > .card { display: flex; flex-direction: column; align-items: stretch; text-align: center; min-width: 0; padding: 12px; background: linear-gradient(165deg,rgba(66,43,24,.95),rgba(25,17,11,.96)); }
+.shop-workshop .shop-grid-view > .card > .icon-wrap { align-self: center; width: 82px; height: 82px; margin: 0; }
+.shop-workshop .shop-grid-view > .card > .card-body { width: 100%; flex: 1 1 auto; min-width: 0; }
+.shop-workshop .shop-grid-view > .card > .card-act { width: 100%; flex: none; flex-direction: row; flex-wrap: wrap; justify-content: center; margin: 0; }
+.shop-workshop .shop-grid-view > .card > .card-act button { flex: 1 1 80px; white-space: normal; }
+.shop-workshop .shop-grid-view > .card > .card-info { top: 10px; right: 10px; margin: 0; }
+.shop-workshop .shop-grid-view > :not(.card) { grid-column: 1 / -1; }
+@media (min-width: 900px) {
+  .forge-workshop .forge-split { grid-template-columns: minmax(180px, .8fr) minmax(0, 2fr); }
+  .forge-workshop .forge-detail-workbench { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; align-items: start; }
+  .forge-workshop .forge-detail-workbench > :not(.forge-upgrade-materials) { grid-column: 1; }
+  .forge-workshop .forge-upgrade-materials { grid-column: 2; grid-row: 1 / span 4; }
+  .forge-workshop .craft-unit { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; }
+}
+@media (max-width: 700px) {
+  .forge-workshop .forge-materials { padding: 8px; }
+  .forge-workshop .forge-upgrade-materials .reset button { width: 100%; min-height: 44px; }
+  .shop-workshop .shop-grid-view { grid-template-columns: repeat(auto-fit,minmax(min(145px,100%),1fr)); gap: 7px; }
+  .shop-workshop .shop-grid-view > .card { padding: 8px; }
+  .shop-workshop .shop-grid-view > .card > .icon-wrap { width: 60px; height: 60px; }
+}
 .home-modal .stash-controls {
   display: grid; gap: 7px; margin: 8px 0 12px; padding: 9px;
   border: 1px solid var(--ui-line); border-radius: 8px; background: rgba(0,0,0,.24);

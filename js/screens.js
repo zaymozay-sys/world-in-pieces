@@ -345,8 +345,46 @@ const Screens = (() => {
       const html = SCREENS[cur].html();
       if (html.includes('lh-board') && root.querySelector('.lh-board') && !root.querySelector('.ch-board')) patchRender(html);   // 2.4.3: мини-игры не пересоздаются целиком после каждого хода — иначе мигают
       else { root.innerHTML = html; addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab(); if (cur === 'valor') valorDecorate(); }
+      decorateWorkshop();
       root.querySelectorAll('.tabs:not(.sub)').forEach((t) => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth + 2) t.scrollLeft = Math.max(0, on.offsetLeft - 24); });   // 2.0.9: активная вкладка видна
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
+    }
+  }
+  function decorateWorkshop() {
+    if (cur !== 'forge' && cur !== 'shop') return;
+    const modal = root.querySelector('.modal');
+    if (!modal) return;
+    modal.classList.add(cur === 'forge' ? 'forge-workshop' : 'shop-workshop');
+    if (cur === 'forge') {
+      const split = modal.querySelector('.forge-split'), detail = split && split.querySelector('.forge-detail');
+      if (!detail) return;
+      const costs = detail.querySelector('.costs');
+      if (!costs) return;
+      const materials = document.createElement('section'); materials.className = 'forge-materials forge-upgrade-materials';
+      const entry = Profile.item(st.forge.sel);
+      const ref = { mode: 'upgrade', entry };
+      const cost = entry && (Forge.hasPlan(ref) ? forgeCost(planOfRef(ref)) : forgeCost(Gear.upgradeCost(entry)));
+      if (cost) materials.insertAdjacentHTML('beforeend', forgeSummary(cost));
+      const heading = costs.previousElementSibling;
+      if (heading && heading.tagName === 'H3') materials.append(heading);
+      for (const node of [...detail.children].slice([...detail.children].indexOf(costs))) materials.append(node);
+      detail.append(materials);
+      detail.classList.add('forge-detail-workbench');
+      const cards = detail.querySelectorAll(':scope > .card');
+      if (cards.length === 2) cards[1].classList.add('forge-result');
+    } else if (st.shop.tab === 'buy') {
+      const list = modal.querySelector('.cat-search');
+      const catalog = list && modal.querySelector('.cat-search ~ .card-list');
+      if (!catalog) return;
+      catalog.classList.add('shop-catalog');
+      catalog.classList.toggle('shop-grid-view', st.shop.catalogView !== 'list');
+      const bar = document.createElement('div'); bar.className = 'shop-view-controls';
+      for (const [key, label] of [['grid', _t("Витрина")], ['list', _t("Список")], ['affordable', _t("По карману")]]) {
+        const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.shopView = key; btn.textContent = label;
+        const active = key === 'affordable' ? !!st.shop.affordable : (st.shop.catalogView || 'grid') === key;
+        btn.classList.toggle('on', active); btn.setAttribute('aria-pressed', String(active)); bar.append(btn);
+      }
+      list.before(bar); applyShopQuery();
     }
   }
   // 1.8.1: у окон без своего фона (деревня, справка, стена доблести) он подхватывается, как только картинка ui/bg-<имя> есть в игре
@@ -449,7 +487,7 @@ const Screens = (() => {
   }
   function applyShopQuery() {
     const q = (cur === 'shop' && st.shop.q || '').trim().toLowerCase();
-    root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; c.hidden = !!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q)); });
+    root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; const buy = c.querySelector('[data-buy-cat]'); c.hidden = (!!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q))) || !!(cur === 'shop' && st.shop.affordable && buy && buy.disabled); });
   }
   function onInput(e) {
     if (cur === 'valor' && e.target.dataset.vq !== undefined) { st.valor.q = e.target.value; valorFilter(); return; }
@@ -681,6 +719,11 @@ const Screens = (() => {
     },
     click(b) {
       const s = st.shop, d = b.dataset;
+      if (d.shopView) {
+        if (d.shopView === 'affordable') s.affordable = !s.affordable;
+        else s.catalogView = d.shopView;
+        return render();
+      }
       if (shelfClick(d)) return;
       if (d.sh === 'pay' && d.shId === 'shop') {
         const top = Hero.shopGearTier(Profile.level()), bk = basketOf('shop'); let total = 0; const picks = [];
@@ -802,6 +845,11 @@ const Screens = (() => {
     return miss.length ? `<div class="lack">${_t("Не хватает")}: ${miss.join(', ')}</div>` : '';
   };
   const costHtml = (c, key) => costBase(c, key) + lackHtml(c);
+  const forgeSummary = (c) => {
+    const total = c.res.length + 1;
+    const ready = c.res.filter((r) => Profile.res(r.kind, r.tier) >= r.n).length + Number(Profile.data.coins >= c.coins);
+    return `<div class="forge-readiness ${canPay(c) ? 'ready' : ''}"><b>${_t("Материалы и монеты")}</b><span>${ready} / ${total}</span><progress max="${total}" value="${ready}" aria-label="${_t("Материалы и монеты")}"></progress></div>`;
+  };
   // 2.4.5: закладки рецептов («id:цвет»): звёздочка в Кузнице, существа-источники недостающих ресурсов подсвечиваются на карте
   const marks = () => (Profile.data.marks = Array.isArray(Profile.data.marks) ? Profile.data.marks : []);
   const markBtn = (id, tier) => { const k = id + ':' + tier, on = marks().includes(k); return `<button type="button" class="mark-btn${on ? ' on' : ''}" data-mark="${k}" aria-pressed="${on}" title="${_t("Следить за рецептом: существа с нужными ресурсами подсветятся на карте")}">${on ? '★' : '☆'}</button>`; };
@@ -1053,13 +1101,19 @@ const Screens = (() => {
         if (!s.craftTier || s.craftTier > top) s.craftTier = top;
         const ct = s.craftTier;
         const bases = early ? Gear.craftFor(Profile.data.faction, ct).sort((a, b) => a.cost - b.cost).slice(0, 1) : Gear.craftFor(Profile.data.faction, ct).filter((b) => f[2](b.type)).sort((a, b) => a.cost - b.cost);
-        const list = bases.map((b) => {
-          const it = Gear.item({ id: b.id, tier: ct }), cost = craftPlan(b.id, ct), ckey = planKey({ mode: 'craft', itemId: b.id, tier: ct });
-          return `<div class="craft-unit">${itemCard(it, _t("{0} · из ресурсов цвета «{1}»", [Gear.RARITY_NAMES[b.rarity], Tiers.get(ct).name]), _t("<button type=\"button\" data-craft=\"{0}\" {1}>Создать</button>", [b.id, canPay(cost) ? '' : 'disabled']) + tryBtn('craft', b.id) + markBtn(b.id, ct))}${costHtml(cost, ckey)}</div>`;
+        const recipes = bases.map((b) => ({ b, cost: craftPlan(b.id, ct) }));
+        const visible = recipes.filter(({ cost }) => !s.readyOnly || early || canPay(cost));
+        const list = visible.map(({ b, cost }) => {
+          const it = Gear.item({ id: b.id, tier: ct }), ckey = planKey({ mode: 'craft', itemId: b.id, tier: ct });
+          return `<div class="craft-unit">${itemCard(it, _t("{0} · из ресурсов цвета «{1}»", [Gear.RARITY_NAMES[b.rarity], Tiers.get(ct).name]), _t("<button type=\"button\" data-craft=\"{0}\" {1}>Создать</button>", [b.id, canPay(cost) ? '' : 'disabled']) + tryBtn('craft', b.id) + markBtn(b.id, ct))}<div class="forge-materials">${forgeSummary(cost)}${costHtml(cost, ckey)}</div></div>`;
         }).join('');
         body = early ? `<p class="hint">${_t("Для начала — одна простая вещь. Остальные вещи и вкладки Кузницы откроются после первых боёв.")}</p><div class="card-list">${list}</div>` : _t("<div class=\"tabs sub\">{0}</div>\n          <p class=\"hint\">Цвет новой вещи (до цвета вашего уровня):</p>{1}<div class=\"card-list\">{2}</div>", [FILTERS.map(([k, label]) => `<button type="button" class="${k === s.filter ? 'on' : ''}" data-filter="${k}">${label}</button>`).join(''), tierPicker(top, ct, 'crafttier'), list]);
       }
       // 2.4.7: список ресурсов свёрнут (одна строка «N ▾»), чтобы сразу были видны предметы, а не длинный перечень ресурсов
+      if (s.tab === 'craft' && !early) {
+        body = `<div class="forge-filter"><button type="button" data-forge-ready="1" aria-pressed="${!!s.readyOnly}" class="${s.readyOnly ? 'on' : ''}">${_t("Можно изготовить сейчас")}</button></div>` + body;
+        if (!body.includes('craft-unit')) body += `<p class="hint">${_t("Нет подходящих рецептов")}</p>`;
+      }
       const resList = Profile.resList(), resChips = resList.map((r) => `<span class="need ok">${MonsterArt.resIcon(r.kind, r.tier)}${resLabel(r.kind, r.tier)} × ${r.n}</span>`).join('');
       const res = resChips ? `<details class="res-fold"${st.forgeResOpen ? ' open' : ''}><summary>${resList.length} ▾</summary><div class="res-chips">${resChips}</div></details>` : _t("<span class=\"hint\">Ресурсов нет</span>");
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Кузница\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}<div class=\"stock-line\">Ваши ресурсы: {4}</div>{5}</div></div>", [head(_t("Кузница")), tabs((early ? [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")]] : [['upgrade', _t("Улучшить цвет")], ['craft', _t("Создать вещь")], ['temper', _t("Закалка")], ['refit', _t("Перековка")], null, ['ammo', _t("Варка")], ['compass', _t("Стрелки")], ['swap', _t("Обмен")], null, ['repair', _t("Починка")]].filter((x) => !x || forgeOpen(x[0]))), s.tab), sceneStyle('forge'), (s.msg ? `<div class="gear-toast">${s.msg}</div>` : '') + (learned ? `<div class="gear-toast">${_t("В кузнице научились: {0}", [learned])}</div>` : ''), res, forgeTip(s.tab) + body]);
@@ -1069,6 +1123,7 @@ const Screens = (() => {
       if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
       if (d.cpMake) { s.msg = compassMake(d.cpMake) ? _t("Стрелка в поясе.") : _t("Не получилось: нужен пояс со свободным местом, монеты и ресурсы."); return changed(); }
       if (d.filter) { s.filter = d.filter; return render(); }
+      if (d.forgeReady) { s.readyOnly = !s.readyOnly; return render(); }
       if (d.crafttier) { s.craftTier = Number(d.crafttier); return render(); }
       if (d.fback) { s.view = 'list'; return render(); }
       if (d.pick) { s.sel = d.pick; s.msg = ''; s.view = 'detail'; return render(); }
