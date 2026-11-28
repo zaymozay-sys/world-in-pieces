@@ -29,6 +29,18 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       await page.locator('[data-shop-view="grid"]').click();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
       assert.equal(await page.evaluate(() => Profile.data.coins), 0);
+      // Недоступная покупка не должна выдавать печать успеха.
+      assert.equal(await page.locator('.workshop-success').count(), 0);
+      await page.evaluate(() => { Profile.data.coins = 1e7; Screens.refresh(); });
+      await page.locator('.shop-catalog [data-buy-cat]:enabled').first().click();
+      assert.equal(await page.locator('.workshop-success.shop-seal').count(), 1);
+      await page.evaluate(() => {
+        for (const kind of Object.keys(Bestiary.RESOURCES)) for (let tier = 1; tier <= 3; tier++) Profile.addRes(kind, tier, 10000);
+        Screens.open('forge');
+      });
+      await page.locator('[data-tab="craft"]').click();
+      await page.locator('.craft-unit [data-craft]:enabled').first().click();
+      assert.equal(await page.locator('.workshop-success.forge-spark').count(), 1);
       assert.deepEqual(errors, []);
       await context.close();
       console.log(`Кузница и Лавка ${width}px: проверка пройдена`);
