@@ -47,7 +47,7 @@ let selected = null;
 let aiming = false;      // игрок выбирает центр Огненного креста
 let aimKind = null;      // какое заклинание наводится: 'fire' | 'transmute'
 // 1.7.3: «Анализ боя» — счётчики за бой (кнопка в окне итога). dmgTag помечает источник урона по герою (штраф, яд, стая).
-let rec = null, dmgTag = '';
+let rec = null, dmgTag = '', battleStartXp = null;
 function newRec() { return { turns: 0, dealt: 0, taken: 0, pen: 0, poison: 0, pack: 0, blocks: 0, absorbed: 0, stuns: 0, stunResist: 0 }; }
 rec = newRec();
 let turnDamage = { target: null, amount: 0 };
@@ -181,6 +181,7 @@ function buildFighter(side) {
     el.querySelector('.avatar').addEventListener('click', () => toggleFighterInfo(side));
     el.querySelector('.gearrow').addEventListener('click', () => Inventory.open(side));
   }
+  const av=el.querySelector('.avatar'); av.setAttribute('role','button'); av.tabIndex=0; av.setAttribute('aria-label',side==='right'?_t("Сведения о противнике"):_t("Статистика героя")); av.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();toggleFighterInfo(side);}});
   renderAvatar(side);
   renderGear(side);
   renderWallet();
@@ -1058,8 +1059,10 @@ function toggleFighterInfo(side) {
   const el = fEl(side), onPhone = true; let pop = (onPhone ? document : el).querySelector('.fi-pop');
   if (pop) { pop.remove(); return; }
   const f = fighters[side], st = f.stats || {}, rows = [];
+  const heading = `<header class="fi-heading"><b>${effectEscape(f.name || '')}</b><button type="button" class="fi-close" aria-label="${_t("Закрыть")}">×</button></header>`;
   const row = (k, v) => rows.push(`<div><span>${k}</span><b>${v}</b></div>`);
   row(_t("Здоровье"), `${Math.max(0, f.hp)} / ${f.max}`);
+  rows.push(`<progress class="fi-health" max="${Math.max(1,f.max)}" value="${Math.max(0,f.hp)}" aria-label="${_t("Здоровье")}"></progress>`);
   row(_t("Сила"), '+' + Math.round(Combat.power(f)));
   row(_t("Броня"), st.defense ? '' + Combat.armorOf(f) : '0');
   row(_t("Блок"), (st.block || 0) + '%'); row(_t("Рикошет"), (st.ricochet || 0) + '%'); row(_t("Проворство"), (st.initiative || 0) + '%');
@@ -1080,10 +1083,11 @@ function toggleFighterInfo(side) {
   }
   if (effects.length) rows.push(`<section class="fi-effects"><h3>${_t("Сейчас действует")}</h3>${effects.map(effect => `<div class="fi-effect ${effect.tone}"><span>${effectEscape(effect.label)}</span><b>${effectEscape(effect.duration || '—')}</b></div>`).join('')}</section>`);
   rows.push(`<button type="button" class="fi-more">${side === 'right' ? _t("Карточка существа") : _t("Ранец и экипировка")}</button>`);
-  pop = document.createElement('div'); pop.className = 'fi-pop at-card'; pop.innerHTML = rows.join('');
+  pop = document.createElement('div'); pop.className = 'fi-pop at-card'; pop.setAttribute('role','dialog'); pop.setAttribute('aria-label',f.name || _t("Статистика героя")); pop.innerHTML = heading+rows.join('');
   pop.addEventListener('click', (e) => {
-    e.stopPropagation(); pop.remove();
-    if (e.target.closest && e.target.closest('.fi-more')) {
+    e.stopPropagation();
+    if(e.target.closest('.fi-close')) {pop.remove();return;}
+    if (e.target.closest && e.target.closest('.fi-more')) { pop.remove();
       if (side === 'right' && f.monsterId && Bestiary.MONSTERS[f.monsterId]) { Profile.data.seen = Profile.data.seen || {}; Profile.data.seen[f.monsterId] = 1; Screens.openBestiary(f.monsterId, f.tier); }
       else Inventory.open(side);
     }
@@ -1098,6 +1102,8 @@ function toggleFighterInfo(side) {
     pop.style.maxHeight = Math.max(120, vh - 16) + 'px';
   }
   setTimeout(() => document.addEventListener('click', () => pop.remove(), { once: true }), 0);
+  pop.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();pop.remove();el.querySelector('.avatar')?.focus();}});
+  pop.querySelector('.fi-close')?.focus();
 }
 
 const effectEscape = (text) => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -2157,6 +2163,8 @@ function showOverlay(text, sub = '') {
   o.id = 'overlay';
   o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', text);
   const H = fighters.left, E = fighters.right;
+  const gainedXp = host.main && battleStartXp !== null ? Math.max(0, Math.round(Number(Profile.data.xp || 0)-battleStartXp)) : 0;
+  const xpMetric = gainedXp > 0 ? `<div class="result-earned-xp"><span>${_t("Получено опыта за бой")}</span><b>+${gainedXp}</b></div>` : '';
   const metric = (label, value) => `<div class="result-metric"><span>${label}</span><b>${value}</b></div>`;
   const stats = !interrupted && host.main && !TUT() ? `<section class="result-summary" aria-label="${_t("Статистика героя")}">
     ${metric(_t("Ходы"), Math.max(rec.turns, moves))}
@@ -2168,6 +2176,7 @@ function showOverlay(text, sub = '') {
   o.innerHTML = `<div class="result-panel">
     <header class="result-heading"><span class="result-emblem" aria-hidden="true">${boss ? '♛' : interrupted ? '—' : result === 'win' ? '✦' : '◆'}</span>
     <h2 class="rw-title"></h2><p class="result-foe"></p></header>
+    ${xpMetric}
     ${sub ? `<section class="result-content ${advice ? 'result-advice' : ''}"><h3>${advice ? _t("Совет") : result === 'win' ? _t("Награды") : _t("Итог боя")}</h3><div class="result-body">${sub}</div><div class="loot-cap" aria-live="polite"></div></section>` : ''}
     <button type="button" class="primary to-map">${_t("На карту")}</button></div>`;
   o.querySelector('.rw-title').textContent = text;
@@ -2483,6 +2492,7 @@ function announceNewSpells() {
   renderMagic();
 }
 function startGame() {
+  battleStartXp = host.main ? Number(Profile.data.xp || 0) : null;
   aiming = false;
   battleNo = host.main && !TUT() ? BattleLog.next() : 0;     // 2.0.7: порядковый номер боя (журнал хранится, см. battlelog.js)
   aimCell = null;
@@ -4405,6 +4415,23 @@ function fitFighterNames() {
 // Вызывается после построения карточки и при смене размера окна; во время боя ничего не измеряет, чтобы не тормозить его.
 try { window.addEventListener('resize', () => { requestAnimationFrame(fitFighterNames); }); } catch (e) { /* нет */ }
 let fitBusy = false;
+let boardScale = 100;
+if (host.main) { try { const saved=Number(localStorage.getItem('wip-board-scale')); if([60,70,80,90,100].includes(saved)) boardScale=saved; } catch(e){} }
+function mountBoardScale() {
+  if (!host.main) return;
+  const bar=document.querySelector('.game:not(.duo-hidden) .bar .btns');
+  if (!bar || document.querySelector('.board-scale-control')) return;
+  const wrap=document.createElement('span'); wrap.className='board-scale-control';
+  wrap.setAttribute('role','group'); wrap.setAttribute('aria-label',_t("Размер игрового поля"));
+  const label=document.createElement('button'); label.type='button'; label.className='board-scale-value'; label.title=_t("Автоматический размер поля");
+  const minus=document.createElement('button'),plus=document.createElement('button');
+  minus.type=plus.type='button'; minus.textContent='−';plus.textContent='+';
+  minus.setAttribute('aria-label',_t("Уменьшить поле")); plus.setAttribute('aria-label',_t("Увеличить поле"));
+  function update(n) { boardScale=Math.max(60,Math.min(100,n)); label.textContent=boardScale+'%';minus.disabled=boardScale===60;plus.disabled=boardScale===100;try{localStorage.setItem('wip-board-scale',String(boardScale));}catch(e){} fitBattleHeight();requestAnimationFrame(fitFighterNames); }
+  minus.addEventListener('click',()=>update(boardScale-10));plus.addEventListener('click',()=>update(boardScale+10));label.addEventListener('click',()=>update(100));
+  label.textContent=boardScale+'%';minus.disabled=boardScale===60;plus.disabled=boardScale===100;
+  wrap.append(minus,label,plus);bar.prepend(wrap);
+}
 function fitBattleHeight() {
   if (!host.main || fitBusy) return;
   const b = document.body;
@@ -4416,15 +4443,20 @@ function fitBattleHeight() {
     if (b.classList.contains('phone') && !document.body.classList.contains('old-dock')) return;
     if (!b.classList.contains('mode-battle') || !b.classList.contains('ui-columns')) return;   // прежние оформления 1 и 2 — длинная страница с прокруткой, их не трогаем
     const H = () => Math.max(document.documentElement.scrollHeight, b.scrollHeight);
-    let ov = H() - window.innerHeight;
-    if (ov <= 0) return;
+    mountBoardScale();
     const start = boardEl.getBoundingClientRect().width;
     let size = start;
+    if (!b.classList.contains('phone') && boardScale < 100 && start > 0) {
+      size=Math.max(150,Math.floor(start*boardScale/100));
+      b.style.setProperty('--board',size+'px');
+    }
+    let ov = H() - window.innerHeight;
+    if (ov <= 0) return;
     for (let i = 0; i < 4 && ov > 0; i++) {
       size = Math.max(150, size - ov - 1);
       b.style.setProperty('--board', size + 'px');
       const now = H() - window.innerHeight;
-      if (now >= ov) { b.style.removeProperty('--board'); return; }   // не помогло
+      if (now >= ov) { if (!b.classList.contains('phone') && boardScale<100) b.style.setProperty('--board',Math.max(150,Math.floor(start*boardScale/100))+'px'); else b.style.removeProperty('--board'); return; }   // не помогло
       ov = now;
     }
   } finally { fitBusy = false; }
