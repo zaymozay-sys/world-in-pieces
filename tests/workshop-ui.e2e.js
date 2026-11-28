@@ -54,6 +54,14 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       assert.ok(await page.locator('.shop-catalog > .card:not([hidden]) [data-buy-cat]').count() > 0);
       assert.equal(await page.locator('[data-shq]').inputValue(),'');
       assert.equal(await page.locator('[data-catsel="sort"]').inputValue(),'order');
+      assert.ok(await page.locator('.shop-product .shop-price').count() > 0);
+      assert.ok(await page.locator('.shop-product .shop-comparison').count() > 0);
+      const beforeTry = await page.evaluate(() => JSON.stringify([Profile.data.items,Profile.data.loadout,Profile.data.coins]));
+      await page.locator('.shop-product [data-tryon]').first().click();
+      assert.equal(await page.locator('.tryon-stats').count(),1);
+      await page.locator('[data-act="tryon-close"]').click();
+      assert.equal(await page.evaluate(() => JSON.stringify([Profile.data.items,Profile.data.loadout,Profile.data.coins])), beforeTry);
+      assert.ok(await page.locator('.shop-product .shop-unavailable').count() > 0, 'Нет монет — понятное объяснение');
       const art = await page.locator('.shop-grid-view > .card > .icon-wrap').first().evaluate(e => {
         const card = e.parentElement.getBoundingClientRect(), a = e.getBoundingClientRect();
         const icon = e.querySelector('.item-icon').getBoundingClientRect();
