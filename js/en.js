@@ -1,6 +1,13 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "История Затерянного острова": "The Lost Island story",
+  "Не выполнено": "Incomplete",
+  "Выполнено": "Completed",
+  "Завершено": "Completed",
+  "Доступно": "Available",
+  "Вернитесь на материк, затем отправляйтесь к бригантине.": "Return to the mainland, then head to the brigantine.",
+  "Подходящие существа пока не появились. Дождитесь их возвращения.": "No matching creatures are available yet. Wait for them to return.",
   "Состояние предмета": "Item condition",
   "Любое состояние": "Any condition",
   "Можно надеть": "Can equip",
