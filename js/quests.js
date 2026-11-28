@@ -18,6 +18,9 @@ const Quests = (() => {
   const encounteredCount = (d) => new Set([...Object.keys(d.seen || {}), ...Object.keys(d.bestiary || {})]).size;
   const itemCount = (d) => (d.items || []).length;
   const levelOf = (d) => Q_H.levelOf(d.xp || 0).level;
+  const ISLAND = ['glowmaw','coralhulk','stormray','tidecaller','thornback'];
+  const islandSeen = d => ISLAND.filter(id => d.seen?.[id] || d.bestiary?.[id]?.wins > 0).length;
+  const islandWins = d => ISLAND.filter(id => d.bestiary?.[id]?.wins > 0).length;
 
   const LIST = [
     // ---------- Таверна: гоблин-трактирщик ----------
@@ -179,6 +182,16 @@ const Quests = (() => {
       need: afterQ('bob-4', encounteredCount), goal: 12, reward: { coins: 300 }, rewardText: _t("300 медных монет и урок «Цепочка из трёх ходов»") }
   );
 
+  // Продолжение истории маяка: исследование, охота и находка, без новых случайных предметов.
+  LIST.push(
+    { id:'isle-1', giver:'lighthouse', title:_t("Затерянный остров: разведка"), desc:_t("Отправьтесь на остров и найдите все пять местных видов. Смотрителю нужна карта живой природы."), need:islandSeen, goal:5, reward:{coins:800}, rewardText:_t("800 медных монет") },
+    { id:'isle-2', giver:'lighthouse', title:_t("Затерянный остров: охота"), desc:_t("Победите Фонарника, Кораллового исполина, Штормового ската, Приливника и Игольчатого секача — по одному каждого вида."), need:afterQ('isle-1',islandWins), goal:5, reward:{coins:1500,cons:{potion:2}}, rewardText:_t("1500 монет и 2 Эликсира жизни") },
+    { id:'isle-3', giver:'lighthouse', title:_t("Затерянный остров: тайна капитана"), desc:_t("Одолейте стража и откройте пиратский сундук. Если вы уже нашли его, покажите смотрителю добычу."), need:afterQ('isle-2',d=>d.island?.chestTaken?1:0), goal:1, reward:{coins:2500,cons:{elixir:2}}, rewardText:_t("2500 монет и 2 Эликсира силы") }
+  );
+  const PREVIOUS = {'fest-2':'fest-1','fest-3':'fest-2','mel-2':'mel-1','mel-3':'mel-2','bob-2':'bob-1','bob-3':'bob-2','bob-4':'bob-3','bob-5':'bob-4','isle-2':'isle-1','isle-3':'isle-2'};
+  const ready = (data,id) => (!PREVIOUS[id] || !!data.quests?.[PREVIOUS[id]]) &&
+    (id !== 'isle-1' || !!data.ship?.fixed || islandSeen(data)>0 || !!data.island?.chestTaken);
+
   // Список заданий с текущим прогрессом. data — Profile.data (или похожий объект в тестах).
   // giver — необязательный фильтр ('tavern' | 'mill'); без него возвращаются все задания.
   function list(data, giver) {
@@ -186,7 +199,7 @@ const Quests = (() => {
       const value = Math.min(q.need(data) || 0, q.goal);
       const claimed = !!(data.quests && data.quests[q.id]);
       const accepted = claimed || !!(data.accepted && data.accepted[q.id]);
-      return { ...q, value, done: value >= q.goal, claimed, accepted };
+      return { ...q, value, done: value >= q.goal, claimed, accepted, ready:ready(data,q.id) };
     });
   }
 
@@ -198,7 +211,7 @@ const Quests = (() => {
 
   // Взять задание — до этого его прогресс не показывается и наградить нельзя. true — взято.
   function canAccept(data, id) {
-    return !!find(id) && !isAccepted(data, id);
+    return !!find(id) && ready(data,id) && !isAccepted(data, id);
   }
   function accept(id) {
     if (typeof Profile === 'undefined') return false;

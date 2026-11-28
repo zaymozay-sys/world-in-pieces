@@ -1,0 +1,4405 @@
+{
+  "n": 4,
+  "rows": [
+    {
+      "level": 1,
+      "tier": 1,
+      "none": {
+        "win": 38,
+        "cost": 0,
+        "net": 12
+      },
+      "light": {
+        "win": 50,
+        "cost": 76,
+        "net": -59
+      },
+      "full": {
+        "win": 75,
+        "cost": 294,
+        "net": -251
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 36
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 58,
+        "net": -14
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 10,
+        "net": 31
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 26,
+        "net": 10
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 12,
+        "net": 25
+      }
+    },
+    {
+      "level": 2,
+      "tier": 1,
+      "none": {
+        "win": 44,
+        "cost": 0,
+        "net": 4
+      },
+      "light": {
+        "win": 56,
+        "cost": 69,
+        "net": -61
+      },
+      "full": {
+        "win": 81,
+        "cost": 270,
+        "net": -253
+      },
+      "fitted": {
+        "win": 94,
+        "cost": 0,
+        "net": 22
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 59,
+        "net": -37
+      },
+      "fittedHeal": {
+        "win": 94,
+        "cost": 10,
+        "net": 12
+      },
+      "fittedPower": {
+        "win": 94,
+        "cost": 26,
+        "net": -4
+      },
+      "fittedShot": {
+        "win": 94,
+        "cost": 12,
+        "net": 11
+      }
+    },
+    {
+      "level": 3,
+      "tier": 1,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -1
+      },
+      "light": {
+        "win": 56,
+        "cost": 75,
+        "net": -54
+      },
+      "full": {
+        "win": 81,
+        "cost": 295,
+        "net": -259
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 11
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 61,
+        "net": -32
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 11,
+        "net": 13
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 24,
+        "net": -13
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 12,
+        "net": -1
+      }
+    },
+    {
+      "level": 4,
+      "tier": 1,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": -2
+      },
+      "light": {
+        "win": 44,
+        "cost": 74,
+        "net": -70
+      },
+      "full": {
+        "win": 94,
+        "cost": 283,
+        "net": -258
+      },
+      "fitted": {
+        "win": 88,
+        "cost": 0,
+        "net": 22
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 56,
+        "net": -31
+      },
+      "fittedHeal": {
+        "win": 94,
+        "cost": 8,
+        "net": 17
+      },
+      "fittedPower": {
+        "win": 88,
+        "cost": 26,
+        "net": -4
+      },
+      "fittedShot": {
+        "win": 88,
+        "cost": 12,
+        "net": 10
+      }
+    },
+    {
+      "level": 5,
+      "tier": 1,
+      "none": {
+        "win": 56,
+        "cost": 0,
+        "net": 16
+      },
+      "light": {
+        "win": 69,
+        "cost": 64,
+        "net": -40
+      },
+      "full": {
+        "win": 88,
+        "cost": 259,
+        "net": -225
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 18
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 53,
+        "net": -30
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 8,
+        "net": 14
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 23,
+        "net": -4
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 11,
+        "net": 8
+      }
+    },
+    {
+      "level": 6,
+      "tier": 1,
+      "none": {
+        "win": 44,
+        "cost": 0,
+        "net": 31
+      },
+      "light": {
+        "win": 81,
+        "cost": 72,
+        "net": -5
+      },
+      "full": {
+        "win": 94,
+        "cost": 284,
+        "net": -210
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 51
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 58,
+        "net": 11
+      },
+      "fittedHeal": {
+        "win": 88,
+        "cost": 9,
+        "net": 60
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 26,
+        "net": 25
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 12,
+        "net": 44
+      }
+    },
+    {
+      "level": 7,
+      "tier": 1,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 1
+      },
+      "light": {
+        "win": 56,
+        "cost": 72,
+        "net": -57
+      },
+      "full": {
+        "win": 100,
+        "cost": 294,
+        "net": -260
+      },
+      "fitted": {
+        "win": 75,
+        "cost": 0,
+        "net": 20
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 56,
+        "net": -30
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 12,
+        "net": 11
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 24,
+        "net": -4
+      },
+      "fittedShot": {
+        "win": 81,
+        "cost": 12,
+        "net": 12
+      }
+    },
+    {
+      "level": 8,
+      "tier": 1,
+      "none": {
+        "win": 69,
+        "cost": 0,
+        "net": 21
+      },
+      "light": {
+        "win": 94,
+        "cost": 61,
+        "net": -30
+      },
+      "full": {
+        "win": 100,
+        "cost": 270,
+        "net": -236
+      },
+      "fitted": {
+        "win": 88,
+        "cost": 0,
+        "net": 26
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 55,
+        "net": -24
+      },
+      "fittedHeal": {
+        "win": 94,
+        "cost": 7,
+        "net": 24
+      },
+      "fittedPower": {
+        "win": 88,
+        "cost": 26,
+        "net": 0
+      },
+      "fittedShot": {
+        "win": 88,
+        "cost": 12,
+        "net": 15
+      }
+    },
+    {
+      "level": 9,
+      "tier": 1,
+      "none": {
+        "win": 56,
+        "cost": 0,
+        "net": 7
+      },
+      "light": {
+        "win": 88,
+        "cost": 68,
+        "net": -49
+      },
+      "full": {
+        "win": 100,
+        "cost": 264,
+        "net": -241
+      },
+      "fitted": {
+        "win": 100,
+        "cost": 0,
+        "net": 23
+      },
+      "fittedLight": {
+        "win": 100,
+        "cost": 57,
+        "net": -34
+      },
+      "fittedHeal": {
+        "win": 100,
+        "cost": 8,
+        "net": 15
+      },
+      "fittedPower": {
+        "win": 100,
+        "cost": 26,
+        "net": -3
+      },
+      "fittedShot": {
+        "win": 100,
+        "cost": 12,
+        "net": 11
+      }
+    },
+    {
+      "level": 10,
+      "tier": 1,
+      "none": {
+        "win": 56,
+        "cost": 0,
+        "net": 14
+      },
+      "light": {
+        "win": 75,
+        "cost": 67,
+        "net": -43
+      },
+      "full": {
+        "win": 100,
+        "cost": 258,
+        "net": -222
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 17
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 59,
+        "net": -28
+      },
+      "fittedHeal": {
+        "win": 88,
+        "cost": 11,
+        "net": 17
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 26,
+        "net": -9
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 12,
+        "net": 5
+      }
+    },
+    {
+      "level": 11,
+      "tier": 2,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -1
+      },
+      "light": {
+        "win": 31,
+        "cost": 187,
+        "net": -175
+      },
+      "full": {
+        "win": 75,
+        "cost": 738,
+        "net": -668
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 54
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 147,
+        "net": -82
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 32,
+        "net": 45
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 66,
+        "net": -12
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 26,
+        "net": 28
+      }
+    },
+    {
+      "level": 12,
+      "tier": 2,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 19
+      },
+      "light": {
+        "win": 44,
+        "cost": 179,
+        "net": -134
+      },
+      "full": {
+        "win": 88,
+        "cost": 739,
+        "net": -623
+      },
+      "fitted": {
+        "win": 94,
+        "cost": 0,
+        "net": 121
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 144,
+        "net": -23
+      },
+      "fittedHeal": {
+        "win": 94,
+        "cost": 23,
+        "net": 98
+      },
+      "fittedPower": {
+        "win": 94,
+        "cost": 62,
+        "net": 59
+      },
+      "fittedShot": {
+        "win": 94,
+        "cost": 26,
+        "net": 95
+      }
+    },
+    {
+      "level": 13,
+      "tier": 2,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 17
+      },
+      "light": {
+        "win": 44,
+        "cost": 173,
+        "net": -131
+      },
+      "full": {
+        "win": 81,
+        "cost": 695,
+        "net": -599
+      },
+      "fitted": {
+        "win": 38,
+        "cost": 0,
+        "net": 8
+      },
+      "fittedLight": {
+        "win": 56,
+        "cost": 157,
+        "net": -111
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 43,
+        "net": -7
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 62,
+        "net": -54
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 26,
+        "net": -18
+      }
+    },
+    {
+      "level": 14,
+      "tier": 2,
+      "none": {
+        "win": 44,
+        "cost": 0,
+        "net": 42
+      },
+      "light": {
+        "win": 63,
+        "cost": 176,
+        "net": -87
+      },
+      "full": {
+        "win": 100,
+        "cost": 725,
+        "net": -593
+      },
+      "fitted": {
+        "win": 88,
+        "cost": 0,
+        "net": 103
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 125,
+        "net": -1
+      },
+      "fittedHeal": {
+        "win": 88,
+        "cost": 14,
+        "net": 89
+      },
+      "fittedPower": {
+        "win": 88,
+        "cost": 62,
+        "net": 42
+      },
+      "fittedShot": {
+        "win": 94,
+        "cost": 26,
+        "net": 98
+      }
+    },
+    {
+      "level": 15,
+      "tier": 2,
+      "none": {
+        "win": 38,
+        "cost": 0,
+        "net": 11
+      },
+      "light": {
+        "win": 63,
+        "cost": 184,
+        "net": -152
+      },
+      "full": {
+        "win": 88,
+        "cost": 717,
+        "net": -654
+      },
+      "fitted": {
+        "win": 81,
+        "cost": 0,
+        "net": 51
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 141,
+        "net": -90
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 29,
+        "net": 22
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 62,
+        "net": -17
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 26,
+        "net": 18
+      }
+    },
+    {
+      "level": 16,
+      "tier": 2,
+      "none": {
+        "win": 44,
+        "cost": 0,
+        "net": 59
+      },
+      "light": {
+        "win": 69,
+        "cost": 167,
+        "net": -68
+      },
+      "full": {
+        "win": 94,
+        "cost": 685,
+        "net": -555
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 73
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 142,
+        "net": -39
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 26,
+        "net": 56
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 66,
+        "net": 7
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 26,
+        "net": 47
+      }
+    },
+    {
+      "level": 17,
+      "tier": 2,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": 0
+      },
+      "light": {
+        "win": 38,
+        "cost": 184,
+        "net": -151
+      },
+      "full": {
+        "win": 94,
+        "cost": 698,
+        "net": -577
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 74
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 137,
+        "net": -20
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 20,
+        "net": 85
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 66,
+        "net": 20
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 26,
+        "net": 60
+      }
+    },
+    {
+      "level": 18,
+      "tier": 2,
+      "none": {
+        "win": 63,
+        "cost": 0,
+        "net": 45
+      },
+      "light": {
+        "win": 75,
+        "cost": 173,
+        "net": -109
+      },
+      "full": {
+        "win": 100,
+        "cost": 688,
+        "net": -596
+      },
+      "fitted": {
+        "win": 88,
+        "cost": 0,
+        "net": 72
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 137,
+        "net": -55
+      },
+      "fittedHeal": {
+        "win": 94,
+        "cost": 23,
+        "net": 59
+      },
+      "fittedPower": {
+        "win": 88,
+        "cost": 66,
+        "net": 6
+      },
+      "fittedShot": {
+        "win": 88,
+        "cost": 26,
+        "net": 46
+      }
+    },
+    {
+      "level": 19,
+      "tier": 2,
+      "none": {
+        "win": 56,
+        "cost": 0,
+        "net": 26
+      },
+      "light": {
+        "win": 75,
+        "cost": 162,
+        "net": -115
+      },
+      "full": {
+        "win": 100,
+        "cost": 701,
+        "net": -629
+      },
+      "fitted": {
+        "win": 81,
+        "cost": 0,
+        "net": 48
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 125,
+        "net": -69
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 14,
+        "net": 33
+      },
+      "fittedPower": {
+        "win": 81,
+        "cost": 62,
+        "net": -14
+      },
+      "fittedShot": {
+        "win": 81,
+        "cost": 26,
+        "net": 22
+      }
+    },
+    {
+      "level": 20,
+      "tier": 2,
+      "none": {
+        "win": 50,
+        "cost": 0,
+        "net": 48
+      },
+      "light": {
+        "win": 50,
+        "cost": 181,
+        "net": -135
+      },
+      "full": {
+        "win": 100,
+        "cost": 664,
+        "net": -538
+      },
+      "fitted": {
+        "win": 88,
+        "cost": 0,
+        "net": 108
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 137,
+        "net": -29
+      },
+      "fittedHeal": {
+        "win": 88,
+        "cost": 26,
+        "net": 82
+      },
+      "fittedPower": {
+        "win": 88,
+        "cost": 62,
+        "net": 46
+      },
+      "fittedShot": {
+        "win": 88,
+        "cost": 26,
+        "net": 82
+      }
+    },
+    {
+      "level": 21,
+      "tier": 3,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 32
+      },
+      "light": {
+        "win": 44,
+        "cost": 430,
+        "net": -365
+      },
+      "full": {
+        "win": 75,
+        "cost": 1695,
+        "net": -1538
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 87
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 344,
+        "net": -257
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 71,
+        "net": 16
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 151,
+        "net": -64
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 61,
+        "net": 26
+      }
+    },
+    {
+      "level": 22,
+      "tier": 3,
+      "none": {
+        "win": 25,
+        "cost": 0,
+        "net": -8
+      },
+      "light": {
+        "win": 56,
+        "cost": 409,
+        "net": -259
+      },
+      "full": {
+        "win": 88,
+        "cost": 1639,
+        "net": -1405
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 141
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 347,
+        "net": -113
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 71,
+        "net": 141
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 151,
+        "net": -10
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 61,
+        "net": 80
+      }
+    },
+    {
+      "level": 23,
+      "tier": 3,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -25
+      },
+      "light": {
+        "win": 25,
+        "cost": 421,
+        "net": -415
+      },
+      "full": {
+        "win": 94,
+        "cost": 1714,
+        "net": -1509
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 40
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 341,
+        "net": -209
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 85,
+        "net": 27
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 141,
+        "net": -121
+      },
+      "fittedShot": {
+        "win": 44,
+        "cost": 61,
+        "net": -41
+      }
+    },
+    {
+      "level": 24,
+      "tier": 3,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 32
+      },
+      "light": {
+        "win": 44,
+        "cost": 399,
+        "net": -333
+      },
+      "full": {
+        "win": 88,
+        "cost": 1647,
+        "net": -1438
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 111
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 347,
+        "net": -173
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 71,
+        "net": 103
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 161,
+        "net": -50
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 61,
+        "net": 73
+      }
+    },
+    {
+      "level": 25,
+      "tier": 3,
+      "none": {
+        "win": 50,
+        "cost": 0,
+        "net": 80
+      },
+      "light": {
+        "win": 50,
+        "cost": 426,
+        "net": -353
+      },
+      "full": {
+        "win": 100,
+        "cost": 1660,
+        "net": -1475
+      },
+      "fitted": {
+        "win": 75,
+        "cost": 0,
+        "net": 112
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 316,
+        "net": -165
+      },
+      "fittedHeal": {
+        "win": 88,
+        "cost": 64,
+        "net": 87
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 141,
+        "net": -29
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 61,
+        "net": 51
+      }
+    },
+    {
+      "level": 26,
+      "tier": 3,
+      "none": {
+        "win": 25,
+        "cost": 0,
+        "net": 32
+      },
+      "light": {
+        "win": 31,
+        "cost": 408,
+        "net": -360
+      },
+      "full": {
+        "win": 75,
+        "cost": 1677,
+        "net": -1438
+      },
+      "fitted": {
+        "win": 81,
+        "cost": 0,
+        "net": 232
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 361,
+        "net": -103
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 85,
+        "net": 148
+      },
+      "fittedPower": {
+        "win": 81,
+        "cost": 161,
+        "net": 71
+      },
+      "fittedShot": {
+        "win": 81,
+        "cost": 61,
+        "net": 171
+      }
+    },
+    {
+      "level": 27,
+      "tier": 3,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -8
+      },
+      "light": {
+        "win": 38,
+        "cost": 430,
+        "net": -317
+      },
+      "full": {
+        "win": 81,
+        "cost": 1729,
+        "net": -1479
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 166
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 351,
+        "net": -111
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 85,
+        "net": 155
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 151,
+        "net": 15
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 61,
+        "net": 105
+      }
+    },
+    {
+      "level": 28,
+      "tier": 3,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -9
+      },
+      "light": {
+        "win": 44,
+        "cost": 413,
+        "net": -344
+      },
+      "full": {
+        "win": 100,
+        "cost": 1607,
+        "net": -1355
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 82
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 337,
+        "net": -176
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 64,
+        "net": 97
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 151,
+        "net": -92
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 61,
+        "net": 21
+      }
+    },
+    {
+      "level": 29,
+      "tier": 3,
+      "none": {
+        "win": 38,
+        "cost": 0,
+        "net": 10
+      },
+      "light": {
+        "win": 38,
+        "cost": 397,
+        "net": -384
+      },
+      "full": {
+        "win": 81,
+        "cost": 1645,
+        "net": -1532
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 33
+      },
+      "fittedLight": {
+        "win": 56,
+        "cost": 361,
+        "net": -327
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 78,
+        "net": -44
+      },
+      "fittedPower": {
+        "win": 56,
+        "cost": 161,
+        "net": -128
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 61,
+        "net": -28
+      }
+    },
+    {
+      "level": 30,
+      "tier": 3,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -19
+      },
+      "light": {
+        "win": 38,
+        "cost": 433,
+        "net": -404
+      },
+      "full": {
+        "win": 94,
+        "cost": 1615,
+        "net": -1413
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -24
+      },
+      "fittedLight": {
+        "win": 50,
+        "cost": 368,
+        "net": -321
+      },
+      "fittedHeal": {
+        "win": 38,
+        "cost": 85,
+        "net": -85
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 161,
+        "net": -185
+      },
+      "fittedShot": {
+        "win": 31,
+        "cost": 61,
+        "net": -85
+      }
+    },
+    {
+      "level": 31,
+      "tier": 4,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -13
+      },
+      "light": {
+        "win": 31,
+        "cost": 741,
+        "net": -510
+      },
+      "full": {
+        "win": 69,
+        "cost": 3353,
+        "net": -3048
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 258
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 618,
+        "net": -314
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 131,
+        "net": 128
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 326,
+        "net": -68
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 95,
+        "net": 163
+      }
+    },
+    {
+      "level": 32,
+      "tier": 4,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -21
+      },
+      "light": {
+        "win": 31,
+        "cost": 874,
+        "net": -705
+      },
+      "full": {
+        "win": 69,
+        "cost": 3561,
+        "net": -3149
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": 199
+      },
+      "fittedLight": {
+        "win": 50,
+        "cost": 670,
+        "net": -302
+      },
+      "fittedHeal": {
+        "win": 38,
+        "cost": 160,
+        "net": 131
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 306,
+        "net": -178
+      },
+      "fittedShot": {
+        "win": 25,
+        "cost": 95,
+        "net": -4
+      }
+    },
+    {
+      "level": 33,
+      "tier": 4,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -132
+      },
+      "light": {
+        "win": 13,
+        "cost": 802,
+        "net": -864
+      },
+      "full": {
+        "win": 75,
+        "cost": 3100,
+        "net": -2756
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -54
+      },
+      "fittedLight": {
+        "win": 31,
+        "cost": 656,
+        "net": -710
+      },
+      "fittedHeal": {
+        "win": 31,
+        "cost": 174,
+        "net": -228
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 265,
+        "net": -269
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 95,
+        "net": -100
+      }
+    },
+    {
+      "level": 34,
+      "tier": 4,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -73
+      },
+      "light": {
+        "win": 50,
+        "cost": 845,
+        "net": -718
+      },
+      "full": {
+        "win": 88,
+        "cost": 3325,
+        "net": -2802
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": 99
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 656,
+        "net": -418
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 174,
+        "net": -29
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 285,
+        "net": -187
+      },
+      "fittedShot": {
+        "win": 44,
+        "cost": 95,
+        "net": 3
+      }
+    },
+    {
+      "level": 35,
+      "tier": 4,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -99
+      },
+      "light": {
+        "win": 38,
+        "cost": 741,
+        "net": -496
+      },
+      "full": {
+        "win": 81,
+        "cost": 3201,
+        "net": -2683
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 92
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 615,
+        "net": -377
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 203,
+        "net": -70
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 245,
+        "net": -153
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 95,
+        "net": -3
+      }
+    },
+    {
+      "level": 36,
+      "tier": 4,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -75
+      },
+      "light": {
+        "win": 25,
+        "cost": 733,
+        "net": -735
+      },
+      "full": {
+        "win": 81,
+        "cost": 3274,
+        "net": -2867
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 214
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 656,
+        "net": -311
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 160,
+        "net": 140
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 306,
+        "net": -46
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 95,
+        "net": 164
+      }
+    },
+    {
+      "level": 37,
+      "tier": 4,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 130
+      },
+      "light": {
+        "win": 69,
+        "cost": 775,
+        "net": -453
+      },
+      "full": {
+        "win": 100,
+        "cost": 3425,
+        "net": -2824
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 351
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 633,
+        "net": -240
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 131,
+        "net": 262
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 326,
+        "net": 25
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 95,
+        "net": 256
+      }
+    },
+    {
+      "level": 38,
+      "tier": 4,
+      "none": {
+        "win": 38,
+        "cost": 0,
+        "net": 146
+      },
+      "light": {
+        "win": 38,
+        "cost": 775,
+        "net": -629
+      },
+      "full": {
+        "win": 100,
+        "cost": 3272,
+        "net": -2633
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 141
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 647,
+        "net": -470
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 131,
+        "net": 10
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 306,
+        "net": -165
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 95,
+        "net": 45
+      }
+    },
+    {
+      "level": 39,
+      "tier": 4,
+      "none": {
+        "win": 25,
+        "cost": 0,
+        "net": 35
+      },
+      "light": {
+        "win": 56,
+        "cost": 866,
+        "net": -696
+      },
+      "full": {
+        "win": 94,
+        "cost": 3383,
+        "net": -2942
+      },
+      "fitted": {
+        "win": 81,
+        "cost": 0,
+        "net": 317
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 612,
+        "net": -226
+      },
+      "fittedHeal": {
+        "win": 88,
+        "cost": 160,
+        "net": 227
+      },
+      "fittedPower": {
+        "win": 81,
+        "cost": 306,
+        "net": 12
+      },
+      "fittedShot": {
+        "win": 81,
+        "cost": 95,
+        "net": 222
+      }
+    },
+    {
+      "level": 40,
+      "tier": 4,
+      "none": {
+        "win": 63,
+        "cost": 0,
+        "net": 536
+      },
+      "light": {
+        "win": 69,
+        "cost": 729,
+        "net": -160
+      },
+      "full": {
+        "win": 94,
+        "cost": 3094,
+        "net": -2344
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 432
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 627,
+        "net": -6
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 131,
+        "net": 490
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 285,
+        "net": 241
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 95,
+        "net": 337
+      }
+    },
+    {
+      "level": 41,
+      "tier": 5,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -128
+      },
+      "light": {
+        "win": 31,
+        "cost": 1588,
+        "net": -1472
+      },
+      "full": {
+        "win": 88,
+        "cost": 6765,
+        "net": -6066
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -189
+      },
+      "fittedLight": {
+        "win": 56,
+        "cost": 1221,
+        "net": -1020
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 347,
+        "net": -222
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 601,
+        "net": -714
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 151,
+        "net": -264
+      }
+    },
+    {
+      "level": 42,
+      "tier": 5,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -263
+      },
+      "light": {
+        "win": 13,
+        "cost": 1576,
+        "net": -1703
+      },
+      "full": {
+        "win": 75,
+        "cost": 5967,
+        "net": -5498
+      },
+      "fitted": {
+        "win": 19,
+        "cost": 0,
+        "net": -356
+      },
+      "fittedLight": {
+        "win": 44,
+        "cost": 1200,
+        "net": -1230
+      },
+      "fittedHeal": {
+        "win": 25,
+        "cost": 405,
+        "net": -680
+      },
+      "fittedPower": {
+        "win": 19,
+        "cost": 561,
+        "net": -917
+      },
+      "fittedShot": {
+        "win": 25,
+        "cost": 151,
+        "net": -415
+      }
+    },
+    {
+      "level": 43,
+      "tier": 5,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -186
+      },
+      "light": {
+        "win": 19,
+        "cost": 1438,
+        "net": -1505
+      },
+      "full": {
+        "win": 75,
+        "cost": 6585,
+        "net": -6096
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 29
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 1290,
+        "net": -919
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 376,
+        "net": -275
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 641,
+        "net": -612
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 151,
+        "net": -121
+      }
+    },
+    {
+      "level": 44,
+      "tier": 5,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -287
+      },
+      "light": {
+        "win": 19,
+        "cost": 1458,
+        "net": -1515
+      },
+      "full": {
+        "win": 75,
+        "cost": 6816,
+        "net": -6241
+      },
+      "fitted": {
+        "win": 38,
+        "cost": 0,
+        "net": 3
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 1221,
+        "net": -684
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 376,
+        "net": 42
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 601,
+        "net": -598
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 151,
+        "net": -148
+      }
+    },
+    {
+      "level": 45,
+      "tier": 5,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -167
+      },
+      "light": {
+        "win": 38,
+        "cost": 1559,
+        "net": -1455
+      },
+      "full": {
+        "win": 75,
+        "cost": 6530,
+        "net": -6055
+      },
+      "fitted": {
+        "win": 25,
+        "cost": 0,
+        "net": -250
+      },
+      "fittedLight": {
+        "win": 50,
+        "cost": 1227,
+        "net": -1153
+      },
+      "fittedHeal": {
+        "win": 31,
+        "cost": 405,
+        "net": -578
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 521,
+        "net": -692
+      },
+      "fittedShot": {
+        "win": 31,
+        "cost": 151,
+        "net": -322
+      }
+    },
+    {
+      "level": 46,
+      "tier": 5,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 14
+      },
+      "light": {
+        "win": 31,
+        "cost": 1465,
+        "net": -1430
+      },
+      "full": {
+        "win": 81,
+        "cost": 6040,
+        "net": -5482
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 131
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 1221,
+        "net": -893
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 318,
+        "net": 9
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 601,
+        "net": -543
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 151,
+        "net": -92
+      }
+    },
+    {
+      "level": 47,
+      "tier": 5,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -67
+      },
+      "light": {
+        "win": 38,
+        "cost": 1425,
+        "net": -1272
+      },
+      "full": {
+        "win": 88,
+        "cost": 5593,
+        "net": -4903
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 252
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 1232,
+        "net": -814
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 376,
+        "net": 107
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 641,
+        "net": -522
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 151,
+        "net": 101
+      }
+    },
+    {
+      "level": 48,
+      "tier": 5,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -217
+      },
+      "light": {
+        "win": 25,
+        "cost": 1518,
+        "net": -1552
+      },
+      "full": {
+        "win": 81,
+        "cost": 6607,
+        "net": -6046
+      },
+      "fitted": {
+        "win": 38,
+        "cost": 0,
+        "net": -107
+      },
+      "fittedLight": {
+        "win": 50,
+        "cost": 1290,
+        "net": -1215
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 376,
+        "net": -302
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 641,
+        "net": -748
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 151,
+        "net": -257
+      }
+    },
+    {
+      "level": 49,
+      "tier": 5,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -111
+      },
+      "light": {
+        "win": 38,
+        "cost": 1280,
+        "net": -1234
+      },
+      "full": {
+        "win": 81,
+        "cost": 5909,
+        "net": -5399
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 34
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 1113,
+        "net": -911
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 289,
+        "net": -231
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 521,
+        "net": -487
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 151,
+        "net": -116
+      }
+    },
+    {
+      "level": 50,
+      "tier": 5,
+      "none": {
+        "win": 38,
+        "cost": 0,
+        "net": 214
+      },
+      "light": {
+        "win": 38,
+        "cost": 1420,
+        "net": -1206
+      },
+      "full": {
+        "win": 94,
+        "cost": 6126,
+        "net": -5382
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 418
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 1134,
+        "net": -482
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 232,
+        "net": 330
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 561,
+        "net": -53
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 151,
+        "net": 357
+      }
+    },
+    {
+      "level": 51,
+      "tier": 6,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -440
+      },
+      "light": {
+        "win": 25,
+        "cost": 3202,
+        "net": -3103
+      },
+      "full": {
+        "win": 81,
+        "cost": 12305,
+        "net": -10910
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 194
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 2477,
+        "net": -1896
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 701,
+        "net": -119
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 1286,
+        "net": -862
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 304,
+        "net": -109
+      }
+    },
+    {
+      "level": 52,
+      "tier": 6,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -422
+      },
+      "light": {
+        "win": 25,
+        "cost": 3230,
+        "net": -3343
+      },
+      "full": {
+        "win": 88,
+        "cost": 14335,
+        "net": -12021
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": 208
+      },
+      "fittedLight": {
+        "win": 56,
+        "cost": 2711,
+        "net": -1816
+      },
+      "fittedHeal": {
+        "win": 38,
+        "cost": 759,
+        "net": -689
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 1125,
+        "net": -917
+      },
+      "fittedShot": {
+        "win": 44,
+        "cost": 304,
+        "net": -96
+      }
+    },
+    {
+      "level": 53,
+      "tier": 6,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -174
+      },
+      "light": {
+        "win": 31,
+        "cost": 3230,
+        "net": -3200
+      },
+      "full": {
+        "win": 81,
+        "cost": 13894,
+        "net": -12875
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 146
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 2594,
+        "net": -2253
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 759,
+        "net": -558
+      },
+      "fittedPower": {
+        "win": 56,
+        "cost": 1206,
+        "net": -1060
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 304,
+        "net": -158
+      }
+    },
+    {
+      "level": 54,
+      "tier": 6,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -478
+      },
+      "light": {
+        "win": 38,
+        "cost": 3078,
+        "net": -2902
+      },
+      "full": {
+        "win": 81,
+        "cost": 12820,
+        "net": -11307
+      },
+      "fitted": {
+        "win": 75,
+        "cost": 0,
+        "net": 1133
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 2397,
+        "net": -1166
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 701,
+        "net": 12
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 1125,
+        "net": -124
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 304,
+        "net": 698
+      }
+    },
+    {
+      "level": 55,
+      "tier": 6,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -343
+      },
+      "light": {
+        "win": 13,
+        "cost": 3029,
+        "net": -3252
+      },
+      "full": {
+        "win": 75,
+        "cost": 13316,
+        "net": -11036
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": 298
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 2491,
+        "net": -1230
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 817,
+        "net": 445
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 1045,
+        "net": -747
+      },
+      "fittedShot": {
+        "win": 44,
+        "cost": 304,
+        "net": -6
+      }
+    },
+    {
+      "level": 56,
+      "tier": 6,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -292
+      },
+      "light": {
+        "win": 13,
+        "cost": 3165,
+        "net": -3560
+      },
+      "full": {
+        "win": 81,
+        "cost": 13746,
+        "net": -12776
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": -123
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 2513,
+        "net": -1860
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 817,
+        "net": -336
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 1206,
+        "net": -1524
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 304,
+        "net": -622
+      }
+    },
+    {
+      "level": 57,
+      "tier": 6,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -189
+      },
+      "light": {
+        "win": 50,
+        "cost": 3113,
+        "net": -2444
+      },
+      "full": {
+        "win": 88,
+        "cost": 12581,
+        "net": -10919
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 588
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 2280,
+        "net": -1056
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 525,
+        "net": 450
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 1206,
+        "net": -73
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 304,
+        "net": 442
+      }
+    },
+    {
+      "level": 58,
+      "tier": 6,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -319
+      },
+      "light": {
+        "win": 25,
+        "cost": 3249,
+        "net": -3047
+      },
+      "full": {
+        "win": 88,
+        "cost": 13063,
+        "net": -10841
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 755
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 2477,
+        "net": -730
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 817,
+        "net": 624
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 1206,
+        "net": -53
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 304,
+        "net": 451
+      }
+    },
+    {
+      "level": 59,
+      "tier": 6,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -505
+      },
+      "light": {
+        "win": 38,
+        "cost": 2844,
+        "net": -2752
+      },
+      "full": {
+        "win": 63,
+        "cost": 13603,
+        "net": -12968
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -481
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 2769,
+        "net": -2460
+      },
+      "fittedHeal": {
+        "win": 44,
+        "cost": 876,
+        "net": -1043
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 1286,
+        "net": -1450
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 304,
+        "net": -613
+      }
+    },
+    {
+      "level": 60,
+      "tier": 6,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 270
+      },
+      "light": {
+        "win": 38,
+        "cost": 3085,
+        "net": -2809
+      },
+      "full": {
+        "win": 88,
+        "cost": 12551,
+        "net": -11031
+      },
+      "fitted": {
+        "win": 75,
+        "cost": 0,
+        "net": 1074
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 2242,
+        "net": -880
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 584,
+        "net": 490
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 1206,
+        "net": -132
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 285,
+        "net": 789
+      }
+    },
+    {
+      "level": 61,
+      "tier": 7,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": 53
+      },
+      "light": {
+        "win": 19,
+        "cost": 5841,
+        "net": -5788
+      },
+      "full": {
+        "win": 56,
+        "cost": 23506,
+        "net": -21001
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -193
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 4569,
+        "net": -2338
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 1376,
+        "net": 438
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 2162,
+        "net": -1372
+      },
+      "fittedShot": {
+        "win": 44,
+        "cost": 549,
+        "net": 240
+      }
+    },
+    {
+      "level": 62,
+      "tier": 7,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -1039
+      },
+      "light": {
+        "win": 19,
+        "cost": 5938,
+        "net": -6083
+      },
+      "full": {
+        "win": 75,
+        "cost": 26235,
+        "net": -23892
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -582
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 4742,
+        "net": -3436
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 1482,
+        "net": -176
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 2162,
+        "net": -2753
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 549,
+        "net": -777
+      }
+    },
+    {
+      "level": 63,
+      "tier": 7,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -311
+      },
+      "light": {
+        "win": 31,
+        "cost": 6355,
+        "net": -5997
+      },
+      "full": {
+        "win": 75,
+        "cost": 25160,
+        "net": -22468
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 1346
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 4463,
+        "net": -1580
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 1271,
+        "net": 1483
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 2306,
+        "net": -1422
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 549,
+        "net": 797
+      }
+    },
+    {
+      "level": 64,
+      "tier": 7,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -1095
+      },
+      "light": {
+        "win": 13,
+        "cost": 5929,
+        "net": -6476
+      },
+      "full": {
+        "win": 81,
+        "cost": 23379,
+        "net": -21011
+      },
+      "fitted": {
+        "win": 38,
+        "cost": 0,
+        "net": -258
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 4250,
+        "net": -3185
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 1376,
+        "net": -574
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 2162,
+        "net": -2781
+      },
+      "fittedShot": {
+        "win": 31,
+        "cost": 515,
+        "net": -1134
+      }
+    },
+    {
+      "level": 65,
+      "tier": 7,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -922
+      },
+      "light": {
+        "win": 38,
+        "cost": 6267,
+        "net": -5938
+      },
+      "full": {
+        "win": 69,
+        "cost": 25615,
+        "net": -23837
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 401
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 4348,
+        "net": -3138
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 1482,
+        "net": -550
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 1874,
+        "net": -1933
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 549,
+        "net": -148
+      }
+    },
+    {
+      "level": 66,
+      "tier": 7,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -699
+      },
+      "light": {
+        "win": 25,
+        "cost": 6323,
+        "net": -5766
+      },
+      "full": {
+        "win": 63,
+        "cost": 23736,
+        "net": -21399
+      },
+      "fitted": {
+        "win": 25,
+        "cost": 0,
+        "net": -470
+      },
+      "fittedLight": {
+        "win": 44,
+        "cost": 4602,
+        "net": -3968
+      },
+      "fittedHeal": {
+        "win": 31,
+        "cost": 1376,
+        "net": -1579
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 2162,
+        "net": -2108
+      },
+      "fittedShot": {
+        "win": 31,
+        "cost": 549,
+        "net": -495
+      }
+    },
+    {
+      "level": 67,
+      "tier": 7,
+      "none": {
+        "win": 25,
+        "cost": 0,
+        "net": 14
+      },
+      "light": {
+        "win": 38,
+        "cost": 5485,
+        "net": -4961
+      },
+      "full": {
+        "win": 94,
+        "cost": 24188,
+        "net": -21378
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 413
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 4386,
+        "net": -3354
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 1271,
+        "net": -641
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 2018,
+        "net": -1605
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 549,
+        "net": -136
+      }
+    },
+    {
+      "level": 68,
+      "tier": 7,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -314
+      },
+      "light": {
+        "win": 31,
+        "cost": 6006,
+        "net": -5207
+      },
+      "full": {
+        "win": 94,
+        "cost": 26188,
+        "net": -21603
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": 692
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 4675,
+        "net": -2720
+      },
+      "fittedHeal": {
+        "win": 44,
+        "cost": 1271,
+        "net": -579
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 2018,
+        "net": -1326
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 549,
+        "net": 559
+      }
+    },
+    {
+      "level": 69,
+      "tier": 7,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -362
+      },
+      "light": {
+        "win": 50,
+        "cost": 5735,
+        "net": -4572
+      },
+      "full": {
+        "win": 94,
+        "cost": 20852,
+        "net": -17922
+      },
+      "fitted": {
+        "win": 75,
+        "cost": 0,
+        "net": 1789
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 3395,
+        "net": -899
+      },
+      "fittedHeal": {
+        "win": 81,
+        "cost": 953,
+        "net": 1179
+      },
+      "fittedPower": {
+        "win": 75,
+        "cost": 1874,
+        "net": -85
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 549,
+        "net": 1240
+      }
+    },
+    {
+      "level": 70,
+      "tier": 7,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 304
+      },
+      "light": {
+        "win": 56,
+        "cost": 6006,
+        "net": -4554
+      },
+      "full": {
+        "win": 88,
+        "cost": 22294,
+        "net": -19356
+      },
+      "fitted": {
+        "win": 88,
+        "cost": 0,
+        "net": 2600
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 4107,
+        "net": -2620
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 953,
+        "net": 957
+      },
+      "fittedPower": {
+        "win": 81,
+        "cost": 2306,
+        "net": -129
+      },
+      "fittedShot": {
+        "win": 81,
+        "cost": 549,
+        "net": 1628
+      }
+    },
+    {
+      "level": 71,
+      "tier": 8,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -1665
+      },
+      "light": {
+        "win": 13,
+        "cost": 7979,
+        "net": -8626
+      },
+      "full": {
+        "win": 69,
+        "cost": 32091,
+        "net": -28305
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -277
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 7295,
+        "net": -4724
+      },
+      "fittedHeal": {
+        "win": 38,
+        "cost": 2363,
+        "net": -2222
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 3684,
+        "net": -3409
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 793,
+        "net": -653
+      }
+    },
+    {
+      "level": 72,
+      "tier": 8,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -1200
+      },
+      "light": {
+        "win": 6,
+        "cost": 9478,
+        "net": -10678
+      },
+      "full": {
+        "win": 81,
+        "cost": 39497,
+        "net": -35747
+      },
+      "fitted": {
+        "win": 25,
+        "cost": 0,
+        "net": -1522
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 7464,
+        "net": -4645
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 2531,
+        "net": -1739
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 3684,
+        "net": -4568
+      },
+      "fittedShot": {
+        "win": 25,
+        "cost": 793,
+        "net": -2315
+      }
+    },
+    {
+      "level": 73,
+      "tier": 8,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -1035
+      },
+      "light": {
+        "win": 13,
+        "cost": 9540,
+        "net": -10206
+      },
+      "full": {
+        "win": 100,
+        "cost": 39738,
+        "net": -33202
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 1350
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 7126,
+        "net": -4267
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 2194,
+        "net": -768
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 3454,
+        "net": -2104
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 793,
+        "net": 738
+      }
+    },
+    {
+      "level": 74,
+      "tier": 8,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -865
+      },
+      "light": {
+        "win": 13,
+        "cost": 9939,
+        "net": -11104
+      },
+      "full": {
+        "win": 69,
+        "cost": 40142,
+        "net": -38266
+      },
+      "fitted": {
+        "win": 6,
+        "cost": 0,
+        "net": -3368
+      },
+      "fittedLight": {
+        "win": 38,
+        "cost": 7571,
+        "net": -8571
+      },
+      "fittedHeal": {
+        "win": 31,
+        "cost": 2531,
+        "net": -4092
+      },
+      "fittedPower": {
+        "win": 19,
+        "cost": 3454,
+        "net": -5701
+      },
+      "fittedShot": {
+        "win": 13,
+        "cost": 793,
+        "net": -3601
+      }
+    },
+    {
+      "level": 75,
+      "tier": 8,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 198
+      },
+      "light": {
+        "win": 69,
+        "cost": 9400,
+        "net": -6233
+      },
+      "full": {
+        "win": 94,
+        "cost": 38169,
+        "net": -32211
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 2596
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 6789,
+        "net": -3543
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 1688,
+        "net": 1558
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 3454,
+        "net": -858
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 793,
+        "net": 1803
+      }
+    },
+    {
+      "level": 76,
+      "tier": 8,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -878
+      },
+      "light": {
+        "win": 25,
+        "cost": 8900,
+        "net": -8749
+      },
+      "full": {
+        "win": 94,
+        "cost": 35226,
+        "net": -29921
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 1677
+      },
+      "fittedLight": {
+        "win": 88,
+        "cost": 6958,
+        "net": -2419
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 2363,
+        "net": 564
+      },
+      "fittedPower": {
+        "win": 56,
+        "cost": 3684,
+        "net": -2007
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 793,
+        "net": 884
+      }
+    },
+    {
+      "level": 77,
+      "tier": 8,
+      "none": {
+        "win": 25,
+        "cost": 0,
+        "net": 58
+      },
+      "light": {
+        "win": 38,
+        "cost": 8801,
+        "net": -7929
+      },
+      "full": {
+        "win": 81,
+        "cost": 36458,
+        "net": -32728
+      },
+      "fitted": {
+        "win": 50,
+        "cost": 0,
+        "net": 586
+      },
+      "fittedLight": {
+        "win": 56,
+        "cost": 7464,
+        "net": -6007
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 2194,
+        "net": -1165
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 3684,
+        "net": -3098
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 793,
+        "net": -207
+      }
+    },
+    {
+      "level": 78,
+      "tier": 8,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -772
+      },
+      "light": {
+        "win": 56,
+        "cost": 9296,
+        "net": -7527
+      },
+      "full": {
+        "win": 75,
+        "cost": 37982,
+        "net": -35062
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -1235
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 7126,
+        "net": -6122
+      },
+      "fittedHeal": {
+        "win": 38,
+        "cost": 2194,
+        "net": -2994
+      },
+      "fittedPower": {
+        "win": 56,
+        "cost": 3224,
+        "net": -2418
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 793,
+        "net": -1604
+      }
+    },
+    {
+      "level": 79,
+      "tier": 8,
+      "none": {
+        "win": 31,
+        "cost": 0,
+        "net": 42
+      },
+      "light": {
+        "win": 31,
+        "cost": 9738,
+        "net": -9631
+      },
+      "full": {
+        "win": 88,
+        "cost": 36273,
+        "net": -31741
+      },
+      "fitted": {
+        "win": 75,
+        "cost": 0,
+        "net": 3170
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 6390,
+        "net": -1581
+      },
+      "fittedHeal": {
+        "win": 94,
+        "cost": 1350,
+        "net": 3459
+      },
+      "fittedPower": {
+        "win": 81,
+        "cost": 3684,
+        "net": 48
+      },
+      "fittedShot": {
+        "win": 81,
+        "cost": 793,
+        "net": 2939
+      }
+    },
+    {
+      "level": 80,
+      "tier": 8,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -464
+      },
+      "light": {
+        "win": 50,
+        "cost": 9939,
+        "net": -8190
+      },
+      "full": {
+        "win": 94,
+        "cost": 40330,
+        "net": -34320
+      },
+      "fitted": {
+        "win": 38,
+        "cost": 0,
+        "net": 19
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 7341,
+        "net": -4427
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 2363,
+        "net": -773
+      },
+      "fittedPower": {
+        "win": 56,
+        "cost": 2993,
+        "net": -1154
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 793,
+        "net": 551
+      }
+    },
+    {
+      "level": 81,
+      "tier": 9,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -2450
+      },
+      "light": {
+        "win": 13,
+        "cost": 14625,
+        "net": -15544
+      },
+      "full": {
+        "win": 94,
+        "cost": 61418,
+        "net": -51627
+      },
+      "fitted": {
+        "win": 13,
+        "cost": 0,
+        "net": -3682
+      },
+      "fittedLight": {
+        "win": 44,
+        "cost": 10970,
+        "net": -9797
+      },
+      "fittedHeal": {
+        "win": 31,
+        "cost": 3639,
+        "net": -4673
+      },
+      "fittedPower": {
+        "win": 19,
+        "cost": 5655,
+        "net": -8374
+      },
+      "fittedShot": {
+        "win": 13,
+        "cost": 1098,
+        "net": -4779
+      }
+    },
+    {
+      "level": 82,
+      "tier": 9,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -2095
+      },
+      "light": {
+        "win": 19,
+        "cost": 15486,
+        "net": -16050
+      },
+      "full": {
+        "win": 69,
+        "cost": 61966,
+        "net": -57793
+      },
+      "fitted": {
+        "win": 13,
+        "cost": 0,
+        "net": -3695
+      },
+      "fittedLight": {
+        "win": 50,
+        "cost": 12009,
+        "net": -10484
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 4159,
+        "net": -2634
+      },
+      "fittedPower": {
+        "win": 19,
+        "cost": 5655,
+        "net": -8396
+      },
+      "fittedShot": {
+        "win": 25,
+        "cost": 1098,
+        "net": -2886
+      }
+    },
+    {
+      "level": 83,
+      "tier": 9,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -1520
+      },
+      "light": {
+        "win": 25,
+        "cost": 14957,
+        "net": -15235
+      },
+      "full": {
+        "win": 88,
+        "cost": 62011,
+        "net": -56770
+      },
+      "fitted": {
+        "win": 31,
+        "cost": 0,
+        "net": -2039
+      },
+      "fittedLight": {
+        "win": 44,
+        "cost": 11749,
+        "net": -12129
+      },
+      "fittedHeal": {
+        "win": 38,
+        "cost": 3899,
+        "net": -4892
+      },
+      "fittedPower": {
+        "win": 38,
+        "cost": 5302,
+        "net": -6292
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 1098,
+        "net": -2182
+      }
+    },
+    {
+      "level": 84,
+      "tier": 9,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -1715
+      },
+      "light": {
+        "win": 25,
+        "cost": 14167,
+        "net": -13690
+      },
+      "full": {
+        "win": 81,
+        "cost": 53818,
+        "net": -47126
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 2831
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 10028,
+        "net": -6342
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 3119,
+        "net": -399
+      },
+      "fittedPower": {
+        "win": 56,
+        "cost": 4948,
+        "net": -2117
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 1098,
+        "net": 1733
+      }
+    },
+    {
+      "level": 85,
+      "tier": 9,
+      "none": {
+        "win": 25,
+        "cost": 0,
+        "net": 360
+      },
+      "light": {
+        "win": 38,
+        "cost": 15133,
+        "net": -13260
+      },
+      "full": {
+        "win": 100,
+        "cost": 63591,
+        "net": -51312
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 4541
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 9670,
+        "net": -3891
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 3119,
+        "net": 1796
+      },
+      "fittedPower": {
+        "win": 56,
+        "cost": 5302,
+        "net": -2102
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 1098,
+        "net": 3444
+      }
+    },
+    {
+      "level": 86,
+      "tier": 9,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -2678
+      },
+      "light": {
+        "win": 6,
+        "cost": 14821,
+        "net": -16724
+      },
+      "full": {
+        "win": 94,
+        "cost": 61145,
+        "net": -52613
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 2373
+      },
+      "fittedLight": {
+        "win": 63,
+        "cost": 9836,
+        "net": -5638
+      },
+      "fittedHeal": {
+        "win": 50,
+        "cost": 2859,
+        "net": -1144
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 4948,
+        "net": -3233
+      },
+      "fittedShot": {
+        "win": 50,
+        "cost": 1098,
+        "net": 618
+      }
+    },
+    {
+      "level": 87,
+      "tier": 9,
+      "none": {
+        "win": 13,
+        "cost": 0,
+        "net": -1212
+      },
+      "light": {
+        "win": 25,
+        "cost": 15268,
+        "net": -15002
+      },
+      "full": {
+        "win": 94,
+        "cost": 64044,
+        "net": -54597
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 3367
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 10190,
+        "net": -4314
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 3379,
+        "net": -630
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 5655,
+        "net": -2288
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 1098,
+        "net": 2269
+      }
+    },
+    {
+      "level": 88,
+      "tier": 9,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -2134
+      },
+      "light": {
+        "win": 25,
+        "cost": 14603,
+        "net": -14824
+      },
+      "full": {
+        "win": 75,
+        "cost": 61759,
+        "net": -56236
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": 11
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 10710,
+        "net": -3697
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 3119,
+        "net": 2881
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 5655,
+        "net": -5304
+      },
+      "fittedShot": {
+        "win": 38,
+        "cost": 1098,
+        "net": -1714
+      }
+    },
+    {
+      "level": 89,
+      "tier": 9,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -2766
+      },
+      "light": {
+        "win": 0,
+        "cost": 12451,
+        "net": -15217
+      },
+      "full": {
+        "win": 81,
+        "cost": 57581,
+        "net": -51647
+      },
+      "fitted": {
+        "win": 6,
+        "cost": 0,
+        "net": -4702
+      },
+      "fittedLight": {
+        "win": 25,
+        "cost": 10974,
+        "net": -13211
+      },
+      "fittedHeal": {
+        "win": 19,
+        "cost": 4159,
+        "net": -7300
+      },
+      "fittedPower": {
+        "win": 19,
+        "cost": 4241,
+        "net": -7137
+      },
+      "fittedShot": {
+        "win": 19,
+        "cost": 1098,
+        "net": -3994
+      }
+    },
+    {
+      "level": 90,
+      "tier": 9,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -2772
+      },
+      "light": {
+        "win": 38,
+        "cost": 14437,
+        "net": -11756
+      },
+      "full": {
+        "win": 81,
+        "cost": 57325,
+        "net": -49126
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 4536
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 9841,
+        "net": -3515
+      },
+      "fittedHeal": {
+        "win": 56,
+        "cost": 3639,
+        "net": 381
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 4948,
+        "net": -1753
+      },
+      "fittedShot": {
+        "win": 56,
+        "cost": 1098,
+        "net": 3438
+      }
+    },
+    {
+      "level": 91,
+      "tier": 10,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -1178
+      },
+      "light": {
+        "win": 25,
+        "cost": 23581,
+        "net": -23613
+      },
+      "full": {
+        "win": 100,
+        "cost": 96080,
+        "net": -82442
+      },
+      "fitted": {
+        "win": 56,
+        "cost": 0,
+        "net": 3881
+      },
+      "fittedLight": {
+        "win": 69,
+        "cost": 17395,
+        "net": -11716
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 4834,
+        "net": -459
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 8206,
+        "net": -1801
+      },
+      "fittedShot": {
+        "win": 63,
+        "cost": 1703,
+        "net": 3482
+      }
+    },
+    {
+      "level": 92,
+      "tier": 10,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -2254
+      },
+      "light": {
+        "win": 31,
+        "cost": 23726,
+        "net": -21736
+      },
+      "full": {
+        "win": 63,
+        "cost": 98852,
+        "net": -91540
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 6874
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 15381,
+        "net": -7188
+      },
+      "fittedHeal": {
+        "win": 69,
+        "cost": 6042,
+        "net": 831
+      },
+      "fittedPower": {
+        "win": 69,
+        "cost": 8753,
+        "net": -1879
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 1703,
+        "net": 5171
+      }
+    },
+    {
+      "level": 93,
+      "tier": 10,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -2256
+      },
+      "light": {
+        "win": 25,
+        "cost": 22965,
+        "net": -21967
+      },
+      "full": {
+        "win": 81,
+        "cost": 90129,
+        "net": -77472
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": 1766
+      },
+      "fittedLight": {
+        "win": 50,
+        "cost": 17798,
+        "net": -15164
+      },
+      "fittedHeal": {
+        "win": 44,
+        "cost": 6042,
+        "net": -5253
+      },
+      "fittedPower": {
+        "win": 44,
+        "cost": 8753,
+        "net": -6515
+      },
+      "fittedShot": {
+        "win": 44,
+        "cost": 1703,
+        "net": 63
+      }
+    },
+    {
+      "level": 94,
+      "tier": 10,
+      "none": {
+        "win": 6,
+        "cost": 0,
+        "net": -2491
+      },
+      "light": {
+        "win": 19,
+        "cost": 24934,
+        "net": -25471
+      },
+      "full": {
+        "win": 94,
+        "cost": 93562,
+        "net": -83603
+      },
+      "fitted": {
+        "win": 44,
+        "cost": 0,
+        "net": 953
+      },
+      "fittedLight": {
+        "win": 56,
+        "cost": 16483,
+        "net": -13397
+      },
+      "fittedHeal": {
+        "win": 44,
+        "cost": 4834,
+        "net": -3523
+      },
+      "fittedPower": {
+        "win": 50,
+        "cost": 8753,
+        "net": -6723
+      },
+      "fittedShot": {
+        "win": 44,
+        "cost": 1703,
+        "net": -749
+      }
+    },
+    {
+      "level": 95,
+      "tier": 10,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": 141
+      },
+      "light": {
+        "win": 44,
+        "cost": 25078,
+        "net": -19504
+      },
+      "full": {
+        "win": 94,
+        "cost": 94111,
+        "net": -77399
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 9384
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 16992,
+        "net": -4287
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 5237,
+        "net": 2130
+      },
+      "fittedPower": {
+        "win": 81,
+        "cost": 8753,
+        "net": 4374
+      },
+      "fittedShot": {
+        "win": 81,
+        "cost": 1703,
+        "net": 11425
+      }
+    },
+    {
+      "level": 96,
+      "tier": 10,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -3818
+      },
+      "light": {
+        "win": 19,
+        "cost": 23155,
+        "net": -24643
+      },
+      "full": {
+        "win": 88,
+        "cost": 93304,
+        "net": -80685
+      },
+      "fitted": {
+        "win": 63,
+        "cost": 0,
+        "net": 6328
+      },
+      "fittedLight": {
+        "win": 75,
+        "cost": 16186,
+        "net": -7233
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 5237,
+        "net": 3717
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 8753,
+        "net": -1989
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 1703,
+        "net": 5938
+      }
+    },
+    {
+      "level": 97,
+      "tier": 10,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -647
+      },
+      "light": {
+        "win": 25,
+        "cost": 18471,
+        "net": -18463
+      },
+      "full": {
+        "win": 81,
+        "cost": 77520,
+        "net": -68245
+      },
+      "fitted": {
+        "win": 25,
+        "cost": 0,
+        "net": -2657
+      },
+      "fittedLight": {
+        "win": 44,
+        "cost": 15092,
+        "net": -13767
+      },
+      "fittedHeal": {
+        "win": 38,
+        "cost": 4431,
+        "net": -4368
+      },
+      "fittedPower": {
+        "win": 31,
+        "cost": 7659,
+        "net": -8956
+      },
+      "fittedShot": {
+        "win": 31,
+        "cost": 1703,
+        "net": -3000
+      }
+    },
+    {
+      "level": 98,
+      "tier": 10,
+      "none": {
+        "win": 19,
+        "cost": 0,
+        "net": -619
+      },
+      "light": {
+        "win": 50,
+        "cost": 24129,
+        "net": -18334
+      },
+      "full": {
+        "win": 94,
+        "cost": 97374,
+        "net": -85368
+      },
+      "fitted": {
+        "win": 75,
+        "cost": 0,
+        "net": 7785
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 15381,
+        "net": -3105
+      },
+      "fittedHeal": {
+        "win": 94,
+        "cost": 4431,
+        "net": 7844
+      },
+      "fittedPower": {
+        "win": 81,
+        "cost": 8753,
+        "net": 853
+      },
+      "fittedShot": {
+        "win": 75,
+        "cost": 1703,
+        "net": 6082
+      }
+    },
+    {
+      "level": 99,
+      "tier": 10,
+      "none": {
+        "win": 0,
+        "cost": 0,
+        "net": -3827
+      },
+      "light": {
+        "win": 19,
+        "cost": 22554,
+        "net": -23524
+      },
+      "full": {
+        "win": 88,
+        "cost": 87801,
+        "net": -80661
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 4484
+      },
+      "fittedLight": {
+        "win": 81,
+        "cost": 16186,
+        "net": -9951
+      },
+      "fittedHeal": {
+        "win": 63,
+        "cost": 4431,
+        "net": -1023
+      },
+      "fittedPower": {
+        "win": 63,
+        "cost": 8753,
+        "net": -5131
+      },
+      "fittedShot": {
+        "win": 69,
+        "cost": 1703,
+        "net": 2782
+      }
+    },
+    {
+      "level": 100,
+      "tier": 10,
+      "none": {
+        "win": 25,
+        "cost": 0,
+        "net": 520
+      },
+      "light": {
+        "win": 50,
+        "cost": 25078,
+        "net": -17895
+      },
+      "full": {
+        "win": 100,
+        "cost": 95130,
+        "net": -77080
+      },
+      "fitted": {
+        "win": 69,
+        "cost": 0,
+        "net": 10138
+      },
+      "fittedLight": {
+        "win": 94,
+        "cost": 16186,
+        "net": -129
+      },
+      "fittedHeal": {
+        "win": 75,
+        "cost": 4834,
+        "net": 6055
+      },
+      "fittedPower": {
+        "win": 88,
+        "cost": 8753,
+        "net": 5568
+      },
+      "fittedShot": {
+        "win": 88,
+        "cost": 1703,
+        "net": 12618
+      }
+    }
+  ]
+}

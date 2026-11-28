@@ -1,6 +1,22 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Завершить забег": "End run",
+  "Для обычной охоты выгоднее постоянное усиление снаряжения. Полный запас эликсиров и снарядов берегите для сложных целей: его стоимость может превышать добычу за несколько побед.": "Permanent equipment upgrades are more economical for ordinary hunts. Save full supplies of elixirs and ammunition for difficult targets: the cost may exceed the loot from several victories.",
+  "Забег мастера доступен с 71-го уровня. Тени получают всё больше здоровья и урона с каждой волной, чередуют оглушение, отраву и щит; рекорд мастера ведётся отдельно.": "Master Run unlocks at level 71. Shadows gain health and damage each wave and alternate stun, poison and shield; the master record is tracked separately.",
+  "Затерянный остров: разведка": "Lost island: scouting",
+  "Отправьтесь на остров и найдите все пять местных видов. Смотрителю нужна карта живой природы.": "Visit the island and discover all five local species. The keeper needs a wildlife map.",
+  "800 медных монет": "800 copper coins",
+  "Затерянный остров: охота": "Lost island: hunt",
+  "Победите Фонарника, Кораллового исполина, Штормового ската, Приливника и Игольчатого секача — по одному каждого вида.": "Defeat one of each of the five island beasts.",
+  "1500 монет и 2 Эликсира жизни": "1500 coins and 2 Life Elixirs",
+  "Затерянный остров: тайна капитана": "Lost island: the captain's secret",
+  "Одолейте стража и откройте пиратский сундук. Если вы уже нашли его, покажите смотрителю добычу.": "Defeat the guardian and open the pirate chest. If already found, show the keeper your loot.",
+  "2500 монет и 2 Эликсира силы": "2500 coins and 2 Strength Elixirs",
+  "Забег мастера": "Master run",
+  "С уровня 71: здоровье и урон теней растут с волной, три условия чередуются.": "From level 71: shadow health and damage increase with each wave, with three rotating conditions.",
+  "Рекорд мастера: волна {0}": "Master record: wave {0}",
+  "ХП ×{0}, урон ×{1}": "HP ×{0}, damage ×{1}",
   "Все восемь минералов гарантированно добываются на этажах 3 (цвет 8), 7 (цвет 9) и 8 (цвет 10).": "All eight minerals have guaranteed sources on floors 3 (tier 8), 7 (tier 9), and 8 (tier 10).",
   "Новые герои начинают на общей карте; география старых сохранений не меняется.": "New heroes start on a shared map; existing saves keep their geography.",
   "На материке гарантированы обычные виды и доступные источники ресурсов каждого цвета; на острове — все пять местных видов.": "The mainland guarantees ordinary species and eligible resource sources for each tier; the island guarantees all five local species.",

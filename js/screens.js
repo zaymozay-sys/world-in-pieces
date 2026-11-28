@@ -1384,6 +1384,7 @@ const Screens = (() => {
     // 2.2.7: у трактирщика новичку показываем не больше двух ещё не взятых заданий; остальные открываются по мере выполнения
     let free = 2, hidden = 0;
     const all = Quests.list(Profile.data, giver).filter((q) => {
+      if (!q.ready && !q.accepted && !q.claimed) return false;
       if (giver !== 'tavern' || q.accepted || q.claimed) return true;
       if (free > 0) { free--; return true; }
       hidden++; return false;
@@ -1393,7 +1394,7 @@ const Screens = (() => {
       if (q.claimed) act = _t("<span class=\"badge done\">Получено</span>");
       else if (!q.accepted) act = _t("<button type=\"button\" class=\"primary\" data-accept=\"{0}\">Взять задание</button>", [q.id]);
       else if (q.done) act = _t("<button type=\"button\" class=\"primary\" data-claim=\"{0}\">Забрать награду</button>", [q.id]);
-      else act = `<span class="quest-progress">${q.value} / ${q.goal}</span>`;
+      else act = `<span class="quest-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${q.goal}" aria-valuenow="${q.value}">${q.value} / ${q.goal}<i style="--p:${Math.round(100*q.value/q.goal)}%"></i></span>`;
       return _t("<div class=\"card quest-card {0}\">\n        <div class=\"card-body\"><span class=\"item-title\">{1}</span><span class=\"item-foot\">{2}</span>\n          <span class=\"item-foot quest-reward\">{5}Награда: {3}</span></div>\n        <div class=\"card-act\">{4}</div></div>", [q.claimed ? 'is-done' : '', q.title, q.desc, q.rewardText, act, questRewardIcons(q.reward)]);
     }).join('') + (hidden ? `<p class="hint">${_t("Остальные задания трактирщик покажет, когда справитесь с этими.")}</p>` : '');
   }
@@ -1421,15 +1422,15 @@ const Screens = (() => {
     const d = b.dataset;
     if (d.accept) {
       if (!Quests.accept(d.accept)) return;
-      st[giver].msg = QUEST_SAY.accept[d.accept] || giver === 'lighthouse' ? _t("Добро. Огонь горит — вернёшься, когда управишься.") : giver === 'mill' ? _t("Заметано — как сделаешь, возвращайся за наградой.") : _t("По рукам. Сделаешь — возвращайся, не обижу.");
+      st[giver].msg = QUEST_SAY.accept[d.accept] || (giver === 'lighthouse' ? _t("Добро. Огонь горит — вернёшься, когда управишься.") : giver === 'mill' ? _t("Заметано — как сделаешь, возвращайся за наградой.") : _t("По рукам. Сделаешь — возвращайся, не обижу."));
       changed();
       return;
     }
     if (!d.claim) return;
     const q = Quests.find(d.claim);
     if (!Quests.claim(d.claim)) return;
-    const line = QUEST_SAY.claim[d.claim] || giver === 'lighthouse' ? (QUEST_SAY.claim[d.claim] || (q.reward.key ? _t("Вот ключ. Сундук на бригантине у восточного берега — не потеряй.") : _t("Держи — {0}. Море тебя не забудет.", [q.rewardText.toLowerCase()]))) : giver === 'mill' ? _t("Держи — {0}. И заходи ещё, дело для тебя найдётся.", [q.rewardText.toLowerCase()])
-      : _t("Держи — {0}. И заглядывай ещё, дело найдётся.", [q.rewardText.toLowerCase()]);
+    const line = QUEST_SAY.claim[d.claim] || (giver === 'lighthouse' ? (q.reward.key ? _t("Вот ключ. Сундук на бригантине у восточного берега — не потеряй.") : _t("Держи — {0}. Море тебя не забудет.", [q.rewardText.toLowerCase()])) : giver === 'mill' ? _t("Держи — {0}. И заходи ещё, дело для тебя найдётся.", [q.rewardText.toLowerCase()])
+      : _t("Держи — {0}. И заглядывай ещё, дело найдётся.", [q.rewardText.toLowerCase()]));
     st[giver].msg = line + rewardBadges(q.reward);
     changed();
   }
@@ -3221,12 +3222,14 @@ const credits = {
         const money1 = (n) => MonsterArt.moneyHtml(n);
         body = `<p class="hint">${_t("Забег — серия боёв с тенями подряд, каждая сильнее предыдущей. За каждую победу в копилку идут монеты: после волны можно продолжить или забрать. Поражение или бегство отнимают {0}% копилки.", [Math.round((1 - Run.LOSS_KEEP) * 100)])}</p>
           <div class="arena-rank"><b>${r.on ? _t("Волна {0} из {1}", [r.wave, Run.MAX_WAVE]) : _t("Забег не начат")}</b>
-            <small>${_t("Рекорд: волна {0} · наибольшая копилка: {1} · забегов: {2}", [r.best || '—', r.bestPot ? money1(r.bestPot) : '—', r.runs])}</small></div>
+            <small>${_t("Рекорд: волна {0} · наибольшая копилка: {1} · забегов: {2}", [r.best || '—', r.bestPot ? money1(r.bestPot) : '—', r.runs])}</small>
+            ${Profile.level()>=Run.MASTER_LEVEL||r.masterBest?`<small>${_t("Рекорд мастера: волна {0}",[r.masterBest||'—'])}</small>`:''}</div>
+          ${r.on&&r.mod==='master'?`<p class="hint">${_t("Забег мастера")} · ${World.ARENA_RULES.find(x=>x.id===nxt.rule).name} · ${_t("ХП ×{0}, урон ×{1}",[nxt.master.hp.toFixed(2),nxt.master.dmg.toFixed(2)])}</p>`:''}
           ${r.on ? `<p>${_t("В копилке: {0}", [money1(r.pot)])}</p><div class="arena-foe"><span class="arena-fig">${Figures.avatar(Factions.heroKind(nxt.faction, nxt.gender), null)}</span>
             <div><b>${escText(nxt.nick)}</b><small>${_t("Тень: {0} · уровень {1} · ум {2}", [Factions.get(nxt.faction).name, nxt.level, Math.round(nxt.ai)])}</small></div></div>
             <p class="hint">${Run.left(r, Daily.today()) > 0 ? _t("Награда за эту волну: {0}", [money1(Run.waveReward(r.wave, Math.round(World.arenaCoins(Math.max(1, T), 2) * 0.5 * Run.modMult(r.mod) * Events.mul(evNow().id, 'run'))))]) : _t("Монеты за сегодня уже набраны: волны идут в рекорд без наград.")} ${_t("Монетных волн сегодня: {0}/{1}", [Run.DAILY_WAVES - Run.left(r, Daily.today()), Run.DAILY_WAVES])}</p>
-            <div class="arena-act"><button type="button" class="primary" data-arena="run-next">${_t("В бой: волна {0}", [r.wave])}</button><button type="button" data-arena="run-cash"${r.pot > 0 ? '' : ' disabled'}>${_t("Забрать {0}", [money1(r.pot)])}</button></div>`
-          : `<h3>${_t("Условие забега")}</h3><div class="arena-mods">${[['', _t("Без условий"), _t("обычные тени"), 1], ...Object.keys(Run.MODS).map((id) => { const R = World.ARENA_RULES.find((x) => x.id === id); return [id, R.name, R.desc, Run.MODS[id]]; })].map(([id, nm, ds, m]) => `<button type="button" class="arena-mod${(s.mod || '') === id ? ' on' : ''}" data-runmod="${id}" aria-pressed="${(s.mod || '') === id}"><b>${nm}</b> <em>${m > 1 ? '×' + String(m).replace('.', ',') : ''}</em><small>${ds}</small></button>`).join('')}</div>
+            <div class="arena-act"><button type="button" class="primary" data-arena="run-next">${_t("В бой: волна {0}", [r.wave])}</button><button type="button" data-arena="run-cash">${r.pot>0?_t("Забрать {0}", [money1(r.pot)]):_t("Завершить забег")}</button></div>`
+          : `<h3>${_t("Условие забега")}</h3><div class="arena-mods">${[['', _t("Без условий"), _t("обычные тени"), 1], ...Object.keys(Run.MODS).filter(id=>Run.availableMod(id,Profile.level())).map((id) => { const R = id==='master'?{name:_t("Забег мастера"),desc:_t("С уровня 71: здоровье и урон теней растут с волной, три условия чередуются.")}:World.ARENA_RULES.find((x) => x.id === id); return [id, R.name, R.desc, Run.MODS[id]]; })].map(([id, nm, ds, m]) => `<button type="button" class="arena-mod${(s.mod || '') === id ? ' on' : ''}" data-runmod="${id}" aria-pressed="${(s.mod || '') === id}"><b>${nm}</b> <em>${m > 1 ? '×' + String(m).replace('.', ',') : ''}</em><small>${ds}</small></button>`).join('')}</div>
             <p class="hint">${_t("Условие действует на весь забег; монеты за каждую волну умножаются на множитель.")}</p>
             <div class="arena-act"><button type="button" class="primary" data-arena="run-start">${_t("Начать забег")}</button></div>`}`;
       } else if (s.tab === 'puzzle') {
@@ -3394,7 +3397,7 @@ const credits = {
       }
       if (d.arena === 'run-start' || d.arena === 'run-next') {
         const r = runState();
-        if (d.arena === 'run-start') { if (r.on) return; Run.start(r, s.mod || ''); }
+        if (d.arena === 'run-start') { if (r.on || !Run.availableMod(s.mod,Profile.level())) return; Run.start(r, s.mod || ''); }
         else if (!r.on) return;
         const sh = Run.shadow(r, Profile.level(), (Profile.data.map && Profile.data.map.seed) | 0, Factions.ORDER);
         Profile.save(); s.msg = '';
@@ -3402,7 +3405,7 @@ const credits = {
       }
       if (d.arena === 'run-cash') {
         const r = runState();
-        if (!r.on || r.pot <= 0) return;
+        if (!r.on) return;
         const c = Run.cash(r); Profile.addCoins(c); Profile.save(); s.msg = _t("Забег завершён: получено {0}.", [money(c)]); return render();
       }
       if (d.arena === 'challenge') {

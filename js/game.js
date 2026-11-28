@@ -470,6 +470,10 @@ function setupShadow(a) {
     if (rule.dmg) f.dmg *= rule.dmg;
     if (rule.ai) f.level = Math.min(100, f.level + rule.ai);
   }
+  if (selNow().run && a.master) {
+    f.base = Math.round(f.base * a.master.hp);
+    f.dmg *= a.master.dmg;
+  }
   f.bag = enemyBag(f.level);
 }
 // Приём противника: у существ — по виду, у теней — тот, что дало условие дня.

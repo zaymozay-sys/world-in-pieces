@@ -5,11 +5,11 @@ global.Gear = Gear;
 const Quests = require('../js/quests.js');
 
 // четырнадцать заданий (пять от трактирщика, пять от мыши, четыре от тюленя-смотрителя маяка), у каждого — цель, описание и понятная награда
-assert.strictEqual(Quests.LIST.length, 29);
-assert.strictEqual(new Set(Quests.LIST.map((q) => q.id)).size, 29, 'id заданий уникальны');
+assert.strictEqual(Quests.LIST.length, 32);
+assert.strictEqual(new Set(Quests.LIST.map((q) => q.id)).size, 32, 'id заданий уникальны');
 assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'tavern').length, 8, 'у трактирщика пять заданий');
 assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'mill').length, 8, 'у мыши пять заданий');
-assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'lighthouse').length, 6, 'у тюленя шесть заданий');
+assert.strictEqual(Quests.LIST.filter((q) => q.giver === 'lighthouse').length, 9);
 assert.ok(Quests.find('lh-key').reward.key, 'последнее поручение тюленя выдаёт ключ');
 for (const q of Quests.LIST) {
   assert.ok(['tavern', 'mill', 'lighthouse', 'junker', 'hunter', 'library'].includes(q.giver), q.id);
@@ -25,6 +25,20 @@ const fresh = () => ({ wins: 0, xp: 0, loadout: { amulet: null }, bestiary: {}, 
 let d = fresh();
 let list = Quests.list(d);
 assert.ok(list.every((q) => !q.done && !q.claimed && !q.accepted && q.value === 0));
+{
+  const p=fresh(),ids=['glowmaw','coralhulk','stormray','tidecaller','thornback'];
+  assert.ok(!Quests.canAccept(p,'isle-1')&&!Quests.canAccept(p,'bob-2'));
+  p.ship={fixed:true};assert.ok(Quests.canAccept(p,'isle-1'));
+  p.seen=Object.fromEntries(ids.map(id=>[id,1]));
+  assert.strictEqual(Quests.list(p).find(q=>q.id==='isle-1').value,5);
+  assert.ok(!Quests.canAccept(p,'isle-2'));
+  p.quests['isle-1']=true;p.accepted['isle-2']=true;
+  assert.ok(!Quests.canClaim(p,'isle-2'));
+  p.bestiary=Object.fromEntries(ids.map(id=>[id,{wins:1}]));
+  assert.ok(Quests.canClaim(p,'isle-2'));
+  p.quests['isle-2']=true;p.accepted['isle-3']=true;
+  assert.ok(!Quests.canClaim(p,'isle-3'));p.island={chestTaken:true};assert.ok(Quests.canClaim(p,'isle-3'));
+}
 
 // list(data, giver) фильтрует по собеседнику
 assert.strictEqual(Quests.list(d, 'tavern').length, 8);
