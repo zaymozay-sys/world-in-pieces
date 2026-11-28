@@ -291,6 +291,29 @@ const Profile = (() => {
       if (!Array.isArray(data.equipmentPresets) || !data.equipmentPresets[index]) return false;
       data.equipmentPresets.splice(index,1); save(); return true;
     },
+    // Массовая продажа: единый расчёт и сохранение, без частичного удаления.
+    saleQuote(uids) {
+      if (!Array.isArray(uids) || !uids.length || new Set(uids).size !== uids.length) return null;
+      let total = 0;
+      for (const uid of uids) {
+        if (!this.canSellItem(uid)) return null;
+        const entry = findItem(uid), it = Gear.item(entry);
+        if (!it) return null;
+        const value = Gear.sellValue(Math.round(it.price * Gear.wearFactor(entry)), it.tier);
+        if (!Number.isSafeInteger(value) || value < 0) return null;
+        total += value;
+      }
+      return Number.isSafeInteger(total) ? {uids:[...uids], total} : null;
+    },
+    sellItems(uids, expectedTotal) {
+      const quote = this.saleQuote(uids);
+      if (!quote || quote.total !== expectedTotal || !Number.isSafeInteger(data.coins + quote.total)) return null;
+      const selected = new Set(quote.uids);
+      data.items = data.items.filter(e => !selected.has(e.uid));
+      data.coins += quote.total;
+      save();
+      return quote;
+    },
     takeSaleItem(uid) { if (!this.canSellItem(uid)) return false; this.removeItem(uid); return true; },
     removeItem(uid) {
       for (const s of Gear.SLOTS) if (data.loadout[s] === uid) data.loadout[s] = null;
