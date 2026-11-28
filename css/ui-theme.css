@@ -824,5 +824,12 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
   grid-template-columns: minmax(0, 1fr);
 }
 #map-menu .mm-main .map-ver { padding: 6px 2px 2px; }
+/* На коротких экранах прокручивается панель, а не сжимаются её пункты. */
+#map-menu .mm-main > *, #map-menu .mm-side > * { flex-shrink: 0; }
+@media (max-width: 370px) {
+  #map-menu .mm-main, #map-menu .mm-side { padding: 5px; }
+  body #map-menu .mm-main > button, body #map-menu .mm-side button { padding: 7px 6px; }
+  #map-menu .mm-side .mm-sub { padding-left: 4px; }
+}
 /* Раскрытая панель не должна перекрывать свою кнопку ☰: повторный клик закрывает меню. */
 .map-btns > #m-more[aria-expanded="true"] { position: relative; z-index: 81; }

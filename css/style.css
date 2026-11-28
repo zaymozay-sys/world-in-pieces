@@ -5091,7 +5091,10 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 .modal .reset:has(> button[data-act="start"]) { background: linear-gradient(180deg, rgba(28, 24, 19, 0), rgb(28, 24, 19) 30%); }
 /* 2.5.3: плашка «Вышло обновление» (js/update.js) */
 .upd-banner { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 9000; display: flex; align-items: center; gap: 10px; max-width: min(92vw, 520px); padding: 10px 12px; border-radius: 12px; background: #24160d; color: #f3e6c8; border: 1px solid #b8893a; box-shadow: 0 8px 26px rgba(0, 0, 0, .6); font-size: 14px; line-height: 1.3; }
-.upd-banner .upd-x { min-width: 32px; padding: 4px 8px; background: transparent; border: 0; color: #c9b48a; }
+.upd-banner .upd-x { min-width: 44px; min-height: 44px; padding: 4px 8px; background: transparent; border: 0; color: #c9b48a; }
+@media (max-width: 370px) {
+  .upd-banner { box-sizing: border-box; width: calc(100vw - 16px); flex-wrap: wrap; justify-content: center; overflow-wrap: anywhere; }
+}
 
 
 /* Illustrated knowledge codex — consistent layouts for generated and hand-written articles. */
@@ -5120,6 +5123,7 @@ body .fi-pop .fi-more { display: block; width: 100%; margin-top: 8px; min-height
 .wiki-codex .wiki-see{line-height:1.9}
 .wiki-codex .wiki-see .wk-link{margin:0 4px 3px 0}
 @media(max-width:540px){.wiki-codex{padding:14px;border-radius:12px}.wiki-art-cover-scene{height:155px}.wiki-art-cover-portrait{height:210px}.wiki-art-content .wk-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.wiki-codex .wiki-art-nav{margin-bottom:12px}}
+@media(max-width:370px){.wiki-codex{padding:10px}.wiki-codex .wiki-art-content .wk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.wiki-codex *{scroll-behavior:auto}}
 
 

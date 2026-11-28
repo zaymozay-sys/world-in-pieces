@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 (async () => {
   const browser = await chromium.launch({ headless: true });
   let failures = 0;
-  for (const width of [390, 1280]) {
+  for (const width of [320, 390, 1280]) {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -44,6 +44,28 @@ const { chromium } = require('playwright');
         return !!document.querySelector('#map-card [data-act="attack"]') && !document.querySelector('#map-card [data-act="quick"]');
       });
       if (!normalOnly) throw new Error('Quick battle must remain disabled');
+      if (width === 320) {
+        const mobile = await page.evaluate(() => {
+          MapView.refreshMonsters();
+          const layer = document.getElementById('l-mon');
+          const node = layer.firstElementChild;
+          MapView.refreshMonsters();
+          const stable = !!node && node === layer.firstElementChild;
+          const trigger = document.getElementById('m-more');
+          trigger.click();
+          const menu = document.getElementById('map-menu');
+          menu.querySelector('.mm-head').click();
+          const main = menu.querySelector('.mm-main'), side = menu.querySelector('.mm-side');
+          const a = main.getBoundingClientRect(), b = side.getBoundingClientRect();
+          const result = { stable, visible: !menu.hidden && !side.hidden,
+            fits: b.left >= -1 && b.right <= a.left + 1 && a.right <= innerWidth + 1,
+            below: a.top >= trigger.getBoundingClientRect().bottom,
+            heights: [...menu.querySelectorAll('button')].filter(x => x.offsetWidth).every(x => x.offsetHeight >= 44) };
+          trigger.click();
+          return { ...result, closed: menu.hidden && side.hidden };
+        });
+        if (Object.values(mobile).some(v => !v)) throw new Error('Small-phone menu or map refresh: ' + JSON.stringify(mobile));
+      }
       // Небоевое исследование: одноразовый опыт и ежедневное поручение.
       const expedition = await page.evaluate(() => {
         const lm = MapView.world.landmarks.find(m => m.kind === 'spring') || MapView.world.landmarks[0];
