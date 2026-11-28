@@ -97,12 +97,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // 1.5.9: Стена доблести — нажатие на медаль открывает окно «за что дают»
   const mp = await p.evaluate(async () => { try { const w = (ms) => new Promise((r) => setTimeout(r, ms)); Screens.openValor(); await w(400); const n = document.querySelectorAll('.medal-round[data-medal]').length; document.querySelector('.medal-round[data-medal]').click(); await w(200); const o = !!document.querySelector('.medal-pop') && document.querySelector('.medal-pop').textContent.length > 40; document.querySelector('.medal-pop [data-act=medal-close]').click(); await w(100); const c = !document.querySelector('.medal-pop'); document.querySelector('[data-act=close]').click(); return { n, o, c }; } catch (e) { return String(e); } });
   ok(mp && mp.n > 50 && mp.o && mp.c, 'стена доблести: окно медали: ' + JSON.stringify(mp));
-  // быстрый бой
+  // Быстрых боёв больше нет.
   const q = await p.evaluate(() => { Profile.data.xp = Hero.totalFor(40); const sp = MapView.map.spawns.find((s) => !s.boss && s.tier === 1 && MapView.alive(s) && !MapView.eliteOf(s) && MapView.known(s.idx)); Profile.data.bestiary[sp.species] = { wins: 1, tier: 1 }; MapView.showMonster ? 0 : 0; MapView.tap(sp.idx); return { id: sp.id, btn: !!document.querySelector('#map-card [data-act=quick]'), coins: Profile.data.coins }; });
-  ok(q.btn, 'на карточке слабого существа есть «Быстрый бой»');
-  await p.evaluate(() => document.querySelector('#map-card [data-act=quick]').click());
-  await sleep(8000);
-  ok(await p.evaluate((id) => !MapView.alive(MapView.map.spawns[id]) && /Быстрый бой/.test(document.querySelector('#map-card').textContent) && document.body.classList.contains('mode-map'), q.id), 'быстрый бой: победа без поля боя');
+  ok(!q.btn, 'на карточке слабого существа нет «Быстрого боя»');
+  ok(await p.evaluate((id) => MapView.alive(MapView.map.spawns[id]) && !!document.querySelector('#map-card [data-act=attack]'), q.id), 'обычный бой доступен');
   // элитный: ХП ×1.25 и свойство
   const plain = await p.evaluate(async () => { MapView.startSpecial({ id: 'wolf', tier: 3 }); await new Promise((r) => setTimeout(r, 1200)); return fighters.right.max; });
   await p.evaluate(() => { const r = document.getElementById('restart'); if (r) { r.click(); r.click(); } }); await sleep(800);

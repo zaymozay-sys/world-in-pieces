@@ -36,8 +36,12 @@ for (const a of World.AFFIX_IDS) assert.notStrictEqual(World.affixFor(a, a), a);
 assert.strictEqual(World.affixFor('veil', 'howl'), 'veil');
 for (const g of Object.values(World.GUARDIANS)) for (const a of g.affixes) assert.ok(World.AFFIXES[a]);
 
-// быстрый бой: только слабые, побеждённые, не стражи и не элитные
-assert.ok(World.quickAllowed({ tier: 1 }, 3, true, null));
+// Быстрый бой отключён даже для уже побеждённых слабых существ.
+assert.strictEqual(World.QUICK.enabled, false);
+assert.ok(!World.quickAllowed({ tier: 1 }, 3, true, null));
+for (let hero = 1; hero <= 10; hero++) for (let tier = 1; tier <= 10; tier++) {
+  assert.strictEqual(World.quickAllowed({ tier }, hero, true, null), false);
+}
 assert.ok(!World.quickAllowed({ tier: 2 }, 3, true, null), 'на 1 цвет ниже — нельзя');
 assert.ok(!World.quickAllowed({ tier: 1 }, 3, false, null), 'не побеждённый вид — нельзя');
 assert.ok(!World.quickAllowed({ tier: 1, boss: 'b1' }, 5, true, null), 'страж — нельзя');

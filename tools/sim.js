@@ -1132,7 +1132,7 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
+function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, pairedFactions = false, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
   const bySpell = {}, ammoUsed = {}, itemsUsed = {}, elixirsUsed = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
@@ -1140,7 +1140,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
   let duoKills = 0, strictWins = 0, wins = 0, draws = 0, actions = 0, rounds = 0, hpLeft = 0, spells = 0, heroDmg = 0, monDmg = 0, monActs = 0, abil = 0;
   const actWin = [];
   // Своё зерно для каждого сочетания (фракция, уровень, существо, цвет, номер боя): выборки независимы.
-  const key = `${elite ? 'E' : ''}${zone ? 'Z' + zone : ''}${seedBase}|${faction}|${level}|${monster}|${tier}|${typeof player === 'string' ? player : 'p'}`;
+  const key = `${elite ? 'E' : ''}${zone ? 'Z' + zone : ''}${seedBase}|${pairedFactions ? 'paired' : faction}|${level}|${monster}|${tier}|${typeof player === 'string' ? player : 'p'}`;
   let h = 2166136261;
   for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
   for (let k = 0; k < n; k++) {
