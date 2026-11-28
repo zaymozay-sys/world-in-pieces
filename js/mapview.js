@@ -624,7 +624,7 @@ const MapView = (() => {
         continue;
       }
       const elite = eliteOf(sp), fig = bossFigure(sp);
-      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}${want && want.has(sp.species) ? ' want' : ''}${fitOn && Math.abs(HexMap.lvlOf(sp) - Profile.level()) > FIT_BAND ? ' far' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
+      bucketPush(mb, p, `<g data-i="${sp.idx}" class="mon${freshIdx.has(sp.idx) ? ' fresh' : ''}${sp.idx === nextMonIdx ? ' next-step' : ''}${sp.boss || sp.zone ? ' boss' : ''}${sp.zone ? ' zone' : ''}${elite ? ' elite' : ''}${sp.guest ? ' guest' : ''}${sp.rare ? ' rare' : ''}${want && want.has(sp.species + ':' + sp.tier) ? ' want' : ''}${fitOn && Math.abs(HexMap.lvlOf(sp) - Profile.level()) > FIT_BAND ? ' far' : ''}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})${sp.boss || sp.zone ? ' scale(1.25)' : ''}">
         <ellipse cy="18" rx="15" ry="4" fill="#000" opacity=".45"/>
         <g class="bob" style="animation-delay:${-((sp.guest ? sp.idx : sp.id) % 7) * 0.37}s">
           ${fig ? figureToken(fig, sp, col) : `<circle r="21" fill="#1b1c20"/><g clip-path="url(#clip-token)">${monsterArt(sp)}</g>${castleArmour(sp)}
@@ -2074,7 +2074,7 @@ const MapView = (() => {
     if (t.kind === 'hunt') {
       const cands = map.spawns.filter(sp => known(sp.idx) && alive(sp) && !sp.boss && !sp.zone &&
         (!t.distinct || !(d.bestiary?.[sp.species]?.wins)) &&
-        (!t.resource || (sp.tier > Hero.tierFor(Profile.level()) - World.QUICK.below &&
+        (!t.resource || (!Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level())) &&
           Bestiary.MONSTERS[sp.species]?.drops.some(drop => drop[1] > 0 && drop[2] > 0))));
       cands.sort((a,b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
       if (cands.length) { closeCard(); centerOn(cands[0].idx); showMonster(cands[0]); return true; }
@@ -2117,7 +2117,7 @@ const MapView = (() => {
     closeCard(); walking = null;
     st.pos = idx;
     for (const n of HexMap.area(map, idx, radius)) revealed.add(n);
-    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); save();
+    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); updateRegion(true); save();
   }
   // Открывает всю карту (проверки и снимки для рекламки): туман снимается, мини-карта перерисовывается.
   function devRevealAll() { for (const c of map.cells) revealed.add(c.idx); renderFog(); renderMonsters(); mini.dirty = true; drawMini(); save(); }
@@ -2977,10 +2977,14 @@ const MapView = (() => {
   // Поиск добычи и существ в текущей локации без раскрытия тумана.
   function focusMob(species, tier, resource) {
     if (!map || !st) return false;
+    if (resource && tier && Bestiary.resourcesWeak(tier, Hero.tierFor(Profile.level()))) {
+      toast(_t("Слишком низкий цвет: в бою этот ресурс не выпадет. Ищите его в лавке или на рынке."), 5500);
+      return false;
+    }
     const candidates = [...map.spawns, ...guestList, ...(rareSp ? [rareSp] : [])].filter(sp =>
       (!sp.rare && !sp.guest || known(sp.idx)) &&
       (!species || sp.species === species) && (!tier || sp.tier === tier) &&
-      (!resource || Bestiary.MONSTERS[sp.species].drops.some(d => d[0] === resource && d[1] > 0 && d[2] > 0)));
+      (!resource || (!Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level())) && Bestiary.MONSTERS[sp.species]?.drops.some(d => d[0] === resource && d[1] > 0 && d[3] > 0))));
     candidates.sort((a, b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
     const sp = candidates.find(s => known(s.idx) && alive(s)) || candidates.find(s => alive(s)) || candidates.find(s => known(s.idx));
     if (!sp) {
@@ -2991,6 +2995,7 @@ const MapView = (() => {
     if (!known(sp.idx)) { toast(_t("Цель в неисследованной области — подойдите ближе")); return true; }
     if (!alive(sp)) { toast(_t("Цель побеждена — дождитесь возрождения")); return true; }
     showMonster(sp);
+    flashCell(sp.idx);
     return true;
   }
   const focusSpecies = (species, tier = 0) => focusMob(species, tier, null);
