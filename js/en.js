@@ -1,6 +1,10 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Сравнить": "Compare",
+  "Уже есть: {0}": "Owned: {0}",
+  "Изменение характеристик героя": "Hero stat changes",
+  "В комплекте надето {0}/{1}": "Set equipped: {0}/{1}",
   "Комплект не найден": "Loadout not found",
   "В комплекте отсутствует предмет": "An item in this loadout is missing",
   "Комплекты экипировки": "Equipment loadouts",
