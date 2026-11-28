@@ -1,6 +1,11 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Экономика снаряжения: честная цена продажи, подготовка к следующему цвету за два уровня, бесплатная закалка без прироста характеристик.": "Equipment economy: fair resale, preparation for the next tier two levels early, and free tempering steps without stat gains.",
+  "Доступнее пробойники, развитие питомцев и золотое яблоко. Руны обновляются за монеты только при увеличении бонуса.": "Socket punches, pet progression and golden apples are more affordable. Rune upgrades cost coins only when the bonus increases.",
+  "Новые задания Затерянного острова, награды по сложности и Забег мастера с 71-го уровня.": "New Lost Island quests, difficulty-based rewards and Master Run from level 71.",
+  "Глубинные минералы гарантированно доступны на нужных цветах; улучшено кормление питомца на втором поле.": "Deep minerals are guaranteed at the required tiers; pet feeding on the second board is improved.",
+  "Улучшены мобильные окна, примерка, доступность комплектов и награды дальних медалей.": "Improved mobile panels, gear previews, set availability and late medal rewards.",
   "Завершить забег": "End run",
   "Для обычной охоты выгоднее постоянное усиление снаряжения. Полный запас эликсиров и снарядов берегите для сложных целей: его стоимость может превышать добычу за несколько побед.": "Permanent equipment upgrades are more economical for ordinary hunts. Save full supplies of elixirs and ammunition for difficult targets: the cost may exceed the loot from several victories.",
   "Забег мастера доступен с 71-го уровня. Тени получают всё больше здоровья и урона с каждой волной, чередуют оглушение, отраву и щит; рекорд мастера ведётся отдельно.": "Master Run unlocks at level 71. Shadows gain health and damage each wave and alternate stun, poison and shield; the master record is tracked separately.",
