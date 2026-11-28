@@ -1,6 +1,13 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Состояние предмета": "Item condition",
+  "Любое состояние": "Any condition",
+  "Можно надеть": "Can equip",
+  "Нужен ремонт": "Needs repair",
+  "Защищённые вещи": "Protected items",
+  "Значки": "Icons",
+  "Все комплекты": "All sets",
   "Защищено от продажи: {0}": "Protected from sale: {0}",
   "Выбрано вещей: {0}": "Items selected: {0}",
   "Вы получите: {0}": "You will receive: {0}",
