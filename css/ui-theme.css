@@ -921,3 +921,80 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
     transition: none;
   }
 }
+
+
+/* Художественная полировка ремесленных заведений: металл и угли / дерево и латунь. */
+.forge-workshop .forge-detail > .card,
+.forge-workshop .craft-unit {
+  border: 1px solid #a06d43;
+  border-radius: 10px;
+  background: linear-gradient(155deg, #3d2c24, #201b19 65%);
+  box-shadow: inset 0 0 0 2px #241c17, inset 0 0 0 3px rgba(218,150,80,.25), 0 4px 12px rgba(0,0,0,.35);
+}
+.forge-workshop .forge-materials {
+  background: radial-gradient(ellipse at 50% 100%, rgba(183,68,24,.26), transparent 70%),
+    linear-gradient(150deg,#412c21,#171514);
+  border-color: #a16c3d;
+}
+.forge-workshop .forge-result { border-color: #8ca573; }
+.forge-workshop .forge-detail > .card .icon-wrap,
+.forge-workshop .craft-unit > .card .icon-wrap {
+  border: 1px solid #9f754e; border-radius: 10px;
+  background: radial-gradient(circle, rgba(225,122,52,.19), #231b17 75%);
+}
+.shop-workshop .shop-grid-view > .card {
+  border: 1px solid color-mix(in srgb,var(--t,#b99760) 65%, #5b3b21);
+  background: repeating-linear-gradient(87deg,rgba(242,184,110,.025) 0 2px,transparent 2px 11px),
+    linear-gradient(155deg,#50341e,#24190f 70%);
+  box-shadow: inset 0 0 0 2px #25180e, inset 0 0 0 3px rgba(213,171,102,.25), 0 5px 12px rgba(0,0,0,.36);
+}
+.shop-workshop .shop-grid-view > .card > .icon-wrap {
+  border: 1px solid #b28a50; border-radius: 12px;
+  background: radial-gradient(ellipse,rgba(213,170,94,.26),#21170e 73%);
+  box-shadow: inset 0 0 12px #1a1009;
+}
+.shop-workshop .shop-catalog > .card .item-foot .money,
+.forge-workshop .forge-materials .money {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 3px 7px; border: 1px solid #987442; border-radius: 5px;
+  background: linear-gradient(180deg,#352818,#21190d);
+  color: #ffe5a4; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.forge-workshop .forge-detail .arrow-down {
+  color: #edc08a; text-align: center; letter-spacing: .04em;
+}
+.modal .workshop-success {
+  position: relative; overflow: hidden; isolation: isolate;
+  padding: 11px 12px 11px 48px;
+  margin-bottom: 10px; min-height: 44px;
+  border: 1px solid #adbf78; border-radius: 8px;
+  color: #eef2d6; background: linear-gradient(100deg,#36502d,#1e2c1b);
+  box-shadow: inset 0 0 0 2px rgba(224,229,165,.1),0 3px 8px rgba(0,0,0,.32);
+}
+.modal .workshop-success::before {
+  content: "✓"; position: absolute; inset-inline-start: 10px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 2px solid #d8c184; border-radius: 50%; color: #fae6ad;
+  background: radial-gradient(circle,#956d33,#4c351b);
+  font-weight: 700; box-shadow: 0 0 0 2px rgba(33,23,12,.3);
+}
+.modal .workshop-success.forge-spark::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1;
+  background: radial-gradient(circle at 15% 75%,#ffd186 0 2px,transparent 3px),
+    radial-gradient(circle at 35% 32%,#f9a655 0 1px,transparent 3px),
+    radial-gradient(circle at 68% 70%,#f9a655 0 2px,transparent 3px),
+    radial-gradient(circle at 85% 25%,#ffdc94 0 1px,transparent 3px);
+  animation: forge-embers .85s ease-out both;
+}
+@keyframes forge-embers {
+  0% { opacity: .9; transform: translateY(10px); }
+  100% { opacity: 0; transform: translateY(-28px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal .workshop-success.forge-spark::after { animation: none; opacity: 0; }
+}
+@media (max-width: 700px) {
+  .shop-workshop .shop-grid-view > .card { min-width: 0; }
+  .shop-workshop .shop-grid-view > .card .item-title { overflow-wrap: anywhere; }
+  .modal .workshop-success { font-size: 14px; line-height: 1.45; }
+}
