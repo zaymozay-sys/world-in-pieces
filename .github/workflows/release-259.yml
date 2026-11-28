@@ -1,8 +1,10 @@
-name: Кандидат на выпуск 2.5.9
+name: Выпуск 2.5.9
 
 on:
   push:
-    branches: ['ui/revision-stage-1']
+    branches: [main, 'ui/revision-stage-1']
+    paths:
+      - '.github/workflows/release-259.yml'
   workflow_dispatch:
 
 permissions:
@@ -51,3 +53,31 @@ jobs:
             world-in-pieces-2.5.9.zip.sha256
           if-no-files-found: error
 
+
+  publish:
+    name: Публикация проверенного релиза
+    if: github.ref == 'refs/heads/main'
+    needs: candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: world-in-pieces-2.5.9-candidate
+      - name: Опубликовать тестовый релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test -s world-in-pieces-2.5.9.zip
+          sha256sum -c world-in-pieces-2.5.9.zip.sha256
+          if gh release view v2.5.9 >/dev/null 2>&1; then
+            echo 'Релиз v2.5.9 уже существует; повторная публикация отменена.'
+            exit 1
+          fi
+          if gh api "repos/$GH_REPO/git/ref/tags/v2.5.9" >/dev/null 2>&1; then
+            echo 'Тег v2.5.9 уже существует; повторное использование запрещено.'
+            exit 1
+          fi
+          gh release create v2.5.9 world-in-pieces-2.5.9.zip world-in-pieces-2.5.9.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "World in Pieces 2.5.9" --notes "Тестовый релиз: художественно-функциональная ревизия интерфейсов. Оружейная — поиск и фильтры; Кузница — рабочая область и готовность ресурсов; Лавка — витрина и фильтр доступных покупок. Общий журнал заданий, наглядные боевые эффекты и итоги боя. Индивидуальное оформление 15 разделов, обновлённый Банк, исправления узких телефонов и горизонтальной раскладки. Игровая экономика не изменена. Пройдены 99 регрессионных тестов, 96 компактных сценариев, проверки сохранений, переводов, базы знаний и архива."
