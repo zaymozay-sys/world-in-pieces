@@ -1,6 +1,17 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Размер игрового поля": "Board size",
+  "Автоматический размер поля": "Automatic board size",
+  "Уменьшить поле": "Reduce board size",
+  "Увеличить поле": "Increase board size",
+  "Получено опыта за бой": "Experience earned in battle",
+  "Когда-то за горизонт ушла экспедиция. Капитан отметил остров в дневнике, но команда не вернулась. Для начала выясни, кто теперь живёт на острове.": "An expedition once sailed beyond the horizon. The captain marked the island in his journal, but the crew never returned. First, find out what lives there now.",
+  "Ты видел всех пятерых. В старых записях они не упоминались. Проверь, насколько опасны эти существа, прежде чем искать следы экспедиции.": "You have seen all five creatures. The old records never mentioned them. Find out how dangerous they are before searching for the expedition.",
+  "Капитан писал о сундуке на острове. Возможно, там остался след пропавшей команды. Отыщи сундук и возвращайся ко мне.": "The captain wrote of a chest on the island. It may hold a clue to the missing crew. Find the chest and return to me.",
+  "Так вот кто поселился на острове. Твои наблюдения подтверждают: с тех пор, как капитан покинул эти воды, там многое изменилось.": "So that is what lives on the island. Your observations confirm that much has changed since the captain left these waters.",
+  "Теперь путь к сундуку будет не таким опасным. Не золото меня интересует — я хочу понять, почему экспедиция не вернулась.": "Now the path to the chest should be safer. It is not gold I seek: I want to know why the expedition never returned.",
+  "Сундук найден. Значит, капитан действительно побывал здесь. Но судьба команды всё ещё неизвестна. Дневник может подсказать, где искать дальше.": "You found the chest. The captain really was here. But the crew's fate remains unknown. The journal may tell us where to look next.",
   "История Затерянного острова": "The Lost Island story",
   "Не выполнено": "Incomplete",
   "Выполнено": "Completed",
