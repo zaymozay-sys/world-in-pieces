@@ -148,6 +148,7 @@ const MapView = (() => {
     bindInput();
     bindHud();
     initMini();
+    bindMapFilters();
     load();
     setMode('map');
     syncDefs();                                            // рисунки местностей, открытых сейчас; остальные подгружаются по мере открытия земель
@@ -576,6 +577,37 @@ const MapView = (() => {
   }
 
   let fitOn = false; try { fitOn = localStorage.getItem('wip-map-fit') === '1'; } catch (e) {}   // 2.4.0: фильтр «по силам» (±3 уровня), запоминается
+  // Фильтры — только визуальные предпочтения; состояние мира и сохранение героя не меняются.
+  const mapFilters = { ordinary: _t("Обычные существа"), elite: _t("Элитные противники"), boss: _t("Боссы и стражи"), events: _t("События карты"), landmarks: _t("Достопримечательности"), labels: _t("Подписи зданий") };
+  let mapHidden = {};
+  try { const p = JSON.parse(localStorage.getItem('wip-map-filters') || '{}'); for (const k of Object.keys(mapFilters)) if (p?.[k] === true) mapHidden[k] = true; } catch (e) { /* defaults */ }
+  function paintMapFilters() {
+    const panel = document.getElementById('mm-sub-map');
+    for (const [k, label] of Object.entries(mapFilters)) {
+      el['map-view'].classList.toggle('hide-map-' + k, !!mapHidden[k]);
+      const b = panel?.querySelector('[data-map-filter="' + k + '"]');
+      if (b) { b.setAttribute('aria-pressed', String(!mapHidden[k])); b.textContent = label + ': ' + (mapHidden[k] ? _t("выкл") : _t("вкл")); }
+    }
+    const head = document.getElementById('mm-map-filters');
+    if (head) head.textContent = _t("Фильтры карты") + (Object.values(mapHidden).some(Boolean) ? ' · ' + Object.values(mapHidden).filter(Boolean).length : '');
+    mini.dirty = true; drawMini();
+  }
+  function bindMapFilters() {
+    const panel = document.getElementById('mm-sub-map');
+    if (!panel) return;
+    for (const k of Object.keys(mapFilters)) {
+      const b = document.createElement('button'); b.type = 'button'; b.dataset.mapFilter = k; panel.append(b);
+    }
+    const reset = document.createElement('button'); reset.type = 'button'; reset.dataset.mapFilter = 'all'; reset.textContent = _t("Показать всё"); panel.append(reset);
+    panel.addEventListener('click', e => {
+      const k = e.target.closest('[data-map-filter]')?.dataset.mapFilter;
+      if (!k) return;
+      if (k === 'all') mapHidden = {}; else if (Object.hasOwn(mapFilters,k)) mapHidden[k] = !mapHidden[k]; else return;
+      try { localStorage.setItem('wip-map-filters', JSON.stringify(mapHidden)); } catch (err) { /* без хранилища */ }
+      paintMapFilters();
+    });
+    paintMapFilters();
+  }
   const FIT_BAND = 3;
   function renderMonsters() {
     syncDeco();
@@ -1756,8 +1788,8 @@ const MapView = (() => {
     ctx.clearRect(0, 0, MINI, MINI);
     ctx.drawImage(mini.base, 0, 0);
     const dot = (i, col, r) => { const p = px(i); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(half + p.x * k, half + p.y * k, r, 0, 6.2832); ctx.fill(); };
-    for (const m of world.landmarks || []) if (known(m.idx)) dot(m.idx, st.found[m.id] ? '#6f8a7a' : '#7fd0ff', 2.2);
-    for (const l of world.lairs) if (known(l.idx)) dot(l.idx, '#e0652f', 2.4);
+    for (const m of world.landmarks || []) if (!mapHidden.landmarks && known(m.idx)) dot(m.idx, st.found[m.id] ? '#6f8a7a' : '#7fd0ff', 2.2);
+    for (const l of world.lairs) if (!mapHidden.landmarks && known(l.idx)) dot(l.idx, '#e0652f', 2.4);
     for (const t of siegeTargets()) dot(t.r.idx, t.looter ? '#ffb347' : '#ff3b2f', 3.2);
     for (const i of st.pins) dot(i, '#ff4a36', 3);
     dot(st.pos, '#fff', 3.4); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
