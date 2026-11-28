@@ -6,6 +6,8 @@ global.Bestiary = require('../js/bestiary.js');
 const HexMap = require('../js/hexmap.js');
 global.HexMap = HexMap;
 const World = require('../js/world.js');
+const loot = require('../js/balance.js').economy.battleLoot;
+for (const id of World.ZONE_IDS) assert.ok(World.zoneReward(id).coins >= 2 * loot[World.ZONE_BOSSES[id].tier - 1]);
 
 for (const seed of [1, 777, 424242]) {
   const map = HexMap.generate(seed);

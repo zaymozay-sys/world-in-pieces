@@ -83,6 +83,7 @@ function makeHero(o) {
 function makeMonster(id, tier, o = {}) {
   const m = Bestiary.MONSTERS[id];
   let sc = o.mlvl > 0 ? Bestiary.scaledAt(id, o.mlvl, o.swarm || 1, o.level) : Bestiary.scaled(id, tier, o.swarm || 1, o.level);   // 2.4.0: mlvl — уровень существа 1–100
+  if (o.depth > 1) sc = { ...sc, hp: Math.round(sc.hp * o.depth), dmg: sc.dmg * o.depth };
   // 1.7.3: хозяин зоны — крупнее и злее (World.scaleZone) и с добавочными приёмами; o.affixes — любые свойства для опытов
   let affixes = o.affixes || [];
   if (o.zone) {
@@ -90,12 +91,17 @@ function makeMonster(id, tier, o = {}) {
     sc = World.scaleZone(sc, o.zone);
     affixes = ZB.affixes.filter((a) => a !== m.ability);
   }
+  if (o.elite) {
+    const affix = typeof o.elite === 'string' ? o.elite : World.AFFIX_IDS[0];
+    affixes = [World.affixFor(affix, m.ability)];
+    sc = { ...sc, hp: Math.round(sc.hp * World.ELITE.hp), dmg: sc.dmg * World.ELITE.dmg };
+  }
   const gear = sc.gearBudget ? Gear.randomLoadout(sc.gearBudget, rand, tier) : Gear.emptyLoadout();
   const stats = Gear.combine(Gear.stats(gear), sc.stats);
-  const max = Math.round((sc.hp + stats.health) * (o.elite ? 1.25 : 1));
+  const max = Math.round(sc.hp + stats.health);
   const level = o.aiLevel || sc.ai;
-  const mon = { side: 'right', name: m.name, id, monsterId: id, tier, gear, stats, weaponPerk: Gear.weaponPerk(gear), base: sc.hp, max, hp: max, dmg: (sc.dmg || 1) * (o.elite ? 1.05 : 1), buffs: [], haste: false, magic: false,
-    counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: m.ability, level, bag: Combat.enemyBag(level), stoneMode: process.env.MOBSTONES !== '0', mobTypes: ['sapphire', 'ruby', 'emerald'],
+  const mon = { side: 'right', name: m.name, id, monsterId: id, tier, gear, stats, weaponPerk: Gear.weaponPerk(gear), base: sc.hp, max, hp: max, dmg: sc.dmg || 1, buffs: [], haste: false, magic: false,
+    counts: { sapphire: 0, ruby: 0, emerald: 0, onyx: 0 }, ability: o.trait || m.ability, level, bag: Combat.enemyBag(level), stoneMode: process.env.MOBSTONES !== '0', mobTypes: ['sapphire', 'ruby', 'emerald'],
     turnNo: 0, revived: false, charged: false, poison: null, spores: 0, clonesMade: 0, clone: null, ward: 0, stunned: false, affixes };
   Combat.startStones(mon);
   return mon;
@@ -1132,7 +1138,7 @@ const PLAYERS = {
 };
 
 /* ---------- серия боёв ---------- */
-function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, pairedFactions = false, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, affixes, boost, tune, pet, duo } = {}) {
+function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, tier, n = 200, player = 'avg', seedBase = 1, pairedFactions = false, aiLevel, extra, chaosDmg, bag, ammo, bless, swarm, elixirs, elxExtra, elxFx, elite, zone, depth, trait, affixes, boost, tune, pet, duo } = {}) {
   CHAOS_DMG = chaosDmg || 0;
   BOOST = boost || null; TUNE = tune || null;
   const bySpell = {}, ammoUsed = {}, itemsUsed = {}, elixirsUsed = {}, petBoardSpells = {}, areaImpact = {}, burst = {maxShare:0,halfHits:0,fullHits:0,totalHits:0};
@@ -1149,7 +1155,7 @@ function simulate({ mlvl, faction = 'dwarf', level = 1, gear, baseHp, monster, t
     const hero = makeHero({ faction, level, gear: g, baseHp, extra, bag, ammo, bless, elixirs, elxExtra, elxFx });
     if (pet) { hero.petF = Pets.petFighter(Pets.makePet(pet.species, pet.tier)); hero.petF.fedBonus = (pet.fed ? (Pets.FEED_BONUS || 1.25) : 1) * (pet.scale || 1); }
     if (BOOST) { if (BOOST.style) hero.shield = 1; if (BOOST.daily) hero.secondWind = true; if (BOOST.streak) hero.charge = Math.floor(B.faction.charge / 2); }
-    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, affixes, level, mlvl });
+    const mon = makeMonster(monster, tier, { aiLevel, swarm, elite, zone, depth, trait, affixes, level, mlvl });
     const pl = typeof player === 'string' ? PLAYERS[player]() : typeof player === 'function' ? player() : player;
     let S;
     if (duo) {

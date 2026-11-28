@@ -5,10 +5,22 @@ const G = global.Gear, H = global.Hero, M = global.Medals, B = global.Bestiary;
 const R = require('../js/runes.js'), P = require('../js/pets.js'), T = require('../js/talents.js');
 const Ammo = require('../js/ammo.js'), Village = require('../js/village.js');
 const HexMap = require('../js/hexmap.js');
+const World = require('../js/world.js');
 const args = Object.fromEntries(process.argv.slice(2).map(s=>s.replace(/^--/,'').split('=')));
 const N = Math.max(1,Number(args.n||8)), seed = Number(args.seed||257), level = Math.max(5,Math.min(100,Number(args.level||95))), tier = H.tierFor(level);
 const factions = { human:'crown', dwarf:'rune', elf:'grove', lizard:'scale' };
-const targets = tier===10?['golem','wraith','eagle','treant']:[...new Map(Object.entries(HexMap.SPAWN).filter(([id,s])=>!s.rare&&!s.fixed&&s.tiers[0]<=tier&&s.tiers[1]>=tier).map(([id])=>[B.MONSTERS[id].family,id])).values()].slice(0,4);
+const ordinary = tier===10?['golem','wraith','eagle','treant']:[...new Map(Object.entries(HexMap.SPAWN).filter(([id,s])=>!s.rare&&!s.fixed&&s.tiers[0]<=tier&&s.tiers[1]>=tier).map(([id])=>[B.MONSTERS[id].family,id])).values()].slice(0,4);
+let targets = ordinary.map((id,i)=>({id,tier,mlvl:level,elite:args.elite==='1'?World.AFFIX_IDS[i%World.AFFIX_IDS.length]:false}));
+if(args.floor) {
+  const map=HexMap.generate(HexMap.sharedSeed('tower'),'tower',Number(args.floor));
+  const guard=map.spawns.find(s=>s.guard);
+  targets=[...(guard?[guard]:[]),...map.spawns.filter(s=>!s.guard&&!s.scorp).slice(0,3)].map(s=>({id:s.species,tier:s.tier,mlvl:HexMap.lvlOf(s),depth:s.depth,trait:s.trait}));
+}
+if(args.zone) {
+  const z=World.ZONE_BOSSES[args.zone];
+  if(!z)throw Error('Unknown zone '+args.zone);
+  targets=[{id:z.species,tier:z.tier,mlvl:H.itemLevel(z.tier),zone:args.zone}];
+}
 // Реальные слоты героя; Удар не занимает слот. Временный unlockAll не
 // используется для сравнения законной прогрессии магии.
 const spellLoadout = mode => {
@@ -119,9 +131,10 @@ for(const faction of Object.keys(factions)) {
   const rows={};
   for(const [name,opts] of Object.entries(profiles)) {
     let win=0,actions=0,ammo=0;
-    for(const monster of targets) {
+    for(const target of targets) {
+      const monster=target.id;
       const familyPct=M.familyBonus(opts.earned||[],B.MONSTERS[monster].family);
-      const r=sim.simulate({faction,level,monster,tier,mlvl:level,n:N,seedBase:seed,pairedFactions:true,elite:args.elite==='1',player:'avg',...opts,tune:{fullSpells:true,utility:true},boost:{...opts.boost,familyPct}});
+      const r=sim.simulate({faction,level,monster,tier:target.tier,mlvl:target.mlvl,depth:target.depth,trait:target.trait,zone:target.zone,n:N,seedBase:seed,pairedFactions:true,elite:target.elite,player:'avg',...opts,tune:{fullSpells:true,utility:true},boost:{...opts.boost,familyPct}});
       win+=r.win;actions+=r.actions;ammo+=Object.values(r.ammoUsed).reduce((a,b)=>a+b,0)/N;
     }
     rows[name]={winPct:Math.round(100*win/targets.length),actions:Math.round(actions/targets.length*10)/10,ammoPerBattle:Math.round(ammo/targets.length*10)/10};

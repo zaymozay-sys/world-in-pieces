@@ -1,15 +1,21 @@
 /* Подземелье (1.8.8): правила уровней — доля элитных существ и награды за новый уровень.
    Чистый модуль без DOM; карта уровня строится в js/hexmap.js (generateTower), состояние — Profile.data.tower = { floor, best, ... }. */
 const Dungeon = (() => {
+  const H = typeof HexMap !== 'undefined' ? HexMap : require('./hexmap.js');
+  const B = typeof Balance !== 'undefined' ? Balance : require('./balance.js');
   const num = (x) => (Number.isFinite(x) && x > 0 ? Math.floor(x) : 0);
   // доля элитных существ на уровне растёт: 18% на 1-м, потолок 60%; с 3-го уровня на карте всегда есть хотя бы один элитный
   const eliteShare = (f) => Math.min(0.6, 0.15 + 0.03 * Math.max(1, num(f)));
   const MIN_ELITE_LEVEL = 3;
+  // Награда за первое прохождение соответствует цвету и глубине;
+  // множитель новой прибавки ограничен, прежняя линейная цена сохранена.
+  const clearCoins = (f) => Math.max(150 * f, Math.round(B.economy.battleLoot[(f % 5 === 0 ? 10 : H.towerTier(f)) - 1] *
+    (f % 5 === 0 ? 2 : 0.5) * Math.min(3, H.towerDepth(f))));
   // награда за первый приход на новый уровень (поднялись по лестнице с уровня f): монеты каждый раз;
   // каждый 5-й уровень (страж побеждён) — сундук: эссенция, кристаллы, эликсиры; каждый 10-й — ещё свитки; каждый 25-й — драконье яйцо
   function reward(f) {
     f = Math.max(1, num(f));
-    const r = { coins: 150 * f, res: [], cons: {}, egg: false, chest: f % 5 === 0 };
+    const r = { coins: clearCoins(f), res: [], cons: {}, egg: false, chest: f % 5 === 0 };
     if (r.chest) {
       r.res.push(['essence', 2 + Math.floor(f / 5)], ['crystal', 1 + Math.floor(f / 10)]);
       r.cons.elixir = 1 + Math.floor(f / 10);
