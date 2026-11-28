@@ -22,6 +22,7 @@ const Profile = (() => {
       wins: 0,
       xp: 0,                                       // опыт героя; уровень считается из него (hero.js)
       coins: 500,                                  // в медных монетах
+      favoriteItems: [],                           // uid вещей, защищённых от продажи
       items,                                       // все вещи игрока: { uid, id, tier }
       loadout,                                     // ячейка → uid надетой вещи
       resources: {},                               // 'вид:уровень' → количество
@@ -251,9 +252,19 @@ const Profile = (() => {
     },
     equippedUid: (uid) => Gear.SLOTS.find((s) => data.loadout[s] === uid) || null,
     addItem(entry) { data.items.push(entry); save(); },
+    isFavorite(uid) { return Array.isArray(data.favoriteItems) && data.favoriteItems.includes(uid); },
+    toggleFavorite(uid) {
+      if (!findItem(uid)) return false;
+      const list = Array.isArray(data.favoriteItems) ? data.favoriteItems : [];
+      data.favoriteItems = list.includes(uid) ? list.filter(x => x !== uid) : [...list, uid];
+      save(); return this.isFavorite(uid);
+    },
+    canSellItem(uid) { return !!findItem(uid) && !this.equippedUid(uid) && !this.isFavorite(uid); },
+    takeSaleItem(uid) { if (!this.canSellItem(uid)) return false; this.removeItem(uid); return true; },
     removeItem(uid) {
       for (const s of Gear.SLOTS) if (data.loadout[s] === uid) data.loadout[s] = null;
       data.items = data.items.filter((i) => i.uid !== uid);
+      if (Array.isArray(data.favoriteItems)) data.favoriteItems = data.favoriteItems.filter(x => x !== uid);
       save();
     },
     // Уровень героя и опыт.
@@ -810,9 +821,10 @@ function itemCard(it, foot = '', actions = '', cls = '') {
   const runeBadge = (it.runes || []).filter((id) => id && Runes.CATALOG[id])
     .map((id) => Runes.icon(id, 'rune-badge')).join('');
   const info = _t("<span role=\"button\" tabindex=\"0\" class=\"card-info\" data-info-item=\"{0}\" title=\"Карточка предмета\" aria-label=\"Карточка предмета\">i</span>", [it.uid || `base:${it.id}:${it.tier}`]);
+  const favorite = it.uid && Profile.isFavorite(it.uid) ? '<span class="item-favorite-mark" title="' + _t("Защищено от продажи") + '">★</span>' : '';
   const durTag = it.uid && it.dur < it.maxDur ? `<span class="tag dur ${it.broken ? 'broken' : it.dur / it.maxDur <= 0.1 ? 'low' : ''}">${it.broken ? _t("Сломано") : _t("Прочность {0}/{1}", [it.dur, it.maxDur])}</span>` : '';
   return `<div class="card r-${it.rarity} ${cls}" data-tier="${it.tier}" style="--t:${tierColor(it.tier)}">
-    <span class="icon-wrap">${itemIcon(it.type, '', it.id)}${runeBadge}</span>
+    <span class="icon-wrap">${itemIcon(it.type, '', it.id)}${runeBadge}${favorite}</span>
     <div class="card-body"><span class="item-title">${it.name} ${itemChip(it.tier)} ${set}${hands}${durTag}</span>
       <span class="chips">${statChips(it.stats)}</span>${foot ? `<span class="item-foot">${foot}</span>` : ''}</div>
     ${actions ? `<div class="card-act">${actions}</div>` : ''}${info}</div>`;
@@ -1005,6 +1017,12 @@ const ItemInfo = (() => {
     pop.innerHTML = _t("<div class=\"modal icard-modal\" role=\"dialog\" aria-label=\"Карточка предмета: {0}\">\n      <div class=\"scroll\"{1}><i class=\"roll\" aria-hidden=\"true\"></i>\n      <article class=\"icard r-{2}\" data-tier=\"{3}\" style=\"--t:{4};--tc:{5};--s:{6}\">\n        <button type=\"button\" class=\"ic-close\" data-act=\"close\" aria-label=\"Закрыть\">✕</button>\n        <div class=\"ic-head\">\n          <div class=\"ic-art\"><span class=\"ic-rar\">{7}</span>{8}\n            <div class=\"ic-pic\">{9}</div>\n            {10}</div>\n          <div class=\"ic-title\"><h2>{11}</h2>\n            <p class=\"ic-type\">{12}{13}</p>\n            {14}\n            <ul class=\"ic-req\">{15}</ul>\n            <div class=\"ic-nums\"><span><small>Очки снаряжения</small><b>{16}</b></span><span><small>Цена в Лавке</small><b>{17}</b></span><span><small>Продать</small><b>{18}</b></span></div>\n          </div>\n        </div>\n        <div class=\"ic-body\">\n          <section class=\"ic-stats\"><h3>Характеристики</h3><ul>{19}</ul></section>\n          {20}{21}\n        </div>\n        {22}\n      </article><i class=\"roll\" aria-hidden=\"true\"></i></div></div>", [it.name, typeof Art !== 'undefined' && Art.has('ui/parchment') ? ` style="--paper:url('${new URL(Art.url('ui/parchment'), location.href).href}');${cardArtVars()}"` : '', it.rarity, it.tier, tierColor(it.tier), T.color, setInfo ? setInfo.color : Gear.NEUTRAL_COLOR, Gear.RARITY_NAMES[it.rarity], itemChip(it.tier), itemIcon(it.type, '', it.id), it.perk ? _t("<span class=\"ic-perk\">Особый приём</span>") : '', it.name, Gear.TYPE_NAMES[it.type], setInfo ? ` · <b style="color:${setInfo.color}">«${setInfo.name}»</b>` : _t(" · без набора"), status, reqs, it.cost, MonsterArt.moneyHtml(it.price), MonsterArt.moneyHtml(Gear.sellValue(Math.round(it.price * Gear.wearFactor(entry)), it.tier)), stats, setBlock, runeBlock, act ? `<footer class="ic-act">${act}</footer>` : '']);
     // При выключенных очках оставляем в карточке только покупную и продажную цены.
     if (!Hero.pointsOn()) { const points = pop.querySelector('.ic-nums > span:first-child'); if (points) points.remove(); }
+    if (mine && uid && Profile.item(uid)) {
+      const f = document.createElement('button'); f.type = 'button'; f.className = 'ic-favorite';
+      const on = Profile.isFavorite(uid); f.dataset.ic = 'favorite'; f.setAttribute('aria-pressed', String(on));
+      f.textContent = on ? '★ ' + _t("Защищено от продажи") : '☆ ' + _t("В избранное");
+      pop.querySelector('.ic-title').append(f);
+    }
     // Сравнение с надетой вещью — сразу под названием: что изменится, если надеть
     if (cur) {
       const diffs = STAT_ORDER.map((k) => [k, (it.stats[k] || 0) - (cur.stats[k] || 0)]).filter(([, d]) => d);
@@ -1042,6 +1060,12 @@ const ItemInfo = (() => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.act === 'close') return close();
+    if (b.dataset.ic === 'favorite') {
+      Profile.toggleFavorite(uid);
+      if (typeof Inventory !== 'undefined' && Inventory.isOpen) Inventory.refresh();
+      if (typeof Screens !== 'undefined' && Screens.isOpen) Screens.refresh();
+      return render();
+    }
     if (b.dataset.ic === 'equip') { const err = Inventory.equipUid(uid); if (err) { b.textContent = err; b.disabled = true; return; } return render(); }
     if (b.dataset.ic === 'unequip') { Inventory.unequipSlot(b.dataset.slotName); return render(); }
     if (b.dataset.gem === 'undo') { if (Profile.undoGear(uid) && typeof onGearChanged === 'function') onGearChanged(); return render(); }
@@ -1434,7 +1458,7 @@ const Inventory = (() => {
     grid.insertAdjacentElement('beforebegin', b);
   }
   // Фильтры и сортировка меняют только представление: data-stash всегда указывает на исходную ячейку.
-  const stashFilters = { q: '', type: '', tier: '', sort: '' };
+  const stashFilters = { q: '', type: '', tier: '', sort: '', favorite: '' };
   function stashSearch(stash) {
     const grid = root.querySelector('.bag-gear .stash-grid');
     if (!grid) return;
@@ -1460,17 +1484,21 @@ const Inventory = (() => {
     const type = select('type', _t("Тип"), [['', _t("Все виды")], ...Object.entries(Gear.TYPE_NAMES)]);
     const tier = select('tier', _t("Цвет вещей"), [['', _t("Все цвета")], ...Array.from({ length: 10 }, (_, i) => [String(i + 1), Tiers.get(i + 1).name])]);
     const sort = select('sort', _t("Сортировка"), [['', _t("В порядке хранения")], ['name', _t("По названию")], ['tier', _t("По цвету")], ['price', _t("По стоимости")]]);
+    const favorite = select('favorite', _t("Избранные предметы"), [['', _t("Все вещи")], ['yes', _t("Избранные предметы")]]);
+    for (const {cell,item} of rows) if (Profile.isFavorite(item.uid)) {
+      const badge = document.createElement('span'); badge.className = 'item-favorite-mark'; badge.textContent = '★'; badge.title = _t("Защищено от продажи"); cell.append(badge);
+    }
     panel.append(filters);
     const summary = document.createElement('div'); summary.className = 'stash-summary'; summary.setAttribute('role', 'status');
     const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'stash-reset'; reset.textContent = _t("Сбросить фильтры");
     panel.append(summary, reset);
     function apply() {
-      const { q, type, tier, sort } = stashFilters, query = q.trim().toLowerCase();
-      const filtering = !!(query || type || tier);
+      const { q, type, tier, sort, favorite } = stashFilters, query = q.trim().toLowerCase();
+      const filtering = !!(query || type || tier || favorite);
       let found = 0;
       for (const { cell, item } of rows) {
         const search = [item.name, Gear.TYPE_NAMES[item.type], Tiers.get(item.tier).name, fmtBonus(item.stats), cell.title].join(' ').toLowerCase();
-        const match = (!query || search.includes(query)) && (!type || item.type === type) && (!tier || String(item.tier) === tier);
+        const match = (!query || search.includes(query)) && (!type || item.type === type) && (!tier || String(item.tier) === tier) && (!favorite || Profile.isFavorite(item.uid));
         cell.hidden = !match; if (match) found++;
       }
       for (const cell of empty) cell.hidden = filtering;
@@ -1483,7 +1511,7 @@ const Inventory = (() => {
       reset.hidden = !(filtering || sort);
     }
     inp.addEventListener('input', () => { stashFilters.q = inp.value; apply(); });
-    reset.addEventListener('click', () => { Object.assign(stashFilters, { q: '', type: '', tier: '', sort: '' }); inp.value = type.value = tier.value = sort.value = ''; apply(); });
+    reset.addEventListener('click', () => { Object.assign(stashFilters, { q: '', type: '', tier: '', sort: '', favorite: '' }); inp.value = type.value = tier.value = sort.value = favorite.value = ''; apply(); });
     grid.before(panel); apply();
   }
 
