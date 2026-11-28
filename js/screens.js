@@ -8,6 +8,7 @@ const Screens = (() => {
   const QTY_STEPS = [1, 5, 10, 25];
   const st = {
     wiki:  { q: '', art: null, filter: 'all' },
+    questJournal: { tab: 'active' },
     shop:  { tab: 'buy', resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
     forge: { tab: 'upgrade', view: 'list', sel: null, filter: 'weapon', msg: '', craftTier: 0, choice: {} },
     best:  { sel: null, tier: 1, q: '', f: 'all', fam: '', view: 'list' },
@@ -3751,10 +3752,11 @@ const credits = {
           q.claimed ? '' : q.done ? `<button type="button" class="primary" data-today="claim">${_t("Забрать награду")}</button>` : `<button type="button" data-today="map">${_t("На карту")}</button>`, q.claimed));
       }
       if (!rows.length) rows.push(`<p class="hint">${_t("Ежедневные задания откроются позже: победите первых существ.")}</p>`);
-      return `<div class="modal" role="dialog" aria-label="${_t("Задания дня")}">${head(_t("Задания дня"))}<div class="screen-body"><p class="hint">${_t("Всё на сегодня в одном месте: десять минут, и день засчитан.")}</p><div class="card-list">${rows.join('')}</div></div></div>`;
+      return `<div class="modal" role="dialog" aria-label="${_t("Задания дня")}">${head(_t("Задания дня"))}<div class="screen-body"><p class="hint">${_t("Всё на сегодня в одном месте: десять минут, и день засчитан.")}</p><div class="journal-intro"><button type="button" data-today="journal">${_t("Журнал заданий")}</button></div><div class="card-list">${rows.join('')}</div></div></div>`;
     },
     click(b) {
       const k = b.dataset.today;
+      if (k === 'journal') return open('questJournal');
       if (k === 'puzzle') { st.arena.tab = 'puzzle'; return open('arena'); }
       if (k === 'daily') { st.arena.tab = 'daily'; return open('arena'); }
       if (k === 'claim') { const r = Daily.claimLibrary(); if (r) changed(); return render(); }
@@ -3762,7 +3764,39 @@ const credits = {
     },
   };
 
-  const SCREENS = { today, sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
+  // Общий журнал взятых поручений. Он не выдаёт награды удалённо: герой идёт к собеседнику.
+  const questJournalRows = () => Quests.list(Profile.data).filter((q) => q.accepted || q.claimed);
+  const questPending = () => { try { return questJournalRows().filter((q) => q.done && !q.claimed).length; } catch (e) { return 0; } };
+  const questJournal = {
+    html() {
+      const all = questJournalRows(), s = st.questJournal;
+      const groups = { active: all.filter(q => !q.done && !q.claimed), ready: all.filter(q => q.done && !q.claimed), done: all.filter(q => q.claimed) };
+      const labels = { active: _t("В работе"), ready: _t("К сдаче"), done: _t("Завершены") };
+      const rows = groups[s.tab].map(q => {
+        const giver = Unlocks.GIVERS[q.giver], building = giver && giver[0];
+        const progress = q.claimed ? q.goal : Math.max(0, Math.min(q.goal, q.value));
+        const locate = !q.claimed && building ? `<button type="button" data-quest-locate="${q.id}">${_t("Показать на карте")}</button>` : '';
+        return `<article class="card quest-card journal-quest ${q.claimed ? 'is-done' : q.done ? 'quest-ready' : ''}">
+          <div class="card-body"><span class="item-title">${q.title}</span><span class="item-foot">${giver ? giver[1] : ''}</span>
+          <span class="item-foot">${q.desc}</span><span class="item-foot quest-reward">${questRewardIcons(q.reward)}${_t("Награда:")} ${q.rewardText}</span></div>
+          <div class="journal-quest-progress"><span>${progress} / ${q.goal}</span><progress max="${q.goal}" value="${progress}" aria-label="${q.title}"></progress>${locate}</div></article>`;
+      }).join('');
+      const nav = Object.keys(groups).map(k => [k, labels[k] + ' · ' + groups[k].length]);
+      return `<div class="modal quest-journal" role="dialog" aria-label="${_t("Журнал заданий")}">${head(_t("Журнал заданий"))}${tabs(nav, s.tab)}
+        <div class="screen-body"><div class="journal-intro"><span class="hint">${_t("Взятые задания и награды в одном месте.")}</span><button type="button" data-journal-daily="1">${_t("Задания дня")}</button></div>
+        <div class="card-list">${rows || `<p class="hint">${_t("В этом разделе нет заданий.")}</p>`}</div></div></div>`;
+    },
+    click(b) {
+      if (b.dataset.tab && ['active', 'ready', 'done'].includes(b.dataset.tab)) { st.questJournal.tab = b.dataset.tab; return render(); }
+      if (b.dataset.journalDaily) return open('today');
+      if (b.dataset.questLocate) {
+        const q = questJournalRows().find(x => x.id === b.dataset.questLocate && !x.claimed);
+        const giver = q && Unlocks.GIVERS[q.giver];
+        if (giver) { close(); MapView.focusQuestGiver(giver[0]); }
+      }
+    },
+  };
+  const SCREENS = { questJournal, today, sparkshop, whatsnew, wiki, login, herocard, bank, help, shop, forge, best, faction, tavern, mill, lighthouse, wreck, chest, junker, library, artistWorkshop, jeweler, valor, credits, kennel, alchemist, market, village, arena };
   return { medalTile, medalCaption, open, close, refresh: render, get isOpen() { return !!root; }, get screen() { return cur; }, arenaTab: () => (st.arena && st.arena.tab), openShop: () => open('shop'), openForge: () => open('forge'), openBestiary: (id, tier) => { if (id && Bestiary.MONSTERS[id]) { st.best.sel = id; st.best.tier = Math.max(1, tier || 1); st.best.view = 'detail'; } return open('best'); },
     openTavern: () => { st.tavern.msg = ''; open('tavern'); },
     openJunker: () => { st.junker.msg = ''; open('junker'); },
@@ -3780,7 +3814,8 @@ const credits = {
     openArtistWorkshop: () => { st.artistWorkshop.msg = ''; open('artistWorkshop'); },
     openValor: () => open('valor'),
     openToday: () => open('today'),
-    todayPending,
+    todayPending, questPending,
+    openQuestJournal: () => { st.questJournal.tab = questPending() ? 'ready' : 'active'; open('questJournal'); },
     markedSpecies,
     openCredits: () => open('credits'),
     openFactions: (first = false) => {

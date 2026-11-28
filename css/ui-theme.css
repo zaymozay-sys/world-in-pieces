@@ -998,3 +998,27 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
   .shop-workshop .shop-grid-view > .card .item-title { overflow-wrap: anywhere; }
   .modal .workshop-success { font-size: 14px; line-height: 1.45; }
 }
+
+
+/* Журнал поручений: пергаментные акценты, явные статусы и шкалы прогресса. */
+.modal.quest-journal .journal-intro, .modal .journal-intro {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 14px;
+}
+.modal .journal-intro button { min-height: 44px; }
+.modal.quest-journal .journal-quest {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(125px, .33fr);
+  gap: 12px; padding: 12px; border-left: 3px solid var(--ui-gold-mid);
+  background: linear-gradient(150deg,rgba(58,41,24,.97),rgba(28,21,14,.98));
+}
+.modal.quest-journal .journal-quest.quest-ready { border-left-color: #a8d183; }
+.modal.quest-journal .journal-quest.is-done { border-left-color: #857c66; opacity: .83; }
+.modal.quest-journal .journal-quest-progress { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; }
+.modal.quest-journal .journal-quest-progress > span { font-size: 14px; color: var(--ui-gold-hi); font-variant-numeric: tabular-nums; }
+.modal.quest-journal .journal-quest-progress progress { width: 100%; height: 8px; accent-color: #c8963a; }
+.modal.quest-journal .quest-ready progress { accent-color: #a8d183; }
+.modal.quest-journal .journal-quest-progress button { min-height: 44px; white-space: normal; }
+@media (max-width: 700px) {
+  .modal.quest-journal .journal-quest { grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .modal.quest-journal .journal-quest-progress button { width: 100%; }
+  .modal.quest-journal .journal-intro button { width: 100%; }
+}
