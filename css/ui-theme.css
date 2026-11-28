@@ -1492,3 +1492,15 @@ body.mode-map .map-card.mc-compact-loot .mc-act button { min-height:44px; margin
 .home-modal .stash-list-view .stash-item-info small { font:400 12px/1.3 system-ui,sans-serif; color:#c7b69a; }
 .home-modal .stash-list-view .stash-item-info .stash-wear { color:#f0ba97; }
 .home-modal .bag-gear .stash-cell[hidden] { display:none!important; }
+
+/* Сюжет острова: компактная цепочка и список конкретных целей. */
+.isle-chain { padding:10px; border:1px solid #82633c; border-radius:8px; background:#2f2117; color:#ebd2a1; margin:8px 0; }
+.isle-chain-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin-top:6px; }
+.isle-chain-steps>div { display:grid; gap:3px; padding:6px; border:1px solid #5d4930; border-radius:5px; min-width:0; overflow-wrap:anywhere; font-size:12px; }
+.isle-chain-steps .done { border-color:#6c8955; color:#bfdfa3; }
+.isle-chain-steps .current { border-color:#be9a57; }
+.isle-chain-steps .locked { color:#b0a18a; }
+.isle-objectives { list-style:none; display:grid; gap:3px; padding:0; margin:6px 0; font-size:13px; }
+.isle-objectives li { color:#e0cdb1; }
+.isle-objectives li.done { color:#b5d897; }
+@media(max-width:370px){.isle-chain-steps{grid-template-columns:1fr;}}
