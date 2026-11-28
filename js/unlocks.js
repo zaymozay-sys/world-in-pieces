@@ -41,6 +41,24 @@ const Unlocks = (() => {
     return _t("Исследуйте карту, охотьтесь на боссов и собирайте осколки Великого Сердца.");
   }
 
+  // Navigation depends on the actual objective, not just its quest giver.
+  function questTarget(d, q) {
+    if (!q || q.claimed || !q.accepted) return null;
+    if (q.done) return { kind: 'building', id: GIVERS[q.giver]?.[0] || q.giver };
+    const wh = q.where ? (typeof q.where === 'function' ? q.where(d) : q.where) : null;
+    if (wh) return { kind: 'building', id: wh };
+    if (q.id === 'lh-diary') return { kind: 'species', id: 'captain' };
+    if (q.id === 'jk-keyshard') return { kind: 'building', id: 'junker' };
+    if (q.id === 'fest-2') return { kind: 'building', id: 'hall' };
+    if (q.id === 'mel-1' || q.id === 'mel-2') return { kind: 'building', id: 'arena' };
+    if (['bestiary-3','hn-belt','lh-key'].includes(q.id)) return { kind: 'hunt', distinct: true };
+    if (['first-blood','veteran','ten-wins','lh-wins','fest-1','bob-1','bob-4','level-2','lh-level','bob-3'].includes(q.id)) return { kind: 'hunt' };
+    if (['resources-10','resource-kinds','fest-3'].includes(q.id)) return { kind: 'hunt', resource: true };
+    // Exploration, island and multi-object tasks retain their explicit instructions
+    // until a dedicated destination resolver is available.
+    return { kind: 'hint' };
+  }
+
   // Куда смотреть на карте для текущей цели: { kind:'monster' } — любой зверь рядом, { kind:'building', id } — здание.
   function target(d, quests) {
     if (wins(d) < 1) return { kind: 'monster' };
@@ -55,7 +73,7 @@ const Unlocks = (() => {
     return { kind: 'monster' };
   }
 
-  return { LEVEL_NEED, NEED, NAMES, GIVERS, isOpen, reason, openIds, goal, hint, target };
+  return { LEVEL_NEED, NEED, NAMES, GIVERS, isOpen, reason, openIds, goal, hint, target, questTarget };
 })();
 
 if (typeof module !== 'undefined') module.exports = Unlocks;
