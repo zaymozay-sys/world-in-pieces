@@ -1,6 +1,17 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Защищено от продажи: {0}": "Protected from sale: {0}",
+  "Выбрано вещей: {0}": "Items selected: {0}",
+  "Вы получите: {0}": "You will receive: {0}",
+  "Продать выбранные вещи? Отменить продажу нельзя.": "Sell selected items? This cannot be undone.",
+  "Подтвердить продажу": "Confirm sale",
+  "Выбрать найденные": "Select matching items",
+  "Снять выбор": "Clear selection",
+  "Продать выбранные": "Sell selected",
+  "Продано вещей: {0}. Получено: {1}": "Items sold: {0}. Received: {1}",
+  "Продажа отменена: состав или стоимость вещей изменились.": "Sale canceled: selected items or their value have changed.",
+  "Цвет": "Color",
   "Сравнить": "Compare",
   "Уже есть: {0}": "Owned: {0}",
   "Изменение характеристик героя": "Hero stat changes",
