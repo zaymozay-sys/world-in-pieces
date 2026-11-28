@@ -1533,14 +1533,17 @@ const MapView = (() => {
     ruins: _t("Среди заросших плит лежит то, что не успели растащить. Здесь можно порыться."),
     cave: _t("В пещере сухо и тихо. На стенах блестят жилы, а на полу валяются следы чужого привала."),
     obelisk: _t("Камень покрыт звёздной резьбой. Стоит коснуться, и перед глазами раскинется вся округа."),
-    spring: _t("Вода бьёт из-под камня и пахнет мятой. Говорят, после неё удар становится увереннее."),
+    spring: _t("Вода бьёт из-под камня и пахнет мятой. Родник дарует силу или стойкость."),
     wreck: _t("Корабль давно сел на мель. В трюме что-то осталось — прилив добрался не до всего."),
     watch: _t("На вышке ещё держится лестница. Сверху видно далеко, а в караулке остались вещи."),
   };
   function showLandmark(m) {
     const L = World.LANDMARKS[m.kind], done = !!st.found[m.id], T = evTier(m.tier);
-    const act = done ? '' : `<button type="button" class="primary" data-lm="look" data-m="${m.id}">${_t("Осмотреть")}</button>`;
-    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${L.name}</b> ${colorChip(T)}<p class="hint">${LM_TEXT[m.kind]}${done ? ' ' + _t("Вы здесь уже всё осмотрели.") : ''}</p><div class="mc-act">${act}<button type="button" data-act="close">${done ? _t("Закрыть") : _t("Уйти")}</button></div></div></div>`;
+    const xp = done ? 0 : World.landmarkXp(m.kind, T, Profile.level());
+    const act = done ? '' : m.kind === 'spring'
+      ? Object.entries(World.BLESSINGS).map(([k, b]) => `<button type="button" class="primary" data-lm="look" data-m="${m.id}" data-k="${k}">${b.name}: ${b.desc}</button>`).join('')
+      : `<button type="button" class="primary" data-lm="look" data-m="${m.id}">${_t("Осмотреть")}</button>`;
+    el['map-card'].innerHTML = `<div class="map-card"><div class="mc-body"><b class="mc-title">${L.name}</b> ${colorChip(T)}<p class="hint">${LM_TEXT[m.kind]}${done ? ' ' + _t("Вы здесь уже всё осмотрели.") : ' ' + _t("Опыт: +{0}", [xp])}${!done && m.kind === 'spring' ? ' ' + _t("Выберите благословение; новое заменит прежнее.") : ''}</p><div class="mc-act">${act}<button type="button" data-act="close">${done ? _t("Закрыть") : _t("Уйти")}</button></div></div></div>`;
   }
   function revealArea(center, r) {
     let added = 0;
@@ -1565,7 +1568,7 @@ const MapView = (() => {
     else if (m.kind === 'obelisk') { const n = revealArea(m.idx, World.LANDMARK_REVEAL.obelisk); lines.push(_t("Открыто сот на карте: {0}", [n])); coins(0.6); }
     else if (m.kind === 'watch') { const n = revealArea(m.idx, World.LANDMARK_REVEAL.watch); lines.push(_t("Открыто сот на карте: {0}", [n])); coins(1); }
     else if (m.kind === 'spring') {
-      const k = World.hash(st.seed, m.id, 'bl') < 0.5 ? 'might' : 'stone';
+      const k = World.BLESSINGS[b.dataset.k] ? b.dataset.k : World.hash(st.seed, m.id, 'bl') < 0.5 ? 'might' : 'stone';
       d.blessing = { kind: k, fights: World.BLESSINGS[k].fights };
       lines.push(_t("Благословение: {0} — {1} на {2 обычный бой|обычных боя|обычных боёв}.", [World.BLESSINGS[k].name, World.BLESSINGS[k].desc, d.blessing.fights]));
     } else if (m.kind === 'wreck') {
@@ -1573,6 +1576,13 @@ const MapView = (() => {
       const kinds = Object.keys(Gear.CONSUMABLES).filter((k) => !Gear.CONSUMABLES[k].alchemy);
       const k = kinds[Math.floor(World.hash(st.seed, m.id, 'cons') * kinds.length)];
       Profile.addConsumable(k, 2); lines.push(`${Gear.CONSUMABLES[k].name} ×2`);
+    }
+    Daily.registerPeaceful();
+    const xp = World.landmarkXp(m.kind, T, Profile.level());
+    if (xp > 0) {
+      const up = Profile.addXp(xp);
+      lines.push(_t("Опыт: +{0}", [xp]));
+      if (up.to > up.from) lines.push(_t("Новый уровень: {0}", [up.to]));
     }
     renderEvents(); renderFog(); renderHud(); save();
     if (typeof onEconomyChanged === 'function') onEconomyChanged();

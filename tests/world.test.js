@@ -110,6 +110,15 @@ console.log('world 1.5.4: все тесты пройдены');
     assert.strictEqual(w.events.length, 46, 'события на месте: 46');
   }
 }
+// Небоевая разведка даёт опыт по цвету места, не по цвету награды героя.
+{
+  const H = require('../js/hero.js');
+  assert.strictEqual(World.landmarkXp('unknown', 1, 1), 0);
+  for (let tier = 1; tier <= 10; tier++) for (let level = 1; level <= 100; level++) {
+    const base = H.xpReward({ xp:1 }, tier, level, H.itemLevel(tier));
+    for (const kind of Object.keys(World.LANDMARKS)) assert.strictEqual(World.landmarkXp(kind,tier,level),base*(kind==='obelisk'||kind==='watch'?3:2));
+  }
+}
 console.log('world 1.6.9: достопримечательности — тесты пройдены');
 
 // 1.7.4: условие дня, реванш, сезоны

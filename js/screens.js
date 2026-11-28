@@ -2082,7 +2082,7 @@ const Screens = (() => {
         storyBlock += (cyc ? `<p class="hint">${_t("Новый поход: {0}. Стражи крепче, награды больше.", [cyc])}</p>` : '')
           + (newsList.length ? `<h4>${_t("Вести из деревни")}</h4><ul class="story-news-list">${newsList.map((n) => `<li>${n}</li>`).join('')}</ul>` : '')
           + (Story.finished(story) ? `${typeof Art !== 'undefined' && Art.has('items/heart') ? `<img class="heart-pic" src="${Art.url('items/heart')}" alt="">` : ''}<p class="hint"><i>${Story.EPILOGUE}</i></p><button type="button" class="primary" data-story-new="1">${_t("Начать новый поход")}</button>` : '');
-        body = _t("<div class=\"npc-row\"><span class=\"npc-portrait\">{0}</span>\n            <div class=\"npc-say\"><b>Бобёр-хранитель</b><p class=\"hint\">{1}</p></div></div>\n          {2}\n          <h3>Поручение дня</h3><div class=\"cards\"><div class=\"card quest-card {3}\">\n            <div class=\"card-body\"><span class=\"item-title\">Дежурный обход</span>\n              <span class=\"item-foot\">Победите сегодня в одном бою — бобёр щедро делится знаниями (и не только).</span>\n              <span class=\"item-foot quest-reward\">Награда: {6} и порция каменной пыли</span></div>\n            <div class=\"card-act\">{4}</div></div></div>\n          <p class=\"hint\">Поручение обновляется каждый день, в полночь по вашему времени.</p>\n          {5}", [portrait, s.msg || BEAVER_LINES[0], storyBlock, q.claimed ? 'is-done' : '', qAct, trainBlock, money(Daily.libraryCoins(Profile.level()))]);
+        body = _t("<div class=\"npc-row\"><span class=\"npc-portrait\">{0}</span>\n            <div class=\"npc-say\"><b>Бобёр-хранитель</b><p class=\"hint\">{1}</p></div></div>\n          {2}\n          <h3>Поручение дня</h3><div class=\"cards\"><div class=\"card quest-card {3}\">\n            <div class=\"card-body\"><span class=\"item-title\">Дежурный обход</span>\n              <span class=\"item-foot\">Победите в бою, впервые исследуйте достопримечательность или завершите занятие питомца сегодня.</span>\n              <span class=\"item-foot quest-reward\">Награда: {6} и порция каменной пыли</span></div>\n            <div class=\"card-act\">{4}</div></div></div>\n          <p class=\"hint\">Поручение обновляется каждый день, в полночь по вашему времени.</p>\n          {5}", [portrait, s.msg || BEAVER_LINES[0], storyBlock, q.claimed ? 'is-done' : '', qAct, trainBlock, money(Daily.libraryCoins(Profile.level()))]);
         body += lessonsBlock(s);
       }
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Библиотека\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}</div></div>", [head(_t("Библиотека")), tabs([['npc', _t("Бобёр")], ['beasts', _t("Бестиарий")], ['items', _t("Вещи")], ['medals', _t("Медали")], ['chess', _t("Шахматы")], ['scrolls', _t("Свитки")], ['diary', _t("Дневник")]], s.tab), scene, body]);
@@ -2600,6 +2600,7 @@ const credits = {
       if (d.kStudy) {
         const r = Pets.studyCollect(pet, Hero.tierFor(Profile.level()));
         if (r) {
+          Daily.registerPeaceful();
           if (r.kind === 'study') s.msg = _t("Урок усвоен: ум {0} → {1}.", [r.before, r.after]);
           else if (r.kind === 'ball') s.msg = _t("Набегался и бодр: удары сильнее на 25% в ближайшие 2 боя.");
           else if (r.kind === 'hunt') { Profile.addCoins(r.coins); s.msg = _t("Нашёл клад: {0}!", [money(r.coins)]); }
@@ -3654,7 +3655,7 @@ const credits = {
       }
       if (!earlyGame()) {
         const q = Daily.libraryQuest(d);
-        rows.push(row(_t("Поручение библиотеки"), q.claimed ? _t("Награда получена") : _t("Побед сегодня: {0} из {1}", [q.value, q.goal]),
+        rows.push(row(_t("Поручение библиотеки"), q.claimed ? _t("Награда получена") : _t("Выполнено сегодня: {0} из {1}", [q.value, q.goal]),
           q.claimed ? '' : q.done ? `<button type="button" class="primary" data-today="claim">${_t("Забрать награду")}</button>` : `<button type="button" data-today="map">${_t("На карту")}</button>`, q.claimed));
       }
       if (!rows.length) rows.push(`<p class="hint">${_t("Ежедневные задания откроются позже: победите первых существ.")}</p>`);

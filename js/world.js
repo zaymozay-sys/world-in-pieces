@@ -110,6 +110,15 @@ const World = (() => {
     watch:  { name: _t("Заброшенный дозор"),  glyph: 'watch',  w: 3 },
   };
   const LANDMARK_COUNT = 22, LANDMARK_REVEAL = { obelisk: 9, watch: 8 };
+  // Небоевая награда за первое исследование, по цвету места.
+  // Обелиск и дозор требуют разведки, поэтому дают три базовых победы,
+  // прочие достопримечательности — две. Повторный осмотр ничего не даёт.
+  function landmarkXp(kind, tier, level) {
+    if (!LANDMARKS[kind]) return 0;
+    const H = typeof Hero !== 'undefined' ? Hero : require('./hero.js');
+    const t = W_T.clamp(tier);
+    return H.xpReward({ xp: 1 }, t, level, H.itemLevel(t)) * (kind === 'obelisk' || kind === 'watch' ? 3 : 2);
+  }
   const EVENT_COUNT = 46;
   const EVENT_RESPAWN = 45 * MIN, LAIR_COOLDOWN = 60 * MIN;
   const BLESSINGS = {
@@ -333,7 +342,7 @@ const World = (() => {
   const CH_HERO = { level: 30 };
 
   return {
-    pickElites, AFFIXES, AFFIX_IDS, ELITE, GUARDIANS, PACK, ENRAGE, ZONE, ZONE_BOSSES, ZONE_IDS, scaleZone, zoneHp, zonePower, zoneReward, EVENTS, LANDMARKS, LANDMARK_COUNT, LANDMARK_REVEAL, EVENT_RESPAWN, LAIR_COOLDOWN, BLESSINGS, LAIR_TIERS, QUICK, REVIVE_ON, REVIVE_BASE, reviveCost,
+    pickElites, AFFIXES, AFFIX_IDS, ELITE, GUARDIANS, PACK, ENRAGE, ZONE, ZONE_BOSSES, ZONE_IDS, scaleZone, zoneHp, zonePower, zoneReward, EVENTS, LANDMARKS, LANDMARK_COUNT, LANDMARK_REVEAL, landmarkXp, EVENT_RESPAWN, LAIR_COOLDOWN, BLESSINGS, LAIR_TIERS, QUICK, REVIVE_ON, REVIVE_BASE, reviveCost,
     RANKS, STARS, ARENA_DAILY, RANK_TITLES, CH_POOL, CH_TRIES, CH_HERO,
     hash, place, affixFor, quickAllowed, lairLength, lairChestCoins, cacheCoins,
     freshArena, arenaResult, shadow, arenaCoins, rankCoins, ARENA_RULES, RULE_BONUS, REVENGE_DAILY, SEASON_TITLE_RANK, arenaRule, seasonOf, seasonLabel, seasonCoins, arenaSync, arenaLog, dayNo, challengeFor, challengeScore, freshChallenge,
