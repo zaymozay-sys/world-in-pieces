@@ -87,6 +87,8 @@ const SaveGuard = (() => {
       seen.add(c.uid); items.push(c);
     }
     d.items = items;
+    // Избранное привязано к экземплярам, отсутствующие uid не сохраняем.
+    if (d.favoriteItems !== undefined) d.favoriteItems = [...new Set(Array.isArray(d.favoriteItems) ? d.favoriteItems.filter(uid => typeof uid === 'string' && seen.has(uid)) : [])];
 
     // --- надетое: существующая вещь, подходящая ячейке, одна вещь — одна ячейка ---
     const lo = SG_G.emptyLoadout(), used = new Set(), src = isObj(d.loadout) ? d.loadout : {};
