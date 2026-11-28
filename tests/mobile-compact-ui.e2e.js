@@ -112,6 +112,28 @@ function modalLayout() {
       await ctx.close();
       console.log(`Проверено ${width}×${height}: ${scenes.length + 5} сцен`);
     }
+    const desk = await browser.newContext({viewport:{width:1366,height:900},reducedMotion:'reduce'});
+    const p = await desk.newPage();
+    await p.goto(base+'#dev-fight-wolf-3-solo');
+    await p.waitForFunction(()=>document.body.classList.contains('mode-battle') && !document.body.classList.contains('phone') && !!document.querySelector('#board .tile'));
+    const controls=p.locator('.board-scale-control');
+    await controls.waitFor({state:'visible'});
+    await controls.locator('.board-scale-value').click();
+    await p.waitForTimeout(250);
+    const full=(await p.locator('#board').boundingBox()).width;
+    const minus=controls.locator('button').first();
+    await minus.click(); await minus.click(); await minus.click(); await minus.click();
+    await p.waitForTimeout(250);
+    const small=(await p.locator('#board').boundingBox()).width;
+    assert.ok(small<full,'Уменьшение поля должно менять размеры сетки');
+    assert.equal(await p.evaluate(()=>localStorage.getItem('wip-board-scale')),'60');
+    await controls.locator('.board-scale-value').click();
+    assert.equal(await p.evaluate(()=>localStorage.getItem('wip-board-scale')),'100');
+    await p.locator('#fighter-right .avatar').click();
+    await p.locator('.fi-pop .fi-health').waitFor({state:'visible'});
+    await p.locator('.fi-pop .fi-close').click();
+    assert.equal(await p.locator('.fi-pop').count(),0);
+    await desk.close();
   } finally { await browser.close(); }
   assert.deepEqual(findings, [], findings.join('\n'));
 })().catch(e => { console.error(e); process.exitCode = 1; });
