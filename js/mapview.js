@@ -1996,9 +1996,31 @@ const MapView = (() => {
     toast(_t("Вам сюда: {0}", [(HexMap.BUILDINGS[id] && HexMap.BUILDINGS[id].name) || id]));
     return true;
   }
+  function focusQuest(q) {
+    if (!map || !st || !document.body.classList.contains('mode-map')) return false;
+    const d = Profile.data, t = Unlocks.questTarget(d, q);
+    if (!t) return false;
+    if (t.kind === 'building') {
+      if (!Unlocks.isOpen(d, t.id)) { toast(Unlocks.reason(d, t.id)); return false; }
+      return focusQuestGiver(t.id);
+    }
+    if (t.kind === 'species') return focusSpecies(t.id);
+    if (t.kind === 'hunt') {
+      const cands = map.spawns.filter(sp => known(sp.idx) && alive(sp) && !sp.boss && !sp.zone &&
+        (!t.distinct || !(d.bestiary?.[sp.species]?.wins)) &&
+        (!t.resource || (sp.tier > Hero.tierFor(Profile.level()) - World.QUICK.below &&
+          Bestiary.MONSTERS[sp.species]?.drops.some(drop => drop[1] > 0 && drop[2] > 0))));
+      cands.sort((a,b) => HexMap.dist(map.cells[st.pos], map.cells[a.idx]) - HexMap.dist(map.cells[st.pos], map.cells[b.idx]) || a.idx - b.idx);
+      if (cands.length) { closeCard(); centerOn(cands[0].idx); showMonster(cands[0]); return true; }
+      toast(_t("В этой локации подходящих целей не найдено")); return false;
+    }
+    toast(q.desc, 6500); return false;
+  }
   function whatNext() {
     if (!map || battleSpawn) return;
-    const d = Profile.data, t = Unlocks.target(d, Quests.list(d));
+    const d = Profile.data, list = Quests.list(d), t = Unlocks.target(d, list);
+    const q = list.find(x => x.accepted && x.done && !x.claimed) || list.find(x => x.accepted && !x.done && !x.claimed);
+    if ((d.wins || 0) > 0 && q) return focusQuest(q);
     clearTimeout(nextTimer);
     if (t.kind === 'building' && map.buildings.find((b) => b.id === t.id)) {
       coachRing(t.id); nextTimer = setTimeout(() => coachRing(null), 6000);
@@ -2910,7 +2932,7 @@ const MapView = (() => {
 
   return {
     refreshMonsters() { if (map) renderMonsters(); },
-    init, reset, returnFromBattle, focusSpecies, focusResource, focusQuestGiver, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
+    init, reset, returnFromBattle, focusSpecies, focusResource, focusQuestGiver, focusQuest, whatNext, renderHud, refreshPlayerArt, onFactionChanged, startTraining, coachRing, toast,
     get inBattle() { return !!battleSpawn; }, reviveOk() { if (!World.REVIVE_ON) return false; const sl = Profile.data.monster || {}; return !sl.arena && !sl.challenge && !sl.lair && (!!battleSpawn || !!sl.ambush); }, marketNews, focusBoss, reviveBosses,
     devEnterTower(f) { const t = Profile.data.tower = Profile.data.tower || { floor: 1, best: 1 }; if (typeof t.seed !== 'number') t.seed = HexMap.sharedSeed('tower'); t.floor = Math.max(1, f | 0); t.best = Math.max(t.best || 1, t.floor); t.pos = null; t.revealed = []; t.defeated = {}; swapMap(true, 'tower'); },
     devTeleport, devBuilding, devFindTerrain, devRevealAll, enterIsland, devShowMonster: showMonster, get oakCell() { return oakSpot(); },
