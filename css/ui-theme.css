@@ -1327,3 +1327,14 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 @media (prefers-reduced-motion: reduce) {
   .map-view .region-banner { transition: none; }
 }
+
+/* Фильтры не затрагивают героя, путь, осаду, метки, цели и источники отмеченных рецептов. */
+.map-view.hide-map-ordinary #l-mon .mon:not(.boss):not(.elite):not(.rare):not(.next-step):not(.want):not(.next-glow),
+.map-view.hide-map-ordinary #l-mon .bones,
+.map-view.hide-map-elite #l-mon .mon.elite:not(.boss):not(.rare):not(.next-step):not(.want):not(.next-glow),
+.map-view.hide-map-boss #l-mon .mon.boss:not(.next-step):not(.want):not(.next-glow),
+.map-view.hide-map-events #l-ev .ev:not(.lm):not(.lair),
+.map-view.hide-map-landmarks #l-ev :is(.lm,.lair),
+.map-view.hide-map-labels #l-village .labels { display: none; }
+#mm-sub-map [data-map-filter][aria-pressed="true"] { color: #bde0a0; }
+#mm-sub-map [data-map-filter][aria-pressed="false"] { color: #b0a38d; }
