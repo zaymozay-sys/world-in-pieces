@@ -514,7 +514,11 @@ const Gear = (() => {
   function temperCost(entry) {
     const it = item(entry);
     if (!it || typeof entry === 'string' || it.plus >= TEMPER_MAX) return null;
-    return { plus: it.plus + 1, coins: Math.round(it.price * TEMPER_COST[it.plus]) };
+    const plus = it.plus + 1, next = item({ ...entry, plus });
+    const improves = Object.keys(it.stats).some(k => next.stats[k] > it.stats[k]);
+    // Округление характеристик иногда оставляет очередной шаг без прибавки.
+    // Такой шаг сохраняет прогрессию закалки, но за него нельзя брать монеты.
+    return { plus, coins: improves ? Math.round(it.price * TEMPER_COST[it.plus]) : 0 };
   }
   /* 1.6.0: перековка — вещь следующего цвета можно за монеты подогнать, чтобы носить её на цвет раньше.
      Характеристики не меняются, снижается только требуемый уровень (на levelsPerTier). Сливает накопленные деньги. */

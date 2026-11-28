@@ -949,7 +949,7 @@ const ItemInfo = (() => {
         const runeId = entry.runes && entry.runes[k];
         const r = runeId && Runes.CATALOG[runeId];
         if (r) {
-          const rk = Runes.rankOf(entry, k), old = rk < heroRank;
+          const rk = Runes.rankOf(entry, k), old = Runes.improves(runeId, rk, heroRank);
           return `<div class="ic-socket full" style="--r:${r.color}">${Runes.icon(runeId, 'rune-badge')}<span><b>${r.name}</b><small>${Runes.descAt(runeId, rk)}${old ? ` · ${_t("можно обновить до вашего уровня: {0}", [Runes.descAt(runeId, heroRank)])}` : ''}</small></span>`
             + (old ? `<button type="button" data-rune-up="${k}" ${locked || Profile.data.coins < upPrice() ? 'disabled' : ''}>${_t("Обновить")} · ${MonsterArt.moneyHtml(upPrice())}</button>` : '')
             + `<button type="button" data-rune-remove="${k}" ${locked ? 'disabled' : ''}>${_t("Извлечь")}</button></div>`;
@@ -1064,7 +1064,7 @@ const ItemInfo = (() => {
     }
     if (b.dataset.runeUp !== undefined) {
       const entry = Profile.item(uid), slot = Number(b.dataset.runeUp) || 0, rk = Runes.clampRank(Hero.tierFor(Profile.level()));
-      if (!entry || !entry.runes || !entry.runes[slot] || Runes.rankOf(entry, slot) >= rk) return;
+      if (!entry || !entry.runes || !Runes.improves(entry.runes[slot], Runes.rankOf(entry, slot), rk)) return;
       const price = Math.round(140 * Tiers.PRICE_MULT[rk - 1] * Factions.perk(Profile.data.faction, 'shop'));
       if (!Profile.spend(price)) return;
       Runes.upgrade(entry, slot, rk); Profile.save(); Profile.noteMaster('rune', 1);

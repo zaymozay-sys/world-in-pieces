@@ -27,6 +27,10 @@ e.cut = 3; const withCut = Runes.bonusForGear(gear); assert.ok(withCut.power >= 
 const d1 = Stones.drillCost(1), f1 = Stones.fixCost(1), f10 = Stones.fixCost(10);
 assert.strictEqual(d1.punch, 1); assert.ok(f10.resin > f1.resin && f10.resinTier <= 6, 'смола крепления растёт, но ниже 7-го цвета её нет');
 assert.ok(Stones.punchPrice(10) > Stones.punchPrice(1) && Stones.punchPrice(1) > 0);
+for (let tier = 1; tier <= 10; tier++) {
+  assert.ok(Stones.punchPrice(tier) <= 18 * require('../js/balance.js').economy.battleLoot[tier - 1]);
+  if (tier > 1) assert.ok(Stones.punchPrice(tier) > Stones.punchPrice(tier - 1));
+}
 // шанс скорпиона: 1,5% на 1-м этаже, растёт с глубиной, потолок 5%, героя не касается
 assert.strictEqual(Stones.scorpChance(1), 0.015); assert.ok(Stones.scorpChance(30) > Stones.scorpChance(1)); assert.strictEqual(Stones.scorpChance(5000), 0.05);
 assert.strictEqual(Stones.scorpChance.length, 1, 'шанс зависит только от этажа');

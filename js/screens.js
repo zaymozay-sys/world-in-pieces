@@ -950,12 +950,12 @@ const Screens = (() => {
         let detail = `<p class="hint">${_t("Выберите вещь слева.")}</p>`;
         if (s.sel && Profile.item(s.sel)) {
           const e = Profile.item(s.sel), it = Gear.item(e), tc = Gear.temperCost(e);
-          const intro = cap <= 0 ? `<p class="hint warn">${_t("Закалка откроется после улучшения Кузницы: Ратуша → «Улучшения деревни».")}</p>` : `<p class="hint">${_t("Закалка до +{0} (больше — после улучшения Кузницы). Каждый шаг усиливает все характеристики вещи на 4%, очки снаряжения не растут.", [cap])}</p>`;
+          const intro = cap <= 0 ? `<p class="hint warn">${_t("Закалка откроется после улучшения Кузницы: Ратуша → «Улучшения деревни».")}</p>` : `<p class="hint">${_t("Закалка до +{0} (больше — после улучшения Кузницы). Прибавка к исходным характеристикам — 4% за шаг с округлением; шаг без прироста бесплатный.", [cap])}</p>`;
           if (!tc) detail = itemCard(it, _t("Закалка +{0} — максимум", [it.plus])) + intro;
           else {
             const nx = Gear.item({ ...e, plus: tc.plus }), can = it.plus < cap && Profile.data.coins >= tc.coins;
             const delta = Object.keys(nx.stats).filter((k) => nx.stats[k] !== it.stats[k]).map((k) => `${Gear.STAT_NAMES[k] || k} ${it.stats[k]} → ${nx.stats[k]}`).join(', ');
-            detail = `${itemCard(it, '')}<div class="arrow-down">${_t("закалка до +{0}", [tc.plus])}</div>${itemCard(nx, delta)}${intro}
+            detail = `${itemCard(it, '')}<div class="arrow-down">${_t("закалка до +{0}", [tc.plus])}</div>${itemCard(nx, delta || _t("Без прироста характеристик — бесплатно"))}${intro}
               <div class="costs"><span class="need ${Profile.data.coins >= tc.coins ? 'ok' : 'no'}">${_t("Монеты: {0}", [money(tc.coins)])}</span></div>
               <div class="row"><button type="button" class="primary" data-do-temper="1" ${can ? '' : 'disabled'}>${_t("Закалить")}</button></div>`;
             detail += `<div class="row">${tryBtn('temper', it.uid)}</div>`;
@@ -1073,9 +1073,9 @@ const Screens = (() => {
       }
       if (d.doTemper) {
         const e = Profile.item(s.sel), tc = e && Gear.temperCost(e), cap = Math.min(Gear.TEMPER_MAX, Village.temperCap(Profile.data.village));
-        if (!tc || tc.plus > cap || !Profile.spend(tc.coins)) return;
+        if (!tc || tc.plus > cap || (tc.coins > 0 && !Profile.spend(tc.coins))) return;
         e.plus = tc.plus;
-        Profile.save(); Profile.noteMaster('craft', 1);
+        Profile.save(); if (tc.coins > 0) Profile.noteMaster('craft', 1);
         s.msg = _t("Закалено: {0}", [Gear.item(e).name]);
         onGearChanged();
         return changed();

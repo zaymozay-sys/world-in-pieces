@@ -47,8 +47,9 @@ const act = {}; Elixirs.drink(act, 'power', 5, 3); assert.strictEqual(act.power.
   assert.strictEqual(base.plus, 0); assert.strictEqual(Gear.temperCost(e).plus, 1);
   let prev = base, prevCost = 0;
   for (let p = 1; p <= Gear.TEMPER_MAX; p++) {
-    const tc = Gear.temperCost(e); assert.strictEqual(tc.plus, p); assert.ok(tc.coins > prevCost, 'шаги дороже');
-    prevCost = tc.coins; e.plus = p;
+    const tc = Gear.temperCost(e); assert.strictEqual(tc.plus, p);
+    if (tc.coins > 0) { assert.ok(tc.coins > prevCost, 'платные шаги дороже'); prevCost = tc.coins; }
+    e.plus = p;
     const it = Gear.item(e);
     assert.strictEqual(it.cost, base.cost, 'очки снаряжения не растут');
     if (p === 1 || p === Gear.TEMPER_MAX) assert.ok(Object.keys(it.stats).some((k) => it.stats[k] > base.stats[k]), 'вещь сильнее: +' + p);
@@ -60,6 +61,12 @@ const act = {}; Elixirs.drink(act, 'power', 5, 3); assert.strictEqual(act.power.
   assert.ok(Object.keys(prev.stats).some((k) => prev.stats[k] > base.stats[k]));
   assert.ok(Math.max(...Object.keys(prev.stats).map((k) => base.stats[k] > 0 ? prev.stats[k] / base.stats[k] : 1)) <= 1.5, '+5 не больше +50%');
   assert.strictEqual(Gear.temperCost('sword-novice'), null, 'строка-вещь без экземпляра не закаляется');
+}
+// Округление не должно превращать закалку без прироста в платную услугу.
+for (const base of Gear.ITEMS) for (let tier = 1; tier <= 10; tier++) for (let plus = 0; plus < Gear.TEMPER_MAX; plus++) {
+  const e = { id: base.id, tier, plus }, tc = Gear.temperCost(e);
+  const a = Gear.item(e).stats, b = Gear.item({ ...e, plus: tc.plus }).stats;
+  assert.strictEqual(tc.coins > 0, Object.keys(a).some(k => b[k] > a[k]), base.id + ':' + tier + ':' + plus);
 }
 
 // косметика
