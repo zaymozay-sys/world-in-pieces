@@ -1398,3 +1398,18 @@ body .shop-workshop .shop-grid-view > .card > .icon-wrap > .item-icon {
 .shop-workshop .shop-grid-view .shop-product .card-act { display:grid; grid-template-columns:1fr; gap:5px; }
 .shop-workshop .shop-product .card-act .primary:not(:disabled) { background:linear-gradient(#876133,#59401f); color:#fff0cb; border-color:#bd9758; }
 .shop-workshop .shop-product .card-act button { white-space:normal; }
+
+/* Лавка: выбор вещей и подтверждение массовой продажи. */
+.shop-workshop .sale-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr)); gap:8px; margin-bottom:8px; }
+.shop-workshop .sale-filters input,.shop-workshop .sale-filters select { width:100%; min-width:0; min-height:44px; box-sizing:border-box; }
+.shop-workshop .sale-filters label { display:grid; gap:4px; min-width:0; }
+.shop-workshop .sale-summary { position:sticky; top:0; z-index:3; padding:10px; margin:8px 0; background:#35261a; border:1px solid #a0804b; border-radius:8px; }
+.shop-workshop .sale-totals,.shop-workshop .sale-actions { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; }
+.shop-workshop .sale-totals { justify-content:space-between; color:#f3d298; margin-bottom:6px; }
+.shop-workshop .sale-actions button { min-height:44px; flex:1 1 110px; white-space:normal; }
+.shop-workshop .sale-warning { flex:1 1 100%; color:#f4c6a0; }
+.shop-workshop .sale-product[hidden] { display:none !important; }
+.shop-workshop .sale-product.selected { outline:2px solid #c7aa65; outline-offset:-2px; }
+.shop-workshop .sale-product [data-sale-pick][aria-pressed="true"] { color:#e9d39b; border-color:#c7aa65; }
+.shop-workshop .sale-product .card-act { flex-wrap:wrap; }
+.shop-workshop .sale-product .card-act button { min-height:44px; white-space:normal; }
