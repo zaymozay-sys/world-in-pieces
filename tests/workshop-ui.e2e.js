@@ -91,6 +91,28 @@ const URL = process.env.WIP_URL || 'file://' + path.join(__dirname, '..', 'index
       await page.evaluate(() => { Profile.data.coins = 1e7; Screens.refresh(); });
       await page.locator('.shop-catalog [data-buy-cat]:enabled').first().click();
       assert.equal(await page.locator('.workshop-success.shop-seal').count(), 1);
+      const sample = await page.evaluate(() => {
+        const id=Gear.itemsFor(Profile.data.faction).find(x=>x.rarity!=='epic').id;
+        const entries=Array.from({length:4},()=>Gear.makeEntry(id,1));
+        for(const entry of entries) Profile.addItem(entry);
+        Profile.toggleFavorite(entries[2].uid);
+        Profile.data.equipmentPresets=[{name:'QA',slots:{...Gear.emptyLoadout(),main:entries[3].uid}}];
+        Profile.save();
+        return {uids:entries.map(e=>e.uid),coins:Profile.data.coins,total:Profile.saleQuote(entries.slice(0,2).map(e=>e.uid)).total};
+      });
+      await page.locator('[data-tab="sell"]').click();
+      for(const uid of sample.uids.slice(2)) assert.equal(await page.locator('[data-sale-pick="'+uid+'"]').count(),0);
+      for(const uid of sample.uids.slice(0,2)) await page.locator('[data-sale-pick="'+uid+'"]').click();
+      await page.locator('[data-sale-act="review"]').click();
+      assert.equal(await page.evaluate(()=>Profile.data.coins),sample.coins);
+      await page.locator('[data-sale-act="cancel"]').click();
+      assert.equal(await page.evaluate(()=>Profile.data.coins),sample.coins);
+      await page.locator('[data-sale-act="review"]').click();
+      await page.locator('[data-sale-act="confirm"]').click();
+      assert.equal(await page.evaluate(()=>Profile.data.coins),sample.coins+sample.total);
+      assert.deepEqual(await page.evaluate(uids=>uids.map(uid=>!!Profile.item(uid)),sample.uids),[false,false,true,true]);
+      assert.equal(await page.evaluate(uids=>Profile.sellItems(uids,0),sample.uids),null);
+      await page.locator('[data-tab="buy"]').click();
       await page.evaluate(() => {
         for (const kind of Object.keys(Bestiary.RESOURCES)) for (let tier = 1; tier <= 3; tier++) Profile.addRes(kind, tier, 10000);
         Screens.open('forge');
