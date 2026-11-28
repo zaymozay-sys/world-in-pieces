@@ -22,6 +22,7 @@ const Profile = (() => {
       wins: 0,
       xp: 0,                                       // опыт героя; уровень считается из него (hero.js)
       coins: 500,                                  // в медных монетах
+      equipmentPresets: [],
       favoriteItems: [],                           // uid вещей, защищённых от продажи
       items,                                       // все вещи игрока: { uid, id, tier }
       loadout,                                     // ячейка → uid надетой вещи
@@ -259,7 +260,37 @@ const Profile = (() => {
       data.favoriteItems = list.includes(uid) ? list.filter(x => x !== uid) : [...list, uid];
       save(); return this.isFavorite(uid);
     },
-    canSellItem(uid) { return !!findItem(uid) && !this.equippedUid(uid) && !this.isFavorite(uid); },
+    presetNamesFor(uid) { return (data.equipmentPresets || []).filter(p => p && p.slots && Gear.SLOTS.some(k => p.slots[k] === uid)).map(p => p.name); },
+    canSellItem(uid) { return !!findItem(uid) && !this.equippedUid(uid) && !this.isFavorite(uid) && !this.presetNamesFor(uid).length; },
+    savePreset(name, index = -1) {
+      if (typeof canEditGear !== 'function' || !canEditGear()) return false;
+      const list = data.equipmentPresets || (data.equipmentPresets = []);
+      name = String(name || '').trim().slice(0,32);
+      if (!name || list.some((p,i) => i!==index && p.name.toLowerCase()===name.toLowerCase())) return false;
+      const p = {name, slots:{...data.loadout}};
+      if (index>=0 && list[index]) list[index]=p; else if(index===-1 && list.length<5) list.push(p); else return false;
+      save(); return true;
+    },
+    presetCheck(index) {
+      const p = (data.equipmentPresets || [])[index], gear = Gear.emptyLoadout(), slots = Gear.emptyLoadout();
+      if (!p || !p.slots) return {error:_t("Комплект не найден")};
+      for (const slot of Gear.SLOTS) {
+        const uid=p.slots[slot]; if(!uid) continue;
+        const e=findItem(uid); if(!e) return {error:_t("В комплекте отсутствует предмет")};
+        const check=Gear.canEquip(gear,e,slot,data.faction,this.level()); if(!check.ok) return {error:check.reason};
+        gear[slot]=e; slots[slot]=uid;
+      }
+      return {slots};
+    },
+    applyPreset(index) {
+      if (typeof canEditGear !== 'function' || !canEditGear()) return _t("Менять снаряжение можно вне боя.");
+      const next=this.presetCheck(index); if(next.error) return next.error;
+      data.loadout=next.slots; save(); return null;
+    },
+    deletePreset(index) {
+      if (!Array.isArray(data.equipmentPresets) || !data.equipmentPresets[index]) return false;
+      data.equipmentPresets.splice(index,1); save(); return true;
+    },
     takeSaleItem(uid) { if (!this.canSellItem(uid)) return false; this.removeItem(uid); return true; },
     removeItem(uid) {
       for (const s of Gear.SLOTS) if (data.loadout[s] === uid) data.loadout[s] = null;
