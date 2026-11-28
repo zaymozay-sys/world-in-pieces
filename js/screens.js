@@ -734,7 +734,7 @@ const Screens = (() => {
         }).join('');
         body = _t("<h3>Вещи: постоянный каталог</h3>{0}<div class=\"card-list\">{1}</div>\n          <h3>Боеприпасы вашего народа</h3><div class=\"card-list\">{2}</div>\n          <h3>Расходники</h3><div class=\"card-list\">{3}</div>\n          <h3>Ресурсы</h3>{4}<div class=\"card-list\">{5}</div>\n          <p class=\"hint\">Руны теперь продаёт Журавль-художник в Мастерской художника.</p>", [cat.head, items, ammoCard, cons, tierPicker(top, rt, 'restier'), res]);
       } else {
-        const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e))
+        const items = Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => Gear.item(e))
           .sort((a, b) => b.tier - a.tier).map((it) =>
             itemCard(it, _t("Продать за: {0}", [money(Gear.sellValue(Math.round(it.price * Gear.wearFactor(Profile.item(it.uid))), it.tier))]), _t("<button type=\"button\" data-sell-item=\"{0}\">Продать</button>", [it.uid]))).join('') || _t("<p class=\"hint\">Нет вещей на продажу (надетые не продаются).</p>");
         const cons = Gear.heldCons(Profile.data.backpack).map(([k, c]) => _t("\n          <div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}</span><span class=\"item-foot\">За штуку: {3}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-sell-cons=\"{4}\">Продать 1</button></div></div>", [itemIcon(k), c.name, Profile.data.backpack[k], money(Gear.sellValue(consPrice(Gear.parseCons(k).base))), k])).join('') || EmptyArt.html('flask', _t("Расходников нет"));
@@ -828,9 +828,9 @@ const Screens = (() => {
         return changed();
       }
       if (d.sellItem) {
-        if (!Profile.item(d.sellItem)) return;   // 1.6.4: повторный (устаревший) клик по уже проданной вещи не платит второй раз
+        if (!Profile.canSellItem(d.sellItem)) return;   // 1.6.4: повторный (устаревший) клик по уже проданной вещи не платит второй раз
         const ent = Profile.item(d.sellItem), it = Gear.item(ent), wf = Gear.wearFactor(ent);     // 1.6.6: изношенная вещь дешевле
-        Profile.removeItem(d.sellItem);
+        if (!Profile.takeSaleItem(d.sellItem)) return;
         Profile.addCoins(Gear.sellValue(Math.round(it.price * wf), it.tier));
         s.msg = _t("Продано: {0}", [it.name]);
         return changed();
@@ -2085,7 +2085,7 @@ const Screens = (() => {
             <path d="M38 56 Q50 62 62 56" stroke="#6b4a2b" stroke-width="2.4" fill="none" stroke-linecap="round"/>
             <path d="M26 30 Q50 14 74 30 L70 36 Q50 24 30 36Z" fill="#8a7f6e"/>
             <circle cx="76" cy="66" r="12" fill="#7a6a4a" stroke="#3a332b" stroke-width="1.6"/></svg>`;
-      const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e)).sort((a, b) => b.tier - a.tier);
+      const items = Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => Gear.item(e)).sort((a, b) => b.tier - a.tier);
       const rows = items.map((it) =>
         itemCard(it, _t("Скупит за: {0}", [money(junkOf(it))]), _t("<button type=\"button\" data-junk-item=\"{0}\">Продать</button>", [it.uid]))).join('')
         || _t("<p class=\"hint\">Продавать нечего (надетые вещи старьёвщик не берёт).</p>");
@@ -2100,20 +2100,22 @@ const Screens = (() => {
       if (d.junkItem) {
         const it = Gear.item(Profile.item(d.junkItem));
         if (!it) return;
-        Profile.removeItem(d.junkItem);
+        if (!Profile.takeSaleItem(d.junkItem)) return;
         Profile.data.junkSold = (Profile.data.junkSold || 0) + 1;
         Profile.addCoins(junkOf(it));
         s.msg = (() => { const n = (Profile.data.junkSold || 0), q = Quests.list(Profile.data, 'junker')[0], tail = q && q.accepted && !q.claimed && !q.done ? _t(" Для ключа уже {0} из {1}.", [q.value, q.goal]) : ''; return JUNKER_SALE[n % JUNKER_SALE.length].replace('%n', it.name) + tail; })();
         return changed();
       }
       if (d.junkAll) {
-        const items = Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => Gear.item(e));
+        const items = Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => Gear.item(e));
         if (!items.length) return;
         let total = 0;
-        for (const it of items) { Profile.removeItem(it.uid); total += junkOf(it); }
-        Profile.data.junkSold = (Profile.data.junkSold || 0) + items.length;
+        let sold = 0;
+        for (const it of items) { if (Profile.takeSaleItem(it.uid)) { total += junkOf(it); sold++; } }
+        if (!sold) return;
+        Profile.data.junkSold = (Profile.data.junkSold || 0) + sold;
         Profile.addCoins(total);
-        s.msg = _t("Забрал всё разом, {0} шт. — вот {1}. {2}", [items.length, money(total), JUNKER_LINES[2]]);
+        s.msg = _t("Забрал всё разом, {0} шт. — вот {1}. {2}", [sold, money(total), JUNKER_LINES[2]]);
         return changed();
       }
     },
@@ -2897,14 +2899,14 @@ const credits = {
   /* =============== ТОРГОВЫЕ РЯДЫ (1.3.0): объявления о продаже =============== */
   const MK_KINDS = [['item', _t("Вещи")], ['res', _t("Ресурсы")], ['cons', _t("Расходники")], ['ammo', _t("Боеприпасы")]];
   function mkAssets(kind) {
-    if (kind === 'item') return Profile.data.items.filter((e) => !Profile.equippedUid(e.uid)).map((e) => ({ key: e.uid, have: 1, name: Gear.item(e).name, icon: itemIcon('', '', e.id), tier: e.tier, entry: e }));
+    if (kind === 'item') return Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => ({ key: e.uid, have: 1, name: Gear.item(e).name, icon: itemIcon('', '', e.id), tier: e.tier, entry: e }));
     if (kind === 'res') return Profile.resList().map((r) => ({ key: r.kind + ':' + r.tier, have: r.n, name: resLabel(r.kind, r.tier), icon: MonsterArt.resIcon(r.kind, r.tier), tier: r.tier }));
     if (kind === 'cons') return Gear.heldCons(Profile.data.backpack).map(([k, c]) => ({ key: k, have: Profile.data.backpack[k], name: c.name, icon: itemIcon(k), unit: consPrice(Gear.parseCons(k).base) }));
     return Ammo.stocks((k) => Profile.ammo(k)).map((k) => ({ key: k, have: Profile.ammo(k), name: Ammo.stockName(k), icon: Ammo.icon(k), unit: ammoPrice(Ammo.parse(k).kind) }));
   }
   const lotIcon = (lot) => lot.kind === 'item' ? itemIcon('', '', lot.entry.id) : lot.kind === 'res' ? MonsterArt.resIcon(lot.key.split(':')[0], Number(lot.key.split(':')[1])) : lot.kind === 'cons' ? itemIcon(lot.key) : Ammo.icon(lot.key);
   function mkTake(kind, a, n) {
-    if (kind === 'item') { Profile.data.items = Profile.data.items.filter((e) => e.uid !== a.key); Profile.save(); return true; }
+    if (kind === 'item') return Profile.takeSaleItem(a.key);
     if (kind === 'res') { const [k, t] = a.key.split(':'); return Profile.takeRes(k, Number(t), n); }
     if (kind === 'cons') { if ((Profile.data.backpack[a.key] || 0) < n) return false; Profile.data.backpack[a.key] -= n; Profile.save(); return true; }
     if (Profile.ammo(a.key) < n) return false; Profile.data.ammo[a.key] -= n; Profile.save(); return true;
