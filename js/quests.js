@@ -8,6 +8,8 @@ if (typeof _t === 'undefined' && typeof require === 'function') require('./i18n.
    в нужном экране, id остаются едиными и уникальными для обоих собеседников. */
 
 const Q_H = (typeof Hero !== 'undefined') ? Hero : require('./hero.js');
+const Q_T = (typeof Tiers !== 'undefined') ? Tiers : require('./tiers.js');
+const Q_B = (typeof Balance !== 'undefined') ? Balance : require('./balance.js');
 
 const Quests = (() => {
   const bestiaryCount = (d) => Object.keys(d.bestiary || {}).length;
@@ -21,6 +23,11 @@ const Quests = (() => {
   const ISLAND = ['glowmaw','coralhulk','stormray','tidecaller','thornback'];
   const islandSeen = d => ISLAND.filter(id => d.seen?.[id] || d.bestiary?.[id]?.wins > 0).length;
   const islandWins = d => ISLAND.filter(id => d.bestiary?.[id]?.wins > 0).length;
+  // Сложность острова определяется его существами, а не уровнем сдающего героя.
+  const ISLAND_CHEST_COINS = Q_B.economy.battleLoot[9];
+  const islandScoutCoins = Q_B.economy.battleLoot[6];
+  const islandHuntCoins = 3 * islandScoutCoins;
+  const islandFinalCoins = 2 * ISLAND_CHEST_COINS;
 
   const LIST = [
     // ---------- Таверна: гоблин-трактирщик ----------
@@ -184,9 +191,9 @@ const Quests = (() => {
 
   // Продолжение истории маяка: исследование, охота и находка, без новых случайных предметов.
   LIST.push(
-    { id:'isle-1', giver:'lighthouse', title:_t("Затерянный остров: разведка"), desc:_t("Отправьтесь на остров и найдите все пять местных видов. Смотрителю нужна карта живой природы."), need:islandSeen, goal:5, reward:{coins:800}, rewardText:_t("800 медных монет") },
-    { id:'isle-2', giver:'lighthouse', title:_t("Затерянный остров: охота"), desc:_t("Победите Фонарника, Кораллового исполина, Штормового ската, Приливника и Игольчатого секача — по одному каждого вида."), need:afterQ('isle-1',islandWins), goal:5, reward:{coins:1500,cons:{potion:2}}, rewardText:_t("1500 монет и 2 Эликсира жизни") },
-    { id:'isle-3', giver:'lighthouse', title:_t("Затерянный остров: тайна капитана"), desc:_t("Одолейте стража и откройте пиратский сундук. Если вы уже нашли его, покажите смотрителю добычу."), need:afterQ('isle-2',d=>d.island?.chestTaken?1:0), goal:1, reward:{coins:2500,cons:{elixir:2}}, rewardText:_t("2500 монет и 2 Эликсира силы") }
+    { id:'isle-1', giver:'lighthouse', title:_t("Затерянный остров: разведка"), desc:_t("Отправьтесь на остров и найдите все пять местных видов. Смотрителю нужна карта живой природы."), need:islandSeen, goal:5, reward:{coins:islandScoutCoins}, rewardText:Q_T.moneyText(islandScoutCoins) },
+    { id:'isle-2', giver:'lighthouse', title:_t("Затерянный остров: охота"), desc:_t("Победите Фонарника, Кораллового исполина, Штормового ската, Приливника и Игольчатого секача — по одному каждого вида."), need:afterQ('isle-1',islandWins), goal:5, reward:{coins:islandHuntCoins,cons:{potion:2}}, rewardText:_t("{0} и 2 Эликсира жизни", [Q_T.moneyText(islandHuntCoins)]) },
+    { id:'isle-3', giver:'lighthouse', title:_t("Затерянный остров: тайна капитана"), desc:_t("Одолейте стража и откройте пиратский сундук. Если вы уже нашли его, покажите смотрителю добычу."), need:afterQ('isle-2',d=>d.island?.chestTaken?1:0), goal:1, reward:{coins:islandFinalCoins,cons:{elixir:2}}, rewardText:_t("{0} и 2 Эликсира силы", [Q_T.moneyText(islandFinalCoins)]) }
   );
   const PREVIOUS = {'fest-2':'fest-1','fest-3':'fest-2','mel-2':'mel-1','mel-3':'mel-2','bob-2':'bob-1','bob-3':'bob-2','bob-4':'bob-3','bob-5':'bob-4','isle-2':'isle-1','isle-3':'isle-2'};
   const ready = (data,id) => (!PREVIOUS[id] || !!data.quests?.[PREVIOUS[id]]) &&
@@ -249,7 +256,7 @@ const Quests = (() => {
     return true;
   }
 
-  return { LIST, list, find, canAccept, accept, canClaim, claim };
+  return { LIST, ISLAND_CHEST_COINS, list, find, canAccept, accept, canClaim, claim };
 })();
 
 // Для тестов в Node.js (в браузере не используется).

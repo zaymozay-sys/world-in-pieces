@@ -3,6 +3,11 @@ const assert = require('assert');
 const Gear = require('../js/items.js');
 global.Gear = Gear;
 const Quests = require('../js/quests.js');
+const balance = require('../js/balance.js');
+assert.strictEqual(Quests.find('isle-1').reward.coins, balance.economy.battleLoot[6]);
+assert.strictEqual(Quests.find('isle-2').reward.coins, 3 * balance.economy.battleLoot[6]);
+assert.strictEqual(Quests.find('isle-3').reward.coins, 2 * balance.economy.battleLoot[9]);
+assert.strictEqual(Quests.ISLAND_CHEST_COINS, balance.economy.battleLoot[9]);
 
 // четырнадцать заданий (пять от трактирщика, пять от мыши, четыре от тюленя-смотрителя маяка), у каждого — цель, описание и понятная награда
 assert.strictEqual(Quests.LIST.length, 32);
@@ -166,6 +171,20 @@ assert.strictEqual(Quests.claim('ten-wins'), true);
 assert.ok(d.items && d.items.some((e) => e.id === 'amulet-power'), 'награда мыши — амулет силы');
 assert.strictEqual(Quests.claim('ten-wins'), false, 'повторно забрать нельзя');
 
+// Островная цепочка: тот же размер награды, что в каталоге, только один раз.
+{
+  const p = fresh(), ids = ['glowmaw','coralhulk','stormray','tidecaller','thornback'];
+  p.ship = { fixed: true }; p.seen = Object.fromEntries(ids.map(id => [id, 7]));
+  p.bestiary = Object.fromEntries(ids.map(id => [id, { wins: 1 }]));
+  p.island = { chestTaken: true }; global.Profile = mockProfile(p);
+  for (const id of ['isle-1','isle-2','isle-3']) {
+    const before = p.coins || 0, q = Quests.find(id);
+    assert.ok(Quests.accept(id) && Quests.claim(id));
+    assert.strictEqual(p.coins, before + q.reward.coins);
+    assert.strictEqual(Quests.claim(id), false);
+    assert.strictEqual(p.coins, before + q.reward.coins);
+  }
+}
 console.log('quests: все тесты пройдены');
 
 // 1.4.4: цветные ключи и серебряный сундук

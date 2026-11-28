@@ -2650,9 +2650,9 @@ const MapView = (() => {
     if (d.island.chestTaken) return closeCard();
     d.island.chestTaken = true; Profile.chron('chest', _t("Сундук пирата"));
     const tier = Math.max(1, Hero.tierFor(Profile.level())), e = Gear.makeEntry('sea-belt', tier);
-    Profile.addItem(e); Profile.addCoins(2500); Profile.addConsumable('elixir', 3); Profile.addEgg('dragon');
+    Profile.addItem(e); Profile.addCoins(Quests.ISLAND_CHEST_COINS); Profile.addConsumable('elixir', 3); Profile.addEgg('dragon');
     Profile.save(); closeCard();
-    toast(_t("В сундуке: 2500 монет, {0}, 3 эликсира и драконье яйцо.", [Gear.item(e).name]), 5200);
+    toast(_t("В сундуке: {0}, {1}, 3 эликсира и драконье яйцо.", [Tiers.moneyText(Quests.ISLAND_CHEST_COINS), Gear.item(e).name]), 5200);
   }
   // Хозяин замка — тень прежнего героя: копия вашего героя, сильнее вас на несколько уровней.
   function lordShadow() {
