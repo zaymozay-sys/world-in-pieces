@@ -1475,3 +1475,20 @@ body.mode-map .map-card.mc-compact-loot .mc-act button { min-height:44px; margin
 .modal .tip-box :is(p,b,strong,em) { color:#392713; text-shadow:none; }
 .overlay.battle-result button.to-map { color:#241506; text-shadow:none; }
 .shop-workshop .shop-product .card-act .primary:not(:disabled) { color:#241506; text-shadow:none; }
+
+/* Светлая карточка ресурса: читаемая подпись цены. */
+.modal.icard-modal.res-card .loot-card .hint { color:#594021; opacity:1; text-shadow:none; }
+.modal.icard-modal.res-card .loot-card .res-tip { color:#3a2715; }
+/* Оружейная: крупный список для большого инвентаря, без изменения ячеек хранения. */
+.home-modal .stash-views { display:flex; gap:6px; }
+.home-modal .stash-views button { flex:1; min-height:44px; }
+.home-modal .stash-views button.on { border-color:#d0ad68; color:#f6dca5; background:#4f3920; }
+.home-modal .stash-filter-row select:last-child { grid-column:auto; }
+.home-modal .stash-item-info { display:none; }
+.home-modal .bag-gear .stash-grid.stash-list-view { display:grid; grid-template-columns:1fr; gap:6px; }
+.home-modal .bag-gear .stash-grid.stash-list-view .stash-cell:not([hidden]) { display:flex; flex-direction:row; align-items:center; gap:10px; width:100%; min-height:72px; height:auto; aspect-ratio:auto; box-sizing:border-box; text-align:left; padding:7px 9px; }
+.home-modal .stash-list-view .stash-cell > .item-icon { width:56px; height:56px; flex:0 0 56px; object-fit:contain; }
+.home-modal .stash-list-view .stash-item-info { display:grid; flex:1; gap:3px; min-width:0; white-space:normal; overflow-wrap:anywhere; color:#ead9bc; text-shadow:none; }
+.home-modal .stash-list-view .stash-item-info small { font:400 12px/1.3 system-ui,sans-serif; color:#c7b69a; }
+.home-modal .stash-list-view .stash-item-info .stash-wear { color:#f0ba97; }
+.home-modal .bag-gear .stash-cell[hidden] { display:none!important; }
