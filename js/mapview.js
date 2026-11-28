@@ -158,6 +158,37 @@ const MapView = (() => {
     setInterval(tick, 5000);
   }
 
+  // Название области — отдельное, не перекрывающее управление уведомление.
+  let regionKey = '', regionCandidate = '', regionTimer = 0;
+  function regionAt() {
+    const c = map && st && map.cells[st.pos];
+    if (!c) return null;
+    if (map.kind === 'island') return ['island', _t("Затерянный остров")];
+    if (map.kind === 'castle') return ['castle', _t("Замок")];
+    if (map.kind === 'tower') return ['tower:' + (map.floor || 1), _t("Подземелье") + ' · ' + (map.floor || 1)];
+    const key = c.d <= HexMap.VILLAGE_R ? 'village' : c.terrain;
+    return HexMap.TERRAIN[key] ? [key, HexMap.TERRAIN[key].name] : null;
+  }
+  function updateRegion(settled = false, initial = false) {
+    const r = regionAt();
+    if (!r) return;
+    if (initial && !regionKey) { regionKey = r[0]; return; }
+    if (r[0] === regionKey) { regionCandidate = ''; return; }
+    // На границе двух местностей не мигаем на каждой соте.
+    if (!settled && regionCandidate !== r[0]) { regionCandidate = r[0]; return; }
+    regionKey = r[0]; regionCandidate = '';
+    const parent = el['map-view'];
+    if (!parent) return;
+    let banner = parent.querySelector('.region-banner');
+    if (!banner) {
+      banner = document.createElement('div'); banner.className = 'region-banner';
+      banner.setAttribute('role', 'status'); parent.append(banner);
+    }
+    banner.textContent = r[1]; banner.classList.add('show');
+    clearTimeout(regionTimer);
+    regionTimer = setTimeout(() => banner.classList.remove('show'), 2200);
+  }
+
   function load() {
     const d = Profile.data;
     if (!d.map || typeof d.map.seed !== 'number') d.map = { seed: HexMap.sharedSeed(), pos: null, revealed: [], defeated: {}, ver: MAP_VER };
@@ -209,6 +240,7 @@ const MapView = (() => {
     renderFog();
     renderMonsters();
     placePlayer(false);
+    updateRegion(true, true);
     renderHud();
     requestAnimationFrame(() => { if (view().width < 500) cam.s = 0.8; centerOn(st.pos, false); applyMiniVisible(); });
     siegeOnLoad();
@@ -1059,10 +1091,12 @@ const MapView = (() => {
       const reveal = revealAround(next);
       if (reveal) monstersDirty = true;   // 2.2.10: зверей перерисуем один раз по окончании пути — перерисовка слоя на каждом шаге рвала движение
       await glide(from, px(next), ms);
+      updateRegion();
     }
     flushMonsters();
     stepping = false; walkView = null;
     setMoving(false); applyCam();
+    updateRegion(true);
     renderHud();
     save();
   }
@@ -1150,7 +1184,7 @@ const MapView = (() => {
     if (!arrowsOk() || !Compass.use(compassS(), kind, Profile.beltTier())) return toast(_t("Стрелки работают только на материке и только с Поясом"));
     closeCard(); walking = null; st.pos = idx;
     for (const n of HexMap.area(map, idx, 3)) revealed.add(n);
-    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); save(); renderHud();
+    renderMonsters(); placePlayer(false); centerOn(idx, false); drawPath(null); updateRegion(true); save(); renderHud();
     toast(kind === 'home' ? _t("Стрелка перенесла вас в деревню") : _t("Стрелка перенесла вас к метке"));
   }
   function goHome() {
