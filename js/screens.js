@@ -9,7 +9,7 @@ const Screens = (() => {
   const st = {
     wiki:  { q: '', art: null, filter: 'all' },
     questJournal: { tab: 'active' },
-    shop:  { tab: 'buy', section: 'gear', sort: 'order', resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
+    shop:  { tab: 'buy', section: 'gear', sort: 'order', saleQ: '', saleKind: 'all', saleTier: 'all', saleSort: 'tier', saleSelected: new Set(), saleConfirm: null, resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
     forge: { tab: 'upgrade', view: 'list', sel: null, filter: 'weapon', msg: '', craftTier: 0, choice: {} },
     best:  { sel: null, tier: 1, q: '', f: 'all', fam: '', view: 'list' },
     // fac: при первом запуске (first) — черновик регистрации (ник, пол, выбранная фракция) до нажатия «Начать игру»,
@@ -226,6 +226,12 @@ const Screens = (() => {
     root.addEventListener('touchstart', (e) => { const h = e.target.closest && e.target.closest('.modal > header'); sw = h && e.touches.length === 1 ? { y: e.touches[0].clientY, x: e.touches[0].clientX } : null; }, { passive: true });
     root.addEventListener('touchend', (e) => { if (!sw) return; const t = e.changedTouches[0]; const dy = t.clientY - sw.y, dx = Math.abs(t.clientX - sw.x); sw = null; if (dy > 90 && dx < 60 && !mustChoose()) close(); }, { passive: true });
     root.addEventListener('change', (e) => { const sel = e.target.dataset && e.target.dataset.catsel; if (!sel) return; if (cur !== 'shop') return; if (sel === 'set') st.shop.set = e.target.value; else if (sel === 'kind') st.shop.kind = e.target.value; else if (sel === 'sort') st.shop.sort = e.target.value; else return; render(); });
+    root.addEventListener('change', (e) => {
+      if (cur !== 'shop' || st.shop.tab !== 'sell') return;
+      const key = e.target.dataset && e.target.dataset.saleFilter;
+      if (!['saleKind','saleTier','saleSort'].includes(key)) return;
+      st.shop[key] = e.target.value; clearSale(st.shop); render();
+    });
     root.addEventListener('change', (e) => { const id = e.target.dataset && e.target.dataset.gfNote; if (!id) return; const gg = giftsState(); if (Gifts.setNote(gg, id, e.target.value)) Profile.save(); });
     document.body.appendChild(root);
     document.addEventListener('keydown', onKey);
@@ -284,7 +290,7 @@ const Screens = (() => {
   }
   function open(id, shopSection) {
     if (root && id !== cur) rememberPosition();
-    if (id === 'shop' && (id !== cur || shopSection)) st.shop.section = shopSection || 'gear';
+    if (id === 'shop' && (id !== cur || shopSection)) { st.shop.section = shopSection || 'gear'; clearSale(st.shop); }
     mount();
     if (id !== 'wiki') wikiReturnScreen = null;
     cur = id;
@@ -348,6 +354,7 @@ const Screens = (() => {
       if (html.includes('lh-board') && root.querySelector('.lh-board') && !root.querySelector('.ch-board')) patchRender(html);   // 2.4.3: мини-игры не пересоздаются целиком после каждого хода — иначе мигают
       else { root.innerHTML = html; addTip(); addScene(); markNeeds(); petIcons(); sparkButtons(); markToasts(); chessAnimate(); applyShopQuery(); basketFab(); if (cur === 'valor') valorDecorate(); }
       decorateWorkshop();
+      if (cur === 'shop' && st.shop.tab === 'sell') applySaleQuery();
       root.querySelectorAll('.tabs:not(.sub)').forEach((t) => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth + 2) t.scrollLeft = Math.max(0, on.offsetLeft - 24); });   // 2.0.9: активная вкладка видна
       if (keepNow) { const nb = root.querySelector('.screen-body'); if (nb) nb.scrollTop = top; keepScroll = false; }
     }
@@ -535,6 +542,9 @@ const Screens = (() => {
   }
   function onInput(e) {
     if (cur === 'valor' && e.target.dataset.vq !== undefined) { st.valor.q = e.target.value; valorFilter(); return; }
+    if (cur === 'shop' && e.target.dataset.saleSearch !== undefined) {
+      st.shop.saleQ = e.target.value; clearSale(st.shop); applySaleQuery(); return;
+    }
     if (cur === 'shop' && e.target.dataset.shq !== undefined) {
       st.shop.q = e.target.value;
       if (st.shop.q.trim() && st.shop.set !== 'all') {   // 2.2.7: поиск ищет по всем комплектам, а не только по выбранному
@@ -759,6 +769,50 @@ const Screens = (() => {
   const shopSections = () => [['gear', _t("Вещи")], ['cons', _t("Расходники")], ['resources', _t("Ресурсы")]];
   const shopSectionTabs = (s) => '<nav class="shop-sections" aria-label="' + _t("Лавка") + '">' + shopSections().map(([id, label]) => `<button type="button" data-shop-section="${id}" aria-pressed="${s.section === id}" class="${s.section === id ? 'on' : ''}">${label}</button>`).join('') + '</nav>';
   const shopSection = (s, id, html) => `<section class="shop-section shop-${id}" ${s.section === id ? '' : 'hidden'}>${html}</section>`;
+  function clearSale(s) { s.saleSelected.clear(); s.saleConfirm = null; }
+  const saleValue = (entry, it) => Gear.sellValue(Math.round(it.price * Gear.wearFactor(entry)), it.tier);
+  function saleRows(s) {
+    const kind = (CAT_KINDS.find(([id]) => id === s.saleKind) || CAT_KINDS[0])[2];
+    return Profile.data.items.filter(e => Profile.canSellItem(e.uid)).map(entry => ({entry,it:Gear.item(entry)}))
+      .filter(({it}) => it && kind(it.type) && (s.saleTier === 'all' || String(it.tier) === s.saleTier))
+      .sort((a,b) => s.saleSort === 'name' ? a.it.name.localeCompare(b.it.name) :
+        s.saleSort === 'price' ? saleValue(a.entry,a.it)-saleValue(b.entry,b.it) :
+        s.saleSort === 'price-desc' ? saleValue(b.entry,b.it)-saleValue(a.entry,a.it) : b.it.tier-a.it.tier);
+  }
+  function salePanel(s) {
+    const select = (key,label,options) => `<label>${label}<select data-sale-filter="${key}">${options.map(([id,name]) => `<option value="${id}"${String(s[key])===String(id)?' selected':''}>${name}</option>`).join('')}</select></label>`;
+    const rows = saleRows(s);
+    const protectedCount = Profile.data.items.filter(e => !Profile.canSellItem(e.uid)).length;
+    const controls = `<div class="sale-filters"><input type="search" data-sale-search="1" aria-label="${_t("Поиск по названию")}" placeholder="${_t("Поиск по названию")}" value="${escText(s.saleQ)}">${select('saleKind',_t("Тип"),CAT_KINDS.map(([id,name])=>[id,name]))}${select('saleTier',_t("Цвет"),[['all',_t("Все")],...Tiers.LIST.map(x=>[x.id,x.name])])}${select('saleSort',_t("Сортировка"),[['tier',_t("По цвету")],['name',_t("По названию")],['price',_t("По стоимости")+' ↑'],['price-desc',_t("По стоимости")+' ↓']])}</div>`;
+    const list = rows.map(({entry,it}) => {
+      const uid = escText(it.uid), selected = s.saleSelected.has(it.uid);
+      const actions = `<button type="button" data-sale-pick="${uid}" aria-pressed="${selected}">${selected?'✓ ':''}${_t("Выбрать")}</button><button type="button" data-sell-item="${uid}">${_t("Продать")}</button>`;
+      return itemCard(it, _t("Продать за: {0}",[money(saleValue(entry,it))]), actions, 'sale-product');
+    }).join('');
+    return controls + `<p class="hint">${_t("Защищено от продажи: {0}",[protectedCount])}</p><p class="hint sale-count" role="status"></p><div class="sale-summary"></div><div class="card-list sale-catalog">${list}</div>`;
+  }
+  function saleVisible() {
+    return [...root.querySelectorAll('.sale-catalog > .sale-product:not([hidden]) [data-sale-pick]')].map(b=>b.dataset.salePick);
+  }
+  function refreshSaleSummary() {
+    const s=st.shop, summary=root.querySelector('.sale-summary'); if (!summary) return;
+    const quote=Profile.saleQuote([...s.saleSelected]), count=quote?quote.uids.length:0;
+    if (!quote) clearSale(s);
+    const confirming = s.saleConfirm && quote;
+    summary.innerHTML = `<div class="sale-totals" aria-live="polite"><b>${_t("Выбрано вещей: {0}",[count])}</b><span>${_t("Вы получите: {0}",[money(quote?quote.total:0)])}</span></div><div class="sale-actions">${confirming ? `<strong class="sale-warning">${_t("Продать выбранные вещи? Отменить продажу нельзя.")}</strong><button type="button" class="primary" data-sale-act="confirm">${_t("Подтвердить продажу")}</button><button type="button" data-sale-act="cancel">${_t("Отмена")}</button>` : `<button type="button" data-sale-act="all" ${saleVisible().length?'':'disabled'}>${_t("Выбрать найденные")}</button><button type="button" data-sale-act="clear" ${count?'':'disabled'}>${_t("Снять выбор")}</button><button type="button" class="primary" data-sale-act="review" ${count?'':'disabled'}>${_t("Продать выбранные")}</button>`}</div>`;
+    for (const b of root.querySelectorAll('[data-sale-pick]')) {
+      const on=s.saleSelected.has(b.dataset.salePick);
+      b.setAttribute('aria-pressed',String(on)); b.textContent=(on?'✓ ':'')+_t("Выбрать");
+      b.closest('.sale-product').classList.toggle('selected',on);
+    }
+  }
+  function applySaleQuery() {
+    const s=st.shop, q=s.saleQ.trim().toLowerCase(), cards=[...root.querySelectorAll('.sale-catalog > .sale-product')];
+    for (const card of cards) card.hidden=!!q && !card.textContent.toLowerCase().includes(q);
+    const n=cards.filter(c=>!c.hidden).length, label=root.querySelector('.sale-count');
+    if(label) label.textContent=n?_t("Найдено вещей: {0} из {1}",[n,cards.length]):_t("Нет подходящих вещей");
+    refreshSaleSummary();
+  }
   const shop = {
     html() {
       const s = st.shop;
@@ -784,15 +838,13 @@ const Screens = (() => {
           + shopSection(s, 'cons', '<h3>' + _t("Боеприпасы вашего народа") + '</h3><div class="card-list">' + ammoCard + '</div><h3>' + _t("Расходники") + '</h3><div class="card-list">' + cons + '</div>')
           + shopSection(s, 'resources', tierPicker(top, rt, 'restier') + '<div class="card-list">' + res + '</div>');
       } else {
-        const items = Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => Gear.item(e))
-          .sort((a, b) => b.tier - a.tier).map((it) =>
-            itemCard(it, _t("Продать за: {0}", [money(Gear.sellValue(Math.round(it.price * Gear.wearFactor(Profile.item(it.uid))), it.tier))]), _t("<button type=\"button\" data-sell-item=\"{0}\">Продать</button>", [it.uid]))).join('') || _t("<p class=\"hint\">Нет вещей на продажу (надетые не продаются).</p>");
+        const items = salePanel(s);
         const cons = Gear.heldCons(Profile.data.backpack).map(([k, c]) => _t("\n          <div class=\"card\" style=\"--t:#c9b48a\">{0}<div class=\"card-body\"><span class=\"item-title\">{1} × {2}</span><span class=\"item-foot\">За штуку: {3}</span></div>\n          <div class=\"card-act\"><button type=\"button\" data-sell-cons=\"{4}\">Продать 1</button></div></div>", [itemIcon(k), c.name, Profile.data.backpack[k], money(Gear.sellValue(consPrice(Gear.parseCons(k).base))), k])).join('') || EmptyArt.html('flask', _t("Расходников нет"));
         const res = Profile.resList().map((r) => {
           const p = Bestiary.resSellPrice(r.kind, r.tier);
           return _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2} × {3}</span><span class=\"item-foot\">За штуку: {4}</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-sell-res=\"{5}:{6}\" data-n=\"1\">×1</button><button type=\"button\" data-sell-res=\"{7}:{8}\" data-n=\"all\">Все</button></div></div>", [tierColor(r.tier), MonsterArt.resIcon(r.kind, r.tier), resLabel(r.kind, r.tier), r.n, money(p), r.kind, r.tier, r.kind, r.tier]);
         }).join('') || _t("<p class=\"hint\">Ресурсов нет. Они выпадают из монстров.</p>");
-        body = shopSectionTabs(s) + shopSection(s, 'gear', '<div class="card-list">' + items + '</div>')
+        body = shopSectionTabs(s) + shopSection(s, 'gear', items)
           + shopSection(s, 'cons', '<div class="card-list">' + cons + '</div>')
           + shopSection(s, 'resources', '<div class="card-list">' + res + '</div>');
       }
@@ -801,7 +853,26 @@ const Screens = (() => {
     click(b) {
       const s = st.shop, d = b.dataset;
       if (d.shopSection && shopSections().some(([id]) => id === d.shopSection)) {
-        s.section = d.shopSection; s.msg = ''; return render();
+        clearSale(s); s.section = d.shopSection; s.msg = ''; return render();
+      }
+      if (s.tab === 'sell' && s.section === 'gear' && (d.salePick || d.saleAct)) {
+        if (d.salePick) {
+          s.saleConfirm=null;
+          if (Profile.canSellItem(d.salePick) && saleVisible().includes(d.salePick)) {
+            if(s.saleSelected.has(d.salePick)) s.saleSelected.delete(d.salePick); else s.saleSelected.add(d.salePick);
+          }
+        } else if (d.saleAct==='all') { s.saleConfirm=null; s.saleSelected=new Set(saleVisible().filter(uid=>Profile.canSellItem(uid))); }
+        else if(d.saleAct==='clear') clearSale(s);
+        else if(d.saleAct==='review') s.saleConfirm=Profile.saleQuote([...s.saleSelected]);
+        else if(d.saleAct==='cancel') s.saleConfirm=null;
+        else if(d.saleAct==='confirm' && s.saleConfirm) {
+          const quote=s.saleConfirm;
+          clearSale(s);
+          const sold=Profile.sellItems(quote.uids,quote.total);
+          s.msg=sold?_t("Продано вещей: {0}. Получено: {1}",[sold.uids.length,money(sold.total)]):_t("Продажа отменена: состав или стоимость вещей изменились.");
+          return changed();
+        }
+        return refreshSaleSummary();
       }
       if (d.shopView) {
         if (d.shopView === 'affordable') s.affordable = !s.affordable;
@@ -823,7 +894,7 @@ const Screens = (() => {
         workshopSuccess = 'shop'; s.msg = _t("Куплено вещей: {0}", [n]);
         return changed();
       }
-      if (d.tab) { s.tab = d.tab; s.msg = ''; return render(); }
+      if (d.tab) { clearSale(s); s.tab = d.tab; s.msg = ''; return render(); }
       if (d.restier) { s.resTier = Number(d.restier); return render(); }
       if (d.catset) { s.set = d.catset; return render(); }
       if (d.catkind) { s.kind = d.catkind; return render(); }
@@ -884,6 +955,7 @@ const Screens = (() => {
         return changed();
       }
       if (d.sellItem) {
+        clearSale(s);
         if (!Profile.canSellItem(d.sellItem)) return;   // 1.6.4: повторный (устаревший) клик по уже проданной вещи не платит второй раз
         const ent = Profile.item(d.sellItem), it = Gear.item(ent), wf = Gear.wearFactor(ent);     // 1.6.6: изношенная вещь дешевле
         if (!Profile.takeSaleItem(d.sellItem)) return;
