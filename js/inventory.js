@@ -1053,6 +1053,7 @@ const ItemInfo = (() => {
       const on = Profile.isFavorite(uid); f.dataset.ic = 'favorite'; f.setAttribute('aria-pressed', String(on));
       f.textContent = on ? '★ ' + _t("Защищено от продажи") : '☆ ' + _t("В избранное");
       pop.querySelector('.ic-title').append(f);
+      const names=Profile.presetNamesFor(uid); if(names.length){const note=document.createElement('small'); note.className='ic-preset-note'; note.textContent=_t("В сохранённых комплектах: {0}",[names.join(', ')]); pop.querySelector('.ic-title').append(note);}
     }
     // Сравнение с надетой вещью — сразу под названием: что изменится, если надеть
     if (cur) {
@@ -1479,7 +1480,35 @@ const Inventory = (() => {
       const oldBudget = root.querySelector('.budget'); if (oldBudget) oldBudget.remove();
       for (const cell of root.querySelectorAll('.stash-cell[data-stash]')) cell.title = Hero.noPts(cell.title);
     }
-    stashSearch(stash); bestBtn();
+    stashSearch(stash); bestBtn(); presetPanel();
+  }
+  function presetPanel() {
+    if (!armory || !canEditGear()) return;
+    const grid=root.querySelector('.bag-gear .stash-grid'); if(!grid) return;
+    const panel=document.createElement('section'); panel.className='gear-presets';
+    const heading=document.createElement('h3'); heading.textContent=_t("Комплекты экипировки"); panel.append(heading);
+    const hint=document.createElement('p'); hint.className='hint'; hint.textContent=_t("Вещи сохранённых комплектов защищены от продажи."); panel.append(hint);
+    const button=(label,act,fn)=>{const b=document.createElement('button'); b.type='button'; b.textContent=label; b.dataset.presetAct=act; b.addEventListener('click',e=>{e.stopPropagation(); if(armory&&canEditGear()) fn();}); return b;};
+    const list=Profile.data.equipmentPresets||[];
+    list.forEach((p,i)=>{
+      const row=document.createElement('div'); row.className='preset-row'; row.dataset.preset=String(i);
+      const name=document.createElement('b'); name.textContent=p.name; row.append(name);
+      const status=document.createElement('small'), check=Profile.presetCheck(i);
+      const active=!check.error&&Gear.SLOTS.every(k=>(Profile.data.loadout[k]||null)===(p.slots[k]||null));
+      status.textContent=check.error||(active?_t("Надето"):_t("Вещей: {0}",[Gear.SLOTS.filter(k=>p.slots[k]).length])); row.append(status);
+      const actions=document.createElement('div'); actions.className='preset-actions';
+      const apply=button(_t("Надеть"),'apply',()=>{const err=Profile.applyPreset(i); if(err)return say(err); stashLayout(); Profile.save(); onGearChanged(); say(_t("Комплект надет"));});
+      apply.disabled=!!check.error||active;
+      actions.append(apply,button(_t("Обновить комплект"),'update',()=>{if(Profile.savePreset(p.name,i))say(_t("Комплект сохранён"));}),button(_t("Удалить комплект"),'delete',()=>{Profile.deletePreset(i);render();}));
+      row.append(actions); panel.append(row);
+    });
+    if(list.length<5){
+      const form=document.createElement('div'); form.className='preset-actions';
+      const name=document.createElement('input'); name.type='text'; name.maxLength=32; name.placeholder=_t("Название комплекта"); name.setAttribute('aria-label',name.placeholder);
+      const add=button(_t("Сохранить комплект"),'save',()=>{if(Profile.savePreset(name.value))say(_t("Комплект сохранён"));else{name.setCustomValidity(_t("Введите уникальное название комплекта"));name.reportValidity();}});
+      name.addEventListener('input',()=>name.setCustomValidity('')); form.append(name,add); panel.append(form);
+    }
+    grid.before(panel);
   }
   function bestBtn() {
     if (!armory || !canEditGear()) return;
