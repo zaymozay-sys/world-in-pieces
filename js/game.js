@@ -2614,22 +2614,22 @@ function grantRewardsBase() {
 }
 // Награда за одного поверженного противника f (в бою вдвоём — за каждого убитого своя).
 function rewardFor(f, first = true, opts = {}) {
-  const R = Balance.rewards;
+  const R = Balance.rewards, selection = opts.quick ? (opts.selection || {}) : selNow();
   // 1.5.4: элитное — опыт и монеты больше; быстрый бой — половина, без вещей и находок
   const k = (opts.quick ? World.QUICK.share : 1), ke = f.elite ? World.ELITE : null;
-  const xp = Math.round(Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level(), f.lvl) * k * (f.scorp ? Balance.mobLevels.scorpReward : 1) * Growth.xpMul(selNow().grow) * (ke ? ke.xp : 1) * (!isChallenge() && Profile.perk('world') ? 1.15 : 1));
-  const skyFx = selNow();                                                    // 1.7.1: ночью добыча богаче на 15%
+  const xp = Math.round(Hero.xpReward(Bestiary.MONSTERS[f.monsterId], f.tier, Profile.level(), f.lvl) * k * (f.scorp ? Balance.mobLevels.scorpReward : 1) * Growth.xpMul(selection.grow) * (ke ? ke.xp : 1) * ((opts.quick || !isChallenge()) && Profile.perk('world') ? 1.15 : 1));
+  const skyFx = selection;                                                    // 1.7.1: ночью добыча богаче на 15%
   const lm = Sky.lootMul(skyFx);
   const drops = Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), lm * (f.leader ? Balance.mobLevels.leaderLoot : 1) * (f.scorp ? Balance.mobLevels.scorpReward : 1), f.lvl);   // 2.4.0: вожак — богаче добыча
-  if (selNow().castle && !drops.item && !opts.quick && Math.random() < (selNow().trait ? 0.12 : 0.06)) {   // 1.9.3: духи со своим приёмом роняют одежду вдвое чаще
-    const pieces = selNow().castleSet ? Gear.ITEMS.filter((i) => i.set === selNow().castleSet) : [];
+  if (selection.castle && !drops.item && !opts.quick && Math.random() < (selection.trait ? 0.12 : 0.06)) {   // 1.9.3: духи со своим приёмом роняют одежду вдвое чаще
+    const pieces = selection.castleSet ? Gear.ITEMS.filter((i) => i.set === selection.castleSet) : [];
     drops.item = pieces.length ? Gear.makeEntry(pieces[Math.floor(Math.random() * pieces.length)].id, f.tier) : Bestiary.rollDrops(f.monsterId, f.tier, Math.random, Profile.data.faction, Hero.tierFor(Profile.level()), 1e6).item;
   }   // 1.8.6: духи замка в доспехах — иногда роняют одежду
-  drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm * Growth.xpMul(selNow().grow));
+  drops.coins = Math.round(drops.coins * k * (ke ? ke.coins : 1) * lm * Growth.xpMul(selection.grow));
   if (!opts.quick && Profile.petInBattle() && Profile.pet() && Math.random() < Pets.amuletPower(Profile.pet(), 'fortune')) { drops.coins *= 2; drops.fortune = true; }   // «Амулет удачи»
   if (lm !== 1) for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * lm));
   if (opts.quick) drops.item = null;
-  if (selNow().stale) drops.item = null;                 // 2.0.9: подземелье — в уже зачищенной комнате вещей нет (ресурсы и монеты как обычно)
+  if (selection.stale) drops.item = null;                 // 2.0.9: подземелье — в уже зачищенной комнате вещей нет (ресурсы и монеты как обычно)
   // 1.2.9: в режиме «×10» награда выдаётся как обычно (так удобно проверять добычу и ошибки сильным героем).
   drops.coins = Math.round(drops.coins * Factions.perk(Profile.data.faction, 'coins'));   // люди: +10% монет
   const luckPct = fighters.left.luck || 0;                    // Свиток удачи: +% к монетам и ресурсам с этой победы
@@ -2637,8 +2637,8 @@ function rewardFor(f, first = true, opts = {}) {
     drops.coins = Math.round(drops.coins * (1 + luckPct / 100));
     for (const r of drops.resources) r.n = Math.round(r.n * (1 + luckPct / 100));
   }
-  if (huntBonus) { drops.coins = Math.round(drops.coins * 1.25); for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * 1.25)); huntBonus = false; }
-  const mp = (k) => !isChallenge() && Profile.perk(k);                                  // 1.6.3: умения за комплекты медалей
+  if (!opts.quick && huntBonus) { drops.coins = Math.round(drops.coins * 1.25); for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * 1.25)); huntBonus = false; }
+  const mp = (k) => (opts.quick || !isChallenge()) && Profile.perk(k);                                  // 1.6.3: умения за комплекты медалей
   if (mp('kill')) { drops.coins = Math.round(drops.coins * 1.25); for (const r of drops.resources) r.n = Math.max(1, Math.round(r.n * 1.25)); }
   Profile.data.wins++;
   Profile.noteBattle();
@@ -2727,7 +2727,7 @@ function rewardFor(f, first = true, opts = {}) {
     SND.win();
   }
   // 1.3.0: страж осколка — двойные монеты; первая победа — осколок Великого Сердца и награда сюжета.
-  const bossId = Profile.data.monster && Profile.data.monster.boss;
+  const bossId = !opts.quick && selection.boss;
   if (bossId && Story.BY_ID[bossId]) {
     const story = Profile.data.story = Profile.data.story || { shards: {} };
     story.shards = story.shards || {};
@@ -2748,7 +2748,7 @@ function rewardFor(f, first = true, opts = {}) {
     }
   }
   // 1.7.3: хозяин зоны — монеты ×2; первая победа — трофей: монеты, опыт и редкая вещь вашего цвета.
-  const zoneId = Profile.data.monster && Profile.data.monster.zone, ZB = !opts.quick && zoneId && World.ZONE_BOSSES[zoneId];
+  const zoneId = selection.zone, ZB = !opts.quick && zoneId && World.ZONE_BOSSES[zoneId];
   if (ZB) {
     Profile.addCoins(drops.coins);
     lines.push(_t("Хозяин зоны: монеты ×2 (+{0})", [MonsterArt.moneyHtml(drops.coins)]));
@@ -2803,10 +2803,10 @@ function defeat() {
 }
 
 // 1.5.4: быстрый бой с картой (MapView.quickFight) — награда за слабое, уже побеждённое существо без боя.
-function quickReward(monsterId, tier) {
+function quickReward(monsterId, tier, lvl, selection = {}) {
   const keep = { luck: fighters.left.luck, shot: shotKilledMonster, strike: strikeKilledMonster };
   fighters.left.luck = 0; shotKilledMonster = false; strikeKilledMonster = false;
-  try { return rewardFor({ monsterId, tier }, false, { quick: true }); } finally { fighters.left.luck = keep.luck; shotKilledMonster = keep.shot; strikeKilledMonster = keep.strike; }
+  try { return rewardFor({ monsterId, tier, lvl }, false, { quick: true, selection }); } finally { fighters.left.luck = keep.luck; shotKilledMonster = keep.shot; strikeKilledMonster = keep.strike; }
 }
 
 // 1.5.4: итог боя на Арене теней или в Испытании дня (победа, поражение, отступление — один раз за бой).

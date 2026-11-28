@@ -1252,7 +1252,7 @@ const MapView = (() => {
       zoneWon ? _t("Трофей уже взят — монеты за победу всё равно ×2.") : _t("За первую победу — трофей: монеты, опыт и редкая вещь вашего цвета.")]) + `<p class="hint boss-taunt"><i>${ZB.taunt}</i></p>` : '';
     const eliteNote = (elite ? _t("<p class=\"hint elite-note\">★ <b>Элитное существо</b>: свойство «{0}» — {1}. Крепче и злее, зато опыта ×{2} и монет ×{3}.</p>", [World.AFFIXES[World.affixFor(elite, m.ability)].name, World.AFFIXES[World.affixFor(elite, m.ability)].desc, World.ELITE.xp, World.ELITE.coins]) : '')
       + (G ? _t("<p class=\"hint elite-note\">👑 Особый приём стража — «{0}»: {1}.</p>", [G.name, G.desc]) : '');
-    const xp = Math.round(Hero.xpReward(m, sp.tier, Profile.level(), HexMap.lvlOf(sp)) * (elite ? World.ELITE.xp : 1));
+    const xp = Math.round(Hero.xpReward(m, sp.tier, Profile.level(), HexMap.lvlOf(sp)) * (sp.scorp ? Balance.mobLevels.scorpReward : 1) * Growth.xpMul(Growth.steps(st, sp)) * (elite ? World.ELITE.xp : 1) * (Profile.perk('world') ? 1.15 : 1));
     const abil = Object.entries(sc.stats).filter(([, v]) => v > 0).map(([k, v]) => `<span class="chip">${fmtStat(k, v)}</span>`).join('');
     const weakRes = Bestiary.resourcesWeak(sp.tier, Hero.tierFor(Profile.level()));   // 1.6.6: слабее вашего цвета — ресурсов нет
     const drops = weakRes ? `<span class="hint">${_t("ресурсов нет: существо слабее на 2 цвета и больше")}</span>` : m.drops.map(([kind]) => MonsterArt.resIcon(kind, sp.tier)).join('');
@@ -1420,7 +1420,8 @@ const MapView = (() => {
     if (!alive(sp)) return;
     approach(sp.idx, () => {
       if (!alive(sp)) return;
-      const html = quickReward(sp.species, sp.tier);
+      const html = quickReward(sp.species, sp.tier, HexMap.lvlOf(sp), { ...Sky.battleFx(), grow: Growth.steps(st, sp) });
+      Growth.reset(st, sp);
       st.defeated[sp.id] = Date.now() + (sp.guest ? GUEST_REST_MS : RESPAWN_MS);
       if (st.swarm) delete st.swarm[sp.id];
       renderMonsters(); renderHud(); marketNews(); save();

@@ -11,30 +11,39 @@ const { Tiers, Gear, Bestiary, Factions, Combat, Hero, Balance } = global;
 const rnd = () => sim.rand();
 const ri = (n) => Math.floor(rnd() * n);
 
-// Какие виды живут на каком цвете (как на карте).
-const SPECIES_AT = {};
-for (let t = 1; t <= 10; t++) SPECIES_AT[t] = Bestiary.ORDER.filter((id) => HexMap.SPAWN[id] && t >= HexMap.SPAWN[id].tiers[0] && t <= HexMap.SPAWN[id].tiers[1]);
+// Фактические уровни обычных существ общей карты, не первый уровень цвета.
+const World = require('../js/world.js');
+const map = HexMap.generate(HexMap.sharedSeed()), world = World.place(map);
+HexMap.ensureCoverage(map, [...world.events, ...world.lairs, ...world.landmarks].map(x => x.idx));
+const SPECIES_AT = Array.from({ length: 11 }, () => []);
+const seen = new Set();
+for (const sp of map.spawns) {
+  if (sp.boss || sp.zone || sp.guard || sp.leader || sp.rare || HexMap.SPAWN[sp.species]?.rare) continue;
+  const id = sp.species, t = sp.tier, mlvl = HexMap.lvlOf(sp), key = id + ':' + t + ':' + mlvl;
+  if (seen.has(key)) continue;
+  seen.add(key); SPECIES_AT[t].push({ id, t, mlvl });
+}
 
 function heroView(P) {
   const gear = P.loadout, L = P.level;
   const stats = sim.makeHero({ faction: P.faction, level: L, gear }).stats;
   return { max: Hero.baseHp(L) + stats.health, dmg: Hero.dmgMult(L), stats };
 }
-function monView(id, t, level) {
-  const sc = Bestiary.scaled(id, t, 1, level);
+function monView(id, t, level, mlvl) {
+  const sc = mlvl ? Bestiary.scaledAt(id, mlvl, 1, level) : Bestiary.scaled(id, t, 1, level);
   return { max: sc.hp, dmg: sc.dmg, stats: sc.stats, ai: sc.ai };
 }
 const refChance = (P, gear) => {                   // насколько хороша экипировка: шанс против орка своего цвета
   const save = P.loadout; P.loadout = gear;
-  const p = Combat.winChance(heroView(P), monView('orc', Hero.tierFor(P.level), P.level), 'orc');
+  const p = Combat.winChance(heroView(P), monView('orc', Hero.tierFor(P.level), P.level, P.level), 'orc');
   P.loadout = save;
   return p;
 };
 
 function makeShop(P) {
   const top = Hero.tierFor(P.level), pool = [];
-  for (const it of Gear.itemsFor(P.faction)) for (let k = 0; k < { common: 6, rare: 3, epic: 1 }[it.rarity]; k++) pool.push(it);
-  return Array.from({ length: 8 }, () => Gear.makeEntry(pool[ri(pool.length)].id, Math.max(1, top - ri(2) + (process.argv.includes('--refit') && ri(8) === 0 ? 1 : 0))));   // --refit: изредка попадается вещь цвета на один выше
+  for (const it of Gear.itemsFor(P.faction).filter(i => i.rarity !== 'epic')) for (let k = 0; k < { common: 6, rare: 3, epic: 1 }[it.rarity]; k++) pool.push(it);
+  return Array.from({ length: 8 }, () => Gear.makeEntry(pool[ri(pool.length)].id, Math.min(Hero.shopGearTier(P.level), Math.max(1, top - ri(2) + (process.argv.includes('--refit') && ri(8) === 0 ? 1 : 0)))));   // --refit: изредка попадается вещь цвета на один выше
 }
 const slotsFor = (it) => (it.type === 'weapon1' ? ['main', 'off'] : it.type === 'weapon2' ? ['main'] : it.type === 'shield' ? ['off'] : [it.type]);
 
@@ -73,9 +82,9 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
     const lv = perLevel[L] || (perLevel[L] = { battles: 0, wins: 0, coins: P.coins, gearTier: 0, chance: 0, buys: 0, forges: 0, spent: 0, budgetUse: 0 });
     // выбор противника
     const cand = [];
-    for (let t = Math.max(1, tf - 1); t <= Math.min(10, tf + 1); t++) for (const id of SPECIES_AT[t]) {
-      const p = Combat.winChance(hv, monView(id, t, L), id), xp = Hero.xpReward(Bestiary.MONSTERS[id], t, L);
-      cand.push({ id, t, p, xp, v: p * xp });
+    for (let t = Math.max(1, tf - 1); t <= Math.min(10, tf + 1); t++) for (const { id, mlvl } of SPECIES_AT[t]) {
+      const p = Combat.winChance(hv, monView(id, t, L, mlvl), id), xp = Hero.xpReward(Bestiary.MONSTERS[id], t, L, mlvl);
+      cand.push({ id, t, mlvl, p, xp, v: p * xp });
     }
     let pool = cand.filter((c) => c.p >= Balance.danger.bands.even).sort((a, c) => c.v - a.v);
     if (!pool.length) pool = cand.sort((a, c) => c.p - a.p);
@@ -89,15 +98,15 @@ function career({ faction = 'dwarf', battles = 2500, seed = 1, verbose = false, 
       P.coins -= elxPrice; lv.spent += elxPrice; global.__elxCoins = (global.__elxCoins || 0) + elxPrice; plan[kind] = tf;
     }
     const hero = sim.makeHero({ faction, level: L, gear: P.loadout, bag: P.bag, elixirs: plan });
-    const mon = sim.makeMonster(pick.id, pick.t, { level: L });
+    const mon = sim.makeMonster(pick.id, pick.t, { level: L, mlvl: pick.mlvl });
     const S = sim.Battle(hero, mon, sim.humanPlayer({ items: pick.p < 0.62 })).run();
     P.bag = hero.bag;
     lv.battles++; lv.chance += pick.p; lv.budgetUse += Gear.totalCost(P.loadout) / Hero.budget(L);
     lv.gearTier += Gear.SLOTS.map((s) => Gear.item(P.loadout[s])).filter(Boolean).reduce((s, it, _, a) => s + it.tier / a.length, 0);
     if (S.winner === 'left') {
       lv.wins++;
-      P.xp += Hero.xpReward(Bestiary.MONSTERS[pick.id], pick.t, L);
-      const d = Bestiary.rollDrops(pick.id, pick.t, rnd, faction, tf);
+      P.xp += pick.xp;
+      const d = Bestiary.rollDrops(pick.id, pick.t, rnd, faction, tf, 1, pick.mlvl);
       P.coins += Math.round(d.coins * coinPerk * Number((process.argv.find((x) => x.startsWith('--coinK=')) || '--coinK=1').split('=')[1]));
       for (const r of d.resources) P.res[r.kind + ':' + r.tier] = R(r.kind, r.tier) + r.n;
       if (d.item) { const pl = bestPlacement(P, d.item); if (pl) P.loadout = pl.gear; else { const item = Gear.item(d.item); P.coins += Gear.sellValue(item.price, item.tier); } }
@@ -189,7 +198,7 @@ function guardCheck(P, chapter, N = 12) {
   return wins / N;
 }
 
-module.exports = { career, guardCheck };
+module.exports = { career, guardCheck, targetsAt: tier => (SPECIES_AT[tier] || []).map(x => ({ ...x })) };
 
 if (require.main === module) {
   const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v] = a.replace(/^--/, '').split('='); return [k, v === undefined ? true : v]; }));
