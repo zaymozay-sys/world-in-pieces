@@ -231,6 +231,7 @@ const Screens = (() => {
     ModalFocus.open(root);
   }
   function close() {
+    rememberPosition();
     if (root) { ModalFocus.close(root); root.remove(); root = null; }
     document.removeEventListener('keydown', onKey);
     cur = null;
@@ -242,6 +243,7 @@ const Screens = (() => {
   const wikiHelpTopics = { shop: 'gear', forge: 'forge', best: 'bestiary', kennel: 'pets', alchemist: 'elixirs', village: 'village', arena: 'arena', library: 'runes', jeweler: 'gems', lighthouse: 'lighthouse', market: 'resources' };
   function openWikiHelp(from) {
     if (!wikiHelpTopics[from] || !Wiki.find(wikiHelpTopics[from])) return;
+    rememberPosition();
     wikiReturnScreen = from;
     st.wiki.art = wikiHelpTopics[from];
     st.wiki.hist = [];
@@ -259,9 +261,34 @@ const Screens = (() => {
     st.wiki.positions = [];
     cur = previous;
     render();
+    restorePosition();
     return true;
   }
-  function open(id) { mount(); if (id !== 'wiki') wikiReturnScreen = null; cur = id; render(); }
+  // Позиция списков хранится только на время игровой сессии, отдельно для каждого раздела.
+  // Не вмешиваемся в мини-игры, регистрацию и собственную историю навигации базы знаний.
+  const scrollScreens = new Set(['shop', 'forge', 'library', 'market', 'kennel', 'alchemist', 'village', 'valor', 'best', 'jeweler']);
+  const scrollPositions = new Map();
+  function positionKey() {
+    if (!scrollScreens.has(cur)) return null;
+    const s = st[cur] || {};
+    return [cur, s.tab || '', s.view || '', s.sel || ''].join(':');
+  }
+  function rememberPosition() {
+    const key = positionKey(), body = root && root.querySelector('.screen-body');
+    if (key && body) scrollPositions.set(key, body.scrollTop);
+  }
+  function restorePosition() {
+    const key = positionKey(), body = root && root.querySelector('.screen-body');
+    if (key && body && scrollPositions.has(key)) body.scrollTop = scrollPositions.get(key);
+  }
+  function open(id) {
+    if (root && id !== cur) rememberPosition();
+    mount();
+    if (id !== 'wiki') wikiReturnScreen = null;
+    cur = id;
+    render();
+    restorePosition();
+  }
   const titleOpen = {};      // 1.8.4: какие группы титулов развёрнуты (запоминается, пока открыта страница)
   let keepScroll = false;
   // 2.1.2: рядом с «Купить» в Лавке появляется «за ✦N» (расходники и ресурсы)
