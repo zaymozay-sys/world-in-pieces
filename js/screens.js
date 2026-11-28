@@ -479,6 +479,14 @@ const Screens = (() => {
     if (!b || b.disabled) return;
     if (b.dataset.act === 'wiki-context') return openWikiHelp(cur);
     if (b.dataset.act === 'close') { if (cur === 'wiki' && returnWikiHelp()) return; return close(); }
+    if (b.dataset.materialFind && cur === 'forge') {
+      const [kind, tierText] = b.dataset.materialFind.split(':'), tier = Number(tierText);
+      if (!Bestiary.RESOURCES[kind] || !Number.isInteger(tier) || tier < 1 || tier > Tiers.MAX || MapView.inBattle) return;
+      if (Bestiary.resourcesWeak(tier, Hero.tierFor(Profile.level()))) {
+        st.shop.tab = 'res'; return open('shop');
+      }
+      close(); MapView.focusResource(kind,tier); return;
+    }
     if (b.dataset.tryon && cur) return openTryOn(b.dataset.tryon);
     if (b.dataset.tipShow) { if (Profile.data.tips) delete Profile.data.tips[b.dataset.tipShow]; Profile.save(); return render(); }
     if (b.dataset.tip) { Profile.data.tips = Profile.data.tips || {}; Profile.data.tips[b.dataset.tip] = true; Profile.save(); return render(); }
@@ -859,8 +867,16 @@ const Screens = (() => {
     const miss = [];
     const coinsLack = Math.max(0, (c.coins || 0) - Profile.data.coins);
     if (coinsLack > 0) miss.push(_t("монет: {0}", [money(coinsLack)]));
-    for (const r of (c.res || [])) { const lack = r.n - Profile.res(r.kind, r.tier); if (lack > 0) { const kn = Profile.species(), src = Bestiary.sourcesOf(r.kind).filter((id) => kn.includes(id)).slice(0, 3).map((id) => Bestiary.MONSTERS[id].name).join(', '); miss.push(`${Bestiary.RESOURCES[r.kind].name} (${Tiers.get(r.tier).name}) ×${lack}` + (src ? ` — ${_t("падает с")}: ${src}` : '')); } }
-    return miss.length ? `<div class="lack">${_t("Не хватает")}: ${miss.join(', ')}</div>` : '';
+    for (const r of (c.res || [])) {
+      const lack = r.n - Profile.res(r.kind, r.tier);
+      if (lack <= 0) continue;
+      const weak = Bestiary.resourcesWeak(r.tier, Hero.tierFor(Profile.level()));
+      const label = Bestiary.RESOURCES[r.kind].name + ' (' + Tiers.get(r.tier).name + ') ×' + lack;
+      const kn = Profile.species(), src = weak ? '' : Bestiary.sourcesOf(r.kind).filter(id => kn.includes(id)).slice(0,3).map(id => Bestiary.MONSTERS[id].name).join(', ');
+      miss.push('<div class="lack-material"><span>' + MonsterArt.resIcon(r.kind,r.tier) + ' ' + label + (src ? ' — ' + _t("падает с") + ': ' + src : '') + '</span>' +
+        '<button type="button" data-material-find="' + r.kind + ':' + r.tier + '">' + (weak ? _t("Найти в лавке") : _t("Найти источник на карте")) + '</button></div>');
+    }
+    return miss.length ? '<div class="lack"><b>' + _t("Не хватает") + ':</b> ' + miss.join(' ') + '</div>' : '';
   };
   const costHtml = (c, key) => costBase(c, key) + lackHtml(c);
   const forgeSummary = (c) => {
@@ -875,7 +891,7 @@ const Screens = (() => {
     const out = new Set();
     for (const k of marks()) {
       const [id, t] = k.split(':'); let cost; try { cost = craftPlan(id, +t); } catch (e) { continue; }
-      for (const r of ((cost && cost.res) || [])) if (r.n > Profile.res(r.kind, r.tier)) for (const sp of Bestiary.sourcesOf(r.kind)) out.add(sp);
+      for (const r of ((cost && cost.res) || [])) if (r.n > Profile.res(r.kind, r.tier) && !Bestiary.resourcesWeak(r.tier, Hero.tierFor(Profile.level()))) for (const sp of Bestiary.sourcesOf(r.kind)) out.add(sp + ':' + r.tier);
     }
     return out;
   }
