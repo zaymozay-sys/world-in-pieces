@@ -1541,7 +1541,7 @@ const Inventory = (() => {
     grid.insertAdjacentElement('beforebegin', b);
   }
   // Фильтры и сортировка меняют только представление: data-stash всегда указывает на исходную ячейку.
-  const stashFilters = { q: '', type: '', tier: '', sort: '', favorite: '' };
+  const stashFilters = { q: '', type: '', tier: '', sort: '', favorite: '', set: '', condition: '', view: 'grid' };
   function stashSearch(stash) {
     const grid = root.querySelector('.bag-gear .stash-grid');
     if (!grid) return;
@@ -1568,23 +1568,48 @@ const Inventory = (() => {
     const tier = select('tier', _t("Цвет вещей"), [['', _t("Все цвета")], ...Array.from({ length: 10 }, (_, i) => [String(i + 1), Tiers.get(i + 1).name])]);
     const sort = select('sort', _t("Сортировка"), [['', _t("В порядке хранения")], ['name', _t("По названию")], ['tier', _t("По цвету")], ['price', _t("По стоимости")]]);
     const favorite = select('favorite', _t("Избранные предметы"), [['', _t("Все вещи")], ['yes', _t("Избранные предметы")]]);
-    for (const {cell,item} of rows) if (Profile.isFavorite(item.uid)) {
-      const badge = document.createElement('span'); badge.className = 'item-favorite-mark'; badge.textContent = '★'; badge.title = _t("Защищено от продажи"); cell.append(badge);
+    const set = select('set', _t("Комплект"), [['', _t("Все комплекты")], ['none', _t("Без комплекта")], ...Object.entries(Gear.SETS).filter(([id])=>rows.some(r=>r.item.set===id)).map(([id,info])=>[id,info.name])]);
+    if (!Array.from(set.options).some(o=>o.value===stashFilters.set)) { stashFilters.set=''; set.value=''; }
+    const condition = select('condition', _t("Состояние предмета"), [['',_t("Любое состояние")],['wear',_t("Можно надеть")],['repair',_t("Нужен ремонт")],['protected',_t("Защищённые вещи")]]);
+    const views=document.createElement('div'); views.className='stash-views';
+    for(const [id,label] of [['grid',_t("Значки")],['list',_t("Список")]]) {
+      const b=document.createElement('button'); b.type='button'; b.dataset.stashView=id; b.textContent=label;
+      b.addEventListener('click',()=>{stashFilters.view=id;apply();}); views.append(b);
+    }
+    panel.append(views);
+    const gear=Profile.gear(), faction=Profile.data.faction, level=Profile.level();
+    for (const row of rows) {
+      const {cell,item}=row, entry=Profile.item(item.uid);
+      row.protected=!Profile.canSellItem(item.uid);
+      row.wearable=Gear.SLOTS.some(slot=>Gear.canEquip(gear,entry,slot,faction,level).ok);
+      const favorite=Profile.isFavorite(item.uid), presets=Profile.presetNamesFor(item.uid);
+      if(favorite || presets.length){
+        const badge=document.createElement('span'); badge.className='item-favorite-mark'; badge.textContent=favorite?'★':'◆';
+        badge.title=presets.length?_t("В сохранённых комплектах: {0}",[presets.join(', ')]):_t("Защищено от продажи"); cell.append(badge);
+      }
+      const info=document.createElement('span'); info.className='stash-item-info';
+      const name=document.createElement('b'); name.textContent=item.name; info.append(name);
+      const meta=document.createElement('small'); meta.textContent=[Gear.TYPE_NAMES[item.type],Tiers.get(item.tier).name,item.set&&Gear.SETS[item.set]?.name].filter(Boolean).join(' · '); info.append(meta);
+      const stats=document.createElement('small'); stats.textContent=fmtBonus(item.stats); info.append(stats);
+      const durability=document.createElement('small'); durability.textContent=_t("Прочность {0}/{1}",[item.dur,item.maxDur]); if(item.dur<item.maxDur) durability.className='stash-wear'; info.append(durability);
+      cell.append(info);
     }
     panel.append(filters);
     const summary = document.createElement('div'); summary.className = 'stash-summary'; summary.setAttribute('role', 'status');
     const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'stash-reset'; reset.textContent = _t("Сбросить фильтры");
     panel.append(summary, reset);
     function apply() {
-      const { q, type, tier, sort, favorite } = stashFilters, query = q.trim().toLowerCase();
-      const filtering = !!(query || type || tier || favorite);
+      const { q, type, tier, sort, favorite, set, condition, view } = stashFilters, query = q.trim().toLowerCase();
+      const filtering = !!(query || type || tier || favorite || set || condition);
+      grid.classList.toggle('stash-list-view',view==='list');
+      for(const b of views.children) { const active=b.dataset.stashView===view; b.classList.toggle('on',active); b.setAttribute('aria-pressed',String(active)); }
       let found = 0;
-      for (const { cell, item } of rows) {
-        const search = [item.name, Gear.TYPE_NAMES[item.type], Tiers.get(item.tier).name, fmtBonus(item.stats), cell.title].join(' ').toLowerCase();
-        const match = (!query || search.includes(query)) && (!type || item.type === type) && (!tier || String(item.tier) === tier) && (!favorite || Profile.isFavorite(item.uid));
+      for (const { cell, item, protected: locked, wearable } of rows) {
+        const search = [item.name, Gear.TYPE_NAMES[item.type], Tiers.get(item.tier).name, item.set && Gear.SETS[item.set]?.name, fmtBonus(item.stats), cell.title].join(' ').toLowerCase();
+        const match = (!query || search.includes(query)) && (!type || item.type === type) && (!tier || String(item.tier) === tier) && (!favorite || Profile.isFavorite(item.uid)) && (!set || (set==='none' ? !item.set : item.set===set)) && (!condition || (condition==='wear' ? wearable : condition==='repair' ? item.dur<item.maxDur : locked));
         cell.hidden = !match; if (match) found++;
       }
-      for (const cell of empty) cell.hidden = filtering;
+      for (const cell of empty) cell.hidden = filtering || view==='list';
       const sorted = [...rows];
       if (sort === 'name') sorted.sort((a, b) => a.item.name.localeCompare(b.item.name));
       if (sort === 'tier') sorted.sort((a, b) => b.item.tier - a.item.tier);
@@ -1594,7 +1619,7 @@ const Inventory = (() => {
       reset.hidden = !(filtering || sort);
     }
     inp.addEventListener('input', () => { stashFilters.q = inp.value; apply(); });
-    reset.addEventListener('click', () => { Object.assign(stashFilters, { q: '', type: '', tier: '', sort: '', favorite: '' }); inp.value = type.value = tier.value = sort.value = favorite.value = ''; apply(); });
+    reset.addEventListener('click', () => { Object.assign(stashFilters, { q: '', type: '', tier: '', sort: '', favorite: '', set:'', condition:'' }); inp.value = type.value = tier.value = sort.value = favorite.value = set.value = condition.value = ''; apply(); });
     grid.before(panel); apply();
   }
 
