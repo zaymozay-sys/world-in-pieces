@@ -9,7 +9,7 @@ const Screens = (() => {
   const st = {
     wiki:  { q: '', art: null, filter: 'all' },
     questJournal: { tab: 'active' },
-    shop:  { tab: 'buy', resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
+    shop:  { tab: 'buy', section: 'gear', sort: 'order', resTier: 1, msg: '', basket: {}, consQty: {}, resQty: {}, set: null, kind: 'all', tier: 0 },
     forge: { tab: 'upgrade', view: 'list', sel: null, filter: 'weapon', msg: '', craftTier: 0, choice: {} },
     best:  { sel: null, tier: 1, q: '', f: 'all', fam: '', view: 'list' },
     // fac: при первом запуске (first) — черновик регистрации (ник, пол, выбранная фракция) до нажатия «Начать игру»,
@@ -225,7 +225,7 @@ const Screens = (() => {
     let sw = null;
     root.addEventListener('touchstart', (e) => { const h = e.target.closest && e.target.closest('.modal > header'); sw = h && e.touches.length === 1 ? { y: e.touches[0].clientY, x: e.touches[0].clientX } : null; }, { passive: true });
     root.addEventListener('touchend', (e) => { if (!sw) return; const t = e.changedTouches[0]; const dy = t.clientY - sw.y, dx = Math.abs(t.clientX - sw.x); sw = null; if (dy > 90 && dx < 60 && !mustChoose()) close(); }, { passive: true });
-    root.addEventListener('change', (e) => { const sel = e.target.dataset && e.target.dataset.catsel; if (!sel) return; if (sel === 'set') st.shop.set = e.target.value; else st.shop.kind = e.target.value; render(); });
+    root.addEventListener('change', (e) => { const sel = e.target.dataset && e.target.dataset.catsel; if (!sel) return; if (cur !== 'shop') return; if (sel === 'set') st.shop.set = e.target.value; else if (sel === 'kind') st.shop.kind = e.target.value; else if (sel === 'sort') st.shop.sort = e.target.value; else return; render(); });
     root.addEventListener('change', (e) => { const id = e.target.dataset && e.target.dataset.gfNote; if (!id) return; const gg = giftsState(); if (Gifts.setNote(gg, id, e.target.value)) Profile.save(); });
     document.body.appendChild(root);
     document.addEventListener('keydown', onKey);
@@ -272,7 +272,7 @@ const Screens = (() => {
   function positionKey() {
     if (!scrollScreens.has(cur)) return null;
     const s = st[cur] || {};
-    return [cur, s.tab || '', s.view || '', s.sel || ''].join(':');
+    return [cur, s.tab || '', s.view || '', s.sel || '', s.section || ''].join(':');
   }
   function rememberPosition() {
     const key = positionKey(), body = root && root.querySelector('.screen-body');
@@ -282,8 +282,9 @@ const Screens = (() => {
     const key = positionKey(), body = root && root.querySelector('.screen-body');
     if (key && body && scrollPositions.has(key)) body.scrollTop = scrollPositions.get(key);
   }
-  function open(id) {
+  function open(id, shopSection) {
     if (root && id !== cur) rememberPosition();
+    if (id === 'shop' && (id !== cur || shopSection)) st.shop.section = shopSection || 'gear';
     mount();
     if (id !== 'wiki') wikiReturnScreen = null;
     cur = id;
@@ -395,7 +396,12 @@ const Screens = (() => {
         const active = key === 'affordable' ? !!st.shop.affordable : (st.shop.catalogView || 'grid') === key;
         btn.classList.toggle('on', active); btn.setAttribute('aria-pressed', String(active)); bar.append(btn);
       }
-      list.before(bar); applyShopQuery();
+      const sort = document.createElement('label'); sort.className = 'shop-sort'; sort.textContent = _t("Сортировка") + ' ';
+      const select = document.createElement('select'); select.dataset.catsel = 'sort';
+      for (const [value, name] of [['order', _t("По порядку")], ['name', _t("По названию")], ['price', _t("По стоимости") + ' ↑'], ['price-desc', _t("По стоимости") + ' ↓']]) { const opt = document.createElement('option'); opt.value = value; opt.textContent = name; select.append(opt); }
+      select.value = st.shop.sort || 'order'; sort.append(select); bar.append(sort);
+      const reset = document.createElement('button'); reset.type = 'button'; reset.dataset.shopView = 'reset'; reset.textContent = _t("Сбросить фильтры"); bar.append(reset);
+      list.after(bar); applyShopQuery();
     }
   }
   // 1.8.1: у окон без своего фона (деревня, справка, стена доблести) он подхватывается, как только картинка ui/bg-<имя> есть в игре
@@ -483,7 +489,7 @@ const Screens = (() => {
       const [kind, tierText] = b.dataset.materialFind.split(':'), tier = Number(tierText);
       if (!Bestiary.RESOURCES[kind] || !Number.isInteger(tier) || tier < 1 || tier > Tiers.MAX || MapView.inBattle) return;
       if (Bestiary.resourcesWeak(tier, Hero.tierFor(Profile.level()))) {
-        st.shop.tab = 'buy'; st.shop.resTier = tier; open('shop');
+        st.shop.tab = 'buy'; st.shop.resTier = tier; open('shop', 'resources');
         const target = root.querySelector('[data-buy-res="' + kind + '"]')?.closest('.card');
         if (target) { target.classList.add('material-target'); target.scrollIntoView({block:'center'}); }
         return;
@@ -516,7 +522,16 @@ const Screens = (() => {
   }
   function applyShopQuery() {
     const q = (cur === 'shop' && st.shop.q || '').trim().toLowerCase();
-    root.querySelectorAll('.cat-search ~ .card-list .card, .card-list .card').forEach((c) => { if (c.closest('.sh-basket')) return; const buy = c.querySelector('[data-buy-cat]'); c.hidden = (!!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q))) || !!(cur === 'shop' && st.shop.affordable && buy && buy.disabled); });
+    if (cur !== 'shop' || st.shop.tab !== 'buy') return;
+    const catalog = root.querySelector('.shop-gear .cat-search ~ .card-list'); if (!catalog) return;
+    const cards = [...catalog.querySelectorAll(':scope > .card')].filter(c => c.querySelector('[data-buy-cat]'));
+    for (const c of cards) {
+      const buy = c.querySelector('[data-buy-cat]');
+      c.hidden = (!!q && !(typeof Wiki !== 'undefined' && Wiki.qmatch ? Wiki.qmatch(c.textContent, q) : c.textContent.toLowerCase().includes(q))) || !!(st.shop.affordable && buy.disabled);
+    }
+    const summary = root.querySelector('.shop-count');
+    const found = cards.filter(c => !c.hidden).length;
+    if (summary) summary.textContent = found ? _t("Найдено вещей: {0} из {1}", [found, cards.length]) : _t("Нет подходящих вещей");
   }
   function onInput(e) {
     if (cur === 'valor' && e.target.dataset.vq !== undefined) { st.valor.q = e.target.value; valorFilter(); return; }
@@ -586,7 +601,7 @@ const Screens = (() => {
     const faction = Profile.data.faction, all = Gear.itemsFor(faction).filter((i) => i.rarity !== 'epic');      // 1.6.6: эпические вещи в Лавке не продаются (Кузница, добыча, события)
     const setIds = Object.keys(Gear.SETS).filter((id) => all.some((i) => i.set === id));
     const hasNone = all.some((i) => !i.set);
-    const own = setIds.find((id) => Gear.SETS[id].faction === faction) || setIds[0] || 'all';
+    const own = 'all';
     if (!(s.set === 'all' || (s.set === 'none' && hasNone) || setIds.includes(s.set))) s.set = own;
     if (!CAT_KINDS.some((k) => k[0] === s.kind)) s.kind = 'all';
     const tier = (s.tier >= 1 && s.tier <= top) ? s.tier : Profile.shopTop();
@@ -610,7 +625,11 @@ const Screens = (() => {
     }
     const kindFn = CAT_KINDS.find((k) => k[0] === s.kind)[2];
     const bases = all.filter((i) => (s.set === 'all' || (s.set === 'none' ? !i.set : i.set === s.set)) && kindFn(i.type))
-      .sort((a, b) => CAT_TYPE_ORDER.indexOf(a.type) - CAT_TYPE_ORDER.indexOf(b.type) || a.cost - b.cost);
+      .sort((a, b) => {
+        if (s.sort === 'name') return Gear.item({id:a.id,tier}).name.localeCompare(Gear.item({id:b.id,tier}).name);
+        if (s.sort === 'price' || s.sort === 'price-desc') return (s.sort === 'price' ? 1 : -1) * (buyPrice(Gear.item({id:a.id,tier}).price) - buyPrice(Gear.item({id:b.id,tier}).price));
+        return CAT_TYPE_ORDER.indexOf(a.type) - CAT_TYPE_ORDER.indexOf(b.type) || a.cost - b.cost;
+      });
     const list = bases.map((b) => {
       const it = Gear.item({ id: b.id, tier }), price = buyPrice(it.price);
       // 2.3.6: надеваемая вещь — одна штука на слот, счётчик количества тут не нужен (убран; кнопка «Купить» берёт сразу 1 шт.)
@@ -618,7 +637,7 @@ const Screens = (() => {
       return itemCard(it, _t("Цена: {0}{1}", [money(price), levelNote(it)]), act);
     }).join('');
     const searchHtml = `<input type="search" class="cat-search" data-shq="1" value="${escText(s.q || '')}" placeholder="${_t("Поиск по названию")}" aria-label="${_t("Поиск по названию")}">`;
-    return { head: searchHtml + dropHtml + setsHtml + kindsHtml + tierHtml + info, list };
+    return { head: searchHtml + dropHtml + setsHtml + kindsHtml + tierHtml + info + '<p class="hint shop-count" role="status"></p>', list };
   }
 
   // Примерка: портрет героя в обновке и «было → станет» по итоговым характеристикам (так же, как на экране персонажа), смена бонусов комплектов
@@ -711,6 +730,9 @@ const Screens = (() => {
         <span class="sh-lockline">${lockSvg}${LOCKED_HOW[id] || _t("Выдаётся за заслуги.")}</span></div></div>`;
     }).join('')}</div>`;
   }
+  const shopSections = () => [['gear', _t("Вещи")], ['cons', _t("Расходники")], ['resources', _t("Ресурсы")]];
+  const shopSectionTabs = (s) => '<nav class="shop-sections" aria-label="' + _t("Лавка") + '">' + shopSections().map(([id, label]) => `<button type="button" data-shop-section="${id}" aria-pressed="${s.section === id}" class="${s.section === id ? 'on' : ''}">${label}</button>`).join('') + '</nav>';
+  const shopSection = (s, id, html) => `<section class="shop-section shop-${id}" ${s.section === id ? '' : 'hidden'}>${html}</section>`;
   const shop = {
     html() {
       const s = st.shop;
@@ -719,7 +741,7 @@ const Screens = (() => {
         // 2.3.6: надеваемые вещи покупаются по одной кнопкой «Купить» — корзина заказа (была нужна для счётчика ×N) здесь больше не нужна
         const top = Profile.shopTop(), gearTop = Hero.shopGearTier(Profile.level()), cat = catalogView(s, gearTop);
         if (gearTop > top) cat.head = '<p class="hint">' + _t("Вещи следующего цвета уже доступны для подготовки. Надеть их можно с {0}-го уровня или после перековки в Кузнице.", [Hero.itemLevel(gearTop)]) + '</p>' + cat.head;
-        const items = (cat.list || _t("<p class=\"hint\">В этой вкладке нет вещей.</p>")) + lockedShelf();
+        const items = cat.list || _t("<p class=\"hint\">В этой вкладке нет вещей.</p>");
         const qtyPicker = (kind, key, active) => `<div class="qty-picker">${QTY_STEPS.map((n) => `<button type="button" class="qs ${n === active ? 'on' : ''}" data-qty="${kind}" data-qty-key="${key}" data-qty-n="${n}">×${n}</button>`).join('')}</div>`;
         const cons = Object.entries(Gear.CONSUMABLES).filter(([, c]) => !c.alchemy).map(([k, c]) => {
           const qty = s.consQty[k] || 1, total = buyPrice(Gear.bulkPrice(consPrice(k), qty));
@@ -732,7 +754,9 @@ const Screens = (() => {
           const unit = buyPrice(Bestiary.resPrice(k, rt) * RES_BUY_MARKUP), qty = s.resQty[k] || 1, total = Gear.bulkPrice(unit, qty);
           return _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2}</span><span class=\"item-foot\">Цена: {3} за шт. · у вас: {4}</span></div>\n            <div class=\"card-act\">{5}<button type=\"button\" data-buy-res=\"{6}\" data-n=\"{7}\" {8}>Купить ×{9} за {10}</button></div></div>", [tierColor(rt), MonsterArt.resIcon(k, rt), resLabel(k, rt), money(unit), Profile.res(k, rt), qtyPicker('res', k, qty), k, qty, Profile.data.coins >= total ? '' : 'disabled', qty, money(total)]);
         }).join('');
-        body = _t("<h3>Вещи: постоянный каталог</h3>{0}<div class=\"card-list\">{1}</div>\n          <h3>Боеприпасы вашего народа</h3><div class=\"card-list\">{2}</div>\n          <h3>Расходники</h3><div class=\"card-list\">{3}</div>\n          <h3>Ресурсы</h3>{4}<div class=\"card-list\">{5}</div>\n          <p class=\"hint\">Руны теперь продаёт Журавль-художник в Мастерской художника.</p>", [cat.head, items, ammoCard, cons, tierPicker(top, rt, 'restier'), res]);
+        body = shopSectionTabs(s) + shopSection(s, 'gear', cat.head + '<div class="card-list">' + items + '</div>' + lockedShelf())
+          + shopSection(s, 'cons', '<h3>' + _t("Боеприпасы вашего народа") + '</h3><div class="card-list">' + ammoCard + '</div><h3>' + _t("Расходники") + '</h3><div class="card-list">' + cons + '</div>')
+          + shopSection(s, 'resources', tierPicker(top, rt, 'restier') + '<div class="card-list">' + res + '</div>');
       } else {
         const items = Profile.data.items.filter((e) => Profile.canSellItem(e.uid)).map((e) => Gear.item(e))
           .sort((a, b) => b.tier - a.tier).map((it) =>
@@ -742,15 +766,21 @@ const Screens = (() => {
           const p = Bestiary.resSellPrice(r.kind, r.tier);
           return _t("<div class=\"card\" style=\"--t:{0}\">{1}<div class=\"card-body\"><span class=\"item-title\">{2} × {3}</span><span class=\"item-foot\">За штуку: {4}</span></div>\n            <div class=\"card-act\"><button type=\"button\" data-sell-res=\"{5}:{6}\" data-n=\"1\">×1</button><button type=\"button\" data-sell-res=\"{7}:{8}\" data-n=\"all\">Все</button></div></div>", [tierColor(r.tier), MonsterArt.resIcon(r.kind, r.tier), resLabel(r.kind, r.tier), r.n, money(p), r.kind, r.tier, r.kind, r.tier]);
         }).join('') || _t("<p class=\"hint\">Ресурсов нет. Они выпадают из монстров.</p>");
-        body = _t("<h3>Вещи</h3><div class=\"card-list\">{0}</div><h3>Расходники</h3><div class=\"card-list\">{1}</div><h3>Ресурсы</h3><div class=\"card-list\">{2}</div>", [items, cons, res]);
+        body = shopSectionTabs(s) + shopSection(s, 'gear', '<div class="card-list">' + items + '</div>')
+          + shopSection(s, 'cons', '<div class="card-list">' + cons + '</div>')
+          + shopSection(s, 'resources', '<div class="card-list">' + res + '</div>');
       }
       return _t("<div class=\"modal\" role=\"dialog\" aria-label=\"Лавка\">{0}{1}\n        <div class=\"screen-body tavern-body\"{2}>{3}{4}</div></div>", [head(_t("Лавка")), tabs([['buy', _t("Купить")], ['sell', _t("Продать")]], s.tab), sceneStyle('shop'), s.msg ? `<div class="gear-toast">${s.msg}</div>` : '', body]);
     },
     click(b) {
       const s = st.shop, d = b.dataset;
+      if (d.shopSection && shopSections().some(([id]) => id === d.shopSection)) {
+        s.section = d.shopSection; s.msg = ''; return render();
+      }
       if (d.shopView) {
         if (d.shopView === 'affordable') s.affordable = !s.affordable;
-        else s.catalogView = d.shopView;
+        else if (d.shopView === 'reset') Object.assign(s, {q:'', set:'all', kind:'all', tier:0, sort:'order', affordable:false});
+        else if (d.shopView === 'grid' || d.shopView === 'list') s.catalogView = d.shopView;
         return render();
       }
       if (shelfClick(d)) return;
