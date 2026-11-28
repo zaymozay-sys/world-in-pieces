@@ -2789,6 +2789,9 @@ function defeatAdvice() {
   const bag = Profile.data.backpack || {};
   if (!battleStyle.elixirs && Profile.elixirBag().length) return _t("В сумке остались эликсиры — выпейте их в бою: они не тратят ход.");
   if ((bag.potion || 0) > 0 && !(me.itemsUsed && me.itemsUsed.potion)) return _t("Эликсир жизни остался в сумке — выпейте его, когда ХП на исходе.");
+  const tier = Hero.tierFor(Profile.level());
+  const gear = Object.values(Profile.gear()).filter(Boolean).map(Gear.item);
+  if (tier > 1 && gear.some((it) => it && it.tier < tier)) return _t("Часть снаряжения отстаёт от вашего цвета. Существа предыдущего цвета всё ещё дают ресурсы для улучшения вещей в Кузнице.");
   return _t("Победа была близко. Проверьте вещи в сумке: Сила и Броня решают исход, а слабое существо рядом даст опыт.");
 }
 function defeat() {
