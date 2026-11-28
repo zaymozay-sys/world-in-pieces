@@ -80,6 +80,15 @@ const MapView = (() => {
      не приблизится. Содержимое и порядок внутри лоскута те же, что и раньше. */
   const CK = 8 * SIZE * Math.sqrt(3), CK_PAD = 3 * SIZE;
   const ckLists = {};
+  // Не пересоздаём SVG-узлы при повторном обновлении неизменившегося слоя.
+  const layerMarkup = new WeakMap();
+  function replaceLayer(layer, html) {
+    const node = el[layer];
+    if (layerMarkup.get(node) === html) return false;
+    node.innerHTML = html;
+    layerMarkup.set(node, html);
+    return true;
+  }
   const bucketPush = (b, p, html) => { const k = Math.floor(p.x / CK) + ',' + Math.floor(p.y / CK); let a = b.get(k); if (!a) b.set(k, a = []); a.push(html); };
   const bucketHtml = (b) => [...b].map(([k, a]) => `<g class="ck" data-ck="${k}">${a.join('')}</g>`).join('');
   function ckIndex(layer) {
@@ -560,10 +569,9 @@ const MapView = (() => {
         </g></g>`);
     }
     renderSiegeTokens(out);
-    el['l-mon'].innerHTML = bucketHtml(mb) + out.join('');
+    if (replaceLayer('l-mon', bucketHtml(mb) + out.join(''))) ckIndex('l-mon');
     syncNextGlow();
     setTimeout(() => freshIdx.clear(), 1600);
-    ckIndex('l-mon');
     renderEvents();
   }
 
@@ -612,7 +620,7 @@ const MapView = (() => {
       const p = px(i);
       out.push(`<g class="pin" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})"><path d="M0 0 V-26" stroke="#2b1d10" stroke-width="2.4" stroke-linecap="round"/><path d="M0 -26 L15 -21 L0 -15Z" fill="#e0452f" stroke="#2b1d10" stroke-width="1.3" stroke-linejoin="round"/><circle r="3" fill="#2b1d10"/><text x="6" y="-17.5" font-size="8" font-weight="700" fill="#fff">${st.pinNames && st.pinNames[i] ? st.pinNames[i].slice(0, 12) : n + 1}</text></g>`);
     });
-    el['l-ev'].innerHTML = out.join('');
+    replaceLayer('l-ev', out.join(''));
     mini.dirty = true; drawMini();
   }
 
@@ -2203,7 +2211,7 @@ const MapView = (() => {
     const closeMenu = () => { menu.hidden = true; mbtn.setAttribute('aria-expanded', 'false'); collapseSubmenus(); };
     const placeMenu = () => {
       const rect = mbtn.getBoundingClientRect();
-      const top = Math.max(6, Math.min(Math.round(rect.top), window.innerHeight - 70));
+      const top = Math.max(6, Math.round(rect.bottom) + 6);
       menu.style.position = 'fixed';
       menu.style.left = 'auto';
       menu.style.right = 'env(safe-area-inset-right, 0px)';
