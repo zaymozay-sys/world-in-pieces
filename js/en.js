@@ -877,6 +877,7 @@
  "Шаровая молния: каждый собранный камень наносит урон": "Ball Lightning: every collected stone deals damage",
  "Этот столбец скован камнем — выберите другой ход": "This column is locked by stone — pick a different move",
  "Яд": "Poison",
+ "До конца боя": "Until end of battle",
  "Яд ({0})": "Poison ({0})",
  "Яд!": "Poison!",
  "Яд: {0} будет терять по {1} ХП {2}": "Poison: {0} will lose {1} HP for {2}",

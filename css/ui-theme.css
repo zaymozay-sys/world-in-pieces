@@ -1022,3 +1022,50 @@ body #map-menu .mm-side .mm-sub:not([hidden]) {
   .modal.quest-journal .journal-quest-progress button { width: 100%; }
   .modal.quest-journal .journal-intro button { width: 100%; }
 }
+
+
+/* Боевая обратная связь: цвета усиливающих, ослабляющих и магических эффектов.
+   Без смены размеров существующих панелей и поля. */
+body.mode-battle .fighter .st-chip.fx-good {
+  color: #dcf2c7; background: #263c26; border-color: #7fa35c;
+}
+body.mode-battle .fighter .st-chip.fx-bad {
+  color: #ffd9d1; background: #502a2a; border-color: #ce796b;
+}
+body.mode-battle .fighter .st-chip.fx-magic {
+  color: #e8dcff; background: #392751; border-color: #a483d1;
+}
+body.mode-battle .fighter .st-chip.fx-neutral {
+  color: #e8dac1; background: #463924; border-color: #af915e;
+}
+body.mode-battle .fighter .st-chip .fx-duration {
+  font-weight: 700; color: inherit; opacity: .9; font-variant-numeric: tabular-nums;
+}
+body .fi-pop .fi-effects {
+  margin: 8px 0; padding: 8px; border: 1px solid var(--ui-line);
+  border-radius: 7px; background: rgba(0,0,0,.24);
+}
+body .fi-pop .fi-effects h3 {
+  margin: 0 0 5px; font-family: var(--ui-display); color: var(--ui-gold-hi); font-size: 14px;
+}
+body .fi-pop .fi-effect {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline;
+  gap: 6px; padding: 4px 4px 4px 8px; margin-top: 3px; border-left: 3px solid #af915e;
+}
+body .fi-pop .fi-effect.good { border-color: #8fca73; }
+body .fi-pop .fi-effect.bad { border-color: #de796b; }
+body .fi-pop .fi-effect.magic { border-color: #b896ed; }
+body .fi-pop .fi-effect > span { color: #efe3c4; overflow-wrap: anywhere; }
+body .fi-pop .fi-effect > b { color: var(--ui-gold-hi); font-variant-numeric: tabular-nums; white-space: nowrap; }
+body.mode-battle .fighter .dmg.crit {
+  color: #ffcc7c; text-shadow: 0 1px 2px #290b05, 0 0 5px #ff521f, 0 0 12px #ff7137;
+  font-weight: 900;
+}
+body.mode-battle .fighter .dmg.extra-turn {
+  color: #fff2ae; font-weight: 800; font-size: clamp(13px, 2vmin, 20px);
+  text-shadow: 0 1px 2px #231500, 0 0 8px #c99b30;
+}
+body.mode-battle .log li.log-critical { color: #ffb279; font-weight: 700; }
+body.mode-battle .log li.log-extra { color: #ffe5a0; font-weight: 700; }
+body.bt-gold.mode-battle .fighter.left.active { filter: drop-shadow(0 0 6px rgba(255,207,99,.75)); }
+body.bt-gold.mode-battle .fighter.right.active { filter: drop-shadow(0 0 6px rgba(238,118,91,.75)); }

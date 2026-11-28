@@ -1074,8 +1074,11 @@ function toggleFighterInfo(side) {
   } else {
     try { const lv = Profile.levelInfo(); row(_t("Уровень"), lv.level); row(_t("Опыт"), lv.need === Infinity ? _t("максимум") : `${lv.into} / ${lv.need}`); } catch (e) { /* без опыта */ }
   }
-  const ef = [...el.querySelectorAll('.badge .st-chip')].map((n) => n.textContent);
-  if (ef.length) rows.push(`<p>${_t("Сейчас действует")}: ${ef.join(', ')}</p>`);
+  const effects = battleEffects(f, side);
+  for (const [kind, a] of Object.entries(f.elx || {})) {
+    if (a && a.left > 0 && Elixirs.KINDS[kind]) effects.push({ label: Elixirs.KINDS[kind].name, duration: a.left > 100 ? _t("До конца боя") : _nn(a.left, 'ход', 'хода', 'ходов'), tone: 'good' });
+  }
+  if (effects.length) rows.push(`<section class="fi-effects"><h3>${_t("Сейчас действует")}</h3>${effects.map(effect => `<div class="fi-effect ${effect.tone}"><span>${effectEscape(effect.label)}</span><b>${effectEscape(effect.duration || '—')}</b></div>`).join('')}</section>`);
   rows.push(`<button type="button" class="fi-more">${side === 'right' ? _t("Карточка существа") : _t("Ранец и экипировка")}</button>`);
   pop = document.createElement('div'); pop.className = 'fi-pop at-card'; pop.innerHTML = rows.join('');
   pop.addEventListener('click', (e) => {
@@ -1097,19 +1100,30 @@ function toggleFighterInfo(side) {
   setTimeout(() => document.addEventListener('click', () => pop.remove(), { once: true }), 0);
 }
 
+const effectEscape = (text) => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+function battleEffects(f, side) {
+  const effects = [], add = (label, duration, tone) => effects.push({ label, duration, tone });
+  if (f.magic) add(_t("Шаровая молния"), _t("до конца хода"), 'magic');
+  for (const b of f.buffs) {
+    const spec = EC_BUFFS[b.kind], label = (spec && spec[1]) || BUFF_NAMES[b.kind] || _t("Усиление");
+    add(label, b.untilTurnEnd ? _t("до конца хода") : _nn(b.turns || 0, 'ход', 'хода', 'ходов'), spec && spec[0] === 'down' ? 'bad' : 'good');
+  }
+  if (f.poison && f.poison.turns > 0) {
+    const n = f.poison.layers && f.poison.layers.length;
+    add(n > 1 ? _t("Яд") + ' ×' + n : _t("Яд"), _nn(f.poison.turns, 'ход', 'хода', 'ходов'), 'bad');
+  }
+  if (f.ward > 0) add(_t("Щит {0}", [f.ward]), '', 'good');
+  if (f.haste) add(_t("Спешка"), '', 'magic');
+  if (side === 'right' && f.ability === 'clone' && (f.clonesMade || 0) < Balance.abilities.clone.max) add(_t("Споры {0}/{1}", [f.spores || 0, Balance.abilities.clone.charge]), '', 'neutral');
+  return effects;
+}
 function renderBadge(side) {
   const f = fighters[side];
   const badge = fEl(side).querySelector('.badge');
   if (!badge) return;
-  const parts = [];
-  if (f.magic) parts.push(_t("Шаровая молния"));
-  for (const b of f.buffs) parts.push(b.untilTurnEnd ? _t("{0} (до конца хода)", [BUFF_NAMES[b.kind] || _t("Усиление")]) : `${BUFF_NAMES[b.kind] || _t("Усиление")} (${b.turns})`);
-  if (f.poison && f.poison.turns > 0) parts.push(f.poison.layers && f.poison.layers.length > 1 ? _t("Яд ×{0} ({1})", [f.poison.layers.length, f.poison.turns]) : _t("Яд ({0})", [f.poison.turns]));
-  if (f.ward > 0) parts.push(_t("Щит {0}", [f.ward]));
-  if (f.haste) parts.push(_t("Спешка"));
-  // Спороносец: счётчик спор до следующего двойника (пока лимит двойников за бой не исчерпан).
-  if (side === 'right' && f.ability === 'clone' && (f.clonesMade || 0) < Balance.abilities.clone.max) parts.push(_t("Споры {0}/{1}", [f.spores || 0, Balance.abilities.clone.charge]));
-  badge.innerHTML = parts.map((t) => `<span class="st-chip">${String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</span>`).join('');
+  const parts = battleEffects(f, side);
+  const html = parts.map(e => `<span class="st-chip fx-${e.tone}" title="${effectEscape(e.label + (e.duration ? ': ' + e.duration : ''))}">${effectEscape(e.label)}${e.duration ? ` <b class="fx-duration">${effectEscape(e.duration)}</b>` : ''}</span>`).join('');
+  if (badge.innerHTML !== html) badge.innerHTML = html;
   renderGear(side);
   if (side === 'right') { renderEnemyColumn(); renderAbilityLine(); }
 }
@@ -1756,7 +1770,7 @@ function dealDamage(target, amount, raw = false, cover = true, mult = 1) {
   if (r.leech > 0 && attackerSide === 'left') tipOnce('leech');
   if (r.leech > 0) { SND.heal(); showFloat(attackerSide, '+' + r.leech, 'heal'); logEvent(attackerSide, _t("{0}: Регенерация — восстанавливает {1} здоровья", [attacker.name, r.leech])); }
   if (r.crit && attackerSide === 'left') tipOnce('fury');
-  if (r.crit) { SND.crit(); showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name])); }
+  if (r.crit) { SND.crit(); showFloat(attackerSide, _t("Ярость! ×2"), 'crit'); logEvent(attackerSide, _t("{0}: Ярость — двойной урон!", [attacker.name]), 'critical'); }
   if (r.kind === 'reflect') {
     tipOnce('ricochet');
     showFloat(target, _t("Рикошет!"), 'ricochet');
@@ -1830,14 +1844,14 @@ function shake() {
 
 // 2.0.0: полный журнал боя для кнопки «Журнал боя» на экране итога (на экране хранится только последние 40 строк)
 let battleLog = [], battleNo = 0;
-function logEvent(side, text) {
+function logEvent(side, text, kind = '') {
   // 2.5.1: в журнале герой назван именем игрока, а не званием народа («Ящер-следопыт»)
   try { const hn = Profile.data && Profile.data.name && Profile.heroName(); const ft = fighters.left && fighters.left.name; if (hn && ft && !LIVE && fighters.left.name !== hn) text = String(text).split(ft).join(hn); } catch (e) { /* журнал не должен падать */ }
   battleLog.push({ side, text }); if (battleLog.length > 600) battleLog.shift();
   const list = $('log');
   if (!list) return;
   const li = document.createElement('li');
-  li.className = side;
+  li.className = side + (kind ? ' log-' + kind : '');
   li.textContent = text;
   list.prepend(li);
   // Свёрнутый журнал (см. .log-wrap) можно раскрыть и прокрутить, поэтому храним куда больше 6 строк.
@@ -3334,8 +3348,14 @@ function finishAction(side, extra) {
   const f = fighters[side];
   const r = Combat.finishAction(f, extra);
   if (r.haste) {
-    logEvent(side, _t("{0}: Свиток спешки — дополнительный ход", [f.name]));
+    logEvent(side, _t("{0}: Свиток спешки — дополнительный ход", [f.name]), 'extra');
     note(_t("Свиток спешки: дополнительный ход!"));
+    if (!extra) showFloat(side, _t("Свиток спешки"), 'extra-turn');
+  }
+  if (r.extra && extra) {
+    const label = _t("Бонус x{0}! Дополнительный ход", [turnStats.bonus]);
+    logEvent(side, f.name + ': ' + label, 'extra');
+    showFloat(side, _t("Дополнительный ход!"), 'extra-turn');
   }
   renderMagic();
   return r.extra ? 2 : 1;
