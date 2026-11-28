@@ -1,6 +1,10 @@
 /* Английский словарь: ключ — русская строка из кода/страницы, значение — перевод. Правьте значения здесь.
    Новые строки: node tools/i18n-extract.js покажет русские строки, которых тут ещё нет. */
 (typeof globalThis !== 'undefined' ? globalThis : window).EN_DICT = {
+  "Защищено от продажи": "Protected from sale",
+  "В избранное": "Add to favorites",
+  "Избранные предметы": "Favorite items",
+  "Все вещи": "All items",
   "Найти в лавке": "Find in shop",
   "Слишком низкий цвет: в бою этот ресурс не выпадет. Ищите его в лавке или на рынке.": "This tier is too low: the resource will not drop in battle. Look for it in the shop or market.",
   "Затерянный остров": "Lost Island",
